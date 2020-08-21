@@ -5,24 +5,7 @@
             [primitive-math :as pmath]))
 
 
-(def array-types
-  (vec (concat casting/host-numeric-types
-               [:boolean :character :object])))
-
-
-(defmacro initial-implement-arrays
-  []
-  `(do ~@(->> array-types
-              (map (fn [ary-type]
-                     `(extend-type ~(typecast/datatype->array-cls ary-type)
-                        dtype-proto/PElemwiseDatatype
-                        (elemwise-datatype [item#] ~ary-type)))))))
-
-
-(initial-implement-arrays)
-
-
-(defmacro java-array->reader->reader
+(defmacro java-array-buffer->reader
   [datatype cast-dtype advertised-datatype buffer java-ary offset n-elems]
   `(let [~'java-ary (typecast/datatype->array ~datatype ~java-ary)]
      (reify
@@ -35,32 +18,13 @@
          (-> (dtype-proto/sub-buffer ~buffer offset# length#)
              (dtype-proto/->reader {})))
 
-       ~(typecast/datatype->reader-type (casting/safe-flatten datatype))
-       (getElemwiseDatatype [rdr#] ~advertised-datatype)
+       ~(typecast/datatype->reader-type (casting/safe-flatten cast-dtype))
+       (elemwiseDatatype [rdr#] ~advertised-datatype)
        (lsize [rdr#] ~n-elems)
        (read [rdr# ~'idx]
-         ~(case datatype
-            ;; :int8 `(.getByte (unsafe) (pmath/+ ~address ~'idx))
-            ;; :uint8 `(-> (.getByte (unsafe) (pmath/+ ~address ~'idx))
-            ;;             (pmath/byte->ubyte))
-            ;; :int16 `(.getShort (unsafe) (pmath/+ ~address
-            ;;                                      (pmath/* ~'idx ~byte-width)))
-            ;; :uint16 `(-> (.getShort (unsafe) (pmath/+ ~address
-            ;;                                           (pmath/* ~'idx ~byte-width)))
-            ;;              (pmath/short->ushort))
-            ;; :int32 `(.getInt (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width)))
-            ;; :uint32 `(-> (.getInt (unsafe) (pmath/+ ~address
-            ;;                                         (pmath/* ~'idx ~byte-width)))
-            ;;              (pmath/int->uint))
-            ;; :int64 `(.getLong (unsafe) (pmath/+ ~address
-            ;;                                     (pmath/* ~'idx ~byte-width)))
-            ;; :uint64 `(-> (.getLong (unsafe) (pmath/+ ~address
-            ;;                                          (pmath/* ~'idx ~byte-width))))
-            ;; :float32 `(.getFloat (unsafe) (pmath/+ ~address
-            ;;                                        (pmath/* ~'idx ~byte-width)))
-            :float64 `(casting/datatype->unchecked-cast-fn
-                       ~datatype ~cast-dtype
-                       (aget ~'java-ary (pmath/+ ~offset ~'idx))))))))
+         (casting/datatype->unchecked-cast-fn
+           ~datatype ~cast-dtype
+           (aget ~'java-ary (pmath/+ ~offset ~'idx)))))))
 
 
 
@@ -83,10 +47,59 @@
   (->reader [item options]
     (case [(dtype-proto/elemwise-datatype ary-data)
            (casting/un-alias-datatype datatype)]
-      [:float64 :float64] (java-array->reader->reader :float64 :float64 datatype item
+      [:boolean :boolean] (java-array-buffer->reader :boolean :boolean datatype item
+                                                      ary-data offset n-elems)
+      [:int8 :uint8] (java-array-buffer->reader :int8 :uint8 datatype item
+                                                   ary-data offset n-elems)
+      [:int8 :int8] (java-array-buffer->reader :int8 :int8 datatype item
+                                                  ary-data offset n-elems)
+      [:int16 :uint16] (java-array-buffer->reader :int16 :uint16 datatype item
+                                                   ary-data offset n-elems)
+      [:int16 :int16] (java-array-buffer->reader :int16 :int16 datatype item
+                                                  ary-data offset n-elems)
+      [:int32 :uint32] (java-array-buffer->reader :int32 :uint32 datatype item
+                                                   ary-data offset n-elems)
+      [:int32 :int32] (java-array-buffer->reader :int32 :int32 datatype item
+                                                  ary-data offset n-elems)
+      [:int64 :uint64] (java-array-buffer->reader :int64 :uint64 datatype item
+                                                   ary-data offset n-elems)
+      [:int64 :int64] (java-array-buffer->reader :int64 :int64 datatype item
+                                                  ary-data offset n-elems)
+      [:float32 :float32] (java-array-buffer->reader :float32 :float32 datatype item
+                                                      ary-data offset n-elems)
+      [:float64 :float64] (java-array-buffer->reader :float64 :float64 datatype item
                                                       ary-data offset n-elems))))
 
 
 (defn array-buffer
-  [java-ary]
-  (ArrayBuffer. java-ary 0 (count java-ary) (dtype-proto/elemwise-datatype java-ary)))
+  ([java-ary]
+   (ArrayBuffer. java-ary 0 (count java-ary) (dtype-proto/elemwise-datatype java-ary)))
+  ([java-ary buf-dtype]
+   (ArrayBuffer. java-ary 0 (count java-ary) buf-dtype)))
+
+
+(def array-types
+  (vec (concat casting/host-numeric-types
+               [:boolean :object])))
+
+
+(defmacro initial-implement-arrays
+  []
+  `(do ~@(->> array-types
+              (map (fn [ary-type]
+                     `(extend-type ~(typecast/datatype->array-cls ary-type)
+                        dtype-proto/PElemwiseDatatype
+                        (elemwise-datatype [item#] ~ary-type)
+                        dtype-proto/PECount
+                        (ecount [item#]
+                          (alength
+                           (typecast/datatype->array ~ary-type item#)))
+                        dtype-proto/PToReader
+                        (convertible-to-reader? [item#] true)
+                        (->reader [item# options#]
+                          (dtype-proto/->reader
+                           (array-buffer item#)
+                           options#))))))))
+
+
+(initial-implement-arrays)

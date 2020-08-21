@@ -13,20 +13,21 @@ import clojure.lang.RT;
 import clojure.lang.ISeq;
 
 
-public interface DoubleReader extends IOBase, Iterable, IFn,
-				      List, RandomAccess, Sequential,
-				      Indexed, PrimitiveReader
+public interface FloatReader extends IOBase, Iterable, IFn,
+				     List, RandomAccess, Sequential,
+				     Indexed, PrimitiveReader
 {
-  double read(long idx);
-  default boolean readBoolean(long idx) {return read(idx) != 0.0;}
+  float read(long idx);
+  default boolean readBoolean(long idx) {return read(idx) != 0;}
   default byte readByte(long idx) {return (byte)read(idx);}
   default short readShort(long idx) {return (short)read(idx);}
-  default int readInt(long idx) {return (int)(read(idx));}
+  default int readInt(long idx) {return (int)read(idx);}
   default long readLong(long idx) {return (long)read(idx);}
-  default float readFloat(long idx) {return (float)read(idx);}
-  default double readDouble(long idx) {return read(idx);}
-  default Object elemwiseDatatype () { return Keyword.intern(null, "float64"); }
-  default int size() { return count(); }
+  default float readFloat(long idx) {return read(idx);}
+  default double readDouble(long idx) {return (double)read(idx);}
+  
+  default Object elemwiseDatatype () { return Keyword.intern(null, "float32"); }
+  default int size() { return RT.intCast(lsize()); }
   default Object get(int idx) { return read(idx); }
   default boolean isEmpty() { return lsize() == 0; }
   default Object[] toArray() {
@@ -39,7 +40,7 @@ public interface DoubleReader extends IOBase, Iterable, IFn,
     return data;
   }
   default Iterator iterator() {
-    return new DoubleReaderIter(this);
+    return new FloatReaderIter(this);
   }
   default Object invoke(Object arg) {
     return read(RT.uncheckedLongCast(arg));
@@ -58,6 +59,7 @@ public interface DoubleReader extends IOBase, Iterable, IFn,
 								 false),
 				      false);
   }
+  default int count() { return size(); }
   default Object nth(int idx) { return read(idx); }
   default Object nth(int idx, Object notFound) {
     if (idx >= 0 && idx <= size()) {

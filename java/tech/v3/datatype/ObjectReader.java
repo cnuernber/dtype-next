@@ -3,30 +3,40 @@ package tech.v3.datatype;
 import clojure.lang.IFn;
 import clojure.lang.Keyword;
 import clojure.lang.Sequential;
+import clojure.lang.RT;
+import clojure.lang.ISeq;
 import clojure.lang.Indexed;
 import java.util.Iterator;
 import java.util.List;
 import java.util.RandomAccess;
-import java.util.stream.DoubleStream;
-import java.util.stream.StreamSupport;
-import clojure.lang.RT;
-import clojure.lang.ISeq;
+import java.util.stream.Stream;
 
 
-public interface DoubleReader extends IOBase, Iterable, IFn,
+public interface ObjectReader extends IOBase, Iterable, IFn,
 				      List, RandomAccess, Sequential,
 				      Indexed, PrimitiveReader
 {
-  double read(long idx);
-  default boolean readBoolean(long idx) {return read(idx) != 0.0;}
-  default byte readByte(long idx) {return (byte)read(idx);}
-  default short readShort(long idx) {return (short)read(idx);}
-  default int readInt(long idx) {return (int)(read(idx));}
-  default long readLong(long idx) {return (long)read(idx);}
-  default float readFloat(long idx) {return (float)read(idx);}
-  default double readDouble(long idx) {return read(idx);}
-  default Object elemwiseDatatype () { return Keyword.intern(null, "float64"); }
-  default int size() { return count(); }
+  Object read(long idx);
+  default boolean readBoolean(long idx)
+  {
+    Object obj = read(idx);
+    if (obj instanceof Number) {
+      return (double)obj != 0.0;
+    } else if (obj instanceof Boolean) {
+      return (boolean) obj;
+    }
+    else {
+      return obj != null;
+    }
+  }
+  default byte readByte(long idx) {return RT.byteCast(read(idx));}
+  default short readShort(long idx) {return RT.shortCast(read(idx));}
+  default int readInt(long idx) {return RT.intCast(read(idx));}
+  default long readLong(long idx) {return RT.longCast(read(idx));}
+  default float readFloat(long idx) {return RT.floatCast(read(idx));}
+  default double readDouble(long idx) {return RT.doubleCast(read(idx));}
+  default Object elemwiseDatatype () { return Keyword.intern(null, "object"); }
+  default int size() { return RT.intCast(lsize()); }
   default Object get(int idx) { return read(idx); }
   default boolean isEmpty() { return lsize() == 0; }
   default Object[] toArray() {
@@ -39,7 +49,7 @@ public interface DoubleReader extends IOBase, Iterable, IFn,
     return data;
   }
   default Iterator iterator() {
-    return new DoubleReaderIter(this);
+    return new ObjectReaderIter(this);
   }
   default Object invoke(Object arg) {
     return read(RT.uncheckedLongCast(arg));
@@ -52,12 +62,10 @@ public interface DoubleReader extends IOBase, Iterable, IFn,
       return invoke(items.first(), items.next());
     }
   }
-  default DoubleStream typedStream() {
-    return StreamSupport.doubleStream(new RangeDoubleSpliterator(0, size(),
-								 new RangeDoubleSpliterator.LongDoubleConverter() { public double longToDouble(long arg) { return read(arg); } },
-								 false),
-				      false);
+  default Stream typedStream() {
+    return stream();
   }
+  default int count() { return size(); }
   default Object nth(int idx) { return read(idx); }
   default Object nth(int idx, Object notFound) {
     if (idx >= 0 && idx <= size()) {
