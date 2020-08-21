@@ -1,0 +1,5 @@
+#!/bin/bash
+
+mkdir native-agent-data
+
+LD_LIBRARY_PATH=graalvm/jre/lib/amd64 java -agentlib:native-image-agent=config-output-dir=native-agent-data -jar target/dtype-next.jar
