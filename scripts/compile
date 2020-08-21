@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -e
+
+source scripts/activate-graal
+
+lein clean
+lein uberjar
+graalvm/bin/native-image --initialize-at-build-time\
+			 --report-unsupported-elements-at-runtime\
+			 -jar target/dtype-next.jar tech.v3.datatype.main

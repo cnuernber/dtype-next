@@ -11,3 +11,4 @@ pom.xml.asc
 .hgignore
 .hg/
 graalvm*
+tech.v3.datatype.main
