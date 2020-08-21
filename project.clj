@@ -6,7 +6,8 @@
   :dependencies [[org.clojure/clojure    "1.10.2-alpha1"]
                  [org.ow2.asm/asm        "7.1"]
                  [primitive-math         "0.1.6"]
-                 [it.unimi.dsi/fastutil    "8.2.1"]]
+                 [it.unimi.dsi/fastutil    "8.2.1"]
+                 [org.xerial.larray/larray-mmap    "0.4.1"]]
   :java-source-paths ["java"]
   :profiles {:uberjar
              {:aot [tech.v3.datatype.main]

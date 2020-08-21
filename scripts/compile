@@ -4,8 +4,8 @@ set -e
 
 source scripts/activate-graal
 
-lein clean
-lein uberjar
-graalvm/bin/native-image --initialize-at-build-time\
-			 --report-unsupported-elements-at-runtime\
+#lein clean
+#lein uberjar
+graalvm/bin/native-image --report-unsupported-elements-at-runtime\
+			 --initialize-at-build-time\
 			 -jar target/dtype-next.jar tech.v3.datatype.main
