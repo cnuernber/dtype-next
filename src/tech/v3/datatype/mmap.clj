@@ -1,18 +1,15 @@
-(ns tech.v2.datatype.mmap
+(ns tech.v3.datatype.mmap
   (:require [clojure.java.io :as io]
             [tech.resource :as resource]
-            [tech.v2.datatype.base :as dt-base]
-            [tech.v2.datatype.protocols :as dtype-proto]
-            [tech.v2.datatype.casting :as casting]
-            [tech.v2.datatype.jna :as dtype-jna]
-            [tech.v2.datatype.typecast :as typecast]
-            [tech.parallel.for :as parallel-for]
+            [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.casting :as casting]
+            [tech.v3.datatype.typecast :as typecast]
+            [tech.v3.parallel.for :as parallel-for]
             [primitive-math :as pmath]
             [clojure.tools.logging :as log])
   (:import [xerial.larray.mmap MMapBuffer MMapMode]
            [xerial.larray.buffer UnsafeUtil]
-           [sun.misc Unsafe]
-           [com.sun.jna Pointer]))
+           [sun.misc Unsafe]))
 
 
 (set! *warn-on-reflection* true)
@@ -31,27 +28,12 @@
        (convertible-to-native-buffer? [this#] true)
        (->native-buffer [this#] ~buffer)
        ;;Forward protocol methods that are efficiently implemented by the buffer
-       dtype-proto/PClone
-       (clone [this#]
-         (-> (dtype-proto/clone ~buffer)
-             (dtype-proto/->reader {})))
        dtype-proto/PBuffer
        (sub-buffer [this# offset# length#]
          (-> (dtype-proto/sub-buffer ~buffer offset# length#)
              (dtype-proto/->reader {})))
-       dtype-proto/PSetConstant
-       (set-constant! [buffer# offset# value# elem-count#]
-         (-> (dtype-proto/set-constant! ~buffer offset# value# elem-count#)
-             (dtype-proto/->reader {})))
-       dtype-proto/PToJNAPointer
-       (convertible-to-data-ptr? [item#] true)
-       (->jna-ptr [item#] (Pointer. ~address))
-       dtype-proto/PToNioBuffer
-       (convertible-to-nio-buffer? [item#] (< ~n-elems Integer/MAX_VALUE))
-       (->buffer-backing-store [item#]
-         (dtype-proto/->buffer-backing-store ~buffer))
        ~(typecast/datatype->reader-type (casting/safe-flatten datatype))
-       (getDatatype [rdr#] ~advertised-datatype)
+       (elemwiseDatatype [rdr#] ~advertised-datatype)
        (lsize [rdr#] ~n-elems)
        (read [rdr# ~'idx]
          ~(case datatype
@@ -77,78 +59,15 @@
                                                     (pmath/* ~'idx ~byte-width))))))))
 
 
-(defmacro native-buffer->writer
-  [datatype advertised-datatype buffer address n-elems]
-  (let [byte-width (casting/numeric-byte-width datatype)]
-    `(reify
-       dtype-proto/PToNativeBuffer
-       (convertible-to-native-buffer? [this#] true)
-       (->native-buffer [this#] ~buffer)
-       ;;Forward protocol methods that are efficiently implemented by the buffer
-       dtype-proto/PClone
-       (clone [this#]
-         (-> (dtype-proto/clone ~buffer)
-             (dtype-proto/->writer {})))
-       dtype-proto/PBuffer
-       (sub-buffer [this# offset# length#]
-         (-> (dtype-proto/sub-buffer ~buffer offset# length#)
-             (dtype-proto/->writer {})))
-       dtype-proto/PSetConstant
-       (set-constant! [buffer# offset# value# elem-count#]
-         (-> (dtype-proto/set-constant! ~buffer offset# value# elem-count#)
-             (dtype-proto/->writer {})))
-       dtype-proto/PToJNAPointer
-       (convertible-to-data-ptr? [item#] true)
-       (->jna-ptr [item#] (Pointer. ~address))
-       dtype-proto/PToNioBuffer
-       (convertible-to-nio-buffer? [item#] (< ~n-elems Integer/MAX_VALUE))
-       (->buffer-backing-store [item#]
-         (dtype-proto/->buffer-backing-store ~buffer))
-       ~(typecast/datatype->writer-type (casting/safe-flatten datatype))
-       (getDatatype [rdr#] ~advertised-datatype)
-       (lsize [rdr#] ~n-elems)
-       (write [rdr# ~'idx ~'value]
-         ~(case datatype
-            :int8 `(.putByte (unsafe) (pmath/+ ~address ~'idx) ~'value)
-            :uint8 `(.putByte (unsafe) (pmath/+ ~address ~'idx)
-                              (unchecked-byte ~'value))
-            :int16 `(.putShort (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
-                               ~'value)
-            :uint16 `(.putShort (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
-                                (unchecked-short ~'value))
-            :int32 `(.putInt (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
-                             ~'value)
-            :uint32 `(.putInt (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
-                              (unchecked-int ~'value))
-            :int64 `(.putLong (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
-                              ~'value)
-            :uint64 `(.putLong (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
-                               ~'value)
-            :float32 `(.putFloat (unsafe)
-                                 (pmath/+ ~address (pmath/* ~'idx ~byte-width))
-                                 ~'value)
-            :float64 `(.putDouble (unsafe)
-                                  (pmath/+ ~address (pmath/* ~'idx ~byte-width))
-                                  ~'value))))))
-
-
 ;;Size is in elements, not in bytes
 (defrecord NativeBuffer [^long address ^long n-elems datatype]
   dtype-proto/PToNativeBuffer
   (convertible-to-native-buffer? [this] true)
   (->native-buffer [this] this)
-  dtype-proto/PDatatype
-  (get-datatype [this] datatype)
-  dtype-proto/PCountable
+  dtype-proto/PElemwiseDatatype
+  (elemwise-datatype [this] datatype)
+  dtype-proto/PECount
   (ecount [this] n-elems)
-  dtype-proto/PClone
-  (clone [this]
-    (dt-base/make-container
-     (if (casting/unsigned-integer-type? datatype)
-       :typed-buffer
-       :java-array)
-     datatype
-     this))
   dtype-proto/PBuffer
   (sub-buffer [this offset length]
     (let [offset (long offset)
@@ -158,27 +77,6 @@
                 (format "Offset+length (%s) > n-elems (%s)"
                         (+ offset length) n-elems))))
       (NativeBuffer. (+ address offset) length datatype)))
-  dtype-proto/PSetConstant
-  (set-constant! [buffer offset value elem-count]
-    (if (or (= datatype :int8)
-            (= (double value) 0.0))
-      (.setMemory (unsafe) (+ address (long offset))
-                  (* (long elem-count) (casting/numeric-byte-width datatype))
-                  (byte value))
-      (let [writer (dt-base/->writer (dt-base/sub-buffer buffer offset elem-count))
-            value (casting/cast value datatype)]
-        (dotimes [iter elem-count]
-          (writer iter value)))))
-  dtype-proto/PToJNAPointer
-  (convertible-to-data-ptr? [item#] true)
-  (->jna-ptr [item#] (Pointer. address))
-  dtype-proto/PToNioBuffer
-  (convertible-to-nio-buffer? [item#] (< n-elems Integer/MAX_VALUE))
-  (->buffer-backing-store [item#]
-    (let [ptr (Pointer. address)
-          unaliased-dtype (casting/un-alias-datatype datatype)
-          n-bytes (* n-elems (casting/numeric-byte-width unaliased-dtype))]
-      (dtype-jna/pointer->nio-buffer ptr unaliased-dtype n-bytes)))
   dtype-proto/PToReader
   (convertible-to-reader? [this] true)
   (->reader [this options]
@@ -193,33 +91,7 @@
           :uint64 (native-buffer->reader :uint64 datatype this address n-elems)
           :float32 (native-buffer->reader :float32 datatype this address n-elems)
           :float64 (native-buffer->reader :float64 datatype this address n-elems))
-        (dtype-proto/->reader options)))
-  dtype-proto/PToWriter
-  (convertible-to-writer? [this] true)
-  (->writer [this options]
-    (-> (case (casting/un-alias-datatype datatype)
-          :int8 (native-buffer->writer :int8 datatype this address n-elems)
-          :uint8 (native-buffer->writer :uint8 datatype this address n-elems)
-          :int16 (native-buffer->writer :int16 datatype this address n-elems)
-          :uint16 (native-buffer->writer :uint16 datatype this address n-elems)
-          :int32 (native-buffer->writer :int32 datatype this address n-elems)
-          :uint32 (native-buffer->writer :uint32 datatype this address n-elems)
-          :int64 (native-buffer->writer :int64 datatype this address n-elems)
-          :uint64 (native-buffer->writer :uint64 datatype this address n-elems)
-          :float32 (native-buffer->writer :float32 datatype this address n-elems)
-          :float64 (native-buffer->writer :float64 datatype this address n-elems))
-        (dtype-proto/->writer options))))
-
-
-(extend-type Object
-  dtype-proto/PToNativeBuffer
-  (convertible-to-native-buffer? [item]
-    (dtype-proto/convertible-to-data-ptr? item))
-  (->native-buffer [item]
-    (let [^Pointer data-ptr (dtype-proto/->jna-ptr item)]
-      (NativeBuffer. (Pointer/nativeValue data-ptr)
-                     (dt-base/ecount item)
-                     (dt-base/get-datatype item)))))
+        (dtype-proto/->reader options))))
 
 
 (defn as-native-buffer
@@ -233,7 +105,7 @@
   (if-let [nb (as-native-buffer item)]
     (let [original-size (.n-elems nb)
           n-bytes (* original-size (casting/numeric-byte-width
-                                    (dt-base/get-datatype item)))
+                                    (dtype-proto/elemwise-datatype item)))
           new-byte-width (casting/numeric-byte-width
                           (casting/un-alias-datatype datatype))]
       (NativeBuffer. (.address nb) (quot n-bytes new-byte-width) datatype))))
@@ -306,7 +178,7 @@
     (let [ary (:java-array item)
           ary-off (:offset item)]
       [ary (+ item-off ary-off
-              (case (dt-base/get-datatype ary)
+              (case (dtype-proto/elemwise-datatype ary)
                 :boolean Unsafe/ARRAY_BOOLEAN_BASE_OFFSET
                 :int8 Unsafe/ARRAY_BYTE_BASE_OFFSET
                 :int16 Unsafe/ARRAY_SHORT_BASE_OFFSET
@@ -324,10 +196,10 @@
   Uses Unsafe/copyMemory under the covers *without* safePointPolling.
   Returns dst"
   ([src src-off dst dst-off n-elems]
-   (let [src-dt (casting/host-flatten (dt-base/get-datatype src))
-         dst-dt (casting/host-flatten (dt-base/get-datatype dst))
-         src-ec (dt-base/ecount src)
-         dst-ec (dt-base/ecount dst)
+   (let [src-dt (casting/host-flatten (dtype-proto/elemwise-datatype src))
+         dst-dt (casting/host-flatten (dtype-proto/elemwise-datatype dst))
+         src-ec (dtype-proto/ecount src)
+         dst-ec (dtype-proto/ecount dst)
          src-off (long src-off)
          dst-off (long dst-off)
          n-elems (long n-elems)
@@ -341,8 +213,10 @@
              (throw (Exception. (format "src datatype (%s) != dst datatype (%s)"
                                         src-dt dst-dt))))]
      ;;Check if managed heap or native heap
-     (let [src (or (dtype-proto/->sub-array src) (dtype-proto/->native-buffer src))
-           dst (or (dtype-proto/->sub-array dst) (dtype-proto/->native-buffer dst))
+     (let [src (or (dtype-proto/->array-buffer src)
+                   (dtype-proto/->native-buffer src))
+           dst (or (dtype-proto/->array-buffer dst)
+                   (dtype-proto/->native-buffer dst))
            _ (when-not (and src dst)
                (throw (Exception.
                        "Src or dst are not convertible to arrays or native buffers")))
@@ -364,8 +238,8 @@
   ([src dst n-elems]
    (copy! src 0 dst 0 n-elems))
   ([src dst]
-   (let [src-ec (dt-base/ecount src)
-         dst-ec (dt-base/ecount dst)]
+   (let [src-ec (dtype-proto/ecount src)
+         dst-ec (dtype-proto/ecount dst)]
      (when-not (== src-ec dst-ec)
        (throw (Exception. (format "src ecount (%s) != dst ecount (%s)"
                                   src-ec dst-ec))))

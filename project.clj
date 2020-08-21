@@ -3,11 +3,12 @@
   :url "http://github.com/cnuernber/dtype-next"
   :license {:name "EPL-2.0"
             :url "https://www.eclipse.org/legal/epl-2.0/"}
-  :dependencies [[org.clojure/clojure    "1.10.2-alpha1"]
-                 [org.ow2.asm/asm        "7.1"]
-                 [primitive-math         "0.1.6"]
-                 [it.unimi.dsi/fastutil    "8.2.1"]
-                 [org.xerial.larray/larray-mmap    "0.4.1"]]
+  :dependencies [[org.clojure/clojure            "1.10.2-alpha1"]
+                 [org.ow2.asm/asm                "7.1"]
+                 [primitive-math                 "0.1.6"]
+                 [it.unimi.dsi/fastutil          "8.2.1"]
+                 [org.xerial.larray/larray-mmap  "0.4.1"]
+                 [techascent/tech.resource       "4.6"]]
   :java-source-paths ["java"]
   :profiles {:uberjar
              {:aot [tech.v3.datatype.main]
