@@ -4,8 +4,15 @@ set -e
 
 source scripts/activate-graal
 
-#lein clean
-#lein uberjar
-graalvm/bin/native-image --report-unsupported-elements-at-runtime\
-			 --initialize-at-build-time\
-			 -jar target/dtype-next.jar tech.v3.datatype.main
+lein clean
+lein uberjar
+graalvm/bin/native-image \
+    --report-unsupported-elements-at-runtime \
+    --initialize-at-build-time \
+    --initialize-at-run-time=xerial.larray.mmap.MMapBuffer \
+    --no-fallback \
+    -J-Dclojure.spec.skip-macros=true \
+    -J-Dclojure.compiler.direct-linking=true \
+    -H:IncludeResources='.*txt$' \
+    -H:Log=registerResource: \
+    -jar target/dtype-next.jar tech.v3.datatype.main

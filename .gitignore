@@ -12,3 +12,4 @@ pom.xml.asc
 .hg/
 graalvm*
 tech.v3.datatype.main
+resources

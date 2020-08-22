@@ -14,10 +14,16 @@ Some expected items:
 
 *  Smaller runtime footprint.  This is harder than it looks but the main thing is that
    the system needs to produce the right answers with less type specific code.
-*  Full native memory support.  Malloc, free, memset, memcpy.  Just the basics but 
+*  Full native memory support.  Malloc, free, memset, memcpy.  Just the basics but
    guaranteed to be available.
 
-	 
+## Graal Native
+
+* https://github.com/lread/clj-graal-docs
+* https://github.com/borkdude/clojure-rust-graalvm
+* https://github.com/epiccastle/spire
+* https://github.com/babashka/babashka-sql-pods
+
 
 ## License
 
