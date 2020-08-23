@@ -16,7 +16,7 @@
   UnsafeUtil/unsafe)
 
 
-(defmacro native-buffer->reader
+(defmacro native-buffer->io
   [datatype advertised-datatype buffer address n-elems]
   (let [byte-width (casting/numeric-byte-width datatype)]
     `(reify
@@ -41,6 +41,9 @@
             :uint16 `(-> (.getShort (unsafe) (pmath/+ ~address
                                                       (pmath/* ~'idx ~byte-width)))
                          (pmath/short->ushort))
+            :char `(-> (.getShort (unsafe) (pmath/+ ~address
+                                                    (pmath/* ~'idx ~byte-width)))
+                       (RT/uncheckedCharCast))
             :int32 `(.getInt (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width)))
             :uint32 `(-> (.getInt (unsafe) (pmath/+ ~address
                                                     (pmath/* ~'idx ~byte-width)))
@@ -52,7 +55,35 @@
             :float32 `(.getFloat (unsafe) (pmath/+ ~address
                                                    (pmath/* ~'idx ~byte-width)))
             :float64 `(.getDouble (unsafe) (pmath/+ ~address
-                                                    (pmath/* ~'idx ~byte-width))))))))
+                                                    (pmath/* ~'idx ~byte-width)))))
+       ~(typecast/datatype->writer-type (casting/safe-flatten datatype))
+       (write [rdr# ~'idx ~'value]
+         ~(case datatype
+            :int8 `(.putByte (unsafe) (pmath/+ ~address ~'idx) ~'value)
+            :uint8 `(.putByte (unsafe) (pmath/+ ~address ~'idx)
+                              (casting/datatype->cast-fn :int16 :uint8 ~'value))
+            :int16 `(.putShort (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
+                               ~'value)
+            :uint16 `(.putShort (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
+                                (casting/datatype->cast-fn :int32 :uint16 ~'value))
+            :char `(.putShort (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
+                              (unchecked-short ~'value))
+            :int32 `(.putInt (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
+                             ~'value)
+            :uint32 `(.putInt (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
+                              (casting/datatype->cast=fn :int64 :uint32 ~'value))
+            :int64 `(.putLong (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
+                              ~'value)
+            :uint64 `(.putLong (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
+                               ~'value)
+            :float32 `(.putFloat (unsafe)
+                                 (pmath/+ ~address (pmath/* ~'idx ~byte-width))
+                                 ~'value)
+            :float64 `(.putDouble (unsafe)
+                                  (pmath/+ ~address (pmath/* ~'idx ~byte-width))
+                                  ~'value))))))
+
+(declare native-buffer->io)
 
 
 ;;Size is in elements, not in bytes
@@ -76,23 +107,43 @@
   dtype-proto/PToReader
   (convertible-to-reader? [this] true)
   (->reader [this options]
+    (native-buffer->io this))
+  dtype-proto/PToWriter
+  (convertible-to-writer? [this] true)
+  (->writer [this options]
+    (native-buffer->io this)))
+
+
+(defn- native-buffer->io
+  [^NativeBuffer this]
+  (let [datatype (.datatype this)
+        address (.address this)
+        n-elems (.n-elems this)]
     (case (casting/un-alias-datatype datatype)
-      :int8 (native-buffer->reader :int8 datatype this address n-elems)
-      :uint8 (native-buffer->reader :uint8 datatype this address n-elems)
-      :int16 (native-buffer->reader :int16 datatype this address n-elems)
-      :uint16 (native-buffer->reader :uint16 datatype this address n-elems)
-      :int32 (native-buffer->reader :int32 datatype this address n-elems)
-      :uint32 (native-buffer->reader :uint32 datatype this address n-elems)
-      :int64 (native-buffer->reader :int64 datatype this address n-elems)
-      :uint64 (native-buffer->reader :uint64 datatype this address n-elems)
-      :float32 (native-buffer->reader :float32 datatype this address n-elems)
-      :float64 (native-buffer->reader :float64 datatype this address n-elems))))
+      :int8 (native-buffer->io :int8 datatype this address n-elems)
+      :uint8 (native-buffer->io :uint8 datatype this address n-elems)
+      :int16 (native-buffer->io :int16 datatype this address n-elems)
+      :uint16 (native-buffer->io :uint16 datatype this address n-elems)
+      :char (native-buffer->io :char datatype this address n-elems)
+      :int32 (native-buffer->io :int32 datatype this address n-elems)
+      :uint32 (native-buffer->io :uint32 datatype this address n-elems)
+      :int64 (native-buffer->io :int64 datatype this address n-elems)
+      :uint64 (native-buffer->io :uint64 datatype this address n-elems)
+      :float32 (native-buffer->io :float32 datatype this address n-elems)
+      :float64 (native-buffer->io :float64 datatype this address n-elems))))
 
 
 (defn as-native-buffer
   ^NativeBuffer [item]
   (when (dtype-proto/convertible-to-native-buffer? item)
     (dtype-proto/->native-buffer item)))
+
+
+(defn native-buffer-byte-len
+  ^long [^NativeBuffer nb]
+  (let [original-size (.n-elems nb)]
+    (* original-size (casting/numeric-byte-width
+                      (dtype-proto/elemwise-datatype nb)))))
 
 
 (defn set-native-datatype
@@ -106,139 +157,65 @@
       (NativeBuffer. (.address nb) (quot n-bytes new-byte-width) datatype))))
 
 
+
 ;;One off data reading
 (defn read-double
   (^double [^NativeBuffer native-buffer ^long offset]
-   (assert (>= (- (.n-elems native-buffer) offset 8) 0))
+   (assert (>= (- (native-buffer-byte-len native-buffer) offset 8) 0))
    (.getDouble (unsafe) (+ (.address native-buffer) offset)))
   (^double [^NativeBuffer native-buffer]
-   (assert (>= (- (.n-elems native-buffer) 8) 0))
+   (assert (>= (- (native-buffer-byte-len native-buffer) 8) 0))
    (.getDouble (unsafe) (.address native-buffer))))
 
 
 (defn read-float
   (^double [^NativeBuffer native-buffer ^long offset]
-   (assert (>= (- (.n-elems native-buffer) offset 4) 0))
+   (assert (>= (- (native-buffer-byte-len native-buffer) offset 4) 0))
    (.getFloat (unsafe) (+ (.address native-buffer) offset)))
   (^double [^NativeBuffer native-buffer]
-   (assert (>= (- (.n-elems native-buffer) 4) 0))
+   (assert (>= (- (native-buffer-byte-len native-buffer) 4) 0))
    (.getFloat (unsafe) (.address native-buffer))))
 
 
 (defn read-long
   (^long [^NativeBuffer native-buffer ^long offset]
-   (assert (>= (- (.n-elems native-buffer) offset 8) 0))
+   (assert (>= (- (native-buffer-byte-len native-buffer) offset 8) 0))
    (.getLong (unsafe) (+ (.address native-buffer) offset)))
   (^long [^NativeBuffer native-buffer]
-   (assert (>= (- (.n-elems native-buffer) 8) 0))
+   (assert (>= (- (native-buffer-byte-len native-buffer) 8) 0))
    (.getLong (unsafe) (.address native-buffer))))
 
 
 (defn read-int
   (^long [^NativeBuffer native-buffer ^long offset]
-   (assert (>= (- (.n-elems native-buffer) offset 4) 0))
+   (assert (>= (- (native-buffer-byte-len native-buffer) offset 4) 0))
    (.getInt (unsafe) (+ (.address native-buffer) offset)))
   (^long [^NativeBuffer native-buffer]
-   (assert (>= (- (.n-elems native-buffer) 4) 0))
+   (assert (>= (- (native-buffer-byte-len native-buffer) 4) 0))
    (.getInt (unsafe) (.address native-buffer))))
 
 
 (defn read-short
   (^long [^NativeBuffer native-buffer ^long offset]
-   (assert (>= (- (.n-elems native-buffer) offset 2) 0))
+   (assert (>= (- (native-buffer-byte-len native-buffer) offset 2) 0))
    (unchecked-long
     (.getShort (unsafe) (+ (.address native-buffer) offset))))
   (^long [^NativeBuffer native-buffer]
-   (assert (>= (- (.n-elems native-buffer) 2) 0))
+   (assert (>= (- (native-buffer-byte-len native-buffer) 2) 0))
    (unchecked-long
     (.getShort (unsafe) (.address native-buffer)))))
 
 
 (defn read-byte
   (^long [^NativeBuffer native-buffer ^long offset]
-   (assert (>= (- (.n-elems native-buffer) offset 1) 0))
+   (assert (>= (- (native-buffer-byte-len native-buffer) offset 1) 0))
    (unchecked-long
     (.getByte (unsafe) (+ (.address native-buffer) offset))))
   (^long [^NativeBuffer native-buffer]
-   (assert (>= (- (.n-elems native-buffer) 1) 0))
+   (assert (>= (- (native-buffer-byte-len native-buffer) 1) 0))
    (unchecked-long
     (.getByte (unsafe) (.address native-buffer)))))
 
-
-(defn- unpack-copy-item
-  [item ^long item-off]
-  (if (instance? NativeBuffer item)
-    ;;no further offsetting required for native buffers
-    [nil (+ item-off (.address ^NativeBuffer item))]
-    (let [ary (:java-array item)
-          ary-off (:offset item)]
-      [ary (+ item-off ary-off
-              (case (dtype-proto/elemwise-datatype ary)
-                :boolean Unsafe/ARRAY_BOOLEAN_BASE_OFFSET
-                :int8 Unsafe/ARRAY_BYTE_BASE_OFFSET
-                :int16 Unsafe/ARRAY_SHORT_BASE_OFFSET
-                :int32 Unsafe/ARRAY_INT_BASE_OFFSET
-                :int64 Unsafe/ARRAY_LONG_BASE_OFFSET
-                :float32 Unsafe/ARRAY_FLOAT_BASE_OFFSET
-                :float64 Unsafe/ARRAY_DOUBLE_BASE_OFFSET))])))
-
-
-(defn copy!
-  "Src, dst *must* be same unaliased datatype and that datatype must be a primitive
-  datatype.
-  src must either be convertible to an array or to a native buffer.
-  dst must either be convertible to an array or to a native buffer.
-  Uses Unsafe/copyMemory under the covers *without* safePointPolling.
-  Returns dst"
-  ([src src-off dst dst-off n-elems]
-   (let [src-dt (casting/host-flatten (dtype-proto/elemwise-datatype src))
-         dst-dt (casting/host-flatten (dtype-proto/elemwise-datatype dst))
-         src-ec (dtype-proto/ecount src)
-         dst-ec (dtype-proto/ecount dst)
-         src-off (long src-off)
-         dst-off (long dst-off)
-         n-elems (long n-elems)
-         _ (when-not (>= (- src-ec src-off) n-elems)
-             (throw (Exception. (format "Src ecount (%s) - src offset (^%s) is less than op elem count (%s)"
-                                        src-ec src-off n-elems))))
-         _ (when-not (>= (- dst-ec dst-off) n-elems)
-             (throw (Exception. (format "Dst ecount (%s) - dst offset (^%s) is less than op elem count (%s)"
-                                        dst-ec dst-off n-elems))))
-         _ (when-not (= src-dt dst-dt)
-             (throw (Exception. (format "src datatype (%s) != dst datatype (%s)"
-                                        src-dt dst-dt))))]
-     ;;Check if managed heap or native heap
-     (let [src (or (dtype-proto/->array-buffer src)
-                   (dtype-proto/->native-buffer src))
-           dst (or (dtype-proto/->array-buffer dst)
-                   (dtype-proto/->native-buffer dst))
-           _ (when-not (and src dst)
-               (throw (Exception.
-                       "Src or dst are not convertible to arrays or native buffers")))
-           [src src-off] (unpack-copy-item src src-off)
-           [dst dst-off] (unpack-copy-item dst dst-off)]
-       (if (< n-elems 1024)
-         (.copyMemory (unsafe) src (long src-off) dst (long dst-off)
-                      (* n-elems (casting/numeric-byte-width
-                                  (casting/un-alias-datatype src-dt))))
-         (parallel-for/indexed-map-reduce
-          n-elems
-          (fn [^long start-idx ^long group-len]
-            (.copyMemory (unsafe)
-                         src (+ (long src-off) start-idx)
-                         dst (+ (long dst-off) start-idx)
-                         (* group-len (casting/numeric-byte-width
-                                       (casting/un-alias-datatype src-dt)))))))
-       dst)))
-  ([src dst n-elems]
-   (copy! src 0 dst 0 n-elems))
-  ([src dst]
-   (let [src-ec (dtype-proto/ecount src)
-         dst-ec (dtype-proto/ecount dst)]
-     (when-not (== src-ec dst-ec)
-       (throw (Exception. (format "src ecount (%s) != dst ecount (%s)"
-                                  src-ec dst-ec))))
-     (copy! src 0 dst 0 src-ec))))
 
 
 (defn free
@@ -252,7 +229,7 @@
 
 (defn malloc
   (^NativeBuffer [^long n-bytes {:keys [resource-type]
-                                 :or {resource-type :stack}}]
+                                 :or {resource-type :gc}}]
    (let [retval (NativeBuffer. (.allocateMemory (unsafe) n-bytes)
                                n-bytes
                                :int8)

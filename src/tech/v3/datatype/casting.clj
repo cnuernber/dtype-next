@@ -49,7 +49,7 @@
 
 (def float-types #{:float32 :float64})
 
-(def int-types (set (flatten (seq signed-unsigned))))
+(def int-types (set (concat (flatten (seq signed-unsigned)) [:char])))
 
 (def signed-int-types (set (keys signed-unsigned)))
 
@@ -57,7 +57,7 @@
 
 (def host-numeric-types (set (concat signed-int-types float-types)))
 
-(def numeric-types (set (concat host-numeric-types unsigned-int-types)))
+(def numeric-types (set (concat host-numeric-types unsigned-int-types [:char])))
 
 
 (defonce valid-datatype-set (atom nil))
@@ -95,7 +95,7 @@
 
 (def base-datatypes (set (concat host-numeric-types
                                  unsigned-int-types
-                                 [:boolean :object])))
+                                 [:boolean :char :object])))
 
 (defn int-width
   ^long [dtype]
@@ -103,6 +103,7 @@
               :int8 8
               :uint8 8
               :int16 16
+              :char 16
               :uint16 16
               :int32 32
               :uint32 32
@@ -232,6 +233,7 @@
     (case dtype
       :int8 `(pmath/byte (datatype->number ~src-dtype ~val))
       :int16 `(pmath/short (datatype->number ~src-dtype ~val))
+      :char `(RT/uncheckedCharCast (datatype->number ~src-dtype ~val))
       :int32 `(pmath/int (datatype->number ~src-dtype ~val))
       :int64 `(pmath/long (datatype->number ~src-dtype ~val))
 
@@ -287,6 +289,7 @@
                                                    ~dst-dtype))
       :int8 `(RT/byteCast ~val)
       :int16 `(RT/shortCast ~val)
+      :char `(RT/charCast ~val)
       :int32 `(RT/intCast ~val)
       :int64 `(RT/longCast ~val)
       :float32 `(RT/floatCast ~val)
@@ -531,3 +534,17 @@
      (first (filter (type-path->root-set lhs-dtype)
                     (type-path->root rhs-dtype)))))
   ([lhs-dtype] lhs-dtype))
+
+
+(defn simple-operation-space
+  "Flatten datatypes down into long, double, or object."
+  [lhs-dtype rhs-dtype]
+  (cond
+    (and (integer-type? lhs-dtype)
+         (integer-type? rhs-dtype))
+    :int64
+    (and (numeric-type? lhs-dtype)
+         (numeric-type? rhs-dtype))
+    :float64
+    :else
+    :object))

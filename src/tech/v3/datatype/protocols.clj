@@ -1,7 +1,7 @@
 (ns tech.v3.datatype.protocols
   (:import [tech.v3.datatype ElemwiseDatatype Countable]
            [clojure.lang Counted]
-           [java.util List]
+           [java.util List Map Set]
            [java.nio ByteOrder
             ByteBuffer ShortBuffer IntBuffer LongBuffer
             FloatBuffer DoubleBuffer CharBuffer]))
@@ -42,6 +42,10 @@
   Countable
   (ecount [item] (.lsize item))
   List
+  (ecount [item] (.size item))
+  Map
+  (ecount [item] (.size item))
+  Set
   (ecount [item] (.size item)))
 
 
@@ -77,26 +81,6 @@
 
 (defprotocol PInsertBlock
   (insert-block! [item idx values options]))
-
-
-(defprotocol PToNioBuffer
-  "Take a 'thing' and convert it to a nio buffer.  Only valid if the thing
-  shares the backing store with the buffer.  Result may not exactly
-  represent the value of the item itself as the backing store may require
-  element-by-element conversion to represent the value of the item."
-  (convertible-to-nio-buffer? [item])
-  (->buffer-backing-store [item]))
-
-
-(defn nio-convertible?
-  [item]
-  (convertible-to-nio-buffer? item))
-
-
-(defn as-nio-buffer
-  [item]
-  (when (nio-convertible? item)
-    (->buffer-backing-store item)))
 
 
 (defprotocol PToNativeBuffer
@@ -290,9 +274,3 @@ and whose values are the indexes that produce those values in the reader."))
 (defmulti make-container
   (fn [container-type _datatype _elem-seq-or-count _options]
     container-type))
-
-
-(defmulti copy!
-  (fn [src dst _options]
-    [(container-datatype src)
-     (container-datatype dst)]))

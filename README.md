@@ -16,6 +16,13 @@ Some expected items:
    the system needs to produce the right answers with less type specific code.
 *  Full native memory support.  Malloc, free, memset, memcpy.  Just the basics but
    guaranteed to be available.
+   
+## Native Test
+
+* In order to get mmap working on the native test I had to grab the larray .so from the 
+  uberjar and load it manually.  Not a big issue at the end of the day but I was having
+  problems getting graal native to package resources.
+  
 
 ## Graal Native
 

@@ -16,7 +16,7 @@ public interface CharReader extends PrimitiveReader
   default float readFloat(long idx) {return (float)read(idx);}
   default double readDouble(long idx) {return (double)read(idx);}
   default Object readObject(long idx) {return read(idx);}
-  default Object elemwiseDatatype () { return Keyword.intern(null, "character"); }
+  default Object elemwiseDatatype () { return Keyword.intern(null, "char"); }
   default IntStream typedStream() {
     return intStream();
   }
