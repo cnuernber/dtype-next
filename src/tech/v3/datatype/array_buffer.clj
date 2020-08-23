@@ -4,6 +4,8 @@
             [tech.v3.datatype.casting :as casting]
             [primitive-math :as pmath]))
 
+(set! *warn-on-reflection* true)
+
 
 (defmacro java-array-buffer->io
   [datatype cast-dtype advertised-datatype buffer java-ary offset n-elems]
@@ -127,7 +129,9 @@
                         dtype-proto/PToArrayBuffer
                         (convertible-to-array-buffer? [item#] true)
                         (->array-buffer [item#]
-                          (ArrayBuffer. item# 0 (alength item#) (dtype-proto/elemwise-datatype item#)))
+                          (ArrayBuffer. item# 0
+                                        (alength (typecast/datatype->array ~ary-type item#))
+                                        (dtype-proto/elemwise-datatype item#)))
                         dtype-proto/PBuffer
                         (sub-buffer [item# off# len#]
                           (ArrayBuffer. item#

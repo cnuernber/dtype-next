@@ -1,10 +1,9 @@
 (ns tech.v3.datatype.main
-  (:require [tech.v3.datatype.array-buffer :as array-buffer]
-            [tech.v3.datatype.protocols :as dtype-proto]
+  (:require [tech.v3.datatype.copy-make-container :refer [make-container]]
             [tech.v3.parallel.for :as parallel-for]
-            [tech.v3.datatype.native-buffer :as native-buffer]
+            [tech.v3.datatype.base :as dtype-base]
             [primitive-math :as pmath])
-  (:import [tech.v3.datatype DoubleReader]
+  (:import [tech.v3.datatype PrimitiveReader]
            [xerial.larray.mmap MMapBuffer MMapMode]
            [xerial.larray.buffer UnsafeUtil]
            [sun.misc Unsafe])
@@ -13,9 +12,7 @@
 (defn -main
   [& args]
   (let [n-elems 10000000
-        ^DoubleReader darray (dtype-proto/->reader
-                              (array-buffer/array-buffer
-                               (double-array (range n-elems))) {})
+        darray (dtype-base/->reader (make-container :float64 (range n-elems)))
         sum (parallel-for/indexed-map-reduce
              n-elems
              (fn [^long start-idx ^long group-len]
@@ -23,15 +20,8 @@
                  (loop [idx start-idx
                         sum 0.0]
                    (if (< idx end-idx)
-                     (recur (unchecked-inc idx) (pmath/+ sum (.read darray idx)))
+                     (recur (unchecked-inc idx) (pmath/+ sum (.readDouble darray idx)))
                      sum))))
              (partial reduce +))]
-    (println (format "sum finished-%s-attempting mmap" sum))
-    (println "attempting to load the library")
-    (System/load "/home/chrisn/dev/cnuernber/dtype-next/resources/liblarray.so")
-    (MMapBuffer. (java.io.File. "project.clj") MMapMode/READ_ONLY)
-    (println "mmap successful -- attempting unsafe access")
-    (println "native buffer test - uses sun.misc.Unsafe")
-    (println (vec (dtype-proto/->reader (native-buffer/malloc 10 {:resource-type :gc})
-                                        {})))
+    (println (format "sum finished-%s" sum))
     0))
