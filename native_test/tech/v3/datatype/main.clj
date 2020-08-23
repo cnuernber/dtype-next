@@ -12,7 +12,7 @@
 
 (defn -main
   [& args]
-  (let [n-elems 10000000
+  (let [n-elems 100000
         darray (dtype-base/->reader (make-container :float64 (range n-elems)))
         sum (parallel-for/indexed-map-reduce
              n-elems
@@ -25,15 +25,16 @@
                      sum))))
              (partial reduce +))]
     (println (format "sum finished-%s" sum))
-    (dotimes [iter 10]
-      (parallel-for/indexed-map-reduce
-       n-elems
-       (fn [^long start-idx ^long group-len]
-         (let [end-idx (+ start-idx group-len)]
-           (loop [idx start-idx
-                  sum 0.0]
-             (if (< idx end-idx)
-               (recur (unchecked-inc idx) (pmath/+ sum (.readDouble darray idx)))
-               sum))))
-       (partial reduce +)))
+    (println "loop timings")
+    (time (dotimes [iter 1000]
+            (parallel-for/indexed-map-reduce
+             n-elems
+             (fn [^long start-idx ^long group-len]
+               (let [end-idx (+ start-idx group-len)]
+                 (loop [idx start-idx
+                        sum 0.0]
+                   (if (< idx end-idx)
+                     (recur (unchecked-inc idx) (pmath/+ sum (.readDouble darray idx)))
+                     sum))))
+             (partial reduce +))))
     0))

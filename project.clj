@@ -10,8 +10,11 @@
                  [org.xerial.larray/larray-mmap  "0.4.1"]
                  [techascent/tech.resource       "4.6"]]
   :java-source-paths ["java"]
-  :profiles {:uberjar
-             {:aot [tech.v3.datatype.main]
+  :profiles {:dev
+             {:dependencies [[criterium "0.4.5"]]}
+             :uberjar
+             {:dependencies [[criterium "0.4.5"]]
+              :aot [tech.v3.datatype.main]
               :main tech.v3.datatype.main
               :source-paths ["src" "native_test"]
               :jvm-opts ["-Dclojure.compiler.direct-linking=true"]
