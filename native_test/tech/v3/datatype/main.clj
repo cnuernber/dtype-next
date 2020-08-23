@@ -25,4 +25,15 @@
                      sum))))
              (partial reduce +))]
     (println (format "sum finished-%s" sum))
+    (dotimes [iter 10]
+      (parallel-for/indexed-map-reduce
+       n-elems
+       (fn [^long start-idx ^long group-len]
+         (let [end-idx (+ start-idx group-len)]
+           (loop [idx start-idx
+                  sum 0.0]
+             (if (< idx end-idx)
+               (recur (unchecked-inc idx) (pmath/+ sum (.readDouble darray idx)))
+               sum))))
+       (partial reduce +)))
     0))
