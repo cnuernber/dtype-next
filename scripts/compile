@@ -11,6 +11,7 @@ graalvm/bin/native-image \
     --initialize-at-build-time \
     --initialize-at-run-time=xerial.larray.mmap.MMapBuffer \
     --no-fallback \
+    --no-server \
     -J-Dclojure.spec.skip-macros=true \
     -J-Dclojure.compiler.direct-linking=true \
     -H:IncludeResources='.*txt$' \

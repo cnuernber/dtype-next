@@ -2,6 +2,7 @@
   (:require [tech.v3.datatype.copy-make-container :refer [make-container]]
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.base :as dtype-base]
+            [tech.v3.datatype]
             [primitive-math :as pmath])
   (:import [tech.v3.datatype PrimitiveReader]
            [xerial.larray.mmap MMapBuffer MMapMode]

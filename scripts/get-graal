@@ -4,3 +4,4 @@ wget https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-20.2.0/gr
 tar -xvzf graalvm-ce-java8-linux-amd64-20.2.0.tar.gz
 ln -s "$(pwd)/graalvm-ce-java8-20.2.0" "$(pwd)/graalvm"
 rm graalvm-ce-java8-linux-amd64-20.2.0.tar.gz
+graalvm/bin/gu install native-image
