@@ -39,7 +39,6 @@
 (declare array-buffer->io)
 
 
-
 (deftype ArrayBuffer [ary-data ^int offset ^int n-elems datatype]
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [item] datatype)

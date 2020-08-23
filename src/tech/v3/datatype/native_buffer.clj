@@ -71,7 +71,7 @@
             :int32 `(.putInt (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
                              ~'value)
             :uint32 `(.putInt (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
-                              (casting/datatype->cast=fn :int64 :uint32 ~'value))
+                              (casting/datatype->cast-fn :int64 :uint32 ~'value))
             :int64 `(.putLong (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
                               ~'value)
             :uint64 `(.putLong (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
@@ -215,7 +215,6 @@
    (assert (>= (- (native-buffer-byte-len native-buffer) 1) 0))
    (unchecked-long
     (.getByte (unsafe) (.address native-buffer)))))
-
 
 
 (defn free
