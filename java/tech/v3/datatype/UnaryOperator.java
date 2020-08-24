@@ -8,17 +8,17 @@ import java.util.function.Function;
 
 public interface UnaryOperator extends ElemwiseDatatype, IFn, Function
 {
-  boolean unary(boolean arg);
-  byte unary(byte arg);
-  short unary(short arg);
-  char unary(char arg);
-  int unary(int arg);
-  long unary(long arg);
-  float unary(float arg);
-  double unary(double arg);
-  Object unary(Object arg);
+  boolean unaryBoolean(boolean arg);
+  byte unaryByte(byte arg);
+  short unaryShort(short arg);
+  char unaryChar(char arg);
+  int unaryInt(int arg);
+  long unaryLong(long arg);
+  float unaryFloat(float arg);
+  double unaryDouble(double arg);
+  Object unaryObject(Object arg);
   default Object elemwiseDatatype () { return Keyword.intern(null, "object"); }
-  default Object invoke(Object arg) { return unary(arg); }
+  default Object invoke(Object arg) { return unaryObject(arg); }
   default Object applyTo(ISeq seq) {
     if (1 != seq.count()) {
       throw new RuntimeException("Argument count incorrect for unary op");
@@ -26,6 +26,6 @@ public interface UnaryOperator extends ElemwiseDatatype, IFn, Function
     return invoke(seq.first());
   }
   default Object apply(Object arg) {
-    return unary(arg);
+    return unaryObject(arg);
   }
 }

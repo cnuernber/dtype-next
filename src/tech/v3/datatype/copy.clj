@@ -18,7 +18,8 @@
         dst (dtype-base/->writer dst)
         n-elems (.lsize src)]
     (when-not (== n-elems (.lsize dst))
-      (throw (Exception. (format "src,dst ecount mismatch: %d-%d" n-elems (.lsize dst)))))
+      (throw (Exception. (format "src,dst ecount mismatch: %d-%d"
+                                 n-elems (.lsize dst)))))
 
     (case (casting/simple-operation-space src-dtype dst-dtype)
       :int64

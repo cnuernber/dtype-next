@@ -7,6 +7,9 @@
 (set! *warn-on-reflection* true)
 
 
+(def ^long default-max-batch-size 64000)
+
+
 (defn indexed-map-reduce
   "Given a function that takes exactly 2 arguments, a start-index and a length,
 call this function exactly N times where N is ForkJoinPool/getCommonPoolParallelism.
@@ -14,32 +17,34 @@ call this function exactly N times where N is ForkJoinPool/getCommonPoolParallel
   ForkJoinPool/commonPool for parallelism.  The entire list of results (outputs of
   indexed-map-fn) are passed to reduce-fn; reduce-fn is called once.
   When called with 2 arguments the reduction function is dorun"
-  ([^long num-iters indexed-map-fn reduce-fn]
+  ([^long num-iters indexed-map-fn reduce-fn max-batch-size]
    (if (< num-iters (* 2 (ForkJoinPool/getCommonPoolParallelism)))
      (reduce-fn [(indexed-map-fn 0 num-iters)])
      (let [num-iters (long num-iters)
+           max-batch-size (long max-batch-size)
            parallelism (ForkJoinPool/getCommonPoolParallelism)
            group-size (quot num-iters parallelism)
-           overflow (rem num-iters parallelism)
-           overflow-size (+ group-size 1)
+           ;;max batch size is setup so that we can play nice with garbage collection
+           ;;safepoint mechanisms
+           group-size (min group-size max-batch-size)
+           n-groups (quot (+ num-iters (dec group-size))
+                          group-size)
            ;;Get pairs of (start-idx, len) to launch callables
            common-pool (ForkJoinPool/commonPool)]
-       (->> (range parallelism)
+       (->> (range n-groups)
             ;;Force start of execution with mapv
             (mapv (fn [^long callable-idx]
-                    (let [group-len (if (< callable-idx overflow)
-                                      overflow-size
-                                      group-size)
-                          group-start (+ (* overflow-size
-                                            (min overflow callable-idx))
-                                         (* group-size
-                                            (max 0 (- callable-idx overflow))))
+                    (let [group-start (* callable-idx group-size)
+                          group-end (min (+ group-start group-size) num-iters)
+                          group-len (- group-end group-start)
                           callable #(indexed-map-fn group-start group-len)]
                       (.submit common-pool ^Callable callable))))
             (map #(.get ^Future %))
             (reduce-fn)))))
+  ([num-iters indexed-map-fn reduce-fn]
+   (indexed-map-reduce num-iters indexed-map-fn reduce-fn default-max-batch-size))
   ([num-iters indexed-map-fn]
-   (indexed-map-reduce num-iters indexed-map-fn dorun)))
+   (indexed-map-reduce num-iters indexed-map-fn dorun default-max-batch-size)))
 
 
 (defn launch-parallel-for

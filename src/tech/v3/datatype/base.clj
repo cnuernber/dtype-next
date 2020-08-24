@@ -61,6 +61,7 @@
   [^List item]
   (reify
     ObjectReader
+    (elemwiseDatatype [rdr] :object)
     (lsize [rdr] (long (.size item)))
     (read [rdr idx]
       (.get item idx))
