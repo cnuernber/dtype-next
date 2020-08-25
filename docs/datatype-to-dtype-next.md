@@ -10,7 +10,7 @@ unified interface between native heap and JVM heap datastructures with a base le
 of datatype support and various simple accerated operations.
 
 
-In order to fulfill unified support efficient random access across many datatypes
+In order to fulfill unified support for efficient random access across many datatypes
 it uses many type specific constructions that enable primitive reading/writing to
 buffers with disparate storage backends.
 
@@ -34,7 +34,7 @@ generate specializations of new operations.
 
 
 What this design *did* achieve, however, was substantial generalized performance as
-exhibited both in our professional engagements of the type that is very expensive to
+exhibited in our professional engagements of the type that is very expensive to
 achieve with any JVM language.  It also enabled the efficient integration with tools
 such as TVM, Numpy, and the creation of a dataframe library with competitive performance
 with C toolkits.
@@ -114,7 +114,7 @@ a long reader, for instance.  So we no longer have a cartesian join of required
 interfaces but rather we have 'wider' default interface implementations.
 
 
-## Addition Similar Optimizations
+## Additional Optimizations
 
 
 Java classes have to be a minimum of 4K in size regardless of the amount of code
