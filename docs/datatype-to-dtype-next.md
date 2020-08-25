@@ -52,7 +52,7 @@ in specific key use cases.
 
 
 There are a few pathways to this result but the one that appears to have the most
-potential is an oddly simple one.  If, instead of a reader implementing only one
+potential is a simple one.  If, instead of a reader implementing only one
 type-specific read method, readers implemented every type specific read method with
 sane casting rules between the primitive datatypes we can actually, for the same
 implementation cost as measured by the cost to implement a reader of a particular
@@ -90,11 +90,11 @@ public interface PrimitiveReader
 ```
 
 With this concept in mind, a DoubleReader implements this interface using a
-combination of checked runtime casting and the original `double read(long indx)`
+combination of checked runtime casting and the original `double read(long idx)`
 method:
 
 ```java
-public interface DoubleReader
+public interface DoubleReader extends PrimitiveReader
 {
   double read(long idx);
   default boolean readBoolean(long idx) {return read(idx) != 0.0;}
@@ -110,7 +110,7 @@ public interface DoubleReader
 ```
 
 This means we don't need to create a specific reader to convert a double reader into
-a long reader, for instance.  So we no longer have a cartesian join of required
+a long reader, for instance.  Thus we no longer have a cartesian join of required
 interfaces but rather we have 'wider' default interface implementations.
 
 
@@ -123,9 +123,9 @@ measurement indicated that loading more classes was relatively more expensive th
 loading a few, larger classes.
 
 
-Knowing this, we can slowing move out in the datatype world being extremely careful
-at each step to generate fewer classes except where it is required for correctness.
-Here are a set of further optimizations found so far:
+Knowing this, we can slowly move out in the datatype world being extremely careful
+at each step to only generate classes where it is essential for either performance
+or correctness.  Here are a set of further optimizations found so far:
 
 
 
@@ -147,12 +147,15 @@ for each individual datatype.
 
 
 At this point the benchmarks are unfair - dtype-next's api namespace doesn't include
-the functionaly that tech.datatype's namespace did.  Notably extending the typesystem
-to arbitrary classes, list support, bitmap support, etc.  The unary and binary math
-operations are completely implemented, however, and these presented a potential
-minefield of small type-specific classes.  I estimate that currently more than 1/3
-of the core functionality of tech.datatype is implemented at substantially less
-cost in terms of both AOT and non AOT require time along with uberjar disk size.
+the functionaly that tech.datatype's namespace did.  Notably dtype-next lacks 
+the ability to extend the typesystem to arbitrary classes, list support, bitmap support, 
+etc.
+
+The unary and binary math operations are completely implemented, however, and these
+presented a potential minefield of small type-specific classes.  I estimate that
+currently more than 1/3 of the core functionality of tech.datatype is implemented at
+substantially less cost in terms of both AOT and non AOT require time along with
+uberjar disk size.
 
 
 ### Require Time - No AOT
