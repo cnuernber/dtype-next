@@ -199,7 +199,7 @@ chrisn@chrisn-lt-01:~/dev/tech.all/tech.datatype/target/datatype$ du -hs tech
 25M     tech
 ```
 
-```clojure
+```console
 chrisn@chrisn-lt-01:~/dev/cnuernber/dtype-next/target/dtype-next$ unzip dtype-next.jar -d dtype-next
 ...
 chrisn@chrisn-lt-01:~/dev/cnuernber/dtype-next/target/dtype-next$ cd dtype-next
