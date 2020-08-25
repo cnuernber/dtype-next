@@ -13,8 +13,7 @@
   :profiles {:dev
              {:dependencies [[criterium "0.4.5"]]}
              :uberjar
-             {:dependencies [[criterium "0.4.5"]]
-              :aot [tech.v3.datatype.main]
+             {:aot [tech.v3.datatype.main]
               :main tech.v3.datatype.main
               :source-paths ["src" "native_test"]
               :jvm-opts ["-Dclojure.compiler.direct-linking=true"]
