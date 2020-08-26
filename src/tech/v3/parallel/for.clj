@@ -76,22 +76,6 @@ call this function exactly N times where N is ForkJoinPool/getCommonPoolParallel
                (recur (unchecked-inc idx#)))))))))
 
 
-(defmacro dotimes-safepoint
-  "dotimes that allows safepoint access for parallelized loops that could
-  get quite large."
-  [[idx-var n-elems] & body]
-  `(dotimes-batched
-    [~idx-var ~n-elems 10000]
-    ~@body))
-
-
-(defmacro serial-for
-  "Utility to quickly switch between parallel/serial loop execution"
-  [idx-var num-iters & body]
-  `(dotimes-batched
-    [~idx-var ~num-iters]
-    ~@body))
-
 (defmacro parallel-for
   "Like clojure.core.matrix.macros c-for except this expects index that run from 0 ->
   num-iters.  Idx is named idx-var and body will be called for each idx in parallel.
@@ -100,7 +84,7 @@ call this function exactly N times where N is ForkJoinPool/getCommonPoolParallel
   [idx-var num-iters & body]
   `(let [num-iters# (long ~num-iters)]
      (if (< num-iters# (* 2 (ForkJoinPool/getCommonPoolParallelism)))
-       (dotimes-safepoint [~idx-var num-iters#]
+       (dotimes [~idx-var num-iters#]
          ~@body)
        (indexed-map-reduce
         num-iters#

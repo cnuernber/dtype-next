@@ -44,6 +44,8 @@
   (elemwise-datatype [item] datatype)
   dtype-proto/PECount
   (ecount [item] n-elems)
+  dtype-proto/PEndianness
+  (endianness [item#] :big-endian)
   dtype-proto/PToArrayBuffer
   (convertible-to-array-buffer? [item] true)
   (->array-buffer [item] item)
@@ -125,6 +127,10 @@
                         (ecount [item#]
                           (alength
                            (typecast/datatype->array ~ary-type item#)))
+                        ;;Java stores array data in memory as big-endian.  Holdover
+                        ;;from Sun Spark architecture.
+                        dtype-proto/PEndianness
+                        (endianness [item#] :big-endian)
                         dtype-proto/PToArrayBuffer
                         (convertible-to-array-buffer? [item#] true)
                         (->array-buffer [item#]

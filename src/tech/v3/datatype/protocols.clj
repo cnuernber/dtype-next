@@ -268,6 +268,13 @@ and whose values are the indexes that produce those values in the reader."))
   (or item :little-endian))
 
 
+(defn platform-endianness
+  []
+  (if (= (ByteOrder/nativeOrder) ByteOrder/LITTLE_ENDIAN)
+    :little-endian
+    :big-endian))
+
+
 (declare make-container)
 
 

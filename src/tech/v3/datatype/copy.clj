@@ -3,7 +3,8 @@
             [tech.v3.datatype.array-buffer :as array-buffer]
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.casting :as casting]
-            [tech.v3.datatype.base :as dtype-base])
+            [tech.v3.datatype.base :as dtype-base]
+            [tech.v3.datatype.protocols :as dtype-proto])
   (:import [sun.misc Unsafe]
            [tech.v3.datatype.native_buffer NativeBuffer]
            [tech.v3.datatype.array_buffer ArrayBuffer]))
@@ -63,12 +64,14 @@
     (instance? ArrayBuffer item)
     (let [ary-buf ^ArrayBuffer item
           ary (.ary-data ary-buf)
-          ary-off (.offset ary-buf)]
+          ary-off (* (.offset ary-buf)
+                     (casting/numeric-byte-width (.datatype item)))]
       [ary (+ ary-off (array-base-offset ary))])
     (array-buffer/is-array-type? item)
     (array-base-offset item)
     :else
-    (throw (Exception. "Invalid item in unpack-copy-item"))))
+    (throw (Exception. (format "Invalid item in unpack-copy-item: %s"
+                               (type item))))))
 
 
 (defn high-perf-copy!
@@ -97,8 +100,9 @@
            _ (when-not (and src dst)
                (throw (Exception.
                        "Src or dst are not convertible to arrays or native buffers")))]
-       (if (and (instance? ArrayBuffer src-buf)
-                (instance? ArrayBuffer dst-buf))
+       (cond
+         (and (instance? ArrayBuffer src-buf)
+              (instance? ArrayBuffer dst-buf))
          (let [^ArrayBuffer src src-buf
                ^ArrayBuffer dst dst-buf]
            (if (< n-elems 1024)
@@ -111,10 +115,14 @@
                 (System/arraycopy (.ary-data src) (+ (.offset src) start-idx)
                                   (.ary-data dst) (+ (.offset dst) start-idx)
                                   group-len)))))
+         (= (dtype-proto/endianness src-buf)
+            (dtype-proto/endianness dst-buf))
          (if (< n-elems 1024)
            (let [[src src-off] (unpack-copy-item src-buf)
                  [dst dst-off] (unpack-copy-item dst-buf)]
-             (.copyMemory (native-buffer/unsafe) src (long src-off) dst (long dst-off)
+             (.copyMemory (native-buffer/unsafe)
+                          src (long src-off)
+                          dst (long dst-off)
                           (* n-elems (casting/numeric-byte-width
                                       (casting/un-alias-datatype src-dt))))
              ;;Parallelize the copy op
@@ -125,7 +133,9 @@
                              src (+ (long src-off) start-idx)
                              dst (+ (long dst-off) start-idx)
                              (* group-len (casting/numeric-byte-width
-                                           (casting/un-alias-datatype src-dt)))))))))
+                                           (casting/un-alias-datatype src-dt))))))))
+         :else
+         (generic-copy! src dst))
        dst)))
   ([src dst]
    (let [src-ec (dtype-base/ecount src)
@@ -149,7 +159,7 @@
          dst-buf (or (dtype-base/->array-buffer dst)
                      (dtype-base/->native-buffer dst))]
      (when-not (== (dtype-base/ecount src) (dtype-base/ecount dst))
-       (throw (Exception. (format "Elem counts differ: %d-%d"
+       (throw (Exception. (format "Elem counts differ: src: %d, dst: %d"
                                   (dtype-base/ecount src) (dtype-base/ecount dst)))))
      (cond
        (and equal-dtype? src-buf dst-buf)

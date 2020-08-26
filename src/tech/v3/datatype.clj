@@ -14,8 +14,15 @@
                 ->reader
                 ->writer
                 ->array-buffer
-                ->native-buffer)
+                ->native-buffer
+                sub-buffer)
 
 (export-symbols tech.v3.datatype.copy-make-container
                 make-container
                 copy!)
+
+
+(defn ->vector
+  "Convert a datatype thing to a vector"
+  [item]
+  (vec (->reader item)))

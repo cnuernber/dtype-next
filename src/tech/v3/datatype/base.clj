@@ -57,6 +57,18 @@
       (dtype-proto/->native-buffer item))))
 
 
+(defn sub-buffer
+  ([item ^long offset ^long length]
+   (let [n-elems (ecount item)]
+     (when-not (<= (+ offset length) n-elems)
+       (throw (Exception. (format "Offset %d + length (%d) out of range of item length %d"
+                                  offset length n-elems))))
+     (dtype-proto/sub-buffer item offset length)))
+  ([item ^long offset]
+   (let [n-elems (ecount item)]
+     (sub-buffer item offset (- n-elems offset)))))
+
+
 (defn- random-access->io
   [^List item]
   (reify
