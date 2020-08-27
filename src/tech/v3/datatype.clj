@@ -4,6 +4,7 @@
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.copy-make-container :as dtype-copy-make-container]
             [tech.v3.datatype.clj-range]
+            [tech.v3.datatype.list]
             [tech.v3.datatype.functional]
             [tech.v3.datatype.export-symbols :refer [export-symbols]]))
 

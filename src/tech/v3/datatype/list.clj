@@ -253,7 +253,7 @@
    (let [rw (dtype-base/->reader initial-container)]
      (DoubleListImpl. initial-container 0 rw rw)))
   (^DoubleList []
-   (double-list (dtype-cmc/make-container :int64 10))))
+   (double-list (dtype-cmc/make-container :float64 10))))
 
 
 (deftype ObjectListImpl [^:unsynchronized-mutable buffer
