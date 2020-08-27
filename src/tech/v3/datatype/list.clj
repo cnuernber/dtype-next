@@ -125,11 +125,11 @@
 
 
 (defn boolean-list
-  (^BooleanList [initial-container]
+  (^BooleanList [initial-container ^long ptr]
    (let [rw (dtype-base/->reader initial-container)]
-     (BooleanListImpl. initial-container 0 rw rw)))
+     (BooleanListImpl. initial-container ptr rw rw)))
   (^BooleanList []
-   (boolean-list (dtype-cmc/make-container :boolean 10))))
+   (boolean-list (dtype-cmc/make-container :boolean 10) 0)))
 
 
 
@@ -187,11 +187,11 @@
 
 
 (defn long-list
-  (^LongList [initial-container]
+  (^LongList [initial-container ^long ptr]
    (let [rw (dtype-base/->reader initial-container)]
-     (LongListImpl. initial-container 0 rw rw)))
+     (LongListImpl. initial-container ptr rw rw)))
   (^LongList []
-   (long-list (dtype-cmc/make-container :int64 10))))
+   (long-list (dtype-cmc/make-container :int64 10) 0)))
 
 
 
@@ -249,11 +249,11 @@
 
 
 (defn double-list
-  (^DoubleList [initial-container]
+  (^DoubleList [initial-container ^long ptr]
    (let [rw (dtype-base/->reader initial-container)]
-     (DoubleListImpl. initial-container 0 rw rw)))
+     (DoubleListImpl. initial-container ptr rw rw)))
   (^DoubleList []
-   (double-list (dtype-cmc/make-container :float64 10))))
+   (double-list (dtype-cmc/make-container :float64 10) 0)))
 
 
 (deftype ObjectListImpl [^:unsynchronized-mutable buffer
@@ -310,8 +310,44 @@
 
 
 (defn object-list
-  (^ObjectList [initial-container]
+  (^ObjectList [initial-container ^long ptr]
    (let [rw (dtype-base/->reader initial-container)]
-     (ObjectListImpl. initial-container 0 rw rw)))
+     (ObjectListImpl. initial-container ptr rw rw)))
   (^ObjectList []
-   (object-list (dtype-cmc/make-container :int64 10))))
+   (object-list (dtype-cmc/make-container :int64 10) 0)))
+
+
+(defn wrap-container
+  ^List [container]
+  (let [dtype (dtype-base/elemwise-datatype container)]
+    (cond
+      (casting/integer-type? dtype)
+      (long-list container (dtype-base/ecount container))
+      (casting/float-type? dtype)
+      (double-list container (dtype-base/ecount container))
+      :else
+      (object-list container (dtype-base/ecount container)))))
+
+
+(defn empty-list
+  ^List [datatype]
+  (cond
+    (casting/integer-type? datatype)
+    (long-list)
+    (casting/float-type? datatype)
+    (double-list)
+    :else
+    (object-list)))
+
+
+(defmethod dtype-proto/make-container :list
+  [container-type datatype elem-seq-or-count options]
+  (if (or (number? elem-seq-or-count)
+          (dtype-proto/convertible-to-reader? elem-seq-or-count))
+    (-> (dtype-cmc/make-container :jvm-heap datatype elem-seq-or-count options)
+        (wrap-container))
+    (let [retval (empty-list datatype)]
+      (parallel-for/doiter
+       item elem-seq-or-count
+       (.add retval item))
+      retval)))

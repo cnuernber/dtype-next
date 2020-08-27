@@ -27,16 +27,29 @@
 
 
 ;;Only object datatypes are represented in these maps
-(defonce datatype-extension-map (ConcurrentHashMap.))
+(defonce ^ConcurrentHashMap datatype->class-map (ConcurrentHashMap.))
+(defonce ^ConcurrentHashMap class->datatype-map (ConcurrentHashMap.))
 
 
-(defn add-extended-datatype!
+
+(defn add-object-datatype!
   ;;Add an object datatype.
-  [datatype validator-fn constructor-fn]
-  (.put ^ConcurrentHashMap datatype-extension-map
-        datatype {:validator validator-fn
-                  :constructor constructor-fn})
+  [datatype klass]
+  (.put datatype->class-map datatype klass)
+  (.put class->datatype-map klass datatype)
   (rebuild-valid-datatypes!))
+
+
+(defn object-class->datatype
+  [cls]
+  (get class->datatype-map cls :object))
+
+
+(defn datatype->object-class
+  [dtype]
+  (if (instance? Class dtype)
+    dtype
+    (get datatype->class-map dtype Object)))
 
 
 (def signed-unsigned
@@ -70,10 +83,10 @@
 (defn rebuild-valid-datatypes!
   []
   (reset! valid-datatype-set
-          (->> (concat (keys datatype-extension-map)
+          (->> (concat (keys datatype->class-map)
                        (keys aliased-datatypes)
                        numeric-types
-                       [:boolean])
+                       [:object :boolean])
                (->hash-set))))
 
 

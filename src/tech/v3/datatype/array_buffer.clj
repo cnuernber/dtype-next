@@ -95,7 +95,8 @@
       [:float32 :float32] (java-array-buffer->io :float32 :float32 datatype item
                                                  ary-data offset n-elems)
       [:float64 :float64] (java-array-buffer->io :float64 :float64 datatype item
-                                                 ary-data offset n-elems))))
+                                                 ary-data offset n-elems)
+      (java-array-buffer->io :object :object datatype item ary-data offset n-elems))))
 
 
 (defn array-buffer
@@ -113,7 +114,10 @@
 
 (def array-types
   (set (concat casting/host-numeric-types
-               [:boolean :char :object])))
+               [:boolean :object :char])))
+
+
+(defn- as-object ^Object [item] item)
 
 
 (defmacro initial-implement-arrays
@@ -122,7 +126,13 @@
               (map (fn [ary-type]
                      `(extend-type ~(typecast/datatype->array-cls ary-type)
                         dtype-proto/PElemwiseDatatype
-                        (elemwise-datatype [item#] ~ary-type)
+                        (elemwise-datatype [~'item]
+                          ~(if (not= ary-type :object)
+                             `~ary-type
+                             `(-> (as-object ~'item)
+                                  (.getClass)
+                                  (.getComponentType)
+                                  (casting/object-class->datatype))))
                         dtype-proto/PECount
                         (ecount [item#]
                           (alength

@@ -19,22 +19,17 @@
   (let [n-elems (long (if (number? elem-seq-or-count)
                         elem-seq-or-count
                         (dtype-base/ecount elem-seq-or-count)))
-        ary-data (cond
-                   (array-buffer/array-types (casting/host-flatten datatype))
-                   (case (casting/host-flatten datatype)
-                     :boolean (boolean-array n-elems)
-                     :int8 (byte-array n-elems)
-                     :int16 (short-array n-elems)
-                     :char (char-array n-elems)
-                     :int32 (int-array n-elems)
-                     :int64 (long-array n-elems)
-                     :float32 (float-array n-elems)
-                     :float64 (double-array n-elems)
-                     :object (object-array n-elems))
-                   (instance? datatype Class)
-                   (make-array datatype n-elems)
-                   :else
-                   (throw (Exception. "Type-specific object arrays not implemented---yet!")))
+        ary-data
+        (case (casting/host-flatten datatype)
+          :boolean (boolean-array n-elems)
+          :int8 (byte-array n-elems)
+          :int16 (short-array n-elems)
+          :char (char-array n-elems)
+          :int32 (int-array n-elems)
+          :int64 (long-array n-elems)
+          :float32 (float-array n-elems)
+          :float64 (double-array n-elems)
+          (make-array (casting/datatype->object-class datatype) n-elems))
         ary-buf (if (= datatype (casting/host-flatten datatype))
                   ary-data
                   (array-buffer/array-buffer ary-data datatype))]
