@@ -14,8 +14,9 @@ public interface BooleanReader extends PrimitiveReader
   default int readInt(long idx) {return (int) (read(idx) ? 1 : 0);}
   default long readLong(long idx) {return (long) (read(idx) ? 1 : 0);}
   default float readFloat(long idx) {return (float) (read(idx) ? 1 : 0);}
-  default double readDouble(long idx) {return (double) (read(idx) ? 1 : 0);} 
-  default Object elemwiseDatatype () { return Keyword.intern(null, "boolean"); }
+  default double readDouble(long idx) {return (double) (read(idx) ? 1 : 0);}
+  default Object readObject(long idx) {return read(idx);}
+  default Object elemwiseDatatype () {return Keyword.intern(null, "boolean");}
   default IntStream typedStream() {
     return intStream();
   }
