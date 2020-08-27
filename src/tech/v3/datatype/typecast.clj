@@ -1,5 +1,7 @@
 (ns tech.v3.datatype.typecast
-  (:require [tech.v3.datatype.casting :as casting]))
+  (:require [tech.v3.datatype.casting :as casting])
+  (:import [tech.v3.datatype BooleanList IntList LongList DoubleList ObjectList]
+           [java.util ArrayList List]))
 
 
 (defn datatype->array-cls
@@ -73,3 +75,38 @@
     :float32 'tech.v3.datatype.FloatWriter
     :float64 'tech.v3.datatype.DoubleWriter
     :object 'tech.v3.datatype.ObjectWriter))
+
+
+
+(defn datatype->list-type
+  "Returns a symbol that results to the list type"
+  [datatype]
+  (let [dtype (casting/host-flatten datatype)]
+    (cond
+      (= :boolean dtype) 'tech.v3.datatype.BooleanList
+      (= :int64 dtype) 'tech.v3.datatype.LongList
+      (casting/integer-type? dtype) 'tech.v3.datatype.IntList
+      (casting/float-type? dtype) 'tech.v3.datatype.DoubleList
+      :else
+      'tech.v3.datatype.ObjectList)))
+
+
+(defn as-boolean-list ^BooleanList [item] item)
+(defn as-int-list ^IntList [item] item)
+(defn as-long-list ^LongList [item] item)
+(defn as-double-list ^DoubleList [item] item)
+(defn as-object-list ^ObjectList [item] item)
+
+
+(defmacro datatype->list
+  [dtype java-list]
+  (case (casting/host-flatten dtype)
+    :boolean `(as-boolean-list ~java-list)
+    :int8 `(as-int-list ~java-list)
+    :int16 `(as-int-list ~java-list)
+    :char `(as-int-list ~java-list)
+    :int32 `(as-int-list ~java-list)
+    :int64 `(as-long-list ~java-list)
+    :float32 `(as-double-list ~java-list)
+    :float64 `(as-double-list ~java-list)
+    :object `(as-object-list ~java-list)))
