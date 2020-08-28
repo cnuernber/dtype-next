@@ -1,7 +1,7 @@
 (ns tech.v3.datatype.functional
   (:require [tech.v3.datatype.argtypes :refer [arg-type]]
             [tech.v3.datatype.base :as dtype-base]
-            [tech.v3.datatype.readers :as readers]
+            [tech.v3.datatype.const-reader :refer [const-reader]]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.binary-op :as binary-op]
             [tech.v3.datatype.unary-op :as unary-op]
@@ -54,7 +54,7 @@
 (defn ensure-reader
   [item n-elems]
   (if (= :scalar (arg-type item))
-    (readers/const-reader item n-elems)
+    (const-reader item n-elems)
     (dtype-base/->reader item)))
 
 

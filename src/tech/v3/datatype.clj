@@ -12,6 +12,7 @@
 (export-symbols tech.v3.datatype.base
                 elemwise-datatype
                 ecount
+                ->io
                 ->reader
                 ->writer
                 ->array-buffer

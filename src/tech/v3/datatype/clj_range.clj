@@ -1,11 +1,11 @@
-(ns tech.v2.datatype.clj-range
+(ns tech.v3.datatype.clj-range
   "Datatype bindings for clojure ranges."
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.base :as base]
             [tech.v3.datatype.typecast :as typecast]
             [tech.v3.datatype.casting :as casting])
   (:import [clojure.lang LongRange Range]
-           [tech.v3.datatype LongReader]
+           [tech.v3.datatype LongReader DoubleReader]
            [java.lang.reflect Field]))
 
 
@@ -58,7 +58,7 @@
       (-> (reify ~(typecast/datatype->reader-type datatype)
             (lsize [rdr#] n-elems#)
             (read [rdr# idx#]
-              (casting/datatype->cast-fn :uknown ~datatype
+              (casting/datatype->cast-fn :unknown ~datatype
                                          (-> (* step# idx#)
                                              (+ start#)))))
           (dtype-proto/->reader ~options))))
@@ -77,10 +77,42 @@
                                    :float32 :float64}
                                  (base/elemwise-datatype rng)))
   (->reader [rng options]
-    (case (base/elemwise-datatype (first rng))
-      :int8 (range-reader-macro :int8 rng options)
-      :int16 (range-reader-macro :int16 rng options)
-      :int32 (range-reader-macro :int32 rng options)
-      :int64 (range-reader-macro :int64 rng options)
-      :float32 (range-reader-macro :float32 rng options)
-      :float64 (range-reader-macro :float64 rng options))))
+    (let [dtype  (base/elemwise-datatype (first rng))]
+      (if (casting/integer-type? dtype)
+        (let [start (casting/datatype->cast-fn :unknown :int64 (first rng))
+              step (casting/datatype->cast-fn :unknown :int64
+                                              (.get ^Field r-step-field rng))
+              n-elems (.count rng)
+              last-val (+ start (* step (dec n-elems)))]
+          (reify LongReader
+            (lsize [rdr] n-elems)
+            (read [rdr idx]
+              (-> (* step idx)
+                  (+ start)))
+            (elemwiseDatatype [rdr] dtype)
+            dtype-proto/PRangeConvertible
+            (convertible-to-range? [item] true)
+            (->range [item options] (dtype-proto/->range rng options))
+            dtype-proto/PConstantTimeMinMax
+            (has-constant-time-min-max? [item] true)
+            (constant-time-min [item] (dtype-proto/constant-time-min (min start last-val)))
+            (constant-time-max [item] (dtype-proto/constant-time-max (max start last-val)))))
+        (let [start (casting/datatype->cast-fn :unknown :float64 (first rng))
+              step (casting/datatype->cast-fn :unknown :float64
+                                              (.get ^Field r-step-field rng))
+              n-elems (.count rng)
+              last-val (+ start (* step (dec n-elems)))]
+          (reify DoubleReader
+            (lsize [rdr] n-elems)
+            (read [rdr idx]
+              (-> (* step idx)
+                  (+ start)))
+            dtype-proto/PRangeConvertible
+            (convertible-to-range? [item] true)
+            (->range [item options] (dtype-proto/->range rng options))
+            dtype-proto/PConstantTimeMinMax
+            (has-constant-time-min-max? [item] true)
+            (constant-time-min [item] (dtype-proto/constant-time-min (min start last-val)))
+            (constant-time-max [item] (dtype-proto/constant-time-max (max start last-val)))))
+
+        ))))

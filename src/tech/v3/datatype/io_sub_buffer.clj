@@ -1,6 +1,5 @@
 (ns tech.v3.datatype.io-sub-buffer
-  (:require [tech.v3.datatype.base :as dtype-base]
-            [tech.v3.datatype.protocols :as dtype-proto]
+  (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.casting :as casting]
             [primitive-math :as pmath])
   (:import [tech.v3.datatype PrimitiveIO ObjectIO LongIO
@@ -8,16 +7,17 @@
 
 
 (set! *warn-on-reflection* true)
+(set! *unchecked-math* :warn-on-boxed)
 
 
 (defn sub-buffer
   (^PrimitiveIO [item ^long offset ^long len]
-   (when (< (dtype-base/ecount item)
+   (when (< (dtype-proto/ecount item)
             (+ offset len))
      (throw (Exception. (format "Item ecount %d is less than offset + len (%d) + (%d)"
-                                (dtype-base/ecount item) offset len))))
-   (let [item (dtype-base/->io item)
-         item-dtype (dtype-base/elemwise-datatype item)
+                                (dtype-proto/ecount item) offset len))))
+   (let [^PrimitiveIO item (dtype-proto/->primitive-io item)
+         item-dtype (dtype-proto/elemwise-datatype item)
          offset (long offset)
          n-elems (long len)]
      (cond
@@ -66,4 +66,4 @@
          (constant-time-min [this] (dtype-proto/constant-time-min item))
          (constant-time-max [this] (dtype-proto/constant-time-max item))))))
   (^PrimitiveIO [item ^long offset]
-   (sub-buffer item offset (- (dtype-base/ecount item) offset))))
+   (sub-buffer item offset (- (dtype-proto/ecount item) offset))))

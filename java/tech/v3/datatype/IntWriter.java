@@ -1,8 +1,5 @@
 package tech.v3.datatype;
 
-import clojure.lang.Keyword;
-import clojure.lang.RT;
-
 
 public interface IntWriter extends IntIO
 {

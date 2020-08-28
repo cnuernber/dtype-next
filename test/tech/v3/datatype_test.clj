@@ -33,3 +33,19 @@
              dst-dtype casting/numeric-types]
          (basic-copy src-container dst-container src-dtype dst-dtype))
        dorun))
+
+
+(deftest array-of-array-support
+  (let [^"[[D" src-data (make-array (Class/forName "[D") 5)
+        _ (doseq [idx (range 5)]
+            (aset src-data idx (double-array (repeat 10 idx))))
+        dst-data (float-array (* 5 10))]
+    ;;This should not hit any slow paths.
+    (dtype/copy-raw->item! src-data dst-data 0)
+    (is (= (vec (float-array (flatten (map #(repeat 10 %) (range 5)))))
+           (vec dst-data)))))
+
+
+(deftest out-of-range-data-causes-exception
+  (is (thrown? Throwable (dtype/copy! (int-array [1000 2000 3000 4000])
+                                      (byte-array 4)))))

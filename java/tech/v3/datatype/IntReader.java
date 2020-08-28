@@ -1,8 +1,5 @@
 package tech.v3.datatype;
 
-import clojure.lang.Keyword;
-import java.util.stream.IntStream;
-
 
 public interface IntReader extends IntIO
 {

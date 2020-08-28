@@ -1,9 +1,10 @@
 (ns tech.v3.datatype.base
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.array-buffer :as array-buffer]
-            [tech.v3.datatype.native-buffer :as native-buffer])
+            [tech.v3.datatype.native-buffer :as native-buffer]
+            [tech.v3.datatype.io-sub-buffer :as io-sub-buf])
   (:import [tech.v3.datatype PrimitiveReader PrimitiveWriter PrimitiveIO
-            ObjectReader ObjectWriter]
+            ObjectIO]
            [tech.v3.datatype.array_buffer ArrayBuffer]
            [tech.v3.datatype.native_buffer NativeBuffer]
            [java.util RandomAccess List]))
@@ -81,17 +82,19 @@
 (defn- random-access->io
   [^List item]
   (reify
-    ObjectReader
+    ObjectIO
     (elemwiseDatatype [rdr] :object)
     (lsize [rdr] (long (.size item)))
     (read [rdr idx]
       (.get item idx))
-    ObjectWriter
     (write [wtr idx value]
       (.set item idx value))))
 
 
 (extend-type RandomAccess
+  dtype-proto/PToPrimitiveIO
+  (convertible-to-primitive-io? [item] true)
+  (->io [item] (random-access->io item))
   dtype-proto/PToReader
   (convertible-to-reader? [item] true)
   (->reader [item options]
@@ -101,14 +104,20 @@
   (->writer [item options]
     (random-access->io item)))
 
+(defn- inner-buffer-sub-buffer
+  [buf ^long offset ^Long len]
+  (when-let [data-buf (or (->array-buffer buf)
+                          (->native-buffer buf))]
+    (sub-buffer data-buf offset len)))
 
-(extend-type PrimitiveReader
+
+(extend-type PrimitiveIO
+  dtype-proto/PToPrimitiveIO
+  (convertible-to-primitive-io? [buf] true)
+  (->io [item] item)
   dtype-proto/PToReader
   (convertible-to-reader? [buf] true)
-  (->reader [buf options] buf))
-
-
-(extend-type PrimitiveWriter
+  (->reader [buf options] buf)
   dtype-proto/PToWriter
   (convertible-to-writer? [buf] true)
   (->writer [buf options] buf))
@@ -130,11 +139,12 @@
      options))
   dtype-proto/PBuffer
   (sub-buffer [buf offset len]
-    (if-let [data-buf (or (->array-buffer buf)
-                          (->native-buffer buf))]
-      (sub-buffer data-buf offset len)
-      (throw (Exception. (format "Buffer %s does not implement the sub-buffer protocol"
-                                 (type buf))))))
+    (if-let [data-buf (inner-buffer-sub-buffer buf offset len)]
+      data-buf
+      (if-let [data-io (->io buf)]
+        (io-sub-buf/sub-buffer data-io offset len)
+        (throw (Exception. (format "Buffer %s does not implement the sub-buffer protocol"
+                                   (type buf)))))))
   dtype-proto/PToNativeBuffer
   (convertible-to-native-buffer? [buf] false)
   dtype-proto/PToArrayBuffer

@@ -1,11 +1,7 @@
 package tech.v3.datatype;
 
-import clojure.lang.Keyword;
-import clojure.lang.RT;
-import java.util.stream.Stream;
 
-
-public interface ObjectReader extends PrimitiveReader
+public interface ObjectReader extends ObjectIO
 {
   default void write(long idx, Object value) { throw new UnsupportedOperationException(); }
   default boolean supportsWrite() { return false; }
