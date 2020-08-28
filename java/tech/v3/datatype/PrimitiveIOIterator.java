@@ -2,7 +2,7 @@ package tech.v3.datatype;
 
 import java.util.Iterator;
 
-public interface PrimitiveReaderIterator extends IOBase, Iterator
+public interface PrimitiveIOIterator extends IOBase, Iterator
 {
   boolean nextBoolean();
   byte nextByte();

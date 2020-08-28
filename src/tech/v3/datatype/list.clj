@@ -10,9 +10,7 @@
             [tech.v3.parallel.for :as parallel-for]
             [tech.resource :as resource])
   (:import [tech.v3.datatype BooleanList LongList DoubleList ObjectList
-            PrimitiveWriter PrimitiveReader BooleanReader BooleanWriter
-            IntReader IntWriter LongReader LongWriter ObjectReader ObjectWriter
-            DoubleReader DoubleWriter]
+            PrimitiveWriter PrimitiveReader BooleanIO LongIO DoubleIO ObjectIO]
            [tech.v3.datatype.array_buffer ArrayBuffer]
            [tech.v3.datatype.native_buffer NativeBuffer]
            [java.util ArrayList List]))
@@ -76,14 +74,13 @@
                           ^:unsynchronized-mutable ^long ptr
                           ^:unsynchronized-mutable ^PrimitiveWriter writer
                           ^:unsynchronized-mutable ^PrimitiveReader reader]
-  BooleanReader
+  BooleanIO
   (elemwiseDatatype [this] (dtype-base/elemwise-datatype buffer))
   (lsize [this] ptr)
   (read [this idx]
     (when-not (< idx ptr)
       (throw (Exception. "idx out of range")))
     (.readBoolean reader idx))
-  BooleanWriter
   (write [this idx value]
     (when-not (< idx ptr)
       (throw (Exception. "idx out of range")))
@@ -137,14 +134,13 @@
                       ^:unsynchronized-mutable ^long ptr
                       ^:unsynchronized-mutable ^PrimitiveWriter writer
                       ^:unsynchronized-mutable ^PrimitiveReader reader]
-  LongReader
+  LongIO
   (elemwiseDatatype [this] (dtype-base/elemwise-datatype buffer))
   (lsize [this] ptr)
   (read [this idx]
     (when-not (< idx ptr)
       (throw (Exception. "idx out of range")))
     (.readLong reader idx))
-  LongWriter
   (write [this idx value]
     (when-not (< idx ptr)
       (throw (Exception. "idx out of range")))
@@ -199,14 +195,13 @@
                          ^:unsynchronized-mutable ^long ptr
                          ^:unsynchronized-mutable ^PrimitiveWriter writer
                          ^:unsynchronized-mutable ^PrimitiveReader reader]
-  DoubleReader
+  DoubleIO
   (elemwiseDatatype [this] (dtype-base/elemwise-datatype buffer))
   (lsize [this] ptr)
   (read [this idx]
     (when-not (< idx ptr)
       (throw (Exception. "idx out of range")))
     (.readDouble reader idx))
-  DoubleWriter
   (write [this idx value]
     (when-not (< idx ptr)
       (throw (Exception. "idx out of range")))
@@ -260,14 +255,13 @@
                          ^:unsynchronized-mutable ^long ptr
                          ^:unsynchronized-mutable ^PrimitiveWriter writer
                          ^:unsynchronized-mutable ^PrimitiveReader reader]
-  ObjectReader
+  ObjectIO
   (elemwiseDatatype [this] (dtype-base/elemwise-datatype buffer))
   (lsize [this] ptr)
   (read [this idx]
     (when-not (< idx ptr)
       (throw (Exception. "idx out of range")))
     (.readObject reader idx))
-  ObjectWriter
   (write [this idx value]
     (when-not (< idx ptr)
       (throw (Exception. "idx out of range")))
@@ -314,7 +308,7 @@
    (let [rw (dtype-base/->reader initial-container)]
      (ObjectListImpl. initial-container ptr rw rw)))
   (^ObjectList []
-   (object-list (dtype-cmc/make-container :int64 10) 0)))
+   (object-list (dtype-cmc/make-container :int64 16) 0)))
 
 
 (defn wrap-container
@@ -331,13 +325,14 @@
 
 (defn empty-list
   ^List [datatype]
-  (cond
-    (casting/integer-type? datatype)
-    (long-list)
-    (casting/float-type? datatype)
-    (double-list)
-    :else
-    (object-list)))
+  (let [container (dtype-cmc/make-container :jvm-heap datatype 16)]
+    (cond
+      (casting/integer-type? datatype)
+      (long-list container 0)
+      (casting/float-type? datatype)
+      (double-list container 0)
+      :else
+      (object-list container 0))))
 
 
 (defmethod dtype-proto/make-container :list

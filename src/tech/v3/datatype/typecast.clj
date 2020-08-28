@@ -49,6 +49,20 @@
     :object `(as-object-array ~java-ary)))
 
 
+(defn datatype->io-type
+  [dtype]
+  (case (casting/safe-flatten dtype)
+    :boolean 'tech.v3.datatype.BooleanIO
+    :int8 'tech.v3.datatype.ByteIO
+    :int16 'tech.v3.datatype.ShortIO
+    :char 'tech.v3.datatype.CharIO
+    :int32 'tech.v3.datatype.IntIO
+    :int64 'tech.v3.datatype.LongIO
+    :float32 'tech.v3.datatype.FloatIO
+    :float64 'tech.v3.datatype.DoubleIO
+    :object 'tech.v3.datatype.ObjectIO))
+
+
 (defn datatype->reader-type
   [dtype]
   (case (casting/safe-flatten dtype)

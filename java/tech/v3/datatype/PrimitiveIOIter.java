@@ -2,12 +2,12 @@ package tech.v3.datatype;
 
 import java.util.Iterator;
 
-public class PrimitiveReaderIter implements PrimitiveReaderIterator
+public class PrimitiveIOIter implements PrimitiveIOIterator
 {
   long idx;
   long num_elems;
-  PrimitiveReader reader;
-  public PrimitiveReaderIter(PrimitiveReader _reader)
+  PrimitiveIO reader;
+  public PrimitiveIOIter(PrimitiveIO _reader)
   {
     idx = 0;
     num_elems = _reader.lsize();

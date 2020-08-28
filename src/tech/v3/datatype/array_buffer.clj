@@ -20,14 +20,13 @@
          (-> (dtype-proto/sub-buffer ~buffer offset# length#)
              (dtype-proto/->reader {})))
 
-       ~(typecast/datatype->reader-type (casting/safe-flatten cast-dtype))
+       ~(typecast/datatype->io-type (casting/safe-flatten cast-dtype))
        (elemwiseDatatype [rdr#] ~advertised-datatype)
        (lsize [rdr#] ~n-elems)
        (read [rdr# ~'idx]
          (casting/datatype->unchecked-cast-fn
           ~datatype ~cast-dtype
           (aget ~'java-ary (pmath/+ ~offset ~'idx))))
-       ~(typecast/datatype->writer-type (casting/safe-flatten cast-dtype))
        (write [wtr# idx# val#]
          ;;Writing values is always checked, no options.
          (aset ~'java-ary (pmath/+ ~offset idx#)
@@ -55,6 +54,10 @@
                   (+ offset (int off))
                   (int len)
                   datatype))
+  dtype-proto/PToPrimitiveIO
+  (convertible-to-primitive-io? [item] true)
+  (->primitive-io [item]
+    (array-buffer->io ary-data datatype item offset n-elems))
   dtype-proto/PToReader
   (convertible-to-reader? [item] true)
   (->reader [item options]

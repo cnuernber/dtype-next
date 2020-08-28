@@ -31,7 +31,7 @@
        (sub-buffer [this# offset# length#]
          (-> (dtype-proto/sub-buffer ~buffer offset# length#)
              (dtype-proto/->reader {})))
-       ~(typecast/datatype->reader-type (casting/safe-flatten datatype))
+       ~(typecast/datatype->io-type (casting/safe-flatten datatype))
        (elemwiseDatatype [rdr#] ~advertised-datatype)
        (lsize [rdr#] ~n-elems)
        (read [rdr# ~'idx]
@@ -95,7 +95,6 @@
                                                         (pmath/* ~'idx ~byte-width)))
                             (Long/reverseBytes)
                             (Double/longBitsToDouble)))))
-       ~(typecast/datatype->writer-type (casting/safe-flatten datatype))
        (write [rdr# ~'idx ~'value]
          ~(if (not swap?)
             (case datatype
@@ -175,6 +174,10 @@
                 (format "Offset+length (%s) > n-elems (%s)"
                         (+ offset length) n-elems))))
       (NativeBuffer. (+ address (* offset byte-width)) length datatype endianness)))
+  dtype-proto/PToPrimitiveIO
+  (convertible-to-primitive-io? [this] true)
+  (->primitive-io [this]
+    (native-buffer->io this))
   dtype-proto/PToReader
   (convertible-to-reader? [this] true)
   (->reader [this options]

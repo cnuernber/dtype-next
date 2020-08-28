@@ -1,5 +1,5 @@
 (ns tech.v3.datatype.protocols
-  (:import [tech.v3.datatype ElemwiseDatatype Countable]
+  (:import [tech.v3.datatype ElemwiseDatatype Countable PrimitiveIO]
            [clojure.lang Counted]
            [java.util List Map Set]
            [java.nio ByteOrder
@@ -130,7 +130,9 @@
 Note that this makes no mention of indianness; buffers are in the format of the host."))
 
 
-
+(defprotocol PToPrimitiveIO
+  (convertible-to-primitive-io? [item])
+  (->primitive-io [item]))
 
 ;; Various other type conversions.  These happen quite a lot and we have found that
 ;; avoiding 'satisfies' is wise.  In all of these cases, options may contain at least

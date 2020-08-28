@@ -2,7 +2,7 @@
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.array-buffer :as array-buffer]
             [tech.v3.datatype.native-buffer :as native-buffer])
-  (:import [tech.v3.datatype PrimitiveReader PrimitiveWriter
+  (:import [tech.v3.datatype PrimitiveReader PrimitiveWriter PrimitiveIO
             ObjectReader ObjectWriter]
            [tech.v3.datatype.array_buffer ArrayBuffer]
            [tech.v3.datatype.native_buffer NativeBuffer]
@@ -19,6 +19,15 @@
   (if-not item
     0
     (dtype-proto/ecount item)))
+
+
+(defn ->io
+  ^PrimitiveIO [item]
+  (when-not item (throw (Exception. "Cannot convert nil to reader")))
+  (if (instance? PrimitiveIO item)
+    item
+    (when (dtype-proto/convertible-to-primitive-io? item)
+      (dtype-proto/->primitive-io item))))
 
 
 (defn ->reader
@@ -119,6 +128,13 @@
     (dtype-proto/->writer
      (array-buffer/array-buffer buf (elemwise-datatype buf))
      options))
+  dtype-proto/PBuffer
+  (sub-buffer [buf offset len]
+    (if-let [data-buf (or (->array-buffer buf)
+                          (->native-buffer buf))]
+      (sub-buffer data-buf offset len)
+      (throw (Exception. (format "Buffer %s does not implement the sub-buffer protocol"
+                                 (type buf))))))
   dtype-proto/PToNativeBuffer
   (convertible-to-native-buffer? [buf] false)
   dtype-proto/PToArrayBuffer

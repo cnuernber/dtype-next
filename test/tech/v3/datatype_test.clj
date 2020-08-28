@@ -23,7 +23,7 @@
       (throw e))))
 
 
-(def create-functions [:jvm-heap :native-heap-LE :native-heap-BE])
+(def create-functions [:jvm-heap :native-heap-LE :native-heap-BE :list])
 
 
 (deftest generalized-copy-test
