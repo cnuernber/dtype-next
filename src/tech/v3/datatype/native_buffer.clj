@@ -4,7 +4,6 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.typecast :as typecast]
             [tech.v3.datatype.pprint :as dtype-pp]
-            [tech.v3.parallel.for :as parallel-for]
             [primitive-math :as pmath])
   (:import [xerial.larray.buffer UnsafeUtil]
            [sun.misc Unsafe]
