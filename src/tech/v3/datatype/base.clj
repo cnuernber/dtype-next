@@ -32,21 +32,25 @@
 
 
 (defn ->reader
-  ^PrimitiveReader [item]
-  (when-not item (throw (Exception. "Cannot convert nil to reader")))
-  (if (instance? PrimitiveReader item)
-    item
-    (when (dtype-proto/convertible-to-reader? item)
-      (dtype-proto/->reader item {}))))
+  (^PrimitiveReader [item options]
+   (when-not item (throw (Exception. "Cannot convert nil to reader")))
+   (if (instance? PrimitiveReader item)
+     item
+     (when (dtype-proto/convertible-to-reader? item)
+       (dtype-proto/->reader item options ))))
+  (^PrimitiveReader [item]
+   (->reader item {})))
 
 
 (defn ->writer
-  ^PrimitiveWriter [item]
-  (when-not item (throw (Exception. "Cannot convert nil to writer")))
-  (if (instance? PrimitiveWriter item)
-    item
-    (when (dtype-proto/convertible-to-writer? item)
-      (dtype-proto/->writer item {}))))
+  (^PrimitiveWriter [item options]
+   (when-not item (throw (Exception. "Cannot convert nil to writer")))
+   (if (instance? PrimitiveWriter item)
+     item
+     (when (dtype-proto/convertible-to-writer? item)
+       (dtype-proto/->writer item options))))
+  (^PrimitiveWriter [item]
+   (->writer item {})))
 
 
 (defn ->array-buffer
@@ -71,12 +75,23 @@
   ([item ^long offset ^long length]
    (let [n-elems (ecount item)]
      (when-not (<= (+ offset length) n-elems)
-       (throw (Exception. (format "Offset %d + length (%d) out of range of item length %d"
-                                  offset length n-elems))))
+       (throw (Exception. (format
+                           "Offset %d + length (%d) out of range of item length %d"
+                           offset length n-elems))))
      (dtype-proto/sub-buffer item offset length)))
   ([item ^long offset]
    (let [n-elems (ecount item)]
      (sub-buffer item offset (- n-elems offset)))))
+
+
+(defn get-value
+  [item idx]
+  ((->reader item) idx))
+
+
+(defn set-value!
+  [item idx value]
+  ((->writer item) idx value))
 
 
 (defn- random-access->io
@@ -143,8 +158,9 @@
       data-buf
       (if-let [data-io (->io buf)]
         (io-sub-buf/sub-buffer data-io offset len)
-        (throw (Exception. (format "Buffer %s does not implement the sub-buffer protocol"
-                                   (type buf)))))))
+        (throw (Exception. (format
+                            "Buffer %s does not implement the sub-buffer protocol"
+                            (type buf)))))))
   dtype-proto/PToNativeBuffer
   (convertible-to-native-buffer? [buf] false)
   dtype-proto/PToArrayBuffer
