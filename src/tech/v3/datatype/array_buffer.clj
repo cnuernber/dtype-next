@@ -8,6 +8,7 @@
            [tech.v3.datatype PrimitiveIO]))
 
 (set! *warn-on-reflection* true)
+(set! *unchecked-math* :warn-on-boxed)
 
 
 (defmacro java-array-buffer->io

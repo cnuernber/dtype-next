@@ -11,6 +11,7 @@
            [clojure.lang RT IObj Counted Indexed IFn]))
 
 (set! *warn-on-reflection* true)
+(set! *unchecked-math* :warn-on-boxed)
 
 
 (defn unsafe
@@ -242,10 +243,11 @@
   (invoke [item idx]
     (.nth item (int idx)))
   (invoke [item idx value]
-    (when-not (< idx n-elems)
-      (throw (IndexOutOfBoundsException. (format "idx %s, n-elems %s"
-                                                 idx n-elems))))
-    ((dtype-proto/->writer item {}) idx value))
+    (let [idx (long idx)]
+      (when-not (< idx n-elems)
+        (throw (IndexOutOfBoundsException. (format "idx %s, n-elems %s"
+                                                   idx n-elems))))
+      ((dtype-proto/->writer item {}) idx value)))
   (applyTo [item argseq]
     (case (count argseq)
       1 (.invoke item (first argseq))
