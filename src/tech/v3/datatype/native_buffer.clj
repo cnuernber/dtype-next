@@ -3,11 +3,13 @@
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.typecast :as typecast]
+            [tech.v3.datatype.pprint :as dtype-pp]
             [tech.v3.parallel.for :as parallel-for]
             [primitive-math :as pmath])
   (:import [xerial.larray.buffer UnsafeUtil]
            [sun.misc Unsafe]
-           [clojure.lang RT]))
+           [tech.v3.datatype PrimitiveIO]
+           [clojure.lang RT IObj Counted Indexed IFn]))
 
 (set! *warn-on-reflection* true)
 
@@ -15,6 +17,18 @@
 (defn unsafe
   ^Unsafe []
   UnsafeUtil/unsafe)
+
+
+(defn- normalize-track-type
+  [track-type]
+  ;;default track type is gc for native buffers
+  (let [track-type (or track-type :gc)]
+    (if (keyword? track-type)
+      #{track-type}
+      (set track-type))))
+
+
+(declare chain-native-buffers)
 
 
 (defmacro native-buffer->io-macro
@@ -35,6 +49,9 @@
        (elemwiseDatatype [rdr#] ~advertised-datatype)
        (lsize [rdr#] ~n-elems)
        (read [rdr# ~'idx]
+         ;;This increases elemwise access costs by about 1/3.  There should be an
+         ;;option I guess to diable it but then we get into a class explosion
+         ;;situation.
          ~(if (not swap?)
             (case datatype
               :int8 `(.getByte (unsafe) (pmath/+ ~address ~'idx))
@@ -75,7 +92,8 @@
                                                       (pmath/* ~'idx ~byte-width)))
                          (Short/reverseBytes)
                          (RT/uncheckedCharCast))
-              :int32 `(-> (.getInt (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width)))
+              :int32 `(-> (.getInt (unsafe) (pmath/+ ~address
+                                                     (pmath/* ~'idx ~byte-width)))
                           (Integer/reverseBytes))
               :uint32 `(-> (.getInt (unsafe) (pmath/+ ~address
                                                       (pmath/* ~'idx ~byte-width)))
@@ -101,9 +119,11 @@
               :int8 `(.putByte (unsafe) (pmath/+ ~address ~'idx) ~'value)
               :uint8 `(.putByte (unsafe) (pmath/+ ~address ~'idx)
                                 (casting/datatype->cast-fn :int16 :uint8 ~'value))
-              :int16 `(.putShort (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
+              :int16 `(.putShort (unsafe) (pmath/+ ~address
+                                                   (pmath/* ~'idx ~byte-width))
                                  ~'value)
-              :uint16 `(.putShort (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
+              :uint16 `(.putShort (unsafe) (pmath/+ ~address
+                                                    (pmath/* ~'idx ~byte-width))
                                   (casting/datatype->cast-fn :int32 :uint16 ~'value))
               :char `(.putShort (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
                                 (unchecked-short (int ~'value)))
@@ -113,7 +133,8 @@
                                 (casting/datatype->cast-fn :int64 :uint32 ~'value))
               :int64 `(.putLong (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
                                 ~'value)
-              :uint64 `(.putLong (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
+              :uint64 `(.putLong (unsafe) (pmath/+ ~address
+                                                   (pmath/* ~'idx ~byte-width))
                                  ~'value)
               :float32 `(.putFloat (unsafe)
                                    (pmath/+ ~address (pmath/* ~'idx ~byte-width))
@@ -125,19 +146,24 @@
               :int8 `(.putByte (unsafe) (pmath/+ ~address ~'idx) ~'value)
               :uint8 `(.putByte (unsafe) (pmath/+ ~address ~'idx)
                                 (casting/datatype->cast-fn :int16 :uint8 ~'value))
-              :int16 `(.putShort (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
+              :int16 `(.putShort (unsafe) (pmath/+ ~address
+                                                   (pmath/* ~'idx ~byte-width))
                                  (Short/reverseBytes ~'value))
-              :uint16 `(.putShort (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
-                                  (Short/reverseBytes (casting/datatype->cast-fn :int32 :uint16 ~'value)))
+              :uint16 `(.putShort (unsafe) (pmath/+ ~address
+                                                    (pmath/* ~'idx ~byte-width))
+                                  (Short/reverseBytes (casting/datatype->cast-fn
+                                                       :int32 :uint16 ~'value)))
               :char `(.putShort (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
                                 (Short/reverseBytes (unchecked-short (int ~'value))))
               :int32 `(.putInt (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
                                (Integer/reverseBytes ~'value))
               :uint32 `(.putInt (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
-                                (Integer/reverseBytes (casting/datatype->cast-fn :int64 :uint32 ~'value)))
+                                (Integer/reverseBytes (casting/datatype->cast-fn
+                                                       :int64 :uint32 ~'value)))
               :int64 `(.putLong (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
                                 (Long/reverseBytes ~'value))
-              :uint64 `(.putLong (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
+              :uint64 `(.putLong (unsafe) (pmath/+ ~address
+                                                   (pmath/* ~'idx ~byte-width))
                                  (Long/reverseBytes ~'value))
               :float32 `(.putInt (unsafe)
                                  (pmath/+ ~address (pmath/* ~'idx ~byte-width))
@@ -154,7 +180,9 @@
 
 
 ;;Size is in elements, not in bytes
-(defrecord NativeBuffer [^long address ^long n-elems datatype endianness]
+(deftype NativeBuffer [^long address ^long n-elems datatype endianness
+                       resource-type metadata
+                       ^:volatile-mutable ^PrimitiveIO cached-io]
   dtype-proto/PToNativeBuffer
   (convertible-to-native-buffer? [this] true)
   (->native-buffer [this] this)
@@ -173,19 +201,63 @@
         (throw (Exception.
                 (format "Offset+length (%s) > n-elems (%s)"
                         (+ offset length) n-elems))))
-      (NativeBuffer. (+ address (* offset byte-width)) length datatype endianness)))
+      (chain-native-buffers this
+                            (NativeBuffer. (+ address (* offset byte-width))
+                                           length datatype endianness
+                                           resource-type metadata nil))))
   dtype-proto/PToPrimitiveIO
   (convertible-to-primitive-io? [this] true)
   (->primitive-io [this]
-    (native-buffer->io this))
+    (if cached-io
+      cached-io
+      (do
+        (set! cached-io (native-buffer->io this))
+        cached-io)))
   dtype-proto/PToReader
   (convertible-to-reader? [this] true)
   (->reader [this options]
-    (native-buffer->io this))
+    (dtype-proto/->primitive-io this))
   dtype-proto/PToWriter
   (convertible-to-writer? [this] true)
   (->writer [this options]
-    (native-buffer->io this)))
+    (dtype-proto/->primitive-io this))
+  IObj
+  (meta [item] metadata)
+  (withMeta [item metadata]
+    (NativeBuffer. address n-elems datatype endianness resource-type
+                   metadata
+                   cached-io))
+  Counted
+  (count [item] (int (dtype-proto/ecount item)))
+  Indexed
+  (nth [item idx]
+    (when-not (< idx n-elems)
+      (throw (IndexOutOfBoundsException. (format "idx %s, n-elems %s"
+                                                 idx n-elems))))
+    ((dtype-proto/->primitive-io item) idx))
+  (nth [item idx def-val]
+    (if (and (>= idx 0) (< idx (.count item)))
+      ((dtype-proto/->primitive-io item) idx)
+      def-val))
+  IFn
+  (invoke [item idx]
+    (.nth item (int idx)))
+  (invoke [item idx value]
+    (when-not (< idx n-elems)
+      (throw (IndexOutOfBoundsException. (format "idx %s, n-elems %s"
+                                                 idx n-elems))))
+    ((dtype-proto/->writer item {}) idx value))
+  (applyTo [item argseq]
+    (case (count argseq)
+      1 (.invoke item (first argseq))
+      2 (.invoke item (first argseq) (second argseq))))
+  Object
+  (toString [buffer]
+    (dtype-pp/buffer->string buffer (format "native-buffer@0x%016X"
+                                            (.address buffer)))))
+
+
+(dtype-pp/implement-tostring-print NativeBuffer)
 
 
 (defn- native-buffer->io
@@ -218,7 +290,23 @@
         :int64 (native-buffer->io-macro :int64 datatype this address n-elems false)
         :uint64 (native-buffer->io-macro :uint64 datatype this address n-elems false)
         :float32 (native-buffer->io-macro :float32 datatype this address n-elems false)
-        :float64 (native-buffer->io-macro :float64 datatype this address n-elems false)))))
+        :float64 (native-buffer->io-macro :float64 datatype this
+                                          address n-elems false)))))
+
+
+(defn- chain-native-buffers
+  [^NativeBuffer old-buf ^NativeBuffer new-buf]
+  ;;If the resource type is GC, we have to associate the new buf with the old buf
+  ;;such that the old buffer can't get cleaned up while the new buffer is still
+  ;;referencable via the gc.
+  (if ((.resource-type old-buf) :gc)
+    (resource/track new-buf #(constantly old-buf) :gc)
+    new-buf))
+
+(defn- validate-endianness
+  [endianness]
+  (when-not (#{:little-endian :big-endian} endianness)
+    (throw (Exception. (format "Unrecognized endianness: %s" endianness)))))
 
 
 (defn as-native-buffer
@@ -242,14 +330,34 @@
                                   (dtype-proto/elemwise-datatype item)))
         new-byte-width (casting/numeric-byte-width
                         (casting/un-alias-datatype datatype))]
-    (NativeBuffer. (.address nb) (quot n-bytes new-byte-width) datatype (.endianness nb))))
+    (chain-native-buffers
+     item
+     (NativeBuffer. (.address nb) (quot n-bytes new-byte-width)
+                    datatype (.endianness nb)
+                    (.resource-type nb) nil nil))))
 
 
 (defn set-endianness
   ^NativeBuffer [item endianness]
-  (when-not (#{:little-endian :big-endian} endianness)
-    (let [nb (as-native-buffer item)]
-      (NativeBuffer. (.address nb) (.n-elems nb) (.datatype nb) endianness))))
+  (let [nb (as-native-buffer item)]
+    (validate-endianness endianness)
+    (if (= endianness (.endianness nb))
+      nb
+      (chain-native-buffers item
+                            (NativeBuffer. (.address nb) (.n-elems nb)
+                                           (.datatype nb) endianness
+                                           (.resource-type nb) nil nil)))))
+
+
+(defn native-buffer->map
+  [^NativeBuffer buf]
+  {:address (.address buf)
+   :length (.n-elems buf)
+   :byte-length (* (.n-elems buf) (casting/numeric-byte-width (.datatype buf)))
+   :datatype (.datatype buf)
+   :resource-type (.resource-type buf)
+   :endianness (.endianness buf)
+   :metadata (.metadata buf)})
 
 
 ;;One off data reading
@@ -324,10 +432,14 @@
   (^NativeBuffer [^long n-bytes {:keys [resource-type uninitialized?
                                         endianness]
                                  :or {resource-type :gc}}]
-   (let [retval (NativeBuffer. (.allocateMemory (unsafe) n-bytes)
+   (let [resource-type (normalize-track-type resource-type)
+         endianness (-> (or endianness (dtype-proto/platform-endianness))
+                        (validate-endianness))
+         retval (NativeBuffer. (.allocateMemory (unsafe) n-bytes)
                                n-bytes
                                :int8
-                               (or endianness (dtype-proto/platform-endianness)))
+                               endianness
+                               resource-type nil nil)
          addr (.address retval)]
      (when-not uninitialized?
        (.setMemory (unsafe) addr n-bytes 0))

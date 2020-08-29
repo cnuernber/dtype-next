@@ -30,9 +30,7 @@
           :float32 (float-array n-elems)
           :float64 (double-array n-elems)
           (make-array (casting/datatype->object-class datatype) n-elems))
-        ary-buf (if (= datatype (casting/host-flatten datatype))
-                  ary-data
-                  (array-buffer/array-buffer ary-data datatype))]
+        ary-buf (array-buffer/array-buffer ary-data datatype)]
     (when-not (number? elem-seq-or-count)
       (copy! elem-seq-or-count ary-buf options))
     ary-buf))

@@ -8,11 +8,13 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.parallel.for :as parallel-for]
+            [tech.v3.datatype.pprint :as dtype-pp]
             [tech.resource :as resource])
   (:import [tech.v3.datatype BooleanList LongList DoubleList ObjectList
-            PrimitiveWriter PrimitiveReader BooleanIO LongIO DoubleIO ObjectIO]
+            PrimitiveIO BooleanIO LongIO DoubleIO ObjectIO]
            [tech.v3.datatype.array_buffer ArrayBuffer]
            [tech.v3.datatype.native_buffer NativeBuffer]
+           [clojure.lang IObj Counted Indexed IFn]
            [java.util ArrayList List]))
 
 
@@ -38,13 +40,16 @@
                                  (* 2 desired-size)
                                  (long (* 1.25 desired-size))))]
         (if-let [ary-buf (dtype-base/->array-buffer buffer-data)]
-          (let [new-buffer (dtype-cmc/make-container :jvm-heap (.datatype ary-buf) new-capacity)]
+          (let [new-buffer (dtype-cmc/make-container :jvm-heap (.datatype ary-buf)
+                                                     new-capacity)]
             (dtype-cmc/copy! buffer-data (dtype-base/sub-buffer new-buffer 0 capacity))
             new-buffer)
           (let [native-buf (dtype-base/->native-buffer buffer-data)
-                new-buffer (dtype-cmc/make-container :native-heap (.datatype native-buf)
-                                                     new-capacity
-                                                     {:endianness (.endianness native-buf)})]
+                new-buffer (dtype-cmc/make-container
+                            :native-heap (.datatype native-buf)
+                            new-capacity
+                            {:endianness (.endianness native-buf)
+                             :resource-type (.resource-type native-buf)})]
             (dtype-cmc/copy! buffer-data (dtype-base/sub-buffer new-buffer 0 capacity))
             new-buffer))))))
 
@@ -55,36 +60,42 @@
   (let [capacity (dtype-base/ecount buffer-data)]
     (if-not (== capacity new-capacity)
       buffer-data
-      ;;TODO - research ideal buffer growth algorithms
-      ;;Once things get huge you have to be careful.
       (if-let [ary-buf (dtype-base/->array-buffer buffer-data)]
-        (let [new-buffer (dtype-cmc/make-container :jvm-heap (.datatype ary-buf) new-capacity)]
+        (let [new-buffer (dtype-cmc/make-container :jvm-heap (.datatype ary-buf)
+                                                   new-capacity)]
           (dtype-cmc/copy! buffer-data (dtype-base/sub-buffer new-buffer 0 capacity))
           new-buffer)
         (let [native-buf (dtype-base/->native-buffer buffer-data)
-              new-buffer (dtype-cmc/make-container :native-heap (.datatype native-buf)
-                                                   new-capacity
-                                                   {:endianness (.endianness native-buf)})]
+              new-buffer (dtype-cmc/make-container
+                          :native-heap (.datatype native-buf)
+                          new-capacity
+                          {:endianness (.endianness native-buf)
+                           :resource-type (.resource-type native-buf)})]
           (dtype-cmc/copy! buffer-data (dtype-base/sub-buffer new-buffer 0 capacity))
           new-buffer)))))
+
+
+(defn- list->string
+  ^String [list-item]
+  (dtype-pp/buffer->string list-item "list"))
 
 
 
 (deftype BooleanListImpl [^:unsynchronized-mutable buffer
                           ^:unsynchronized-mutable ^long ptr
-                          ^:unsynchronized-mutable ^PrimitiveWriter writer
-                          ^:unsynchronized-mutable ^PrimitiveReader reader]
+                          ^:unsynchronized-mutable ^PrimitiveIO cached-io
+                          metadata]
   BooleanIO
   (elemwiseDatatype [this] (dtype-base/elemwise-datatype buffer))
   (lsize [this] ptr)
   (read [this idx]
     (when-not (< idx ptr)
       (throw (Exception. "idx out of range")))
-    (.readBoolean reader idx))
+    (.readBoolean cached-io idx))
   (write [this idx value]
     (when-not (< idx ptr)
       (throw (Exception. "idx out of range")))
-    (.writeBoolean writer idx value))
+    (.writeBoolean cached-io idx value))
   dtype-proto/PToArrayBuffer
   (convertible-to-array-buffer? [this]
     (dtype-proto/convertible-to-array-buffer? buffer))
@@ -101,12 +112,10 @@
       (when-not (identical? new-buf buffer)
         (do
           (set! buffer new-buf)
-          (let [reader-writer (dtype-base/->writer new-buf)]
-            (set! writer reader-writer)
-            (set! reader reader-writer))))))
+          (set! cached-io (dtype-base/->io new-buf))))))
   (addBoolean [item value]
     (.ensureCapacity item ptr)
-    (.writeBoolean writer ptr value)
+    (.writeBoolean cached-io ptr value)
     (set! ptr (unchecked-inc ptr)))
   (addAll [item coll]
     (let [item-ecount (dtype-base/ecount coll)]
@@ -118,33 +127,65 @@
           (set! ptr (+ ptr item-ecount)))
         (parallel-for/doiter
          data coll
-         (.add item data))))))
+         (.add item data)))))
+  IObj
+  (meta [item] metadata)
+  (withMeta [item metadata]
+    (BooleanListImpl. buffer ptr cached-io metadata))
+  Counted
+  (count [item] (int ptr))
+  Indexed
+  (nth [item idx]
+    (when-not (< idx ptr)
+      (throw (IndexOutOfBoundsException. (format "idx %s, n-elems %s"
+                                                 idx ptr))))
+    (.readObject item idx))
+  (nth [item idx def-val]
+    (if (and (>= idx 0) (< idx (.count item)))
+      (.readObject item idx)
+      def-val))
+  IFn
+  (invoke [item idx]
+    (.nth item (int idx)))
+  (invoke [item idx value]
+    (let [idx (long idx)]
+      (when-not (< idx ptr)
+        (throw (IndexOutOfBoundsException. (format "idx %s, n-elems %s"
+                                                   idx ptr))))
+      (.writeObject item idx value)))
+  (applyTo [item argseq]
+    (case (count argseq)
+      1 (.invoke item (first argseq))
+      2 (.invoke item (first argseq) (second argseq))))
+  Object
+  (toString [buffer]
+    (list->string buffer)))
 
 
 (defn boolean-list
   (^BooleanList [initial-container ^long ptr]
    (let [rw (dtype-base/->reader initial-container)]
-     (BooleanListImpl. initial-container ptr rw rw)))
+     (BooleanListImpl. initial-container ptr rw {})))
   (^BooleanList []
    (boolean-list (dtype-cmc/make-container :boolean 10) 0)))
 
-
+(dtype-pp/implement-tostring-print BooleanListImpl)
 
 (deftype LongListImpl [^:unsynchronized-mutable buffer
-                      ^:unsynchronized-mutable ^long ptr
-                      ^:unsynchronized-mutable ^PrimitiveWriter writer
-                      ^:unsynchronized-mutable ^PrimitiveReader reader]
+                       ^:unsynchronized-mutable ^long ptr
+                       ^:unsynchronized-mutable ^PrimitiveIO cached-io
+                       metadata]
   LongIO
   (elemwiseDatatype [this] (dtype-base/elemwise-datatype buffer))
   (lsize [this] ptr)
   (read [this idx]
     (when-not (< idx ptr)
       (throw (Exception. "idx out of range")))
-    (.readLong reader idx))
+    (.readLong cached-io idx))
   (write [this idx value]
     (when-not (< idx ptr)
       (throw (Exception. "idx out of range")))
-    (.writeLong writer idx value))
+    (.writeLong cached-io idx value))
   dtype-proto/PToArrayBuffer
   (convertible-to-array-buffer? [this]
     (dtype-proto/convertible-to-array-buffer? buffer))
@@ -162,12 +203,10 @@
       (when-not (identical? new-buf buffer)
         (do
           (set! buffer new-buf)
-          (let [reader-writer (dtype-base/->writer new-buf)]
-            (set! writer reader-writer)
-            (set! reader reader-writer))))))
+          (set! cached-io (dtype-base/->io new-buf))))))
   (addLong [item value]
     (.ensureCapacity item ptr)
-    (.writeLong writer ptr value)
+    (.writeLong cached-io ptr value)
     (set! ptr (unchecked-inc ptr)))
   (addAll [item coll]
     (let [item-ecount (dtype-base/ecount coll)]
@@ -179,33 +218,67 @@
           (set! ptr (+ ptr item-ecount)))
         (parallel-for/doiter
          data coll
-         (.add item data))))))
+         (.add item data)))))
+  IObj
+  (meta [item] metadata)
+  (withMeta [item metadata]
+    (LongListImpl. buffer ptr cached-io metadata))
+  Counted
+  (count [item] (int ptr))
+  Indexed
+  (nth [item idx]
+    (when-not (< idx ptr)
+      (throw (IndexOutOfBoundsException. (format "idx %s, n-elems %s"
+                                                 idx ptr))))
+    (.readObject item idx))
+  (nth [item idx def-val]
+    (if (and (>= idx 0) (< idx (.count item)))
+      (.readObject item idx)
+      def-val))
+  IFn
+  (invoke [item idx]
+    (.nth item (int idx)))
+  (invoke [item idx value]
+    (let [idx (long idx)]
+      (when-not (< idx ptr)
+        (throw (IndexOutOfBoundsException. (format "idx %s, n-elems %s"
+                                                   idx ptr))))
+      (.writeObject item idx value)))
+  (applyTo [item argseq]
+    (case (count argseq)
+      1 (.invoke item (first argseq))
+      2 (.invoke item (first argseq) (second argseq))))
+  Object
+  (toString [buffer]
+    (list->string buffer)))
 
 
 (defn long-list
   (^LongList [initial-container ^long ptr]
-   (let [rw (dtype-base/->reader initial-container)]
-     (LongListImpl. initial-container ptr rw rw)))
+   (let [rw (dtype-base/->io initial-container)]
+     (LongListImpl. initial-container ptr rw {})))
   (^LongList []
    (long-list (dtype-cmc/make-container :int64 10) 0)))
 
 
+(dtype-pp/implement-tostring-print LongListImpl)
+
 
 (deftype DoubleListImpl [^:unsynchronized-mutable buffer
                          ^:unsynchronized-mutable ^long ptr
-                         ^:unsynchronized-mutable ^PrimitiveWriter writer
-                         ^:unsynchronized-mutable ^PrimitiveReader reader]
+                         ^:unsynchronized-mutable ^PrimitiveIO cached-io
+                         metadata]
   DoubleIO
   (elemwiseDatatype [this] (dtype-base/elemwise-datatype buffer))
   (lsize [this] ptr)
   (read [this idx]
     (when-not (< idx ptr)
       (throw (Exception. "idx out of range")))
-    (.readDouble reader idx))
+    (.readDouble cached-io idx))
   (write [this idx value]
     (when-not (< idx ptr)
       (throw (Exception. "idx out of range")))
-    (.writeDouble writer idx value))
+    (.writeDouble cached-io idx value))
   dtype-proto/PToArrayBuffer
   (convertible-to-array-buffer? [this]
     (dtype-proto/convertible-to-array-buffer? buffer))
@@ -223,12 +296,10 @@
       (when-not (identical? new-buf buffer)
         (do
           (set! buffer new-buf)
-          (let [reader-writer (dtype-base/->writer new-buf)]
-            (set! writer reader-writer)
-            (set! reader reader-writer))))))
+          (set! cached-io (dtype-base/->io new-buf))))))
   (addDouble [item value]
     (.ensureCapacity item ptr)
-    (.writeDouble writer ptr value)
+    (.writeDouble cached-io ptr value)
     (set! ptr (unchecked-inc ptr)))
   (addAll [item coll]
     (let [item-ecount (dtype-base/ecount coll)]
@@ -240,32 +311,67 @@
           (set! ptr (+ ptr item-ecount)))
         (parallel-for/doiter
          data coll
-         (.add item data))))))
+         (.add item data)))))
+  IObj
+  (meta [item] metadata)
+  (withMeta [item metadata]
+    (DoubleListImpl. buffer ptr cached-io metadata))
+  Counted
+  (count [item] (int ptr))
+  Indexed
+  (nth [item idx]
+    (when-not (< idx ptr)
+      (throw (IndexOutOfBoundsException. (format "idx %s, n-elems %s"
+                                                 idx ptr))))
+    (.readObject item idx))
+  (nth [item idx def-val]
+    (if (and (>= idx 0) (< idx (.count item)))
+      (.readObject item idx)
+      def-val))
+  IFn
+  (invoke [item idx]
+    (.nth item (int idx)))
+  (invoke [item idx value]
+    (let [idx (long idx)]
+      (when-not (< idx ptr)
+        (throw (IndexOutOfBoundsException. (format "idx %s, n-elems %s"
+                                                   idx ptr))))
+      (.writeObject item idx value)))
+  (applyTo [item argseq]
+    (case (count argseq)
+      1 (.invoke item (first argseq))
+      2 (.invoke item (first argseq) (second argseq))))
+  Object
+  (toString [buffer]
+    (list->string buffer)))
 
 
 (defn double-list
   (^DoubleList [initial-container ^long ptr]
-   (let [rw (dtype-base/->reader initial-container)]
-     (DoubleListImpl. initial-container ptr rw rw)))
+   (let [rw (dtype-base/->io initial-container)]
+     (DoubleListImpl. initial-container ptr rw {})))
   (^DoubleList []
    (double-list (dtype-cmc/make-container :float64 10) 0)))
 
 
+(dtype-pp/implement-tostring-print DoubleListImpl)
+
+
 (deftype ObjectListImpl [^:unsynchronized-mutable buffer
                          ^:unsynchronized-mutable ^long ptr
-                         ^:unsynchronized-mutable ^PrimitiveWriter writer
-                         ^:unsynchronized-mutable ^PrimitiveReader reader]
+                         ^:unsynchronized-mutable ^PrimitiveIO cached-io
+                         metadata]
   ObjectIO
   (elemwiseDatatype [this] (dtype-base/elemwise-datatype buffer))
   (lsize [this] ptr)
   (read [this idx]
     (when-not (< idx ptr)
       (throw (Exception. "idx out of range")))
-    (.readObject reader idx))
+    (.readObject cached-io idx))
   (write [this idx value]
     (when-not (< idx ptr)
       (throw (Exception. "idx out of range")))
-    (.writeObject writer idx value))
+    (.writeObject cached-io idx value))
   dtype-proto/PToArrayBuffer
   (convertible-to-array-buffer? [this]
     (dtype-proto/convertible-to-array-buffer? buffer))
@@ -283,12 +389,10 @@
       (when-not (identical? new-buf buffer)
         (do
           (set! buffer new-buf)
-          (let [reader-writer (dtype-base/->writer new-buf)]
-            (set! writer reader-writer)
-            (set! reader reader-writer))))))
+          (set! cached-io (dtype-base/->io new-buf))))))
   (addObject [item value]
     (.ensureCapacity item ptr)
-    (.writeObject writer ptr value)
+    (.writeObject cached-io ptr value)
     (set! ptr (unchecked-inc ptr)))
   (addAll [item coll]
     (let [item-ecount (dtype-base/ecount coll)]
@@ -300,15 +404,50 @@
           (set! ptr (+ ptr item-ecount)))
         (parallel-for/doiter
          data coll
-         (.add item data))))))
+         (.add item data)))))
+  IObj
+  (meta [item] metadata)
+  (withMeta [item metadata]
+    (ObjectListImpl. buffer ptr cached-io metadata))
+  Counted
+  (count [item] (int ptr))
+  Indexed
+  (nth [item idx]
+    (when-not (< idx ptr)
+      (throw (IndexOutOfBoundsException. (format "idx %s, n-elems %s"
+                                                 idx ptr))))
+    (.readObject item idx))
+  (nth [item idx def-val]
+    (if (and (>= idx 0) (< idx (.count item)))
+      (.readObject item idx)
+      def-val))
+  IFn
+  (invoke [item idx]
+    (.nth item (int idx)))
+  (invoke [item idx value]
+    (let [idx (long idx)]
+      (when-not (< idx ptr)
+        (throw (IndexOutOfBoundsException. (format "idx %s, n-elems %s"
+                                                   idx ptr))))
+      (.writeObject item idx value)))
+  (applyTo [item argseq]
+    (case (count argseq)
+      1 (.invoke item (first argseq))
+      2 (.invoke item (first argseq) (second argseq))))
+  Object
+  (toString [buffer]
+    (list->string buffer)))
 
 
 (defn object-list
   (^ObjectList [initial-container ^long ptr]
-   (let [rw (dtype-base/->reader initial-container)]
-     (ObjectListImpl. initial-container ptr rw rw)))
+   (let [rw (dtype-base/->io initial-container)]
+     (ObjectListImpl. initial-container ptr rw {})))
   (^ObjectList []
    (object-list (dtype-cmc/make-container :int64 16) 0)))
+
+
+(dtype-pp/implement-tostring-print ObjectListImpl)
 
 
 (defn wrap-container

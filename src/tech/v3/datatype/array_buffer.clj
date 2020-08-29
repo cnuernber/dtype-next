@@ -2,7 +2,10 @@
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.typecast :as typecast]
             [tech.v3.datatype.casting :as casting]
-            [primitive-math :as pmath]))
+            [tech.v3.datatype.pprint :as dtype-pp]
+            [primitive-math :as pmath])
+  (:import [clojure.lang IObj Counted Indexed IFn]
+           [tech.v3.datatype PrimitiveIO]))
 
 (set! *warn-on-reflection* true)
 
@@ -38,7 +41,8 @@
 (declare array-buffer->io)
 
 
-(deftype ArrayBuffer [ary-data ^int offset ^int n-elems datatype]
+(deftype ArrayBuffer [ary-data ^int offset ^int n-elems datatype metadata
+                      ^:volatile-mutable ^PrimitiveIO cached-io]
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [item] datatype)
   dtype-proto/PECount
@@ -53,20 +57,53 @@
     (ArrayBuffer. ary-data
                   (+ offset (int off))
                   (int len)
-                  datatype))
+                  datatype
+                  metadata
+                  nil))
   dtype-proto/PToPrimitiveIO
   (convertible-to-primitive-io? [item] true)
   (->primitive-io [item]
-    (array-buffer->io ary-data datatype item offset n-elems))
+    (if cached-io cached-io
+        (let [io
+              (array-buffer->io ary-data datatype item offset n-elems)]
+          (set! cached-io io)
+          io)))
   dtype-proto/PToReader
   (convertible-to-reader? [item] true)
   (->reader [item options]
-    (array-buffer->io ary-data datatype item offset n-elems))
+    (dtype-proto/->primitive-io item))
   dtype-proto/PToWriter
   (convertible-to-writer? [item] true)
   (->writer [item options]
-    (array-buffer->io ary-data datatype item offset n-elems)))
+    (dtype-proto/->primitive-io item))
+  IObj
+  (meta [item] metadata)
+  (withMeta [item metadata]
+    (ArrayBuffer. ary-data offset n-elems datatype metadata cached-io))
+  Counted
+  (count [item] (int (dtype-proto/ecount item)))
+  Indexed
+  (nth [item idx]
+    ((dtype-proto/->primitive-io item) idx))
+  (nth [item idx def-val]
+    (if (and (>= idx 0) (< idx (.count item)))
+      ((dtype-proto/->primitive-io item) idx)
+      def-val))
+  IFn
+  (invoke [item idx]
+    (nth item (int idx)))
+  (invoke [item idx value]
+    ((dtype-proto/->writer item {}) idx value))
+  (applyTo [item argseq]
+    (case (count argseq)
+      1 (.invoke item (first argseq))
+      2 (.invoke item (first argseq) (second argseq))))
+  Object
+  (toString [item]
+    (dtype-pp/buffer->string item "array-buffer")))
 
+
+(dtype-pp/implement-tostring-print ArrayBuffer)
 
 
 (defn- array-buffer->io
@@ -104,9 +141,24 @@
 
 (defn array-buffer
   ([java-ary]
-   (ArrayBuffer. java-ary 0 (count java-ary) (dtype-proto/elemwise-datatype java-ary)))
+   (ArrayBuffer. java-ary 0 (count java-ary)
+                 (dtype-proto/elemwise-datatype java-ary)
+                 {}
+                 nil))
   ([java-ary buf-dtype]
-   (ArrayBuffer. java-ary 0 (count java-ary) buf-dtype)))
+   (ArrayBuffer. java-ary 0 (count java-ary) buf-dtype {}
+                 nil)))
+
+
+(defn array-buffer->map
+  "Convert an array buffer to a map of
+  {:java-array :offset :length :datatype}"
+  [^ArrayBuffer ary-buf]
+  {:java-array (.ary-data ary-buf)
+   :offset (.offset ary-buf)
+   :length (.n-elems ary-buf)
+   :datatype (.datatype ary-buf)
+   :metadata (.metadata ary-buf)})
 
 
 (defn is-array-type?
@@ -148,14 +200,19 @@
                         (convertible-to-array-buffer? [item#] true)
                         (->array-buffer [item#]
                           (ArrayBuffer. item# 0
-                                        (alength (typecast/datatype->array ~ary-type item#))
-                                        (dtype-proto/elemwise-datatype item#)))
+                                        (alength (typecast/datatype->array ~ary-type
+                                                                           item#))
+                                        (dtype-proto/elemwise-datatype item#)
+                                        {}
+                                        nil))
                         dtype-proto/PBuffer
                         (sub-buffer [item# off# len#]
                           (ArrayBuffer. item#
                                         (int off#)
                                         (int len#)
-                                        (dtype-proto/elemwise-datatype item#)))
+                                        (dtype-proto/elemwise-datatype item#)
+                                        {}
+                                        nil))
                         dtype-proto/PToReader
                         (convertible-to-reader? [item#] true)
                         (->reader [item# options#]

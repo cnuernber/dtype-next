@@ -119,11 +119,14 @@
   (->writer [item options]
     (random-access->io item)))
 
+
 (defn- inner-buffer-sub-buffer
   [buf ^long offset ^Long len]
   (when-let [data-buf (or (->array-buffer buf)
                           (->native-buffer buf))]
-    (sub-buffer data-buf offset len)))
+    (with-meta
+      (sub-buffer data-buf offset len)
+      (meta buf))))
 
 
 (extend-type PrimitiveIO
