@@ -1,7 +1,9 @@
 (ns tech.v3.datatype-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [clojure.test :refer [deftest is testing]]
             [tech.v3.datatype :as dtype]
-            [tech.v3.datatype.casting :as casting]))
+            [tech.v3.datatype.casting :as casting]
+            [tech.v3.parallel.for :as parallel-for])
+  (:import [java.nio FloatBuffer]))
 
 
 (defn basic-copy
@@ -70,3 +72,82 @@
 (deftest out-of-range-data-causes-exception
   (is (thrown? Throwable (dtype/copy! (int-array [1000 2000 3000 4000])
                                       (byte-array 4)))))
+
+
+(deftest offset-buffers-should-copy-correctly
+  (let [fbuf (-> (dtype/make-container :float32 (range 10))
+                 (dtype/sub-buffer 3))
+        result-buf (dtype/make-container :float32 (dtype/ecount fbuf))]
+    (dtype/copy! fbuf result-buf)
+    (is (= (dtype/get-value fbuf 0)
+           (float 3)))
+    (is (= (vec (drop 3 (range 10)))
+           (mapv long (dtype/->vector result-buf))))))
+
+
+(deftest primitive-types-are-typed
+  (doseq [[cls dtype] [[(byte 1) :int8]
+                       [(short 1) :int16]
+                       [(char 1) :char]
+                       [(int 1) :int32]
+                       [(long 1) :int64]
+                       [(float 1) :float32]
+                       [(double 1) :float64]
+                       [(boolean false) :boolean]]]
+    (is (= dtype (dtype/elemwise-datatype cls)))))
+
+
+(deftest copy-time-test
+  (testing "Run perf regression of times spent to copy data"
+    (let [num-items (long 100000)
+          src-data (float-array (range num-items))
+          dst-data (float-array num-items)
+          array-copy (fn []
+                       (parallel-for/parallel-for
+                        idx num-items
+                        (aset dst-data idx (aget src-data idx))))
+          src-buf (FloatBuffer/wrap src-data)
+          dst-buf (FloatBuffer/wrap dst-data)
+          buffer-copy (fn []
+                        (let [
+                              ;; Curiously, uncommenting this gets a far faster result.
+                              ;; But it isn't at all practical.
+                              ;; src-buf (FloatBuffer/wrap src-data)
+                              ;; dst-buf (FloatBuffer/wrap dst-data)
+                              ]
+                          (parallel-for/parallel-for
+                           idx num-items
+                           (.put dst-buf idx (.get src-buf idx)))))
+          src-nbuf (dtype/make-container :native-heap :float32 (range num-items))
+          dst-nbuf (dtype/make-container :native-heap :float32 num-items)
+
+          dtype-copy (fn []
+                       (dtype/copy! src-nbuf dst-nbuf num-items))
+
+
+          make-array (fn []
+                       (dtype/make-container :java-array :float32 dst-buf))
+          marshal-buf (int-array num-items)
+          ;;If you have to do a marshalling copy then exploiting parallelism will be
+          ;;your best bet.  It costs a lot to marshal across datatypes, esp. int->float.
+          marshal-copy (fn []
+                         (dtype/copy! src-data 0
+                                      marshal-buf 0
+                                      num-items
+                                      {:unchecked? true}))
+          fns {:array-copy array-copy
+               :buffer-copy buffer-copy
+               :dtype-copy dtype-copy
+               :make-array make-array
+               :marshal-copy marshal-copy}
+          run-timed-fns (fn []
+                          (->> fns
+                               (map (fn [[fn-name time-fn]]
+                                      [fn-name (with-out-str
+                                                 (time
+                                                  (dotimes [iter 400]
+                                                    (time-fn))))]))
+                               (into {})))
+          warmup (run-timed-fns)
+          times (run-timed-fns)]
+      (println times))))

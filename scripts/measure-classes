@@ -1,0 +1,5 @@
+#!/bin/bash
+
+lein clean && lein uberjar
+unzip target/dtype-next.jar -d target/dtype-next >& /dev/null
+du -hs target/dtype-next/tech

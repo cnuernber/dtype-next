@@ -12,7 +12,7 @@
 
 (defn elemwise-datatype
   [item]
-  (when item (dtype-proto/elemwise-datatype item)))
+  (when-not (nil? item) (dtype-proto/elemwise-datatype item)))
 
 
 (defn ecount

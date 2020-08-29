@@ -38,13 +38,13 @@
 
 (defmethod dtype-proto/make-container :java-array
   [container-type datatype elem-seq-or-count options]
-  (dtype-proto/make-container :jvm-heap container-type datatype elem-seq-or-count options))
+  (dtype-proto/make-container :jvm-heap datatype elem-seq-or-count options))
 
 
 ;;Backwards compatibility
 (defmethod dtype-proto/make-container :typed-buffer
   [container-type datatype elem-seq-or-count options]
-  (dtype-proto/make-container :jvm-heap container-type datatype elem-seq-or-count options))
+  (dtype-proto/make-container :jvm-heap datatype elem-seq-or-count options))
 
 
 (defmethod dtype-proto/make-container :native-heap
