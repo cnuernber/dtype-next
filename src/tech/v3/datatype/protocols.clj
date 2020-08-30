@@ -70,18 +70,6 @@
 (defprotocol PSetConstant
   (set-constant! [item offset value elem-count]))
 
-(defprotocol PWriteIndexes
-  (write-indexes! [item indexes values options]))
-
-(defprotocol PReadIndexes
-  (read-indexes! [item indexes values options]))
-
-(defprotocol PRemoveRange
-  (remove-range! [item idx n-elems]))
-
-(defprotocol PInsertBlock
-  (insert-block! [item idx values options]))
-
 
 (defprotocol PToNativeBuffer
   (convertible-to-native-buffer? [buf])

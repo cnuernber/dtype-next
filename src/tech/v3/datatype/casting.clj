@@ -551,13 +551,18 @@
 
 (defn simple-operation-space
   "Flatten datatypes down into long, double, or object."
-  [lhs-dtype rhs-dtype]
-  (cond
-    (and (integer-type? lhs-dtype)
-         (integer-type? rhs-dtype))
-    :int64
-    (and (numeric-type? lhs-dtype)
-         (numeric-type? rhs-dtype))
-    :float64
-    :else
-    :object))
+  ([lhs-dtype rhs-dtype]
+   (cond
+     (and (= :boolean lhs-dtype)
+          (= :boolean rhs-dtype))
+     :boolean
+     (and (integer-type? lhs-dtype)
+          (integer-type? rhs-dtype))
+     :int64
+     (and (numeric-type? lhs-dtype)
+          (numeric-type? rhs-dtype))
+     :float64
+     :else
+     :object))
+  ([lhs-dtype]
+   (simple-operation-space lhs-dtype lhs-dtype)))

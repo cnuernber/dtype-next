@@ -8,6 +8,8 @@
             [tech.v3.datatype.list]
             [tech.v3.datatype.functional]
             [tech.v3.datatype.copy-raw-to-item]
+            [tech.v3.datatype.primitive]
+            [tech.v3.datatype.nio-buffer]
             [tech.v3.datatype.export-symbols :refer [export-symbols]]))
 
 

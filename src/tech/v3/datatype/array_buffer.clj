@@ -5,7 +5,8 @@
             [tech.v3.datatype.pprint :as dtype-pp]
             [primitive-math :as pmath])
   (:import [clojure.lang IObj Counted Indexed IFn]
-           [tech.v3.datatype PrimitiveIO]))
+           [tech.v3.datatype PrimitiveIO]
+           [java.util Arrays]))
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
@@ -23,7 +24,6 @@
        (sub-buffer [this# offset# length#]
          (-> (dtype-proto/sub-buffer ~buffer offset# length#)
              (dtype-proto/->reader {})))
-
        ~(typecast/datatype->io-type (casting/safe-flatten cast-dtype))
        (elemwiseDatatype [rdr#] ~advertised-datatype)
        (lsize [rdr#] ~n-elems)
@@ -61,6 +61,27 @@
                   datatype
                   metadata
                   nil))
+  dtype-proto/PSetConstant
+  (set-constant! [this off value elem-count]
+    (let [offset (+ offset (int off))
+          elem-count (int elem-count)
+          end-offset (+ elem-count offset)
+          value (casting/cast value datatype)]
+      ;;arrays/fill is very, very fast
+      (case (dtype-proto/elemwise-datatype ary-data)
+        :boolean (Arrays/fill ^booleans ary-data offset end-offset (boolean value))
+        :int8 (Arrays/fill ^bytes ary-data offset end-offset (unchecked-byte value))
+        :int16 (Arrays/fill ^shorts ary-data offset end-offset (unchecked-short value))
+        :char (Arrays/fill ^chars ary-data offset end-offset (unchecked-char value))
+        :int32 (Arrays/fill ^ints ary-data offset end-offset (unchecked-int value))
+        :int64 (Arrays/fill ^longs ary-data offset end-offset (unchecked-long value))
+        :float32 (Arrays/fill ^floats ary-data offset
+                              end-offset (unchecked-float value))
+        :float64 (Arrays/fill ^longs ary-data offset end-offset (unchecked-long value))
+        (Arrays/fill ^"[Ljava.lang.Object;" ary-data  offset end-offset value))))
+  dtype-proto/PClone
+  (clone [this]
+    (dtype-proto/make-container :jvm-heap datatype this {}))
   dtype-proto/PToPrimitiveIO
   (convertible-to-primitive-io? [item] true)
   (->primitive-io [item]

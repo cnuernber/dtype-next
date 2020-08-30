@@ -131,10 +131,7 @@
           ;;If you have to do a marshalling copy then exploiting parallelism will be
           ;;your best bet.  It costs a lot to marshal across datatypes, esp. int->float.
           marshal-copy (fn []
-                         (dtype/copy! src-data 0
-                                      marshal-buf 0
-                                      num-items
-                                      {:unchecked? true}))
+                         (dtype/copy! src-data marshal-buf))
           fns {:array-copy array-copy
                :buffer-copy buffer-copy
                :dtype-copy dtype-copy

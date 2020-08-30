@@ -22,7 +22,12 @@
       (throw (Exception. (format "src,dst ecount mismatch: %d-%d"
                                  n-elems (.lsize dst)))))
 
-    (case (casting/simple-operation-space src-dtype dst-dtype)
+    (case (casting/simple-operation-space dst-dtype)
+      :boolean
+      (parallel-for/parallel-for
+       idx
+       n-elems
+       (.writeBoolean dst idx (.readBoolean src idx)))
       :int64
       (parallel-for/parallel-for
        idx
@@ -88,7 +93,8 @@
      (when-not (= src-dt (casting/host-flatten (dtype-base/elemwise-datatype dst)))
        (throw (Exception. (format "src dtype (%s) != dst dtype (%s)"
                                   src-dt
-                                  (casting/host-flatten (dtype-base/elemwise-datatype dst))))))
+                                  (casting/host-flatten
+                                   (dtype-base/elemwise-datatype dst))))))
      (when-not (== src-ec dst-ec)
        (throw (Exception. (format "src ecount (%s) != dst ecount (%s)"
                                   src-ec dst-ec))))
@@ -106,7 +112,8 @@
          (let [^ArrayBuffer src src-buf
                ^ArrayBuffer dst dst-buf]
            (if (< n-elems 1024)
-             (System/arraycopy (.ary-data src) (.offset src) (.ary-data dst) (.offset dst)
+             (System/arraycopy (.ary-data src) (.offset src)
+                               (.ary-data dst) (.offset dst)
                                (.n-elems src))
              ;;Parallelize the copy op.
              (parallel-for/indexed-map-reduce
@@ -117,15 +124,14 @@
                                   group-len)))))
          (= (dtype-proto/endianness src-buf)
             (dtype-proto/endianness dst-buf))
-         (if (< n-elems 1024)
-           (let [[src src-off] (unpack-copy-item src-buf)
-                 [dst dst-off] (unpack-copy-item dst-buf)]
+         (let [[src src-off] (unpack-copy-item src-buf)
+               [dst dst-off] (unpack-copy-item dst-buf)]
+           (if (< n-elems 1024)
              (.copyMemory (native-buffer/unsafe)
                           src (long src-off)
                           dst (long dst-off)
                           (* n-elems (casting/numeric-byte-width
                                       (casting/un-alias-datatype src-dt))))
-             ;;Parallelize the copy op
              (parallel-for/indexed-map-reduce
               n-elems
               (fn [^long start-idx ^long group-len]

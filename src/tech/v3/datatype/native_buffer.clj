@@ -4,10 +4,11 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.typecast :as typecast]
             [tech.v3.datatype.pprint :as dtype-pp]
+            [tech.v3.parallel.for :as parallel-for]
             [primitive-math :as pmath])
   (:import [xerial.larray.buffer UnsafeUtil]
            [sun.misc Unsafe]
-           [tech.v3.datatype PrimitiveIO]
+           [tech.v3.datatype PrimitiveIO PrimitiveWriter]
            [clojure.lang RT IObj Counted Indexed IFn]))
 
 (set! *warn-on-reflection* true)
@@ -205,6 +206,34 @@
                             (NativeBuffer. (+ address (* offset byte-width))
                                            length datatype endianness
                                            resource-type metadata nil))))
+  dtype-proto/PSetConstant
+  (set-constant! [this offset value element-count]
+    (let [offset (long offset)
+          value (casting/cast value datatype)
+          element-count (long element-count)
+          byte-width (casting/numeric-byte-width datatype)
+          address (+ address (* offset byte-width))
+          n-bytes (* element-count byte-width)]
+      (when-not (<= (+ offset element-count) n-elems)
+        (throw (Exception. (format
+                            "Attempt to set constant value out of range: %s+%s >= %s"
+                            offset element-count n-elems))))
+      (if (and (number? value)
+               (or (== 0.0 (double value))
+                   (= datatype :int8)))
+        (.setMemory (unsafe) address n-bytes (unchecked-byte value))
+        (let [^PrimitiveWriter writer (-> (dtype-proto/sub-buffer this offset
+                                                                  element-count)
+                                          (dtype-proto/->writer {}))]
+          (parallel-for/parallel-for
+           idx element-count
+           (.writeObject writer idx value))))
+      this))
+  dtype-proto/PClone
+  (clone [this]
+    (dtype-proto/make-container :native-heap datatype this
+                                {:endianness endianness
+                                 :resource-type resource-type}))
   dtype-proto/PToPrimitiveIO
   (convertible-to-primitive-io? [this] true)
   (->primitive-io [this]
@@ -449,3 +478,14 @@
      retval))
   (^NativeBuffer [^long n-bytes]
    (malloc n-bytes {})))
+
+
+(defn wrap-address
+  [address n-bytes datatype endianness gc-obj]
+  (let [byte-width (casting/numeric-byte-width datatype)
+        retval (NativeBuffer. address (quot (long n-bytes) byte-width)
+                              datatype endianness #{:gc} nil nil)]
+    ;;when we have to chain this to the gc objects
+    (when gc-obj
+      (resource/track retval (constantly gc-obj) :gc))
+    retval))
