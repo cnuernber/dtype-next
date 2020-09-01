@@ -5,7 +5,10 @@ import java.util.function.BiFunction;
 
 public interface IndexReduction
 {
-  public Object reduceIndex(Object ctx, long idx);
+  //This allows us to handle sequences of readers as opposed to just a single reader
+  //Or, when dealing with datasets, sequences of datasets.
+  public default Object prepareBatch(Object batchData) { return batchData; }
+  public Object reduceIndex(Object batchData, Object ctx, long idx);
   public Object reduceReductions(Object lhsCtx, Object rhsCtx);
   public default Object finalize(Object ctx, long nElems)
   {
@@ -16,16 +19,18 @@ public interface IndexReduction
   public class IndexedBiFunction implements BiFunction<Object,Object,Object>
   {
     public long index;
+    public Object batchData;
     public IndexReduction reducer;
-    public IndexedBiFunction(IndexReduction rd)
+    public IndexedBiFunction(IndexReduction rd, Object _batchData)
     {
       index = 0;
+      batchData = _batchData;
       reducer = rd;
     }
     public void setIndex(long idx) {this.index = idx;}
 
     public Object apply(Object key, Object value) {
-      return reducer.reduceIndex(value, index);
+      return reducer.reduceIndex(batchData, value, index);
     }
   }
 }

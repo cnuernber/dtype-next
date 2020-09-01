@@ -14,9 +14,7 @@
 
 
 (def ^:private sum-double-reduction
-  (reify DoubleReduction
-    (update [this accum value]
-      (pmath/+ accum value))))
+  (reify DoubleReduction))
 
 
 (def ^:private min-double-reduction
@@ -31,28 +29,42 @@
       (pmath/max accum value))))
 
 
-(def ^:private stats-tower
+(def stats-tower
   {:sum {:reduction sum-double-reduction}
    :mean {:dependencies [:sum]
           :formula (fn [stats-data ^double n-elems]
                      (pmath// (double (:sum stats-data))
                               n-elems))}
-   :variance {:dependencies [:mean]
+   :moment-2 {:dependencies [:mean]
               :reduction (fn [stats-data]
                            (let [mean (double (:mean stats-data))]
                              (reify DoubleReduction
-                               (initialize [this value]
+                               (elemwise [this value]
                                  (let [item (pmath/- value mean)]
-                                   (pmath/* item item)))
-                               (update [this accum value]
-                                 (pmath/+ accum (.initialize this value)))
-                               (merge [this lhs rhs] (pmath/+ lhs rhs))
-                               (finalize [this accum n-elems]
-                                 (pmath// accum (unchecked-dec n-elemsd))))))}
-   :standard-deviation {:dependencies #{:variance}
+                                   (pmath/* item item))))))}
+   :moment-3 {:dependencies [:mean]
+              :reduction (fn [stats-data]
+                           (let [mean (double (:mean stats-data))]
+                             (reify DoubleReduction
+                               (elemwise [this value]
+                                 (let [item (pmath/- value mean)]
+                                   (pmath/* item (pmath/* item item)))))))}
+   :moment-4 {:dependencies [:mean]
+              :reduction (fn [stats-data]
+                           (let [mean (double (:mean stats-data))]
+                             (reify DoubleReduction
+                               (elemwise [this value]
+                                 (let [item (pmath/- value mean)
+                                       item-sq (pmath/* item item)]
+                                   (pmath/* item-sq item-sq))))))}
+
+   :variance {:dependencies [:moment-2]
+              :formula (fn [stats-data ^double n-elems]
+                         (pmath// (double (:moment-2 stats-data))
+                                  (unchecked-dec n-elems)))}
+   :standard-deviation {:dependencies [:variance]
                         :formula (fn [stats-data ^double n-elems]
-                                   )
-                        }})
+                                   (Math/sqrt (double (:variance stats-data))))}})
 
 
 (defn ^{:dependencies #{:mean}
