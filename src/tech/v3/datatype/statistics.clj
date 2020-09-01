@@ -31,44 +31,108 @@
       (pmath/max accum value))))
 
 
+(def ^:private stats-tower
+  {:sum {:reduction sum-double-reduction}
+   :mean {:dependencies [:sum]
+          :formula (fn [stats-data ^double n-elems]
+                     (pmath// (double (:sum stats-data))
+                              n-elems))}
+   :variance {:dependencies [:mean]
+              :reduction (fn [stats-data]
+                           (let [mean (double (:mean stats-data))]
+                             (reify DoubleReduction
+                               (initialize [this value]
+                                 (let [item (pmath/- value mean)]
+                                   (pmath/* item item)))
+                               (update [this accum value]
+                                 (pmath/+ accum (.initialize this value)))
+                               (merge [this lhs rhs] (pmath/+ lhs rhs))
+                               (finalize [this accum n-elems]
+                                 (pmath// accum (unchecked-dec n-elemsd))))))}
+   :standard-deviation {:dependencies #{:variance}
+                        :formula (fn [stats-data ^double n-elems]
+                                   )
+                        }})
+
+
+(defn ^{:dependencies #{:mean}
+        :reduction } variance
+  ^double ([rdr moments]
+           (let [moments (ensure-stat-dependencies
+                          #{:mean}
+                          moments rdr)])))
+
+
+(defn ^{:dependencies #{:standard-deviation :moment-3}}
+  skew
+  (^double [rdr moments]
+   (let [moments (ensure-stat-dependencies
+                  #{:standard-deviation :moment-3}
+                  moments rdr)
+         moment-3 (double (:moment-3 moments))
+         stddev (double (:standard-deviation moments))
+         n-elems-12 (pmath/* (pmath/- n-elemsd 1.0)
+                             (pmath/- n-elemsd 2.0))]
+     (if (>= n-elemsd 3.0)
+       (pmath// (pmath/* (pmath// n-elemsd n-elems-12)
+                         moment-3)
+                (pmath/* stddev (pmath/* stddev stddev)))
+       Double/NaN)))
+  (^double [rdr]
+   (skew [rdr moments])))
+
+
 (defn moment-stats
   [^double mean stats-set rdr]
   (let [mean (double mean)
         n-elemsd (double (dtype-base/ecount rdr))
         mean-reductions
         (dtype-reductions/double-reductions
-         {:variance (reify DoubleReduction
+         {:variance
+           reduction {:moment-3
+                               (fn [^double mean]
+                                 (let [mean (double mean)]
+                                   (reify DoubleReduction
+                                     (initialize [this value]
+                                       (let [item (pmath/- value mean)]
+                                         (pmath/* (pmath/* item item) item)))
+                                     (update [this accum value]
+                                       (pmath/+ accum (.initialize this value)))
+                                     (merge [this lhs rhs] (pmath/+ lhs rhs)))))}
+          :moment-4 (reify DoubleReduction
                       (initialize [this value]
-                        (let [item (pmath/- value mean)]
-                          (pmath/* item item)))
-                      (update [this accum value]
-                        (pmath/+ accum (.initialize this value)))
-                      (merge [this lhs rhs] (pmath/+ lhs rhs))
-                      (finalize [this accum n-elems]
-                        (pmath// accum (unchecked-dec n-elemsd))))
-          :moment-3 (reify DoubleReduction
-                      (initialize [this value]
-                        (let [item (pmath/- value mean)]
-                          (pmath/* (pmath/* item item) item)))
+                        (let [item (pmath/- value mean)
+                              item-sq (pmath/* item item)]
+                          (pmath/* item-sq item-sq)))
                       (update [this accum value]
                         (pmath/+ accum (.initialize this value)))
                       (merge [this lhs rhs] (pmath/+ lhs rhs)))}
          rdr)
         variance (double (:variance mean-reductions))
         moment-3 (double (:moment-3 mean-reductions))
+        moment-4 (double (:moment-4 mean-reductions))
         stddev (Math/sqrt variance)
         q-amt (pmath/* 0.67448975 stddev)
-        skew (if (>= n-elemsd 3.0)
-               (pmath// (pmath/* (pmath// n-elemsd
-                                          (* (- n-elemsd 1.0)
-                                             (- n-elemsd 2.0)))
-                                 moment-3)
-                        (pmath/* stddev (pmath/* stddev stddev)))
-               Double/NaN)]
+        n-elems-1 (pmath/- n-elemsd 1.0)
+        n-elems-12 (pmath/* n-elems-1 (pmath/- n-elemsd 2.0))
+        skew
+        n-elems-123 (pmath/* n-elems-12 (pmath/- n-elemsd 3.0))
+        n-elems-23 (pmath// n-elems-123
+                            n-elems-1)
+        kurt-n-num (pmath/* n-elemsd (pmath/* (pmath/+ n-elemsd 1.0)))
+        kurt-prefix (pmath// kurt-n-num n-elems-123)
+        kurt-lhs (pmath// (pmath/* kurt-prefix moment-4)
+                          (pmath/* variance variance))
+        kurt-rhs (pmath// (pmath/* 3.0 (pmath/* n-elems-1 n-elems-1))
+                          n-elems-23)
+        kurtosis (if (>= n-elemsd 4.0)
+                   (pmath/- kurt-lhs kur-rhs)
+                   Double/NaN)]
     ;;cheap percentile estimation
     {:variance variance
      :standard-deviation stddev
      :skew skew
+     :kurtosis kurtosis
      :moment-3 moment-3
      :percentile-1 (pmath/- mean q-amt)
      :percentile-3 (pmath/+ mean q-amt)}))
@@ -107,7 +171,8 @@
          n-elems (.lsize rdr)
          stats-set (set stats-names)
          requires-stddev? (some stats-set [:standard-deviation :percentile-1
-                                           :percentile-3 :skew :variance])
+                                           :percentile-3 :skew :variance
+                                           :kurtosis])
          requires-sum? (or requires-stddev? (some stats-set [:sum :mean]))
          requires-sort? (stats-set :median)
          ^PrimitiveIO rdr (if requires-sort?
