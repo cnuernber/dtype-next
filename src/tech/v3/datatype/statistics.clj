@@ -4,9 +4,10 @@
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
-            [primitive-math :as pmath])
+            [primitive-math :as pmath]
+            [clojure.set :as set])
   (:import [tech.v3.datatype DoubleReduction]
-           [java.util Arrays]))
+           [java.util Arrays Map]))
 
 
 (set! *warn-on-reflection* true)
@@ -30,7 +31,9 @@
 
 
 (def stats-tower
-  {:sum {:reduction sum-double-reduction}
+  {:sum {:reduction (constantly sum-double-reduction)}
+   :min {:reduction (constantly min-double-reduction)}
+   :max {:reduction (constantly max-double-reduction)}
    :mean {:dependencies [:sum]
           :formula (fn [stats-data ^double n-elems]
                      (pmath// (double (:sum stats-data))
@@ -64,96 +67,117 @@
                                   (unchecked-dec n-elems)))}
    :standard-deviation {:dependencies [:variance]
                         :formula (fn [stats-data ^double n-elems]
-                                   (Math/sqrt (double (:variance stats-data))))}})
+                                   (Math/sqrt (double (:variance stats-data))))}
+   :skew {:dependencies [:moment-3 :standard-deviation]
+          :formula (fn [stats-data ^double n-elemsd]
+                     (let [n-elems-12 (pmath/* (pmath/- n-elemsd 1.0)
+                                               (pmath/- n-elemsd 2.0))
+                           stddev (double (:standard-deviation stats-data))
+                           moment-3 (double (:moment-3 stats-data))]
+                       (if (>= n-elemsd 3.0)
+                         (pmath// (pmath/* (pmath// n-elemsd n-elems-12)
+                                           moment-3)
+                                  (pmath/* stddev (pmath/* stddev stddev)))
+                         Double/NaN)))}
+   ;;{ [n(n+1) / (n -1)(n - 2)(n-3)] sum[(x_i - mean)^4] / std^4 } - [3(n-1)^2 / (n-2)(n-3)]
+   :kurtosis {:dependencies [:moment-4 :variance]
+              :formula (fn [stats-data ^double n-elemsd]
+                         (if (>= n-elemsd 4.0)
+                           (let [variance (double (:variance stats-data))
+                                 moment-4 (double (:moment-4 stats-data))
+                                 nm1 (pmath/- n-elemsd 1.0)
+                                 nm2 (pmath/- n-elemsd 2.0)
+                                 nm3 (pmath/- n-elemsd 3.0)
+                                 np1 (pmath/+ n-elemsd 1.0)
+                                 nm23 (pmath/* nm2 nm3)
+                                 prefix (pmath// (pmath/* n-elemsd np1)
+                                                 (pmath/* nm1 nm23))
+                                 central (pmath// moment-4
+                                                  (pmath/* variance variance))
+                                 rhs (pmath// (pmath/* 3.0 (pmath/* nm1 nm1))
+                                              nm23)]
+                             (pmath/- (pmath/* prefix central) rhs))
+                           Double/NaN))}})
+
+(def tower-dependencies
+  (->> stats-tower
+       (map (fn [[k v]]
+              (when-let [v-deps (:dependencies v)]
+                [k v-deps])))
+       (remove nil?)
+       (into {})))
 
 
-(defn ^{:dependencies #{:mean}
-        :reduction } variance
-  ^double ([rdr moments]
-           (let [moments (ensure-stat-dependencies
-                          #{:mean}
-                          moments rdr)])))
+;;How many reductions does it take to get the answer
+(def tower-reduction-dependencies
+  (->> stats-tower
+       (map (fn [[k v]]
+              [k (->> (tree-seq #(get tower-dependencies %)
+                                #(get tower-dependencies %)
+                                k)
+                      (distinct)
+                      (filter #(and (:reduction (get stats-tower %))
+                                    (not= k %)))
+                      seq)]))
+       (into {})))
+
+(defn reduction-rank
+  [item]
+  (map
+   (fn [red] (count (tree-seq #(get tower-reduction-dependencies %)
+                              #(get tower-reduction-dependencies %)
+                              red)))
+   (tower-reduction-dependencies item)))
+
+(def tower-reduction-ranks
+  (->> (vals tower-reduction-dependencies)
+       (apply concat)
+       (distinct)
+       (fn [red]
+         (if (nil? (tower-reduction-dependencies red))
+           0
+           (+ 1 (apply max (map tower-reduction-dependencies ))))
+         (if (= v #{k})
+           1
+           (apply max )))))
 
 
-(defn ^{:dependencies #{:standard-deviation :moment-3}}
-  skew
-  (^double [rdr moments]
-   (let [moments (ensure-stat-dependencies
-                  #{:standard-deviation :moment-3}
-                  moments rdr)
-         moment-3 (double (:moment-3 moments))
-         stddev (double (:standard-deviation moments))
-         n-elems-12 (pmath/* (pmath/- n-elemsd 1.0)
-                             (pmath/- n-elemsd 2.0))]
-     (if (>= n-elemsd 3.0)
-       (pmath// (pmath/* (pmath// n-elemsd n-elems-12)
-                         moment-3)
-                (pmath/* stddev (pmath/* stddev stddev)))
-       Double/NaN)))
-  (^double [rdr]
-   (skew [rdr moments])))
+(defn reduction-groups
+  [stats-seq]
+  (let [all-reductions (->> stats-seq
+                            (mapcat tower-reduction-dependencies)
+                            distinct)]
+    all-reductions))
 
 
-(defn moment-stats
-  [^double mean stats-set rdr]
-  (let [mean (double mean)
-        n-elemsd (double (dtype-base/ecount rdr))
-        mean-reductions
-        (dtype-reductions/double-reductions
-         {:variance
-           reduction {:moment-3
-                               (fn [^double mean]
-                                 (let [mean (double mean)]
-                                   (reify DoubleReduction
-                                     (initialize [this value]
-                                       (let [item (pmath/- value mean)]
-                                         (pmath/* (pmath/* item item) item)))
-                                     (update [this accum value]
-                                       (pmath/+ accum (.initialize this value)))
-                                     (merge [this lhs rhs] (pmath/+ lhs rhs)))))}
-          :moment-4 (reify DoubleReduction
-                      (initialize [this value]
-                        (let [item (pmath/- value mean)
-                              item-sq (pmath/* item item)]
-                          (pmath/* item-sq item-sq)))
-                      (update [this accum value]
-                        (pmath/+ accum (.initialize this value)))
-                      (merge [this lhs rhs] (pmath/+ lhs rhs)))}
-         rdr)
-        variance (double (:variance mean-reductions))
-        moment-3 (double (:moment-3 mean-reductions))
-        moment-4 (double (:moment-4 mean-reductions))
-        stddev (Math/sqrt variance)
-        q-amt (pmath/* 0.67448975 stddev)
-        n-elems-1 (pmath/- n-elemsd 1.0)
-        n-elems-12 (pmath/* n-elems-1 (pmath/- n-elemsd 2.0))
-        skew
-        n-elems-123 (pmath/* n-elems-12 (pmath/- n-elemsd 3.0))
-        n-elems-23 (pmath// n-elems-123
-                            n-elems-1)
-        kurt-n-num (pmath/* n-elemsd (pmath/* (pmath/+ n-elemsd 1.0)))
-        kurt-prefix (pmath// kurt-n-num n-elems-123)
-        kurt-lhs (pmath// (pmath/* kurt-prefix moment-4)
-                          (pmath/* variance variance))
-        kurt-rhs (pmath// (pmath/* 3.0 (pmath/* n-elems-1 n-elems-1))
-                          n-elems-23)
-        kurtosis (if (>= n-elemsd 4.0)
-                   (pmath/- kurt-lhs kur-rhs)
-                   Double/NaN)]
-    ;;cheap percentile estimation
-    {:variance variance
-     :standard-deviation stddev
-     :skew skew
-     :kurtosis kurtosis
-     :moment-3 moment-3
-     :percentile-1 (pmath/- mean q-amt)
-     :percentile-3 (pmath/+ mean q-amt)}))
+(defn calculate-descriptive-stat
+  [statname stat-data rdr]
+  (if (stat-data statname)
+    stat-data
+    (if-let [{:keys [dependencies reduction formula]} (get stats-tower statname)]
+      (let [stat-data (reduce #(calculate-descriptive-stat %2 %1 rdr)
+                              stat-data
+                              dependencies)
+            stat-data (if reduction
+                        (merge stat-data
+                               (dtype-reductions/double-reductions
+                                {statname (reduction stat-data)}
+                                rdr))
+                        stat-data)
+            stat-data (if formula
+                        (assoc stat-data statname
+                               (formula stat-data
+                                        (double
+                                         (dtype-base/ecount rdr))))
+                        stat-data)]
+        stat-data)
+      (throw (Exception. (format "Unrecognized statistic name: %s" statname))))))
 
 
 
 (def all-descriptive-stats-names
   [:min :percentile-1 :sum :mean :mode :median :percentile-3 :max
-   :variance :standard-deviation :skew :n-values])
+   :variance :standard-deviation :skew :n-values :kurtosis])
 
 
 (defn- ->double-array
@@ -170,6 +194,25 @@
         (->double-array))))
 
 
+(defn- rank-stats
+  [stats-seq]
+  (let [nodes (->> (map stats-tower stats-seq)
+                   (remove nil?))]
+    (when-not (== (count nodes) (count stats-seq))
+      (throw (Exception. (format "Unrecognized statistics: %s"
+                                 (set/difference (set stats-seq)
+                                                 (set (keys stats-tower)))))))
+    (->> nodes
+         (map (fn [node]
+                (assoc node :rank (count (tree-seq #(get-in stats-tower
+                                                            [% :dependencies])
+                                                   #(get-in stats-tower
+                                                            [% :dependencies])
+                                                   (:dependencies node))))))
+         (group-by :rank)
+         (sort-by first))))
+
+
 (defn descriptive-statistics
   ([stats-names rdr]
    (if (== 0 (dtype-base/ecount rdr))
@@ -182,40 +225,22 @@
    (let [rdr (dtype-base/->reader rdr)
          n-elems (.lsize rdr)
          stats-set (set stats-names)
-         requires-stddev? (some stats-set [:standard-deviation :percentile-1
-                                           :percentile-3 :skew :variance
-                                           :kurtosis])
-         requires-sum? (or requires-stddev? (some stats-set [:sum :mean]))
          requires-sort? (stats-set :median)
          ^PrimitiveIO rdr (if requires-sort?
                             (let [darray (->double-array rdr)]
                               (Arrays/sort darray)
                               (dtype-base/->reader rdr))
                             rdr)
-         initial-reduction
-         (merge (when requires-sort?
-                  {:min (rdr 0)
-                   :max (rdr (unchecked-dec n-elems))
-                   :median (rdr (quot n-elems 2))})
-                (when (or requires-sum?
-                          (and (not requires-sort?)
-                               (some stats-set [:min :max])))
-                  (dtype-reductions/double-reductions
-                   (merge {}
-                          (when requires-sum?
-                            {:sum sum-double-reduction})
-                          (when (and (not requires-sort?) (stats-set :min))
-                            {:min min-double-reduction})
-                          (when (and (not requires-sort?) (stats-set :max))
-                            {:max max-double-reduction}))
-                   rdr)))
-         sum-reductions
-         (when requires-sum?
-           (let [sum (double (:sum initial-reduction))
-                 mean (pmath// sum (double n-elems))]
-             (merge {:mean mean}
-                    (when requires-stddev?
-                      (moment-stats mean stats-set rdr)))))]
+         stats-data (when requires-sort?
+                      {:min (rdr 0)
+                       :max (rdr (unchecked-dec n-elems))
+                       :median (rdr (quot n-elems 2))})
+         calculate-stats-set (if requires-sort?
+                               (set/difference stats-set #{:min :max :median
+                                                           :n-values})
+                               (disj stats-set :n-values))
+         ranked-stats (rank-stats calculate-stats-set)]
+
      (->> stats-names
           (map (juxt identity (merge {:n-values n-elems}
                                      initial-reduction
@@ -223,3 +248,8 @@
           (into {}))))
   ([rdr]
    (descriptive-statistics [:n-values :min :mean :max :standard-deviation])))
+
+(comment
+
+  (import '[org.apache.commons.math3.stat.descriptive DescriptiveStatistics])
+  )

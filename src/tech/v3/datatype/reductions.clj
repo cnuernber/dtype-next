@@ -147,7 +147,7 @@
           lhs-ctx))
       (finalize [this ctx n-elems]
         (->> (map (fn [k r v]
-                    ([k (.finalize ^DoubleReduction r v n-elems)]))
+                    [k (.finalize ^DoubleReduction r v n-elems)])
                   reducer-names reducers ctx)
              (into {}))))))
 
