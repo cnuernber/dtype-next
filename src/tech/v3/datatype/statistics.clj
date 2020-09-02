@@ -122,32 +122,24 @@
        (into {})))
 
 (defn reduction-rank
-  [item]
-  (map
-   (fn [red] (count (tree-seq #(get tower-reduction-dependencies %)
-                              #(get tower-reduction-dependencies %)
-                              red)))
-   (tower-reduction-dependencies item)))
-
-(def tower-reduction-ranks
-  (->> (vals tower-reduction-dependencies)
-       (apply concat)
-       (distinct)
-       (fn [red]
-         (if (nil? (tower-reduction-dependencies red))
-           0
-           (+ 1 (apply max (map tower-reduction-dependencies ))))
-         (if (= v #{k})
-           1
-           (apply max )))))
+  ^long [item]
+  (let [node (stats-tower item)
+        node-deps (:dependencies node)
+        node-rank (long (if (:reduction node)
+                          1
+                          0))]
+    (+ node-rank
+       (apply max 0 (map reduction-rank node-deps)))))
 
 
-(defn reduction-groups
-  [stats-seq]
-  (let [all-reductions (->> stats-seq
-                            (mapcat tower-reduction-dependencies)
-                            distinct)]
-    all-reductions))
+(def reduction-groups
+  (memoize
+   (fn [stats-seq]
+     (let [all-reductions (->> stats-seq
+                               (mapcat tower-reduction-dependencies)
+                               distinct)]
+       (group-by reduction-rank all-reductions)
+       (sort-by first)))))
 
 
 (defn calculate-descriptive-stat
@@ -194,25 +186,6 @@
         (->double-array))))
 
 
-(defn- rank-stats
-  [stats-seq]
-  (let [nodes (->> (map stats-tower stats-seq)
-                   (remove nil?))]
-    (when-not (== (count nodes) (count stats-seq))
-      (throw (Exception. (format "Unrecognized statistics: %s"
-                                 (set/difference (set stats-seq)
-                                                 (set (keys stats-tower)))))))
-    (->> nodes
-         (map (fn [node]
-                (assoc node :rank (count (tree-seq #(get-in stats-tower
-                                                            [% :dependencies])
-                                                   #(get-in stats-tower
-                                                            [% :dependencies])
-                                                   (:dependencies node))))))
-         (group-by :rank)
-         (sort-by first))))
-
-
 (defn descriptive-statistics
   ([stats-names rdr]
    (if (== 0 (dtype-base/ecount rdr))
@@ -225,13 +198,13 @@
    (let [rdr (dtype-base/->reader rdr)
          n-elems (.lsize rdr)
          stats-set (set stats-names)
-         requires-sort? (stats-set :median)
+         median? (stats-set :median)
          ^PrimitiveIO rdr (if requires-sort?
                             (let [darray (->double-array rdr)]
                               (Arrays/sort darray)
                               (dtype-base/->reader rdr))
                             rdr)
-         stats-data (when requires-sort?
+         stats-data (when median?
                       {:min (rdr 0)
                        :max (rdr (unchecked-dec n-elems))
                        :median (rdr (quot n-elems 2))})
@@ -239,7 +212,18 @@
                                (set/difference stats-set #{:min :max :median
                                                            :n-values})
                                (disj stats-set :n-values))
-         ranked-stats (rank-stats calculate-stats-set)]
+         stats-data (reduce
+                     (fn [stats-data [rank kwds]]
+                       (merge
+                        (dtype-reductions/double-reductions
+                         (->> kwds
+                              (map (fn [kwd]
+                                     [kwd ((get-in stats-tower [kwd :reduction])
+                                           stats-data)]))
+                              (into {}))
+                         rdr)))
+                     stats-data
+                     (reduction-groups calculate-stats-set))]
 
      (->> stats-names
           (map (juxt identity (merge {:n-values n-elems}
