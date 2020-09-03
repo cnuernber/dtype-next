@@ -10,7 +10,7 @@ public interface IndexReduction
   public default Object prepareBatch(Object batchData) { return batchData; }
   public Object reduceIndex(Object batchData, Object ctx, long idx);
   public Object reduceReductions(Object lhsCtx, Object rhsCtx);
-  public default Object finalize(Object ctx, long nElems)
+  public default Object finalize(Object ctx)
   {
     return ctx;
   }

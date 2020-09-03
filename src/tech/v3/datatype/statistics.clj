@@ -6,7 +6,10 @@
             [primitive-math :as pmath]
             [clojure.set :as set])
   (:import [tech.v3.datatype DoubleReduction UnaryOperator]
-           [java.util Arrays Map]))
+           [org.apache.commons.math3.stat.descriptive.rank Percentile]
+           [org.apache.commons.math3.stat.ranking NaNStrategy]
+           [java.util Arrays Map])
+    (:refer-clojure :exclude [min max]))
 
 
 (set! *warn-on-reflection* true)
@@ -279,4 +282,6 @@
 (comment
 
   (import '[org.apache.commons.math3.stat.descriptive DescriptiveStatistics])
+
+
   )
