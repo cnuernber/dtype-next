@@ -215,10 +215,19 @@
     (double item)))
 
 
+(defn as-long
+  ^long [item] (long item))
+
+
 (defmacro datatype->number
   [src-dtype item]
-  (if-not (numeric-type? src-dtype)
+  (cond
+    (not (numeric-type? src-dtype))
     `(->number ~item)
+    ;;characters are not numbers...
+    (= :char src-dtype)
+    `(as-long ~item)
+    :else
     `~item))
 
 

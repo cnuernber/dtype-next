@@ -5,7 +5,7 @@
             [tech.v3.datatype.protocols :as dtype-proto]
             [primitive-math :as pmath])
   (:import [tech.v3.datatype BinaryOperator IndexReduction DoubleReduction
-            PrimitiveIO IndexReduction$IndexedBiFunction]
+            PrimitiveIO IndexReduction$IndexedBiFunction UnaryOperator]
            [java.util List Map HashMap Map$Entry]
            [java.util.concurrent ConcurrentHashMap]
            [java.util.function BiFunction BiConsumer]))
@@ -13,6 +13,24 @@
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
+
+
+(defn unary-summation
+  ^double [^UnaryOperator op rdr]
+  (let [rdr (dtype-base/->reader rdr)]
+    (double
+     (parallel-for/indexed-map-reduce
+      (.lsize rdr)
+      (fn [^long start-idx ^long group-len]
+        (let [end-idx (+ start-idx group-len)]
+          (loop [idx (inc start-idx)
+                 accum (.unaryDouble op (.readDouble rdr start-idx))]
+            (if (< idx end-idx)
+              (recur (unchecked-inc idx)
+                     (pmath/+ accum
+                              (.unaryDouble op (.readDouble rdr idx))))
+              accum))))
+      (partial reduce +)))))
 
 
 (defn commutative-binary-double
@@ -109,13 +127,35 @@
    (indexed-reduction reducer rdr true)))
 
 
+(defn ensure-double-reduction
+  ^DoubleReduction [arg]
+  (cond
+    (instance? DoubleReduction arg)
+    arg
+    (instance? UnaryOperator arg)
+    (let [^UnaryOperator arg arg]
+      (reify DoubleReduction
+        (elemwise [this item]
+          (.unaryDouble arg item))))
+    (instance? BinaryOperator arg)
+    (let [^BinaryOperator arg arg]
+      (reify DoubleReduction
+        (update [this lhs rhs]
+          (.binaryDouble arg lhs rhs))
+        (merge [this lhs rhs]
+          (.binaryDouble arg lhs rhs))))
+    :else
+    (throw (Exception. "Argument not convertible to a double reduction: %s"
+                       (type arg)))))
+
+
 (defn double-reducers->indexed-reduction
   "Make an index reduction out of a map of reducer-name to reducer.  Stores intermediate values
   in double arrays.  Upon finalize, returns a map of reducer-name to finalized double reduction
   value."
   ^IndexReduction [reducer-map]
   (let [^List reducer-names (keys reducer-map)
-        reducers (object-array (vals reducer-map))
+        reducers (object-array (map ensure-double-reduction (vals reducer-map)))
         n-reducers (alength reducers)]
     (reify IndexReduction
       (reduceIndex [this batch-data ctx idx]
@@ -156,9 +196,35 @@
   "Given a map of name->reducer of DoubleReduction implementations and a rdr
   do an efficient two-level parallelized reduction and return the results in
   a map of name->finalized-result."
-  [reducer-map rdr]
-  (-> (double-reducers->indexed-reduction reducer-map)
-      (indexed-reduction rdr)))
+  ([reducer-map rdr finalize?]
+   (if (== 1 (count reducer-map))
+     (let [[reducer-name reducer] (first reducer-map)]
+       (if (instance? UnaryOperator reducer)
+         {reducer-name (unary-summation reducer rdr)}
+         (let [rdr (dtype-base/->reader rdr)
+               ^DoubleReduction reducer reducer
+               n-elems (.lsize rdr)
+               retval
+               (parallel-for/indexed-map-reduce
+                n-elems
+                (fn [^long start-idx ^long group-len]
+                  (let [end-idx (pmath/+ start-idx group-len)]
+                    (loop [idx (unchecked-inc start-idx)
+                           accum (.elemwise reducer (.readDouble rdr idx))]
+                      (if (< idx end-idx)
+                        (recur (unchecked-inc idx)
+                               (.update reducer accum
+                                        (.elemwise reducer
+                                                   (.readDouble rdr idx))))
+                        accum))))
+                (partial reduce #(.merge reducer (double %1) (double %2))))]
+           (if finalize?
+             {reducer-name (.finalize reducer (double retval) (double n-elems))}
+             {reducer-name retval}))))
+     (-> (double-reducers->indexed-reduction reducer-map)
+         (indexed-reduction rdr finalize?))))
+  ([reducer-map rdr]
+   (double-reductions reducer-map rdr true)))
 
 
 (defn unordered-group-by-reduce

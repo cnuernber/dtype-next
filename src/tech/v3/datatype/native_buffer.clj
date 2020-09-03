@@ -31,6 +31,70 @@
 
 (declare chain-native-buffers)
 
+(defmacro read-value
+  [address swap? datatype byte-width]
+  (if (not swap?)
+    (case datatype
+      :int8 `(.getByte (unsafe) (pmath/+ ~address ~'idx))
+      :uint8 `(-> (.getByte (unsafe) (pmath/+ ~address ~'idx))
+                  (pmath/byte->ubyte))
+      :int16 `(.getShort (unsafe) (pmath/+ ~address
+                                           (pmath/* ~'idx ~byte-width)))
+      :uint16 `(-> (.getShort (unsafe) (pmath/+ ~address
+                                                (pmath/* ~'idx ~byte-width)))
+                   (pmath/short->ushort))
+      :char `(-> (.getShort (unsafe) (pmath/+ ~address
+                                              (pmath/* ~'idx ~byte-width)))
+                 (RT/uncheckedCharCast))
+      :int32 `(.getInt (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width)))
+      :uint32 `(-> (.getInt (unsafe) (pmath/+ ~address
+                                              (pmath/* ~'idx ~byte-width)))
+                   (pmath/int->uint))
+      :int64 `(.getLong (unsafe) (pmath/+ ~address
+                                          (pmath/* ~'idx ~byte-width)))
+      :uint64 `(-> (.getLong (unsafe) (pmath/+ ~address
+                                               (pmath/* ~'idx ~byte-width))))
+      :float32 `(.getFloat (unsafe) (pmath/+ ~address
+                                             (pmath/* ~'idx ~byte-width)))
+      :float64 `(.getDouble (unsafe) (pmath/+ ~address
+                                              (pmath/* ~'idx ~byte-width))))
+    (case datatype
+      :int8 `(.getByte (unsafe) (pmath/+ ~address ~'idx))
+      :uint8 `(-> (.getByte (unsafe) (pmath/+ ~address ~'idx))
+                  (pmath/byte->ubyte))
+      :int16 `(Short/reverseBytes
+               (.getShort (unsafe) (pmath/+ ~address
+                                            (pmath/* ~'idx ~byte-width))))
+      :uint16 `(-> (.getShort (unsafe) (pmath/+ ~address
+                                                (pmath/* ~'idx ~byte-width)))
+                   (Short/reverseBytes)
+                   (pmath/short->ushort))
+      :char `(-> (.getShort (unsafe) (pmath/+ ~address
+                                              (pmath/* ~'idx ~byte-width)))
+                 (Short/reverseBytes)
+                 (RT/uncheckedCharCast))
+      :int32 `(-> (.getInt (unsafe) (pmath/+ ~address
+                                             (pmath/* ~'idx ~byte-width)))
+                  (Integer/reverseBytes))
+      :uint32 `(-> (.getInt (unsafe) (pmath/+ ~address
+                                              (pmath/* ~'idx ~byte-width)))
+                   (Integer/reverseBytes)
+                   (pmath/int->uint))
+      :int64 `(-> (.getLong (unsafe) (pmath/+ ~address
+                                              (pmath/* ~'idx ~byte-width)))
+                  (Long/reverseBytes))
+      :uint64 `(-> (.getLong (unsafe) (pmath/+ ~address
+                                               (pmath/* ~'idx ~byte-width)))
+                   (Long/reverseBytes))
+      :float32 `(-> (.getInt (unsafe) (pmath/+ ~address
+                                               (pmath/* ~'idx ~byte-width)))
+                    (Integer/reverseBytes)
+                    (Float/intBitsToFloat))
+      :float64 `(-> (.getLong (unsafe) (pmath/+ ~address
+                                                (pmath/* ~'idx ~byte-width)))
+                    (Long/reverseBytes)
+                    (Double/longBitsToDouble)))))
+
 
 (defmacro native-buffer->io-macro
   [datatype advertised-datatype buffer address n-elems swap?]
@@ -53,67 +117,13 @@
          ;;This increases elemwise access costs by about 1/3.  There should be an
          ;;option I guess to diable it but then we get into a class explosion
          ;;situation.
-         ~(if (not swap?)
-            (case datatype
-              :int8 `(.getByte (unsafe) (pmath/+ ~address ~'idx))
-              :uint8 `(-> (.getByte (unsafe) (pmath/+ ~address ~'idx))
-                          (pmath/byte->ubyte))
-              :int16 `(.getShort (unsafe) (pmath/+ ~address
-                                                   (pmath/* ~'idx ~byte-width)))
-              :uint16 `(-> (.getShort (unsafe) (pmath/+ ~address
-                                                        (pmath/* ~'idx ~byte-width)))
-                           (pmath/short->ushort))
-              :char `(-> (.getShort (unsafe) (pmath/+ ~address
-                                                      (pmath/* ~'idx ~byte-width)))
-                         (RT/uncheckedCharCast))
-              :int32 `(.getInt (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width)))
-              :uint32 `(-> (.getInt (unsafe) (pmath/+ ~address
-                                                      (pmath/* ~'idx ~byte-width)))
-                           (pmath/int->uint))
-              :int64 `(.getLong (unsafe) (pmath/+ ~address
-                                                  (pmath/* ~'idx ~byte-width)))
-              :uint64 `(-> (.getLong (unsafe) (pmath/+ ~address
-                                                       (pmath/* ~'idx ~byte-width))))
-              :float32 `(.getFloat (unsafe) (pmath/+ ~address
-                                                     (pmath/* ~'idx ~byte-width)))
-              :float64 `(.getDouble (unsafe) (pmath/+ ~address
-                                                      (pmath/* ~'idx ~byte-width))))
-            (case datatype
-              :int8 `(.getByte (unsafe) (pmath/+ ~address ~'idx))
-              :uint8 `(-> (.getByte (unsafe) (pmath/+ ~address ~'idx))
-                          (pmath/byte->ubyte))
-              :int16 `(Short/reverseBytes
-                       (.getShort (unsafe) (pmath/+ ~address
-                                                    (pmath/* ~'idx ~byte-width))))
-              :uint16 `(-> (.getShort (unsafe) (pmath/+ ~address
-                                                        (pmath/* ~'idx ~byte-width)))
-                           (Short/reverseBytes)
-                           (pmath/short->ushort))
-              :char `(-> (.getShort (unsafe) (pmath/+ ~address
-                                                      (pmath/* ~'idx ~byte-width)))
-                         (Short/reverseBytes)
-                         (RT/uncheckedCharCast))
-              :int32 `(-> (.getInt (unsafe) (pmath/+ ~address
-                                                     (pmath/* ~'idx ~byte-width)))
-                          (Integer/reverseBytes))
-              :uint32 `(-> (.getInt (unsafe) (pmath/+ ~address
-                                                      (pmath/* ~'idx ~byte-width)))
-                           (Integer/reverseBytes)
-                           (pmath/int->uint))
-              :int64 `(-> (.getLong (unsafe) (pmath/+ ~address
-                                                      (pmath/* ~'idx ~byte-width)))
-                          (Long/reverseBytes))
-              :uint64 `(-> (.getLong (unsafe) (pmath/+ ~address
-                                                       (pmath/* ~'idx ~byte-width)))
-                           (Long/reverseBytes))
-              :float32 `(-> (.getInt (unsafe) (pmath/+ ~address
-                                                       (pmath/* ~'idx ~byte-width)))
-                            (Integer/reverseBytes)
-                            (Float/intBitsToFloat))
-              :float64 `(-> (.getLong (unsafe) (pmath/+ ~address
-                                                        (pmath/* ~'idx ~byte-width)))
-                            (Long/reverseBytes)
-                            (Double/longBitsToDouble)))))
+         (read-value ~address ~swap? ~datatype ~byte-width))
+       (readDouble [rdr# ~'idx]
+         (casting/datatype->unchecked-cast-fn
+          ~datatype :float64 (read-value ~address ~swap? ~datatype ~byte-width)))
+       (readLong [rdr# ~'idx]
+         (casting/datatype->unchecked-cast-fn
+          ~datatype :int64 (read-value ~address ~swap? ~datatype ~byte-width)))
        (write [rdr# ~'idx ~'value]
          ~(if (not swap?)
             (case datatype

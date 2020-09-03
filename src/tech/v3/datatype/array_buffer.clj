@@ -31,6 +31,14 @@
          (casting/datatype->unchecked-cast-fn
           ~datatype ~cast-dtype
           (aget ~'java-ary (pmath/+ ~offset ~'idx))))
+       (readDouble [rdr# ~'idx]
+         (casting/datatype->unchecked-cast-fn
+          ~datatype :float64
+          (aget ~'java-ary (pmath/+ ~offset ~'idx))))
+       (readLong [rdr# ~'idx]
+         (casting/datatype->unchecked-cast-fn
+          ~datatype :int64
+          (aget ~'java-ary (pmath/+ ~offset ~'idx))))
        (write [wtr# idx# val#]
          ;;Writing values is always checked, no options.
          (aset ~'java-ary (pmath/+ ~offset idx#)

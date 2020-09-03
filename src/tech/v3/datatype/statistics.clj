@@ -1,21 +1,21 @@
 (ns tech.v3.datatype.statistics
   (:require [tech.v3.datatype.binary-op :as binary-op]
             [tech.v3.datatype.reductions :as dtype-reductions]
-            [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [primitive-math :as pmath]
             [clojure.set :as set])
-  (:import [tech.v3.datatype DoubleReduction]
+  (:import [tech.v3.datatype DoubleReduction UnaryOperator]
            [java.util Arrays Map]))
 
 
 (set! *warn-on-reflection* true)
-(set! *unchecked-math* true)
+(set! *unchecked-math* :warn-on-boxed)
 
 
 (def ^:private sum-double-reduction
-  (reify DoubleReduction))
+  (reify UnaryOperator
+    (unaryDouble [this arg] arg)))
 
 
 (def ^:private min-double-reduction
@@ -41,22 +41,22 @@
    :moment-2 {:dependencies [:mean]
               :reduction (fn [stats-data]
                            (let [mean (double (:mean stats-data))]
-                             (reify DoubleReduction
-                               (elemwise [this value]
+                             (reify UnaryOperator
+                               (unaryDouble [this value]
                                  (let [item (pmath/- value mean)]
                                    (pmath/* item item))))))}
    :moment-3 {:dependencies [:mean]
               :reduction (fn [stats-data]
                            (let [mean (double (:mean stats-data))]
-                             (reify DoubleReduction
-                               (elemwise [this value]
+                             (reify UnaryOperator
+                               (unaryDouble [this value]
                                  (let [item (pmath/- value mean)]
                                    (pmath/* item (pmath/* item item)))))))}
    :moment-4 {:dependencies [:mean]
               :reduction (fn [stats-data]
                            (let [mean (double (:mean stats-data))]
-                             (reify DoubleReduction
-                               (elemwise [this value]
+                             (reify UnaryOperator
+                               (unaryDouble [this value]
                                  (let [item (pmath/- value mean)
                                        item-sq (pmath/* item item)]
                                    (pmath/* item-sq item-sq))))))}
@@ -99,72 +99,73 @@
                              (pmath/- (pmath/* prefix central) rhs))
                            Double/NaN))}})
 
-(def tower-dependencies
-  (->> stats-tower
-       (map (fn [[k v]]
-              (when-let [v-deps (:dependencies v)]
-                [k v-deps])))
-       (remove nil?)
-       (into {})))
+
+(def node-dependencies
+  (memoize
+   (fn [node-kwd]
+     (let [node (node-kwd stats-tower)]
+       (->>
+        (concat [node-kwd]
+                (mapcat node-dependencies (:dependencies node)))
+        (set))))))
 
 
-;;How many reductions does it take to get the answer
-(def tower-reduction-dependencies
-  (->> stats-tower
-       (map (fn [[k v]]
-              [k (->> (tree-seq #(get tower-dependencies %)
-                                #(get tower-dependencies %)
-                                k)
-                      (distinct)
-                      (filter #(and (:reduction (get stats-tower %))
-                                    (not= k %)))
-                      seq)]))
-       (into {})))
-
-(defn reduction-rank
-  ^long [item]
-  (let [node (stats-tower item)
-        node-deps (:dependencies node)
-        node-rank (long (if (:reduction node)
-                          1
-                          0))]
-    (+ node-rank
-       (apply max 0 (map reduction-rank node-deps)))))
+(def reduction-rank
+  (memoize
+   (fn [item]
+     (let [node (stats-tower item)
+           node-deps (:dependencies node)
+           node-rank (long (if (:reduction node)
+                             1
+                             0))]
+       (+ node-rank
+          (long (apply clojure.core/max 0 (map reduction-rank node-deps))))))))
 
 
 (def reduction-groups
   (memoize
-   (fn [stats-seq]
-     (let [all-reductions (->> stats-seq
-                               (mapcat tower-reduction-dependencies)
-                               distinct)]
-       (group-by reduction-rank all-reductions)
-       (sort-by first)))))
+   (fn [stat-dependencies]
+     (->> stat-dependencies
+          (filter #(get-in stats-tower [% :reduction]))
+          (group-by reduction-rank)
+          (sort-by first)
+          (map (fn [[rank kwds]]
+                 {:reductions (->> kwds
+                                   (map (fn [kwd]
+                                          [kwd (get-in stats-tower
+                                                       [kwd :reduction])]))
+                                   (into {}))
+                  :dependencies
+                  (->> kwds
+                       (mapcat #(get-in stats-tower [% :dependencies]))
+                       set)}))))))
 
 
 (defn calculate-descriptive-stat
-  [statname stat-data rdr]
-  (if (stat-data statname)
-    stat-data
-    (if-let [{:keys [dependencies reduction formula]} (get stats-tower statname)]
-      (let [stat-data (reduce #(calculate-descriptive-stat %2 %1 rdr)
-                              stat-data
-                              dependencies)
-            stat-data (if reduction
-                        (merge stat-data
-                               (dtype-reductions/double-reductions
-                                {statname (reduction stat-data)}
-                                rdr))
-                        stat-data)
-            stat-data (if formula
-                        (assoc stat-data statname
-                               (formula stat-data
-                                        (double
-                                         (dtype-base/ecount rdr))))
-                        stat-data)]
-        stat-data)
-      (throw (Exception. (format "Unrecognized statistic name: %s" statname))))))
-
+  ([statname stat-data rdr]
+   (if (stat-data statname)
+     stat-data
+     (if-let [{:keys [dependencies reduction formula]} (get stats-tower statname)]
+       (let [stat-data (reduce #(calculate-descriptive-stat %2 %1 rdr)
+                               stat-data
+                               dependencies)
+             stat-data (if reduction
+                         (merge stat-data
+                                (dtype-reductions/double-reductions
+                                 {statname (reduction stat-data)}
+                                 rdr))
+                         stat-data)
+             stat-data (if formula
+                         (assoc stat-data statname
+                                (formula stat-data
+                                         (double
+                                          (dtype-base/ecount rdr))))
+                         stat-data)]
+         stat-data)
+       (throw (Exception. (format "Unrecognized descriptive statistic: %s"
+                                  statname))))))
+  ([statname rdr]
+   (calculate-descriptive-stat statname {} rdr)))
 
 
 (def all-descriptive-stats-names
@@ -187,7 +188,7 @@
 
 
 (defn descriptive-statistics
-  ([stats-names rdr]
+  ([stats-names rdr stats-data]
    (if (== 0 (dtype-base/ecount rdr))
      (->> stats-names
           (map (fn [sname]
@@ -198,40 +199,82 @@
    (let [rdr (dtype-base/->reader rdr)
          n-elems (.lsize rdr)
          stats-set (set stats-names)
-         median? (stats-set :median)
-         ^PrimitiveIO rdr (if requires-sort?
+         median? (and (stats-set :median)
+                      (not (contains? stats-data :median)))
+         ^PrimitiveIO rdr (if median?
                             (let [darray (->double-array rdr)]
+                              ;;arrays/sort is blindingly fast.
                               (Arrays/sort darray)
-                              (dtype-base/->reader rdr))
+                              (dtype-base/->reader darray))
                             rdr)
-         stats-data (when median?
-                      {:min (rdr 0)
-                       :max (rdr (unchecked-dec n-elems))
-                       :median (rdr (quot n-elems 2))})
-         calculate-stats-set (if requires-sort?
-                               (set/difference stats-set #{:min :max :median
-                                                           :n-values})
-                               (disj stats-set :n-values))
+         stats-data (merge (if median?
+                             {:min (rdr 0)
+                              :max (rdr (unchecked-dec n-elems))
+                              :median (rdr (quot n-elems 2))
+                              :n-values n-elems}
+                             {:n-values n-elems})
+                           stats-data)
+         calculate-stats-set (set/difference stats-set (set (keys stats-data)))
+         dependency-set (reduce set/union (map node-dependencies calculate-stats-set))
+         calculated-dependency-set (reduce set/union
+                                           (map node-dependencies (keys stats-data)))
+         required-dependency-set (set/difference dependency-set
+                                                 calculated-dependency-set)
          stats-data (reduce
-                     (fn [stats-data [rank kwds]]
-                       (merge
-                        (dtype-reductions/double-reductions
-                         (->> kwds
-                              (map (fn [kwd]
-                                     [kwd ((get-in stats-tower [kwd :reduction])
-                                           stats-data)]))
-                              (into {}))
-                         rdr)))
+                     (fn [stats-data group]
+                       (let [reductions (:reductions group)
+                             dependencies (:dependencies group)
+                             ;;these caclculates are guaranteed to not need
+                             ;;to do any reductions.
+                             stats-data (reduce #(calculate-descriptive-stat
+                                                  %2
+                                                  %1
+                                                  rdr)
+                                                stats-data
+                                                dependencies)]
+                         (merge
+                          (dtype-reductions/double-reductions
+                           (->> reductions
+                                (map (fn [[kwd red-fn]]
+                                       [kwd (red-fn stats-data)]))
+                                (into {}))
+                           rdr)
+                          stats-data)))
                      stats-data
-                     (reduction-groups calculate-stats-set))]
-
-     (->> stats-names
-          (map (juxt identity (merge {:n-values n-elems}
-                                     initial-reduction
-                                     sum-reductions)))
-          (into {}))))
+                     (reduction-groups required-dependency-set))
+         stats-data (reduce #(calculate-descriptive-stat %2 %1 rdr)
+                            stats-data
+                            calculate-stats-set)]
+     (select-keys stats-data stats-set)))
+  ([stats-names rdr]
+   (descriptive-statistics stats-names rdr {}))
   ([rdr]
-   (descriptive-statistics [:n-values :min :mean :max :standard-deviation])))
+   (descriptive-statistics [:n-values :min :mean :max :standard-deviation] rdr {})))
+
+
+(defmacro define-descriptive-stats
+  []
+  `(do
+     ~@(->> stats-tower
+            (map (fn [[tower-key tower-node]]
+                   (let [fn-symbol (symbol (name tower-key))]
+                     (if (:dependencies tower-node)
+                       `(defn ~fn-symbol
+                          [~'data]
+                          (~tower-key (descriptive-statistics #{~tower-key} ~'data)))
+                       `(defn ~fn-symbol
+                          [~'data]
+                          (~tower-key (calculate-descriptive-stat
+                                       ~tower-key ~'data))))))))))
+
+
+(define-descriptive-stats)
+
+
+(defn median
+  [data]
+  (:median (descriptive-statistics [:median] data)))
+
 
 (comment
 
