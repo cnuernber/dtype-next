@@ -184,7 +184,7 @@
 (defn reduce-+
   [rdr]
   (dtype-reductions/commutative-binary-reduce
-   rdr (:+ binary-op/builtin-ops)))
+   (:+ binary-op/builtin-ops) rdr))
 
 
 (defn sum [rdr] (reduce-+ rdr))

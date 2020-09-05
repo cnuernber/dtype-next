@@ -391,8 +391,11 @@
     (import '[org.apache.commons.math3.stat.descriptive DescriptiveStatistics])
     (import '[tech.v3.datatype PrimitiveIODoubleSpliterator])
     (import '[java.util.stream StreamSupport])
-    (import '[java.util.function DoubleBinaryOperator])
-    (def double-data (double-array (range 20))))
+    (import '[java.util.function DoubleBinaryOperator DoublePredicate])
+    (def double-data (double-array (range 1000000)))
+    (def print-consumer (reify java.util.function.DoubleConsumer
+                          (accept [this val]
+                            (println val)))))
 
   (defn data->spliterator
     [data]
@@ -408,7 +411,7 @@
           spliterator (PrimitiveIODoubleSpliterator. rdr 0
                                                      (.lsize rdr)
                                                      :keep)
-          stream (StreamSupport/doubleStream spliterator true)]
+          stream (-> (StreamSupport/doubleStream spliterator true))]
       (.reduce stream 0.0 (reify DoubleBinaryOperator
                             (applyAsDouble [this lhs rhs]
                               (pmath/+ lhs rhs))))))
@@ -429,4 +432,6 @@
                  (recur (.hasNext iterator) accum))
                accum))))
        (partial reduce +))))
+
+
   )

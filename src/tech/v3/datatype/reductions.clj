@@ -3,15 +3,16 @@
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.errors :as errors]
-            [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.unary-op :as unop]
             [primitive-math :as pmath])
   (:import [tech.v3.datatype BinaryOperator IndexReduction DoubleReduction
             PrimitiveIO IndexReduction$IndexedBiFunction UnaryOperator
-            PrimitiveIOIterator]
-           [org.apache.commons.math3.exception NotANumberException]
-           [java.util List Map HashMap Map$Entry]
+            PrimitiveIOIterator PrimitiveIODoubleSpliterator]
+           [java.util List Map HashMap Map$Entry Spliterator$OfDouble Spliterator]
+           [java.util.concurrent ForkJoinPool Callable Future]
+           [java.util.stream StreamSupport]
            [java.util.concurrent ConcurrentHashMap]
-           [java.util.function BiFunction BiConsumer]))
+           [java.util.function BiFunction BiConsumer DoublePredicate DoubleConsumer]))
 
 
 (set! *warn-on-reflection* true)
@@ -20,6 +21,24 @@
 
 (def nan-strategies [:exception :keep :remove])
 ;;unspecified nan-strategy is :remove
+
+(defn double-summation
+  ^double [rdr]
+  (let [rdr (dtype-base/->reader rdr)
+        n-elems (.size rdr)]
+    (double
+     (parallel-for/indexed-map-reduce
+      n-elems
+      (fn [^long start-idx ^long group-len]
+        (let [end-idx (+ start-idx group-len)]
+          (loop [idx (inc start-idx)
+                 accum (.readDouble rdr start-idx)]
+            (if (< idx end-idx)
+              (recur (unchecked-inc idx)
+                     (pmath/+ accum (.readDouble rdr idx)))
+              accum))))
+      (partial reduce +)))))
+
 
 (defn unary-double-summation
   ^double [^UnaryOperator op rdr]
@@ -93,21 +112,145 @@
 
 
 (defn commutative-binary-reduce
-  ([op rdr nan-strategy]
+  [op rdr]
+  (if-let [rdr (dtype-base/->reader rdr)]
+    (if (instance? BinaryOperator op)
+      (let [rdr-dtype (dtype-base/elemwise-datatype rdr)]
+        (cond
+          (casting/integer-type? rdr-dtype)
+          (commutative-binary-long op rdr)
+          (casting/float-type? rdr-dtype)
+          (commutative-binary-double op rdr)
+          :else
+          (commutative-binary-object op rdr)))
+      (commutative-binary-object op rdr))
+    ;;Clojure core reduce is actually pretty good!
+    (reduce op rdr)))
+
+
+(defn nan-strategy-or-predicate->double-predicate
+  (^DoublePredicate [nan-strategy-or-predicate]
+   (cond
+     (instance? DoublePredicate nan-strategy-or-predicate)
+     nan-strategy-or-predicate
+     (= nan-strategy-or-predicate :keep)
+     nil
+     ;;Remove is the default so nil maps to remove
+     (or (nil? nan-strategy-or-predicate)
+         (= nan-strategy-or-predicate :remove))
+     PrimitiveIODoubleSpliterator/removePredicate
+     (= nan-strategy-or-predicate :exception)
+     PrimitiveIODoubleSpliterator/exceptPredicate
+     :else
+     (errors/throwf "Unrecognized predicate: %s" nan-strategy-or-predicate)))
+  (^DoublePredicate []
+   (nan-strategy-or-predicate->double-predicate nil)))
+
+
+(defn reader->double-spliterator
+  "Convert a primitiveIO object into a spliterator with an optional
+  nan strategy [:keep :remove :exception] or an implementation of a
+  java.util.functions.DoublePredicate that can filter the double stream
+  (or throw an exception on an invalid value).
+  Implementations of UnaryPredicate also implement DoublePredicate."
+  (^Spliterator$OfDouble [rdr nan-strategy-or-predicate]
    (if-let [rdr (dtype-base/->reader rdr)]
-     (if (instance? BinaryOperator op)
-       (let [rdr-dtype (dtype-base/elemwise-datatype rdr)]
-         (cond
-           (casting/integer-type? rdr-dtype)
-           (commutative-binary-long op rdr)
-           (casting/float-type? rdr-dtype)
-           (commutative-binary-double op rdr)
-           :else
-           (commutative-binary-object op rdr)))
-       (commutative-binary-object op rdr))
-     ;;Clojure core reduce is actually pretty good!
-     (reduce op rdr)))
-  ([op rdr] (commutative-binary-reduce op rdr :keep)))
+     (PrimitiveIODoubleSpliterator. rdr 0
+                                    (.lsize rdr)
+                                    (nan-strategy-or-predicate->double-predicate
+                                     nan-strategy-or-predicate))
+     (errors/throwf "Argument %s is not convertible to reader" (type rdr))))
+  (^Spliterator$OfDouble [rdr]
+   (reader->double-spliterator rdr nil)))
+
+
+(deftype RetainDoubleConsumer [^:unsynchronized-mutable ^double value]
+  DoubleConsumer
+  (accept [this data]
+    (set! value data))
+  clojure.lang.IFn
+  (invoke [this] value))
+
+
+(defrecord SpliteratorReductionResult [^double data ^long n-elems])
+
+
+(defn spliterator-double-unary-summation
+  ^SpliteratorReductionResult [^UnaryOperator op ^Spliterator$OfDouble data]
+  (parallel-for/spliterator-map-reduce
+   data
+   (fn [^Spliterator$OfDouble spliterator]
+     (let [retain-consumer (RetainDoubleConsumer. Double/NaN)]
+       (if (.tryAdvance spliterator retain-consumer)
+         (let [result (double-array [(double (retain-consumer))])
+               n-elems (long-array [1])]
+           (.forEachRemaining spliterator
+                              (reify DoubleConsumer
+                                (accept [this value]
+                                  (aset n-elems 0 (unchecked-inc (aget n-elems 0)))
+                                  (aset result 0
+                                        (pmath/+ (aget result 0)
+                                                 (.unaryDouble op value))))))
+           (->SpliteratorReductionResult (aget result 0) (aget n-elems 0))))))
+   (partial reduce (fn [^SpliteratorReductionResult lhs
+                        ^SpliteratorReductionResult rhs]
+                     (->SpliteratorReductionResult (pmath/+ (.data lhs) (.data rhs))
+                                                   (pmath/+ (.n-elems lhs) (.n-elems rhs)))))))
+
+
+(defn spliterator-double-binary-reduction
+  (^SpliteratorReductionResult [^BinaryOperator op ^Spliterator$OfDouble data]
+   (parallel-for/spliterator-map-reduce
+    data
+    (fn [^Spliterator$OfDouble spliterator]
+      (let [retain-consumer (RetainDoubleConsumer. Double/NaN)]
+        (if (.tryAdvance spliterator retain-consumer)
+          (let [result (double-array [(double (retain-consumer))])
+                n-elems (long-array [1])]
+            (.forEachRemaining spliterator
+                               (reify DoubleConsumer
+                                 (accept [this value]
+                                   (aset n-elems 0 (unchecked-inc (aget n-elems 0)))
+                                   (aset result 0
+                                         (.binaryDouble op (aget result 0) value)))))
+            (->SpliteratorReductionResult (aget result 0) (aget n-elems 0))))))
+    (partial reduce (fn [^SpliteratorReductionResult lhs
+                         ^SpliteratorReductionResult rhs]
+                      (->SpliteratorReductionResult (.binaryDouble op (.data lhs) (.data rhs))
+                                                    (pmath/+ (.n-elems lhs) (.n-elems rhs))))))))
+
+
+(defn spliterator-double-reduction
+  (^SpliteratorReductionResult [^DoubleReduction op ^Spliterator$OfDouble data
+                                {:keys [finalize?]
+                                 :or {finalize? true}}]
+   (let [^SpliteratorReductionResult retval
+         (parallel-for/spliterator-map-reduce
+          data
+          (fn [^Spliterator$OfDouble spliterator]
+            (let [retain-consumer (RetainDoubleConsumer. Double/NaN)]
+              (if (.tryAdvance spliterator retain-consumer)
+                (let [result (double-array [(.elemwise op (double (retain-consumer)))])
+                      n-elems (long-array [1])]
+                  (.forEachRemaining spliterator
+                                     (reify DoubleConsumer
+                                       (accept [this value]
+                                         (aset n-elems 0 (unchecked-inc (aget n-elems 0)))
+                                         (aset result 0
+                                               (.update op (aget result 0)
+                                                        (.elemwise op value))))))
+                  (->SpliteratorReductionResult (aget result 0) (aget n-elems 0))))))
+          (partial reduce (fn [^SpliteratorReductionResult lhs
+                               ^SpliteratorReductionResult rhs]
+                            (->SpliteratorReductionResult (.merge op (.data lhs) (.data rhs))
+                                                          (pmath/+ (.n-elems lhs) (.n-elems rhs))))))]
+     (if finalize?
+       (->SpliteratorReductionResult (.finalize op (.data retval) (.n-elems retval))
+                                     (.n-elems retval))
+       retval)))
+  (^SpliteratorReductionResult [^DoubleReduction op ^Spliterator$OfDouble data]
+   (spliterator-double-reduction op data nil)))
+
 
 
 (defn indexed-reduction
@@ -140,12 +283,17 @@
   (cond
     (instance? DoubleReduction arg)
     arg
+    (= arg :+)
+    (reify DoubleReduction
+      (update [this lhs rhs]
+        (pmath/+ lhs rhs))
+      (merge [this lhs rhs]
+        (pmath/+ lhs rhs)))
     (instance? UnaryOperator arg)
     (let [^UnaryOperator arg arg]
       (reify DoubleReduction
         (elemwise [this item]
           (.unaryDouble arg item))))
-
     (instance? BinaryOperator arg)
     (let [^BinaryOperator arg arg]
       (reify DoubleReduction
@@ -161,38 +309,36 @@
 (defrecord DoubleReductionContext [^doubles data ^longs n-elem-ary])
 
 
+;;Pass potentially many reducers in parallel over a reader
 (deftype IndexedDoubleReduction [^objects reducers ^long n-reducers
-                                 reducer-names nan-strategy]
+                                 reducer-names ^DoublePredicate predicate]
   IndexReduction
   (reduceIndex [this batch-data ctx idx]
-    (let [dval (.readDouble ^PrimitiveIO batch-data idx)]
-      (if (or (= nan-strategy :keep)
-              (not (Double/isNaN dval)))
-        (let [first? (nil? ctx)
-              ^DoubleReductionContext ctx (or ctx
-                                              (->DoubleReductionContext
-                                               (double-array n-reducers)
-                                               (long-array 1)))
-              ^doubles data (.data ctx)
-              ^longs n-elems (.n-elem-ary ctx)]
-          (if first?
-            (do
-              (aset n-elems 0 (unchecked-inc (aget n-elems 0)))
-              (dotimes [reducer-idx n-reducers]
-                (aset data reducer-idx
-                      (.elemwise ^DoubleReduction (aget reducers reducer-idx)
-                                 dval))))
-            (do
-              (aset n-elems 0 (unchecked-inc (aget n-elems 0)))
-              (dotimes [reducer-idx n-reducers]
-                (aset data reducer-idx
-                      (.update
-                       ^DoubleReduction (aget reducers reducer-idx)
-                       (aget data reducer-idx)
-                       (.elemwise ^DoubleReduction (aget reducers reducer-idx)
-                                  dval)))))))
-        (when (= nan-strategy :exception)
-          (errors/throw-nan)))))
+    (let [dval (.readDouble ^PrimitiveIO batch-data idx)
+          dval (if predicate (.test predicate dval) dval)]
+      (let [first? (nil? ctx)
+            ^DoubleReductionContext ctx (or ctx
+                                            (->DoubleReductionContext
+                                             (double-array n-reducers)
+                                             (long-array 1)))
+            ^doubles data (.data ctx)
+            ^longs n-elems (.n-elem-ary ctx)]
+        (if first?
+          (do
+            (aset n-elems 0 (unchecked-inc (aget n-elems 0)))
+            (dotimes [reducer-idx n-reducers]
+              (aset data reducer-idx
+                    (.elemwise ^DoubleReduction (aget reducers reducer-idx)
+                               dval))))
+          (do
+            (aset n-elems 0 (unchecked-inc (aget n-elems 0)))
+            (dotimes [reducer-idx n-reducers]
+              (aset data reducer-idx
+                    (.update
+                     ^DoubleReduction (aget reducers reducer-idx)
+                     (aget data reducer-idx)
+                     (.elemwise ^DoubleReduction (aget reducers reducer-idx)
+                                dval)))))))))
   (reduceReductions [this lhs-ctx rhs-ctx]
     (let [^DoubleReductionContext lhs-ctx lhs-ctx
           ^DoubleReductionContext rhs-ctx rhs-ctx]
@@ -209,24 +355,25 @@
     (let [^DoubleReductionContext ctx ctx
           n-elems (aget ^longs (.n-elem-ary ctx) 0)
           data (.data ctx)]
-      (->> (map (fn [k r v]
-                  [k {:value (.finalize ^DoubleReduction r v n-elems)
-                      :n-elems n-elems}])
-                reducer-names reducers data)
-           (into {})))))
+      {:n-elems n-elems
+       :data (->> (map (fn [k r v]
+                         [k (.finalize ^DoubleReduction r v n-elems)])
+                       reducer-names reducers data)
+                  (into {}))})))
 
 
 (defn double-reducers->indexed-reduction
   "Make an index reduction out of a map of reducer-name to reducer.  Stores intermediate values
   in double arrays.  Upon finalize, returns a map of reducer-name to finalized double reduction
   value."
-  (^IndexReduction [reducer-map nan-strategy]
+  (^IndexReduction [reducer-map nan-strategy-or-predicate]
    (let [^List reducer-names (keys reducer-map)
          reducers (object-array (map ensure-double-reduction (vals reducer-map)))
-         n-reducers (alength reducers)
-         nan-strategy (or nan-strategy :exception)]
+         n-reducers (alength reducers)]
      (IndexedDoubleReduction. reducers n-reducers
-                              reducer-names nan-strategy)))
+                              reducer-names
+                              (nan-strategy-or-predicate->double-predicate
+                               nan-strategy-or-predicate))))
   (^IndexReduction [reducer-map]
    (double-reducers->indexed-reduction reducer-map nil)))
 
@@ -234,36 +381,65 @@
 (defn double-reductions
   "Given a map of name->reducer of DoubleReduction implementations and a rdr
   do an efficient two-level parallelized reduction and return the results in
-  a map of name->finalized-result."
-  ([reducer-map rdr {:keys [finalize? nan-strategy]
-                     :or {nan-strategy :remove}}]
-   (if (and (= :keep nan-strategy)
-            (== 1 (count reducer-map)))
-     (let [[reducer-name reducer] (first reducer-map)]
-       (if (instance? UnaryOperator reducer)
-         {reducer-name (unary-double-summation reducer rdr)}
-         (let [rdr (dtype-base/->reader rdr)
-               ^DoubleReduction reducer reducer
-               n-elems (.lsize rdr)
-               retval
-               (parallel-for/indexed-map-reduce
-                n-elems
-                (fn [^long start-idx ^long group-len]
-                  (let [end-idx (pmath/+ start-idx group-len)]
-                    (loop [idx (unchecked-inc start-idx)
-                           accum (.elemwise reducer (.readDouble rdr idx))]
-                      (if (< idx end-idx)
-                        (recur (unchecked-inc idx)
-                               (.update reducer accum
-                                        (.elemwise reducer
-                                                   (.readDouble rdr idx))))
-                        accum))))
-                (partial reduce #(.merge reducer (double %1) (double %2))))]
-           (if finalize?
-             {reducer-name (.finalize reducer (double retval) (double n-elems))}
-             {reducer-name retval}))))
-     (-> (double-reducers->indexed-reduction reducer-map nan-strategy)
-         (indexed-reduction rdr finalize?))))
+  a map of name->finalized-result.
+  Result shape
+  {:n-elems - number of elements that passed the nan strategy or predicate
+   :data - map of reducer-name to reduced double value.}"
+  ([reducer-map rdr {:keys [nan-strategy-or-predicate finalize?]
+                     :or {finalize? true}
+                     :as options}]
+   (if-let [rdr (dtype-base/->reader rdr)]
+     (let [n-elems (.lsize rdr)]
+       ;;Fastest possible if there is only 1 reducer
+       (if (== 1 (count reducer-map))
+         (let [[reducer-name reducer] (first reducer-map)
+               ;;Indicate there is really no nan strategy
+               keep? (= :keep nan-strategy-or-predicate)
+               ;;Updates the result of a spliterator operation so the return
+               ;;value signature matches what is expected from this function
+               updater-fn (fn [reducer-result]
+                            (update reducer-result :data #(hash-map reducer-name %)))]
+           {reducer-name
+            (cond
+              (= :+ reducer)
+              (if keep?
+                {:n-elems n-elems
+                 :data {reducer-name (double-summation rdr)}}
+                (-> (spliterator-double-unary-summation
+                     (:identity unop/builtin-ops)
+                     (reader->double-spliterator
+                      rdr nan-strategy-or-predicate))
+                    (updater-fn)))
+              (instance? UnaryOperator reducer)
+              (if keep?
+                {:n-elems n-elems
+                 :data {reducer-name (unary-double-summation reducer rdr)}}
+                (-> (spliterator-double-unary-summation
+                     reducer
+                     (reader->double-spliterator
+                      rdr nan-strategy-or-predicate))
+                    (updater-fn)))
+              (instance? BinaryOperator reducer)
+              (if keep?
+                {:n-elems n-elems
+                 :data {reducer-name (commutative-binary-double reducer rdr)}}
+                (-> (spliterator-double-binary-reduction
+                     reducer
+                     (reader->double-spliterator
+                      rdr nan-strategy-or-predicate))
+                    (updater-fn)))
+              (instance? DoubleReduction reducer)
+              (-> (spliterator-double-reduction
+                   reducer
+                   (reader->double-spliterator
+                    rdr nan-strategy-or-predicate)
+                   options)
+                  (updater-fn)))})
+         ;;With multiple reducers we use a larger strategy that returns a result of the
+         ;;correct shape.
+         (-> (double-reducers->indexed-reduction
+              reducer-map nan-strategy-or-predicate)
+             (indexed-reduction rdr finalize?))))))
   ([reducer-map rdr]
    (double-reductions reducer-map rdr nil)))
 

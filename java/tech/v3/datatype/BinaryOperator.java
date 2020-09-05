@@ -4,9 +4,10 @@ import clojure.lang.IFn;
 import clojure.lang.Keyword;
 import clojure.lang.ISeq;
 import java.util.function.BiFunction;
+import java.util.function.DoubleBinaryOperator;
 
 
-public interface BinaryOperator extends ElemwiseDatatype, IFn, BiFunction
+public interface BinaryOperator extends ElemwiseDatatype, IFn, BiFunction, DoubleBinaryOperator
 {
   boolean binaryBoolean(boolean lhs, boolean rhs);
   byte binaryByte(byte lhs, byte rhs);
@@ -27,5 +28,8 @@ public interface BinaryOperator extends ElemwiseDatatype, IFn, BiFunction
   }
   default Object apply(Object lhs, Object rhs) {
     return binaryObject(lhs, rhs);
+  }
+  default double applyAsDouble(double left, double right) {
+    return binaryDouble(left, right);
   }
 }

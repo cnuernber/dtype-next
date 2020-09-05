@@ -1,6 +1,6 @@
 (ns tech.v3.parallel.for
-  (:import [java.util.concurrent ForkJoinPool Callable Future ExecutorService]
-           [java.util ArrayDeque PriorityQueue Comparator]))
+  (:import [java.util.concurrent ForkJoinPool Callable Future]
+           [java.util ArrayDeque PriorityQueue Comparator Spliterator]))
 
 
 (set! *unchecked-math* :warn-on-boxed)
@@ -8,6 +8,11 @@
 
 
 (def ^long default-max-batch-size 64000)
+
+
+(defn common-pool-parallelism
+  ^long []
+  (ForkJoinPool/getCommonPoolParallelism))
 
 
 (defn indexed-map-reduce
@@ -116,3 +121,29 @@ call this function exactly N times where N is ForkJoinPool/getCommonPoolParallel
          (let [~varname (.next iter#)]
            ~@body
            (recur (.hasNext iter#)))))))
+
+
+(defn spliterator-map-reduce
+  "Given a spliterator, a function from spliterator to scalar and a
+  reduction function do an efficient parallelized reduction."
+  [^Spliterator data map-fn reduce-fn]
+  (let [src-spliterator data
+        n-cpus (common-pool-parallelism)
+        n-splits (long (Math/ceil (Math/log n-cpus)))
+        spliterators (loop [idx 0
+                            spliterators [src-spliterator]]
+                       (if (< idx n-splits)
+                         (recur (unchecked-inc idx)
+                                ;;Splitting a spliterator is a side-effecting operation so we can't
+                                ;;allow this to be lazy
+                                (->> spliterators
+                                     (mapcat #(when % [(.trySplit ^Spliterator %) %]))
+                                     (remove nil?)
+                                     vec))
+                         spliterators))
+        common-pool (ForkJoinPool/commonPool)]
+    (->> spliterators
+         ;;Launch all the tasks
+         (mapv #(.submit common-pool ^Callable (fn [] (map-fn %))))
+         (map #(.get ^Future %))
+         reduce-fn)))
