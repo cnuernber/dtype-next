@@ -37,7 +37,7 @@
       ;;TODO - research ideal buffer growth algorithms
       ;;Once things get huge you have to be careful.
       (let [new-capacity (long (if (< (* desired-size buf-dtype-width) (* 1024 1024))
-                                 (* 2 desired-size)
+                                 (max (* 2 desired-size) 10)
                                  (long (* 1.25 desired-size))))]
         (if-let [ary-buf (dtype-base/->array-buffer buffer-data)]
           (let [new-buffer (dtype-cmc/make-container :jvm-heap (.datatype ary-buf)

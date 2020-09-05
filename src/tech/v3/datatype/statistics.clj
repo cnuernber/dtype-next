@@ -3,16 +3,19 @@
             [tech.v3.datatype.reductions :as dtype-reductions]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.errors :as errors]
+            [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.array-buffer :as array-buffer]
             [tech.v3.parallel.for :as parallel-for]
             [primitive-math :as pmath]
             [clojure.set :as set])
-  (:import [tech.v3.datatype DoubleReduction UnaryOperator PrimitiveIOIterator]
+  (:import [tech.v3.datatype DoubleReduction UnaryOperator PrimitiveIOIterator
+            DoubleList]
            [tech.v3.datatype.array_buffer ArrayBuffer]
            [org.apache.commons.math3.stat.descriptive.rank Percentile]
            [org.apache.commons.math3.stat.ranking NaNStrategy]
-           [java.util Arrays Map Iterator])
+           [java.util Arrays Map Iterator]
+           [java.util.function DoubleConsumer])
     (:refer-clojure :exclude [min max]))
 
 
@@ -20,31 +23,17 @@
 (set! *unchecked-math* :warn-on-boxed)
 
 
-(def ^:private sum-double-reduction
-  (reify UnaryOperator
-    (unaryDouble [this arg] arg)))
-
-
-(def ^:private min-double-reduction
-  (reify DoubleReduction
-    (update [this accum value]
-      (pmath/min accum value))))
-
-
-(def ^:private max-double-reduction
-  (reify DoubleReduction
-    (update [this accum value]
-      (pmath/max accum value))))
+(def ^:private sum-double-reduction :+)
 
 
 (def stats-tower
   {:sum {:reduction (constantly sum-double-reduction)}
-   :min {:reduction (constantly min-double-reduction)}
-   :max {:reduction (constantly max-double-reduction)}
+   :min {:reduction (constantly (:min binary-op/builtin-ops))}
+   :max {:reduction (constantly (:max binary-op/builtin-ops))}
    :mean {:dependencies [:sum]
-          :formula (fn [stats-data ^double n-elems]
+          :formula (fn [stats-data]
                      (pmath// (double (:sum stats-data))
-                              n-elems))}
+                              (double (:n-values stats-data))))}
    :moment-2 {:dependencies [:mean]
               :reduction (fn [stats-data]
                            (let [mean (double (:mean stats-data))]
@@ -69,15 +58,16 @@
                                    (pmath/* item-sq item-sq))))))}
 
    :variance {:dependencies [:moment-2]
-              :formula (fn [stats-data ^double n-elems]
+              :formula (fn [stats-data]
                          (pmath// (double (:moment-2 stats-data))
-                                  (unchecked-dec n-elems)))}
+                                  (unchecked-dec (double (:n-values stats-data)))))}
    :standard-deviation {:dependencies [:variance]
-                        :formula (fn [stats-data ^double n-elems]
+                        :formula (fn [stats-data]
                                    (Math/sqrt (double (:variance stats-data))))}
    :skew {:dependencies [:moment-3 :standard-deviation]
-          :formula (fn [stats-data ^double n-elemsd]
-                     (let [n-elems-12 (pmath/* (pmath/- n-elemsd 1.0)
+          :formula (fn [stats-data]
+                     (let [n-elemsd (double (:n-values stats-data))
+                           n-elems-12 (pmath/* (pmath/- n-elemsd 1.0)
                                                (pmath/- n-elemsd 2.0))
                            stddev (double (:standard-deviation stats-data))
                            moment-3 (double (:moment-3 stats-data))]
@@ -88,23 +78,24 @@
                          Double/NaN)))}
    ;;{ [n(n+1) / (n -1)(n - 2)(n-3)] sum[(x_i - mean)^4] / std^4 } - [3(n-1)^2 / (n-2)(n-3)]
    :kurtosis {:dependencies [:moment-4 :variance]
-              :formula (fn [stats-data ^double n-elemsd]
-                         (if (>= n-elemsd 4.0)
-                           (let [variance (double (:variance stats-data))
-                                 moment-4 (double (:moment-4 stats-data))
-                                 nm1 (pmath/- n-elemsd 1.0)
-                                 nm2 (pmath/- n-elemsd 2.0)
-                                 nm3 (pmath/- n-elemsd 3.0)
-                                 np1 (pmath/+ n-elemsd 1.0)
-                                 nm23 (pmath/* nm2 nm3)
-                                 prefix (pmath// (pmath/* n-elemsd np1)
-                                                 (pmath/* nm1 nm23))
-                                 central (pmath// moment-4
-                                                  (pmath/* variance variance))
-                                 rhs (pmath// (pmath/* 3.0 (pmath/* nm1 nm1))
-                                              nm23)]
-                             (pmath/- (pmath/* prefix central) rhs))
-                           Double/NaN))}})
+              :formula (fn [stats-data]
+                         (let [n-elemsd (double (:n-values stats-data))]
+                           (if (>= n-elemsd 4.0)
+                             (let [variance (double (:variance stats-data))
+                                   moment-4 (double (:moment-4 stats-data))
+                                   nm1 (pmath/- n-elemsd 1.0)
+                                   nm2 (pmath/- n-elemsd 2.0)
+                                   nm3 (pmath/- n-elemsd 3.0)
+                                   np1 (pmath/+ n-elemsd 1.0)
+                                   nm23 (pmath/* nm2 nm3)
+                                   prefix (pmath// (pmath/* n-elemsd np1)
+                                                   (pmath/* nm1 nm23))
+                                   central (pmath// moment-4
+                                                    (pmath/* variance variance))
+                                   rhs (pmath// (pmath/* 3.0 (pmath/* nm1 nm1))
+                                                nm23)]
+                               (pmath/- (pmath/* prefix central) rhs))
+                             Double/NaN)))}})
 
 
 (def node-dependencies
@@ -153,22 +144,23 @@
    (if (stat-data statname)
      stat-data
      (if-let [{:keys [dependencies reduction formula]} (get stats-tower statname)]
-       (let [stat-data (reduce #(calculate-descriptive-stat %2 %1 rdr)
+       (let [stat-data (reduce #(calculate-descriptive-stat %2 %1 rdr options)
                                stat-data
                                dependencies)
-             stat-data (if reduction
-                         (merge stat-data
-                                (dtype-reductions/double-reductions
-                                 {statname (reduction stat-data)}
-                                 rdr
-                                 options))
-                         stat-data)
-             n-elems (double (or (get-in stat-data [statname :n-elems])
-                                 (dtype-base/ecount rdr)))
-             stat-data (update stat-data statname :data)
+             stat-data
+             (if reduction
+               (let [{:keys [n-elems data] :as result}
+                     (dtype-reductions/double-reductions
+                      {statname (reduction stat-data)}
+                      rdr
+                      options)]
+                 (assoc stat-data
+                        statname (get data statname)
+                        :n-values n-elems))
+               stat-data)
              stat-data (if formula
                          (assoc stat-data statname
-                                (formula stat-data n-elems))
+                                (formula stat-data))
                          stat-data)]
          stat-data)
        (throw (Exception. (format "Unrecognized descriptive statistic: %s"
@@ -182,79 +174,22 @@
    :variance :standard-deviation :skew :n-values :kurtosis])
 
 
-(deftype NanFilterIOIterator [^PrimitiveIOIterator baseIter
-                              ^:unsynchronized-mutable ^double current
-                              nan-strategy]
-  PrimitiveIOIterator
-  (hasNext [this]
-    (not (Double/isNaN current)))
-  (nextDouble [this]
-    (let [retval current]
-      ;;side effecting loop to set the current value either to a non-nan double value
-      ;;or nan
-      (loop [continue? (.hasNext baseIter)]
-        (if continue?
-          (do
-            (set! current (.nextDouble baseIter))
-            (if (Double/isNaN current)
-              (do
-                (when (= nan-strategy :exception) (errors/throw-nan))
-                (recur (.hasNext baseIter)))))
-          (set! current Double/NaN)))
-      retval))
-  (next [this]
-    (.nextDouble this)))
-
-(deftype NanFilterIterator [^Iterator baseIter
-                            ^:unsynchronized-mutable ^double current
-                            nan-strategy]
-  PrimitiveIOIterator
-  (hasNext [this]
-    (not (Double/isNaN current)))
-  (nextDouble [this]
-    (let [retval current]
-      ;;side effecting loop to set the current value either to a non-nan double value
-      ;;or nan
-      (loop [continue? (.hasNext baseIter)]
-        (if continue?
-          (do
-            (set! current (double (.next baseIter)))
-            (if (Double/isNaN current)
-              (do
-                (when (= nan-strategy :exception) (errors/throw-nan))
-                (recur (.hasNext baseIter)))))
-          (set! current Double/NaN)))
-      retval))
-  (next [this]
-    (.nextDouble this)))
+(deftype FixedSizedDoubleConsumer [^doubles data ^:unsynchronized-mutable ^long ptr]
+  DoubleConsumer
+  (accept [this value]
+    (aset data ptr value)
+    (set! ptr (unchecked-inc ptr)))
+  dtype-proto/PToArrayBuffer
+  (convertible-to-array-buffer? [item] true)
+  (->array-buffer [item]
+    (ArrayBuffer. data (unchecked-int 0) (int ptr) :float64
+                  {} nil)))
 
 
-(defn ->nan-aware-iterable
-  (^Iterable [rdr {:keys [nan-strategy]}]
-   (reify
-     Iterable
-     (iterator [this]
-       (if (= :keep nan-strategy)
-         (if-let [rdr (dtype-base/->reader rdr)]
-           (.iterator rdr)
-           (.iterator ^Iterable rdr))
-         (if-let [rdr (dtype-base/->reader rdr)]
-           (let [retval (NanFilterIOIterator. (.iterator rdr) 0.0 nan-strategy)]
-             (.nextDouble retval)
-             retval)
-           (let [retval (NanFilterIterator.  (.iterator ^Iterable rdr)
-                                             0.0 nan-strategy)]
-             (.next retval)
-             retval))))))
-  (^Iterable [rdr]
-   (->nan-aware-iterable rdr nil)))
-
-
-(defn- ->double-array
-  (^ArrayBuffer [item {:keys [nan-strategy]
-                       :or {nan-strategy :remove}
+(defn- ->double-array-buffer
+  (^ArrayBuffer [item {:keys [nan-strategy-or-predicate]
                        :as options}]
-   (if (= nan-strategy :keep)
+   (if (= nan-strategy-or-predicate :keep)
      (->
       (if-let [ary-data (dtype-base/->array-buffer item)]
         (if (and (= :float64 (dtype-base/elemwise-datatype ary-data))
@@ -263,15 +198,18 @@
                      (.n-elems ary-data)))
           (.ary-data ary-data)
           (-> (dtype-cmc/make-container :float64 item)
-              (->double-array)))
+              (->double-array-buffer options)))
         (-> (dtype-cmc/make-container :float64 item)
-            (->double-array)))
+            (->double-array-buffer options)))
       (dtype-base/->array-buffer))
-     (-> (dtype-cmc/make-container :list :float64
-                                   (->nan-aware-iterable item options))
-         (dtype-base/->array-buffer))))
+     (let [consumer (FixedSizedDoubleConsumer.
+                     (double-array (dtype-base/ecount item))
+                     0)]
+       (-> (dtype-reductions/reader->double-spliterator item nan-strategy-or-predicate)
+           (.forEachRemaining consumer))
+       (dtype-base/->array-buffer consumer))))
   (^ArrayBuffer [item]
-   (->double-array item nil)))
+   (->double-array-buffer item nil)))
 
 
 (defn descriptive-statistics
@@ -280,9 +218,9 @@
   map.
 
   options
-    - `:nan-strategy` - defaults to :remove, one of [:keep :remove :exception].
-    The fastest option is :keep but this may result in your results having NaN's
-    in them."
+    - `:nan-strategy-or-predicate` - defaults to :remove, one of
+    [:keep :remove :exception]. The fastest option is :keep but this
+    may result in your results having NaN's in them."
   ([stats-names rdr stats-data options]
    (if (== 0 (dtype-base/ecount rdr))
      (->> stats-names
@@ -292,7 +230,6 @@
                           Double/NaN)]))
           (into {})))
    (let [rdr (dtype-base/->reader rdr)
-         n-elems (.lsize rdr)
          stats-set (set stats-names)
          median? (and (stats-set :median)
                       (not (contains? stats-data :median)))
@@ -305,12 +242,16 @@
                                               (.n-elems darray)))
                               (dtype-base/->reader darray))
                             rdr)
-         stats-data (merge (if median?
-                             {:min (rdr 0)
-                              :max (rdr (unchecked-dec n-elems))
-                              :median (rdr (quot n-elems 2))
-                              :n-values n-elems}
-                             {:n-values n-elems})
+         ;;In this case we have already filtered out nans.
+         options (if median?
+                   (assoc options :nan-strategy-or-predicate :keep)
+                   options)
+         stats-data (merge (when median?
+                             (let [n-elems (dtype-base/ecount rdr)]
+                               {:min (rdr 0)
+                                :max (rdr (unchecked-dec n-elems))
+                                :median (rdr (quot n-elems 2))
+                                :n-values n-elems}))
                            stats-data)
          calculate-stats-set (set/difference stats-set (set (keys stats-data)))
          dependency-set (reduce set/union (map node-dependencies calculate-stats-set))
@@ -318,34 +259,36 @@
                                            (map node-dependencies (keys stats-data)))
          required-dependency-set (set/difference dependency-set
                                                  calculated-dependency-set)
-         stats-data (reduce
-                     (fn [stats-data group]
-                       (let [reductions (:reductions group)
-                             dependencies (:dependencies group)
-                             ;;these caclculates are guaranteed to not need
-                             ;;to do any reductions.
-                             stats-data (reduce #(calculate-descriptive-stat
-                                                  %2
-                                                  %1
-                                                  rdr)
-                                                stats-data
-                                                dependencies)]
-                         (merge
-                          (dtype-reductions/double-reductions
-                           (->> reductions
-                                (map (fn [[kwd red-fn]]
-                                       [kwd (red-fn stats-data)]))
-                                (into {}))
-                           rdr options)
-                          stats-data)))
-                     stats-data
-                     (reduction-groups required-dependency-set))
-         stats-data (reduce #(calculate-descriptive-stat %2 %1 rdr)
+         stats-data
+         (->> (reduction-groups required-dependency-set)
+              (reduce
+               (fn [stats-data group]
+                 (let [reductions (:reductions group)
+                       dependencies (:dependencies group)
+                       ;;these caclculations are guaranteed to not need
+                       ;;to do any reductions.
+                       stats-data (reduce #(calculate-descriptive-stat
+                                            %2
+                                            %1
+                                            rdr
+                                            options)
+                                          stats-data
+                                          dependencies)
+                       {:keys [n-elems data]}
+                       (dtype-reductions/double-reductions
+                        (->> reductions
+                             (map (fn [[kwd red-fn]]
+                                    [kwd (red-fn stats-data)]))
+                             (into {}))
+                        rdr options)]
+                   (merge (assoc stats-data :n-values n-elems) data)))
+               stats-data))
+         stats-data (reduce #(calculate-descriptive-stat %2 %1 rdr options)
                             stats-data
                             calculate-stats-set)]
      (select-keys stats-data stats-set)))
-  ([stats-names rdr stats-data]
-   (descriptive-statistics stats-names rdr stats-data nil))
+  ([stats-names rdr options]
+   (descriptive-statistics stats-names rdr nil options))
   ([stats-names rdr]
    (descriptive-statistics stats-names rdr nil nil))
   ([rdr]
