@@ -2,13 +2,17 @@
   (:require [tech.v3.datatype.binary-op :as binary-op]
             [tech.v3.datatype.reductions :as dtype-reductions]
             [tech.v3.datatype.base :as dtype-base]
+            [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
+            [tech.v3.datatype.array-buffer :as array-buffer]
+            [tech.v3.parallel.for :as parallel-for]
             [primitive-math :as pmath]
             [clojure.set :as set])
-  (:import [tech.v3.datatype DoubleReduction UnaryOperator]
+  (:import [tech.v3.datatype DoubleReduction UnaryOperator PrimitiveIOIterator]
+           [tech.v3.datatype.array_buffer ArrayBuffer]
            [org.apache.commons.math3.stat.descriptive.rank Percentile]
            [org.apache.commons.math3.stat.ranking NaNStrategy]
-           [java.util Arrays Map])
+           [java.util Arrays Map Iterator])
     (:refer-clojure :exclude [min max]))
 
 
@@ -145,7 +149,7 @@
 
 
 (defn calculate-descriptive-stat
-  ([statname stat-data rdr]
+  ([statname stat-data rdr options]
    (if (stat-data statname)
      stat-data
      (if-let [{:keys [dependencies reduction formula]} (get stats-tower statname)]
@@ -156,19 +160,21 @@
                          (merge stat-data
                                 (dtype-reductions/double-reductions
                                  {statname (reduction stat-data)}
-                                 rdr))
+                                 rdr
+                                 options))
                          stat-data)
+             n-elems (double (or (get-in stat-data [statname :n-elems])
+                                 (dtype-base/ecount rdr)))
+             stat-data (update stat-data statname :data)
              stat-data (if formula
                          (assoc stat-data statname
-                                (formula stat-data
-                                         (double
-                                          (dtype-base/ecount rdr))))
+                                (formula stat-data n-elems))
                          stat-data)]
          stat-data)
        (throw (Exception. (format "Unrecognized descriptive statistic: %s"
                                   statname))))))
   ([statname rdr]
-   (calculate-descriptive-stat statname {} rdr)))
+   (calculate-descriptive-stat statname {} rdr nil)))
 
 
 (def all-descriptive-stats-names
@@ -176,22 +182,108 @@
    :variance :standard-deviation :skew :n-values :kurtosis])
 
 
+(deftype NanFilterIOIterator [^PrimitiveIOIterator baseIter
+                              ^:unsynchronized-mutable ^double current
+                              nan-strategy]
+  PrimitiveIOIterator
+  (hasNext [this]
+    (not (Double/isNaN current)))
+  (nextDouble [this]
+    (let [retval current]
+      ;;side effecting loop to set the current value either to a non-nan double value
+      ;;or nan
+      (loop [continue? (.hasNext baseIter)]
+        (if continue?
+          (do
+            (set! current (.nextDouble baseIter))
+            (if (Double/isNaN current)
+              (do
+                (when (= nan-strategy :exception) (errors/throw-nan))
+                (recur (.hasNext baseIter)))))
+          (set! current Double/NaN)))
+      retval))
+  (next [this]
+    (.nextDouble this)))
+
+(deftype NanFilterIterator [^Iterator baseIter
+                            ^:unsynchronized-mutable ^double current
+                            nan-strategy]
+  PrimitiveIOIterator
+  (hasNext [this]
+    (not (Double/isNaN current)))
+  (nextDouble [this]
+    (let [retval current]
+      ;;side effecting loop to set the current value either to a non-nan double value
+      ;;or nan
+      (loop [continue? (.hasNext baseIter)]
+        (if continue?
+          (do
+            (set! current (double (.next baseIter)))
+            (if (Double/isNaN current)
+              (do
+                (when (= nan-strategy :exception) (errors/throw-nan))
+                (recur (.hasNext baseIter)))))
+          (set! current Double/NaN)))
+      retval))
+  (next [this]
+    (.nextDouble this)))
+
+
+(defn ->nan-aware-iterable
+  (^Iterable [rdr {:keys [nan-strategy]}]
+   (reify
+     Iterable
+     (iterator [this]
+       (if (= :keep nan-strategy)
+         (if-let [rdr (dtype-base/->reader rdr)]
+           (.iterator rdr)
+           (.iterator ^Iterable rdr))
+         (if-let [rdr (dtype-base/->reader rdr)]
+           (let [retval (NanFilterIOIterator. (.iterator rdr) 0.0 nan-strategy)]
+             (.nextDouble retval)
+             retval)
+           (let [retval (NanFilterIterator.  (.iterator ^Iterable rdr)
+                                             0.0 nan-strategy)]
+             (.next retval)
+             retval))))))
+  (^Iterable [rdr]
+   (->nan-aware-iterable rdr nil)))
+
+
 (defn- ->double-array
-  ^doubles [item]
-  (if-let [ary-data (dtype-base/->array-buffer item)]
-    (if (and (= :float64 (dtype-base/elemwise-datatype ary-data))
-             (== 0 (.offset ary-data))
-             (== (dtype-base/ecount (.ary-data ary-data))
-                 (.n-elems ary-data)))
-      (.ary-data ary-data)
-      (-> (dtype-cmc/make-container :float64 item)
-          (->double-array)))
-    (-> (dtype-cmc/make-container :float64 item)
-        (->double-array))))
+  (^ArrayBuffer [item {:keys [nan-strategy]
+                       :or {nan-strategy :remove}
+                       :as options}]
+   (if (= nan-strategy :keep)
+     (->
+      (if-let [ary-data (dtype-base/->array-buffer item)]
+        (if (and (= :float64 (dtype-base/elemwise-datatype ary-data))
+                 (== 0 (.offset ary-data))
+                 (== (dtype-base/ecount (.ary-data ary-data))
+                     (.n-elems ary-data)))
+          (.ary-data ary-data)
+          (-> (dtype-cmc/make-container :float64 item)
+              (->double-array)))
+        (-> (dtype-cmc/make-container :float64 item)
+            (->double-array)))
+      (dtype-base/->array-buffer))
+     (-> (dtype-cmc/make-container :list :float64
+                                   (->nan-aware-iterable item options))
+         (dtype-base/->array-buffer))))
+  (^ArrayBuffer [item]
+   (->double-array item nil)))
 
 
 (defn descriptive-statistics
-  ([stats-names rdr stats-data]
+  "Calculate a set of descriptive statistics.  If a given statistic (such as mean) is
+  known then a potential large performance increase is to pass it in in the stats-data
+  map.
+
+  options
+    - `:nan-strategy` - defaults to :remove, one of [:keep :remove :exception].
+    The fastest option is :keep but this may result in your results having NaN's
+    in them."
+  ([stats-names rdr stats-data options]
    (if (== 0 (dtype-base/ecount rdr))
      (->> stats-names
           (map (fn [sname]
@@ -205,9 +297,12 @@
          median? (and (stats-set :median)
                       (not (contains? stats-data :median)))
          ^PrimitiveIO rdr (if median?
-                            (let [darray (->double-array rdr)]
+                            (let [darray (->double-array rdr options)]
                               ;;arrays/sort is blindingly fast.
-                              (Arrays/sort darray)
+                              (Arrays/sort ^doubles (.ary-data darray)
+                                           (.offset darray)
+                                           (+ (.offset darray)
+                                              (.n-elems darray)))
                               (dtype-base/->reader darray))
                             rdr)
          stats-data (merge (if median?
@@ -241,7 +336,7 @@
                                 (map (fn [[kwd red-fn]]
                                        [kwd (red-fn stats-data)]))
                                 (into {}))
-                           rdr)
+                           rdr options)
                           stats-data)))
                      stats-data
                      (reduction-groups required-dependency-set))
@@ -249,10 +344,13 @@
                             stats-data
                             calculate-stats-set)]
      (select-keys stats-data stats-set)))
+  ([stats-names rdr stats-data]
+   (descriptive-statistics stats-names rdr stats-data nil))
   ([stats-names rdr]
-   (descriptive-statistics stats-names rdr {}))
+   (descriptive-statistics stats-names rdr nil nil))
   ([rdr]
-   (descriptive-statistics [:n-values :min :mean :max :standard-deviation] rdr {})))
+   (descriptive-statistics [:n-values :min :mean :max :standard-deviation]
+                           rdr nil nil)))
 
 
 (defmacro define-descriptive-stats
@@ -263,25 +361,72 @@
                    (let [fn-symbol (symbol (name tower-key))]
                      (if (:dependencies tower-node)
                        `(defn ~fn-symbol
-                          [~'data]
-                          (~tower-key (descriptive-statistics #{~tower-key} ~'data)))
+                          ([~'data ~'options]
+                           (~tower-key (descriptive-statistics #{~tower-key} ~'data
+                                                               ~'options)))
+                          ([~'data]
+                           (~fn-symbol ~'data nil)))
                        `(defn ~fn-symbol
-                          [~'data]
-                          (~tower-key (calculate-descriptive-stat
-                                       ~tower-key ~'data))))))))))
+                          ([~'data ~'options]
+                           (~tower-key (calculate-descriptive-stat
+                                        ~tower-key ~'data
+                                        ~'options)))
+                          ([~'data]
+                           (~fn-symbol ~'data nil))))))))))
 
 
 (define-descriptive-stats)
 
 
 (defn median
-  [data]
-  (:median (descriptive-statistics [:median] data)))
+  ([data options]
+   (:median (descriptive-statistics [:median] data options)))
+  ([data]
+   (:median (descriptive-statistics [:median] data))))
 
 
 (comment
 
-  (import '[org.apache.commons.math3.stat.descriptive DescriptiveStatistics])
+  (do
+    (import '[org.apache.commons.math3.stat.descriptive DescriptiveStatistics])
+    (import '[tech.v3.datatype PrimitiveIODoubleSpliterator])
+    (import '[java.util.stream StreamSupport])
+    (import '[java.util.function DoubleBinaryOperator])
+    (def double-data (double-array (range 20))))
 
+  (defn data->spliterator
+    [data]
+    (let [rdr (dtype-base/->reader data)
+          spliterator (PrimitiveIODoubleSpliterator. rdr 0
+                                                     (.lsize rdr)
+                                                     :keep)]
+      spliterator))
 
+  (defn spliterator-sum
+    [data]
+    (let [rdr (dtype-base/->reader data)
+          spliterator (PrimitiveIODoubleSpliterator. rdr 0
+                                                     (.lsize rdr)
+                                                     :remove)
+          stream (StreamSupport/doubleStream spliterator true)]
+      (.reduce stream 0.0 (reify DoubleBinaryOperator
+                            (applyAsDouble [this lhs rhs]
+                              (pmath/+ lhs rhs))))))
+
+  (defn iterator-sum
+    [data nan-strategy]
+    (let [rdr (dtype-base/->reader data)]
+      (parallel-for/indexed-map-reduce
+       (dtype-base/ecount data)
+       (fn [^long start-idx ^long group-len]
+         (let [sub-buf (dtype-base/sub-buffer rdr start-idx group-len)
+               iterable (->nan-aware-iterable sub-buf {:nan-strategy nan-strategy})
+               ^PrimitiveIOIterator iterator (.iterator iterable)]
+           (loop [continue? (.hasNext iterator)
+                  accum 0.0]
+             (if continue?
+               (let [accum (pmath/+ accum (.nextDouble iterator))]
+                 (recur (.hasNext iterator) accum))
+               accum))))
+       (partial reduce +))))
   )

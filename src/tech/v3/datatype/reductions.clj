@@ -2,6 +2,7 @@
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.casting :as casting]
+            [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.protocols :as dtype-proto]
             [primitive-math :as pmath])
   (:import [tech.v3.datatype BinaryOperator IndexReduction DoubleReduction
@@ -17,14 +18,8 @@
 (set! *unchecked-math* :warn-on-boxed)
 
 
-(def nan-strategies [:exception :keep :ignore])
-
-
-(defmacro check-nan-exception
-  [arg]
-  `(if (Double/isNaN (arg))
-     (throw (NotANumberException. "NaN detected"))
-     arg))
+(def nan-strategies [:exception :keep :remove])
+;;unspecified nan-strategy is :remove
 
 (defn unary-double-summation
   ^double [^UnaryOperator op rdr]
@@ -106,7 +101,7 @@
            (casting/integer-type? rdr-dtype)
            (commutative-binary-long op rdr)
            (casting/float-type? rdr-dtype)
-           (commutative-binary-double op rdr nan-strategy)
+           (commutative-binary-double op rdr)
            :else
            (commutative-binary-object op rdr)))
        (commutative-binary-object op rdr))
@@ -166,37 +161,38 @@
 (defrecord DoubleReductionContext [^doubles data ^longs n-elem-ary])
 
 
-(deftype KeepIndexedDoubleReduction [^objects reducers ^long n-reducers
-                                     reducer-names nan-strategy]
+(deftype IndexedDoubleReduction [^objects reducers ^long n-reducers
+                                 reducer-names nan-strategy]
   IndexReduction
   (reduceIndex [this batch-data ctx idx]
     (let [dval (.readDouble ^PrimitiveIO batch-data idx)]
       (if (or (= nan-strategy :keep)
               (not (Double/isNaN dval)))
-        (if-not ctx
-          (let [^DoubleReductionContext ctx (->DoubleReductionContext
-                                             (double-array n-reducers)
-                                             (long-array 1))
-                ^doubles data (.data ctx)
-                ^longs n-elems (.n-elem-ary ctx)]
-            (aset n-elems 0 (unchecked-inc (aget n-elems 0)))
-            (dotimes [reducer-idx n-reducers]
-              (aset data reducer-idx
-                    (.elemwise ^DoubleReduction (aget reducers reducer-idx)
-                               dval)))
-            ctx)
-          (let [^DoubleReductionContext ctx ctx
-                ^doubles data (.data ctx)
-                ^longs n-elems (.n-elem-ary ctx)]
-            (aset n-elems 0 (unchecked-inc (aget n-elems 0)))
-            (dotimes [reducer-idx n-reducers]
-              (aset data reducer-idx
-                    (.update
-                     ^DoubleReduction (aget reducers reducer-idx)
-                     (aget data reducer-idx)
-                     (.elemwise ^DoubleReduction (aget reducers reducer-idx)
-                                dval))))
-            ctx)))))
+        (let [first? (nil? ctx)
+              ^DoubleReductionContext ctx (or ctx
+                                              (->DoubleReductionContext
+                                               (double-array n-reducers)
+                                               (long-array 1)))
+              ^doubles data (.data ctx)
+              ^longs n-elems (.n-elem-ary ctx)]
+          (if first?
+            (do
+              (aset n-elems 0 (unchecked-inc (aget n-elems 0)))
+              (dotimes [reducer-idx n-reducers]
+                (aset data reducer-idx
+                      (.elemwise ^DoubleReduction (aget reducers reducer-idx)
+                                 dval))))
+            (do
+              (aset n-elems 0 (unchecked-inc (aget n-elems 0)))
+              (dotimes [reducer-idx n-reducers]
+                (aset data reducer-idx
+                      (.update
+                       ^DoubleReduction (aget reducers reducer-idx)
+                       (aget data reducer-idx)
+                       (.elemwise ^DoubleReduction (aget reducers reducer-idx)
+                                  dval)))))))
+        (when (= nan-strategy :exception)
+          (errors/throw-nan)))))
   (reduceReductions [this lhs-ctx rhs-ctx]
     (let [^DoubleReductionContext lhs-ctx lhs-ctx
           ^DoubleReductionContext rhs-ctx rhs-ctx]
@@ -214,59 +210,8 @@
           n-elems (aget ^longs (.n-elem-ary ctx) 0)
           data (.data ctx)]
       (->> (map (fn [k r v]
-                  [k (.finalize ^DoubleReduction r v n-elems)])
-                reducer-names reducers data)
-           (into {})))))
-
-(deftype NanStrategyIndexedDoubleReduction
-    [^objects reducers ^long n-reducers
-     reducer-names nan-strategy]
-  IndexReduction
-  (reduceIndex [this batch-data ctx idx]
-    (let [dval (.readDouble ^PrimitiveIO batch-data idx)]
-      (if-not (Double/isNaN dval)
-        (if-not ctx
-          (let [^DoubleReductionContext ctx (->DoubleReductionContext
-                                             (double-array n-reducers)
-                                             (long-array 1))
-                ^doubles data (.data ctx)
-                ^longs n-elems (.n-elem-ary ctx)]
-            (aset n-elems 0 (unchecked-inc (aget n-elems 0)))
-            (dotimes [reducer-idx n-reducers]
-              (aset data reducer-idx
-                    (.elemwise ^DoubleReduction (aget reducers reducer-idx)
-                               dval)))
-            ctx)
-          (let [^DoubleReductionContext ctx ctx
-                ^doubles data (.data ctx)
-                ^longs n-elems (.n-elem-ary ctx)]
-            (aset n-elems 0 (unchecked-inc (aget n-elems 0)))
-            (dotimes [reducer-idx n-reducers]
-              (aset data reducer-idx
-                    (.update
-                     ^DoubleReduction (aget reducers reducer-idx)
-                     (aget data reducer-idx)
-                     (.elemwise ^DoubleReduction (aget reducers reducer-idx)
-                                dval))))
-            ctx)))))
-  (reduceReductions [this lhs-ctx rhs-ctx]
-    (let [^DoubleReductionContext lhs-ctx lhs-ctx
-          ^DoubleReductionContext rhs-ctx rhs-ctx]
-      (dotimes [reducer-idx n-reducers]
-        (aset ^doubles (.data lhs-ctx) reducer-idx
-              (.merge ^DoubleReduction (aget reducers reducer-idx)
-                      (aget ^doubles (.data lhs-ctx) reducer-idx)
-                      (aget ^doubles (.data rhs-ctx) reducer-idx))))
-      (aset ^longs (.n-elem-ary lhs-ctx) 0
-            (pmath/+ (aget ^longs (.n-elem-ary lhs-ctx) 0)
-                     (aget ^longs (.n-elem-ary rhs-ctx) 0)))
-      lhs-ctx))
-  (finalize [this ctx]
-    (let [^DoubleReductionContext ctx ctx
-          n-elems (aget ^longs (.n-elem-ary ctx) 0)
-          data (.data ctx)]
-      (->> (map (fn [k r v]
-                  [k (.finalize ^DoubleReduction r v n-elems)])
+                  [k {:value (.finalize ^DoubleReduction r v n-elems)
+                      :n-elems n-elems}])
                 reducer-names reducers data)
            (into {})))))
 
@@ -275,22 +220,28 @@
   "Make an index reduction out of a map of reducer-name to reducer.  Stores intermediate values
   in double arrays.  Upon finalize, returns a map of reducer-name to finalized double reduction
   value."
-  ^IndexReduction [reducer-map]
-  (let [^List reducer-names (keys reducer-map)
-        reducers (object-array (map ensure-double-reduction (vals reducer-map)))
-        n-reducers (alength reducers)]
-))
+  (^IndexReduction [reducer-map nan-strategy]
+   (let [^List reducer-names (keys reducer-map)
+         reducers (object-array (map ensure-double-reduction (vals reducer-map)))
+         n-reducers (alength reducers)
+         nan-strategy (or nan-strategy :exception)]
+     (IndexedDoubleReduction. reducers n-reducers
+                              reducer-names nan-strategy)))
+  (^IndexReduction [reducer-map]
+   (double-reducers->indexed-reduction reducer-map nil)))
 
 
 (defn double-reductions
   "Given a map of name->reducer of DoubleReduction implementations and a rdr
   do an efficient two-level parallelized reduction and return the results in
   a map of name->finalized-result."
-  ([reducer-map rdr finalize?]
-   (if (== 1 (count reducer-map))
+  ([reducer-map rdr {:keys [finalize? nan-strategy]
+                     :or {nan-strategy :remove}}]
+   (if (and (= :keep nan-strategy)
+            (== 1 (count reducer-map)))
      (let [[reducer-name reducer] (first reducer-map)]
        (if (instance? UnaryOperator reducer)
-         {reducer-name (unary-summation reducer rdr)}
+         {reducer-name (unary-double-summation reducer rdr)}
          (let [rdr (dtype-base/->reader rdr)
                ^DoubleReduction reducer reducer
                n-elems (.lsize rdr)
@@ -311,10 +262,10 @@
            (if finalize?
              {reducer-name (.finalize reducer (double retval) (double n-elems))}
              {reducer-name retval}))))
-     (-> (double-reducers->indexed-reduction reducer-map)
+     (-> (double-reducers->indexed-reduction reducer-map nan-strategy)
          (indexed-reduction rdr finalize?))))
   ([reducer-map rdr]
-   (double-reductions reducer-map rdr true)))
+   (double-reductions reducer-map rdr nil)))
 
 
 (defn unordered-group-by-reduce
