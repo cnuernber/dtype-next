@@ -399,7 +399,7 @@
     (let [rdr (dtype-base/->reader data)
           spliterator (PrimitiveIODoubleSpliterator. rdr 0
                                                      (.lsize rdr)
-                                                     :keep)]
+                                                     :remove)]
       spliterator))
 
   (defn spliterator-sum
@@ -407,7 +407,7 @@
     (let [rdr (dtype-base/->reader data)
           spliterator (PrimitiveIODoubleSpliterator. rdr 0
                                                      (.lsize rdr)
-                                                     :remove)
+                                                     :keep)
           stream (StreamSupport/doubleStream spliterator true)]
       (.reduce stream 0.0 (reify DoubleBinaryOperator
                             (applyAsDouble [this lhs rhs]

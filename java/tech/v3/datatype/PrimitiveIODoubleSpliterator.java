@@ -47,13 +47,13 @@ public class PrimitiveIODoubleSpliterator implements Spliterator.OfDouble
 	return true;
       }
     } else {
-      boolean finished = index < nElems;
-      while( !finished ) {
+      boolean hasMore = index < nElems;
+      while( hasMore ) {
 	double nextValue = reader.readDouble(index);
 	++index;
 	if( Double.isNaN(nextValue) ) {
 	  if ( exception == nanStrategy ) throw new NotANumberException();
-	  finished = index < nElems;
+	  hasMore = index < nElems;
 	} else {
 	  action.accept(nextValue);
 	  return true;
