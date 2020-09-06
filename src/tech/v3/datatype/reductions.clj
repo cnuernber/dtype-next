@@ -8,7 +8,12 @@
             [primitive-math :as pmath])
   (:import [tech.v3.datatype BinaryOperator IndexReduction DoubleReduction
             PrimitiveIO IndexReduction$IndexedBiFunction UnaryOperator
-            PrimitiveIOIterator PrimitiveIODoubleSpliterator]
+            PrimitiveIOIterator PrimitiveIODoubleSpliterator
+            DoubleConsumers$StagedConsumer DoubleConsumers$Result
+            DoubleConsumers DoubleConsumers$Sum DoubleConsumers$UnaryOpSum
+            DoubleConsumers$BinaryOp
+            DoubleConsumers$MultiStagedConsumer
+            DoubleConsumers$MultiStagedResult]
            [java.util List Map HashMap Map$Entry Spliterator$OfDouble Spliterator]
            [java.util.concurrent ForkJoinPool Callable Future]
            [java.util.stream StreamSupport]
@@ -22,6 +27,30 @@
 
 (def nan-strategies [:exception :keep :remove])
 ;;unspecified nan-strategy is :remove
+
+
+(defn nan-strategy-or-predicate->double-predicate
+  "Passing in either a keyword nan strategy #{:exception :keep :remove}
+  or a DoublePredicate, return a DoublePredicate that filters
+  double values."
+  (^DoublePredicate [nan-strategy-or-predicate]
+   (cond
+     (instance? DoublePredicate nan-strategy-or-predicate)
+     nan-strategy-or-predicate
+     (= nan-strategy-or-predicate :keep)
+     nil
+     ;;Remove is the default so nil maps to remove
+     (or (nil? nan-strategy-or-predicate)
+         (= nan-strategy-or-predicate :remove))
+     PrimitiveIODoubleSpliterator/removePredicate
+     (= nan-strategy-or-predicate :exception)
+     PrimitiveIODoubleSpliterator/exceptPredicate
+     :else
+     (errors/throwf "Unrecognized predicate: %s" nan-strategy-or-predicate)))
+  ;;Remember the default predicate is :remove
+  (^DoublePredicate []
+   (nan-strategy-or-predicate->double-predicate nil)))
+
 
 (defn double-summation
   "The most common operation gets its own pathway"
@@ -40,6 +69,73 @@
                      (pmath/+ accum (.readDouble rdr idx)))
               accum))))
       (partial reduce +)))))
+
+
+(defn staged-double-consumer-reduction
+  (^DoubleConsumers$Result [staged-consumer-fn {:keys [nan-strategy-or-predicate]} rdr]
+   (let [rdr (dtype-base/->reader rdr)
+         n-elems (.size rdr)
+         reduce-fn #(reduce (fn [^DoubleConsumers$Result lhs
+                                 ^DoubleConsumers$Result rhs]
+                              (.combine lhs rhs))
+                            %)
+         predicate (nan-strategy-or-predicate->double-predicate
+                    nan-strategy-or-predicate)]
+     (parallel-for/indexed-map-reduce
+      n-elems
+      (fn [^long start-idx ^long group-len]
+        (DoubleConsumers/consume start-idx (int group-len) rdr
+                                 (staged-consumer-fn) predicate))
+      reduce-fn)))
+  (^DoubleConsumers$Result [staged-consumer-fn rdr]
+   (staged-double-consumer-reduction staged-consumer-fn nil rdr)))
+
+
+(defn reducer-value->consumer-fn
+  [reducer-value]
+  (cond
+    ;;Hopefully this returns what we think it should...
+    (fn? reducer-value)
+    reducer-value
+    (= :+ reducer-value)
+    #(DoubleConsumers$Sum.)
+    (instance? UnaryOperator reducer-value)
+    #(DoubleConsumers$UnaryOpSum. reducer-value)
+    (instance? BinaryOperator reducer-value)
+    (let [^BinaryOperator op reducer-value]
+      #(DoubleConsumers$BinaryOp. op (.initialDoubleReductionValue op)))
+    :else
+    (errors/throwf "Connot convert value to double consumer: %s" reducer-value)))
+
+
+(defn staged-double-reductions
+  ([reducer-map options rdr]
+   (let [reducer-names (vec (keys reducer-map))
+         consumer-fns (mapv reducer-value->consumer-fn (vals reducer-map))
+         n-reducers (count reducer-names)]
+     (cond
+       (== 0 n-reducers)
+       nil
+       (== 1 n-reducers)
+       (let [result (staged-double-consumer-reduction (first consumer-fns) options rdr)]
+         {:n-elems (.nElems result)
+          :data {(first reducer-names) (.value result)}})
+       :else
+       (let [consumer-fn (fn []
+                           (DoubleConsumers$MultiStagedConsumer.
+                            ^"L[tech.v3.datatype.DoubleConsumers$StagedConsumer;"
+                            (into-array (Class/forName "tech.v3.datatype.DoubleConsumers$StagedConsumer")
+                                        (map #(%) consumer-fns))))
+             ^DoubleConsumers$MultiStagedResult result
+             (staged-double-consumer-reduction consumer-fn options rdr)
+             result-ary (.results result)]
+         {:n-elems (.nElems ^DoubleConsumers$Result (aget result-ary 0))
+          :data (->> (map (fn [n ^DoubleConsumers$Result r]
+                            [n (.value r)])
+                          reducer-names result-ary)
+                     (into {}))}))))
+  ([reducer-map rdr]
+   (staged-double-reductions reducer-map {} rdr)))
 
 
 (defn unary-double-summation
@@ -128,25 +224,6 @@
       (commutative-binary-object op rdr))
     ;;Clojure core reduce is actually pretty good!
     (reduce op rdr)))
-
-
-(defn nan-strategy-or-predicate->double-predicate
-  (^DoublePredicate [nan-strategy-or-predicate]
-   (cond
-     (instance? DoublePredicate nan-strategy-or-predicate)
-     nan-strategy-or-predicate
-     (= nan-strategy-or-predicate :keep)
-     nil
-     ;;Remove is the default so nil maps to remove
-     (or (nil? nan-strategy-or-predicate)
-         (= nan-strategy-or-predicate :remove))
-     PrimitiveIODoubleSpliterator/removePredicate
-     (= nan-strategy-or-predicate :exception)
-     PrimitiveIODoubleSpliterator/exceptPredicate
-     :else
-     (errors/throwf "Unrecognized predicate: %s" nan-strategy-or-predicate)))
-  (^DoublePredicate []
-   (nan-strategy-or-predicate->double-predicate nil)))
 
 
 (defn reader->double-spliterator

@@ -7,8 +7,8 @@
             [primitive-math :as pmath]
             [clojure.test :refer [deftest is]])
   (:import [tech.v3.datatype DoubleReduction
-            DoubleConsumers$SummationConsumer
-            DoubleConsumers$DoubleConsumerResult]
+            DoubleConsumers$Sum
+            DoubleConsumers$Result]
            [java.util Spliterator Spliterator$OfDouble]
            [java.util.function DoubleConsumer]))
 
@@ -76,10 +76,7 @@
        (-> (reductions/double-reducers->indexed-reduction
             {:sum1 :+
              :sum2 (:identity unop/builtin-ops)
-             :sum3 (:+ binop/builtin-ops)
-             :sum4 (reify DoubleReduction
-                     (update [this lhs rhs]
-                       (+ lhs rhs)))}
+             :sum3 (:+ binop/builtin-ops)}
             :remove)
            (reductions/indexed-reduction double-data true))))
     ;;26.14ms
@@ -107,35 +104,65 @@
          (dotimes [idx n-elems]
            (.accept consumer (.readDouble rdr idx))))))
 
+    (defn benchmark-sum-reduction
+      []
+      (crit/quick-bench (reductions/double-summation double-data)))
+
+
+    (defn benchmark-double-consumer-reduction-keep
+      []
+      (crit/quick-bench
+       (reductions/staged-double-consumer-reduction
+        #(DoubleConsumers$Sum.) double-data
+        {:nan-strategy-or-predicate :keep})))
+
+
+    (defn benchmark-double-consumer-reduction-remove
+      []
+      (crit/quick-bench
+       (reductions/staged-double-consumer-reduction
+        #(DoubleConsumers$Sum.) double-data
+        {:nan-strategy-or-predicate :remove})))
+
+
+    (defn benchmark-multi-consumer-reduction
+      []
+      (crit/quick-bench
+       (reductions/staged-double-reductions {:sum1 :+
+                                             :sum2 (:identity unop/builtin-ops)
+                                             :sum3 (:+ binop/builtin-ops)}
+                                            double-data)))
+
+
     (defn benchmark-parallel-loop
       []
-      (let [rdr (dtype-base/->reader double-data)
-            n-elems (.lsize rdr)
-            consumer (DoubleConsumers$SummationConsumer.)
-            consumer2 (reify DoubleConsumer
-                        (accept [this data]))
-            chained-consumer (.andThen consumer
-                                       (reify DoubleConsumer
-                                         (accept [this data])))
-            c2-consumer (.andThen chained-consumer
-                                  (reify DoubleConsumer
-                                    (accept [this data])))]
-        (parallel-for/indexed-map-reduce
-         n-elems
-         (fn [^long start-idx ^long group-len]
-           (let [dconsumer (DoubleConsumers$SummationConsumer.)
-                 nextconsumer (DoubleConsumers$SummationConsumer.)
-                 combined (.andThen dconsumer nextconsumer)
-                 predicate (reductions/nan-strategy-or-predicate->double-predicate
-                            :remove)]
-             (dotimes [idx group-len]
-               (let [dval (.readDouble rdr (pmath/+ idx start-idx))]
-                 (when (.test predicate dval)
-                   (.accept combined dval))))
-             (.result dconsumer)))
-         (partial reduce (fn [^DoubleConsumers$DoubleConsumerResult res1
-                              ^DoubleConsumers$DoubleConsumerResult res2]
-                           (.combine res1 res2))))))
+      (crit/quick-bench
+       (let [rdr (dtype-base/->reader double-data)
+             n-elems (.lsize rdr)
+             consumer (DoubleConsumers$Sum.)
+             consumer2 (reify DoubleConsumer
+                         (accept [this data]))
+             chained-consumer (.andThen consumer
+                                        (reify DoubleConsumer
+                                          (accept [this data])))
+             c2-consumer (.andThen chained-consumer
+                                   (reify DoubleConsumer
+                                     (accept [this data])))]
+         (parallel-for/indexed-map-reduce
+          n-elems
+          (fn [^long start-idx ^long group-len]
+            (let [dconsumer (DoubleConsumers$Sum.)
+                  predicate (reductions/nan-strategy-or-predicate->double-predicate
+                             :remove)]
+              (dotimes [idx group-len]
+                (let [dval (.readDouble rdr (pmath/+ idx start-idx))]
+                  (when (.test predicate dval)
+                    (.accept dconsumer dval))))
+              (.result dconsumer)))
+          (partial reduce (fn [^DoubleConsumers$Result res1
+                               ^DoubleConsumers$Result res2]
+                            (.combine res1 res2)))))))
+
 
     )
 
