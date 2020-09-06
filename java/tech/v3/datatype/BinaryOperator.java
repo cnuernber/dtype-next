@@ -33,4 +33,5 @@ public interface BinaryOperator extends ElemwiseDatatype, IFn, BiFunction, Doubl
     return binaryDouble(left, right);
   }
   default double initialDoubleReductionValue() { return 0.0; }
+  default long initialLongReductionValue() { return 0; }
 }

@@ -9,7 +9,8 @@ import java.util.function.Predicate;
 import java.util.function.DoublePredicate;
 
 
-public interface UnaryPredicate extends ElemwiseDatatype, IFn, Function, DoublePredicate
+public interface UnaryPredicate extends ElemwiseDatatype, IFn, Function,
+					DoublePredicate
 {
   boolean unaryBoolean(boolean arg);
   boolean unaryByte(byte arg);

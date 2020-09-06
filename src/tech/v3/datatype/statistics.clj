@@ -10,11 +10,15 @@
             [primitive-math :as pmath]
             [clojure.set :as set])
   (:import [tech.v3.datatype DoubleReduction UnaryOperator PrimitiveIOIterator
-            DoubleList]
+            DoubleList
+            DoubleConsumers$MinMaxSum
+            DoubleConsumers$Moments]
            [tech.v3.datatype.array_buffer ArrayBuffer]
+           [org.apache.commons.math3.stat.descriptive StorelessUnivariateStatistic]
            [org.apache.commons.math3.stat.descriptive.rank Percentile]
            [org.apache.commons.math3.stat.ranking NaNStrategy]
-           [java.util Arrays Map Iterator]
+           [clojure.lang IFn]
+           [java.util Arrays Map Iterator Spliterator Spliterator$OfDouble]
            [java.util.function DoubleConsumer])
     (:refer-clojure :exclude [min max]))
 
@@ -24,6 +28,18 @@
 
 
 (def ^:private sum-double-reduction :+)
+
+
+(defn univariate-stat->consumer
+  ^DoubleConsumer [^StorelessUnivariateStatistic stat]
+    (reify
+      DoubleConsumer
+      (accept [this data]
+        (.increment stat data))
+      IFn
+      (invoke [this]
+        {:n-elems (.getN stat)
+         :value (.getResult stat)})))
 
 
 (def stats-tower
@@ -139,7 +155,9 @@
                        set)}))))))
 
 
-(defn calculate-descriptive-stat
+(defn- calculate-descriptive-stat
+  "Calculate a single statistic.  Utility method for calculate-descriptive-stats
+  method below."
   ([statname stat-data rdr options]
    (if (stat-data statname)
      stat-data
@@ -167,11 +185,6 @@
                                   statname))))))
   ([statname rdr]
    (calculate-descriptive-stat statname {} rdr nil)))
-
-
-(def all-descriptive-stats-names
-  [:min :percentile-1 :sum :mean :mode :median :percentile-3 :max
-   :variance :standard-deviation :skew :n-values :kurtosis])
 
 
 (deftype FixedSizedDoubleConsumer [^doubles data ^:unsynchronized-mutable ^long ptr]
@@ -212,6 +225,60 @@
    (->double-array-buffer item nil)))
 
 
+(defn- reduce-group
+  "There are optimized versions of reductions that combine various operations
+  into the same run.  It would be very cool if the compiler could do this
+  optimization but we are either a ways away *or* we can load dynamic classes
+  in some cases."
+  [stats-data reductions options rdr]
+  (let [reductions-set (set (keys reductions))
+        stats-data (merge stats-data
+                          (when (some reductions-set [:min :max :sum])
+                            (let [result
+                                  (dtype-reductions/staged-double-consumer-reduction
+                                   #(DoubleConsumers$MinMaxSum.)
+                                   options rdr)]
+                              (merge {:n-values (.nElems result)}
+                                     (into {} (.value result)))))
+                          (when (some reductions-set [:moment-2 :moment-3 :moment-4])
+                            (let [result
+                                  (dtype-reductions/staged-double-consumer-reduction
+                                   #(DoubleConsumers$Moments.
+                                     (double (:mean stats-data)))
+                                   options rdr)]
+                              (merge {:n-values (.nElems result)}
+                                     (into {} (.value result))))))
+        reductions-set (set/difference reductions-set
+                                       #{:min :max :sum :moment-2
+                                         :moment-3 :moment-4})]
+    (if (seq reductions-set)
+      (let [{:keys [n-elems data]}
+            (dtype-reductions/staged-double-reductions
+             (->> (select-keys reductions reductions-set)
+                  (map (fn [[kwd red-fn]]
+                         [kwd (red-fn stats-data)]))
+                  (into {}))
+                        options
+                        rdr)]
+        (merge {:n-values n-elems }
+               data
+               stats-data))
+      stats-data)))
+
+
+(defn- options->apache-nan-strategy
+  ^NaNStrategy [options]
+  (case (:nan-strategy-or-predicate options)
+    :keep NaNStrategy/FIXED
+    :exception NaNStrategy/FAILED
+    NaNStrategy/REMOVED))
+
+
+(def all-descriptive-stats-names
+  #{:min :quartile-1 :sum :mean :mode :median :quartile-3 :max
+    :variance :standard-deviation :skew :n-values :kurtosis})
+
+
 (defn descriptive-statistics
   "Calculate a set of descriptive statistics.  If a given statistic (such as mean) is
   known then a potential large performance increase is to pass it in in the stats-data
@@ -231,18 +298,23 @@
           (into {})))
    (let [rdr (dtype-base/->reader rdr)
          stats-set (set stats-names)
-         median? (and (stats-set :median)
-                      (not (contains? stats-data :median)))
-         ^PrimitiveIO rdr (if median?
-                            (let [darray (->double-array rdr options)]
+         median? (stats-set :median)
+         percentile-set #{:quartile-1 :quartile-3}
+         percentile? (some stats-set percentile-set)
+         percentile-set (set/intersection stats-set percentile-set)
+         stats-set (set/difference stats-set percentile-set)
+         ^PrimitiveIO rdr (if (or median? percentile?)
+                            (let [darray (->double-array-buffer rdr options)]
                               ;;arrays/sort is blindingly fast.
-                              (Arrays/sort ^doubles (.ary-data darray)
-                                           (.offset darray)
-                                           (+ (.offset darray)
-                                              (.n-elems darray)))
+                              (when median?
+                                (Arrays/sort ^doubles (.ary-data darray)
+                                             (.offset darray)
+                                             (+ (.offset darray)
+                                                (.n-elems darray))))
                               (dtype-base/->reader darray))
                             rdr)
-         ;;In this case we have already filtered out nans.
+         ;;In this case we have already filtered out nans at the cost of copying the
+         ;;entire array of data.
          options (if median?
                    (assoc options :nan-strategy-or-predicate :keep)
                    options)
@@ -273,20 +345,26 @@
                                             rdr
                                             options)
                                           stats-data
-                                          dependencies)
-                       {:keys [n-elems data]}
-                       (dtype-reductions/double-reductions
-                        (->> reductions
-                             (map (fn [[kwd red-fn]]
-                                    [kwd (red-fn stats-data)]))
-                             (into {}))
-                        rdr options)]
-                   (merge (assoc stats-data :n-values n-elems) data)))
+                                          dependencies)]
+                   (reduce-group stats-data reductions options rdr)))
                stats-data))
          stats-data (reduce #(calculate-descriptive-stat %2 %1 rdr options)
                             stats-data
-                            calculate-stats-set)]
-     (select-keys stats-data stats-set)))
+                            calculate-stats-set)
+         stats-data (if percentile?
+                      (let [p (doto (Percentile.)
+                                (.withNaNStrategy (options->apache-nan-strategy
+                                                   options)))
+                            ary-buf (dtype-base/->array-buffer rdr)]
+                        (.setData p ^doubles (.ary-data ary-buf) (.offset ary-buf)
+                                  (.n-elems ary-buf))
+                        (merge stats-data
+                               (when (:quartile-1 percentile-set)
+                                 {:quartile-1 (.evaluate p 25.0)})
+                               (when (:quartile-3 percentile-set)
+                                 {:quartile-3 (.evaluate p 75.0)})))
+                      stats-data)]
+     (select-keys stats-data (set/union stats-set percentile-set))))
   ([stats-names rdr options]
    (descriptive-statistics stats-names rdr nil options))
   ([stats-names rdr]
@@ -335,10 +413,29 @@
     (import '[tech.v3.datatype PrimitiveIODoubleSpliterator])
     (import '[java.util.stream StreamSupport])
     (import '[java.util.function DoubleBinaryOperator DoublePredicate])
+    (require '[criterium.core :as crit])
     (def double-data (double-array (range 1000000)))
     (def print-consumer (reify java.util.function.DoubleConsumer
                           (accept [this val]
                             (println val)))))
+
+
+  (defn benchmark-standard-stats-set
+    []
+    (crit/quick-bench
+     (descriptive-statistics [:min :max :mean :standard-deviation :skew]
+                             double-data)))
+
+
+  (defn benchmark-descriptive-stats-set
+    []
+    (crit/quick-bench
+     (let [desc-stats (DescriptiveStatistics. double-data)]
+       {:min (.getMin desc-stats)
+        :max (.getMax desc-stats)
+        :mean (.getMean desc-stats)
+        :standard-deviation (.getStandardDeviation desc-stats)
+        :skew (.getSkewness desc-stats)})))
 
   (defn data->spliterator
     [data]
@@ -347,6 +444,14 @@
                                                      (.lsize rdr)
                                                      :remove)]
       spliterator))
+
+  (defn benchmark-math3-data
+    []
+    (let [consumer (moment-consumer)
+          rdr (dtype-base/->reader double-data)]
+      (dotimes [idx (.lsize rdr)]
+        (.accept consumer (.readDouble rdr idx)))
+      (consumer)))
 
   (defn spliterator-sum
     [data]

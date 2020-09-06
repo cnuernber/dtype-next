@@ -1,71 +1,15 @@
 package tech.v3.datatype;
 
-
+import clojure.lang.Keyword;
 import java.util.function.DoubleConsumer;
 import java.util.function.DoublePredicate;
+import java.util.HashMap;
+import java.util.Collections;
 
 
 public class DoubleConsumers
 {
-  public interface Result
-  {
-    public Result combine(Result rhs);
-    public double value();
-    public long nElems();
-  }
-  public interface StagedConsumer extends DoubleConsumer
-  {
-    public default DoubleConsumer andThen(DoubleConsumer next) {
-      if (!(next instanceof StagedConsumer)) {
-	throw new RuntimeException( "Argument is not a staged consumer");
-      }
-      return new ChainStagedConsumer(this, (StagedConsumer)next);
-    }
-    public Result result();
-  }
-  public static class MultiStagedConsumer implements StagedConsumer
-  {
-    public final StagedConsumer[] consumers;
-    public MultiStagedConsumer(StagedConsumer[] _consumers) {
-      this.consumers = _consumers;
-    }
-    public void accept(double val) {
-      for (int idx = 0; idx < consumers.length; ++idx) {
-	consumers[idx].accept(val);
-      }
-    }
-    public Result result() {
-      Result[] results = new Result[consumers.length];
-      for (int idx = 0; idx < consumers.length; ++idx) {
-	results[idx] = consumers[idx].result();
-      }
-      return new MultiStagedResult(results);
-    }
-  }
-  public static class MultiStagedResult implements Result
-  {
-    public final Result[] results;
-    public MultiStagedResult(Result[] _results) {
-      this.results = _results;
-    }
-    public Result combine(Result _other) {
-      if (! (_other instanceof MultiStagedResult) ) {
-	throw new RuntimeException( "Result is not a multi result");
-      }
-      MultiStagedResult other = (MultiStagedResult)_other;
-      Result[] newResults = new Result[results.length];
-      for (int idx = 0; idx < results.length; ++idx) {
-	newResults[idx] = results[idx].combine(other.results[idx]);
-      }
-      return new MultiStagedResult(newResults);
-    }
-    public double value() { throw new RuntimeException("Unimplemented"); }
-    public long nElems() { throw new RuntimeException("Unimplemented"); }
-  }
-
-
-
-  public static class SumResult implements Result
+  public static class SumResult implements Consumers.Result
   {
     public final double value;
     public final long nElems;
@@ -74,13 +18,13 @@ public class DoubleConsumers
       value = _value;
       nElems = _nElems;
     }
-    public Result combine(Result other) {
-      return new SumResult(value + other.value(), nElems + other.nElems());
+    public Consumers.Result combine(Consumers.Result other) {
+      return new SumResult(value + (double)other.value(), nElems + other.nElems());
     }
-    public double value() { return value; }
+    public Object value() { return value; }
     public long nElems() { return nElems; }
   }
-  public static class Sum implements StagedConsumer
+  public static class Sum implements Consumers.StagedConsumer, DoubleConsumer
   {
     public double value;
     public long nElems;
@@ -92,11 +36,11 @@ public class DoubleConsumers
       value += data;
       nElems++;
     }
-    public Result result() {
+    public Consumers.Result result() {
       return new SumResult(value, nElems);
     }
   }
-  public static class UnaryOpSum implements StagedConsumer
+  public static class UnaryOpSum implements Consumers.StagedConsumer, DoubleConsumer
   {
     public final UnaryOperator op;
     public double value;
@@ -110,12 +54,12 @@ public class DoubleConsumers
       value += op.unaryDouble(data);
       nElems++;
     }
-    public Result result() {
+    public Consumers.Result result() {
       return new SumResult(value, nElems);
     }
   }
 
-  public static class BinOpResult implements Result
+  public static class BinOpResult implements Consumers.Result
   {
     public final BinaryOperator op;
     public double value;
@@ -125,13 +69,15 @@ public class DoubleConsumers
       value = _value;
       nElems = _nElems;
     }
-    public double value() { return value; }
+    public Object value() { return value; }
     public long nElems() { return nElems; }
-    public Result combine(Result other) {
-      return new BinOpResult(op, value + other.value(), nElems + other.nElems());
+    public Consumers.Result combine(Consumers.Result other) {
+      return new BinOpResult(op,
+			     op.binaryDouble(value, (double)other.value()),
+			     nElems + other.nElems());
     }
   }
-  public static class BinaryOp implements StagedConsumer
+  public static class BinaryOp implements Consumers.StagedConsumer, DoubleConsumer
   {
     public final BinaryOperator op;
     public double value;
@@ -145,22 +91,130 @@ public class DoubleConsumers
       value = op.binaryDouble(value, data);
       nElems++;
     }
-    public Result result() {
+    public Consumers.Result result() {
       return new BinOpResult(op, value, nElems);
     }
   }
+  public static class MinMaxSum implements Consumers.StagedConsumer, DoubleConsumer
+  {
+    public double sum;
+    public double min;
+    public double max;
+    public long nElems;
+    public MinMaxSum() {
+      sum = 0.0;
+      max = -Double.MAX_VALUE;
+      min = Double.MAX_VALUE;
+      nElems = 0;
+    }
+    public void accept(double val) {
+      sum += val;
+      min = Math.min(val, min);
+      max = Math.max(val, max);
+      nElems++;
+    }
+    public Consumers.Result result() {
+      return new MinMaxSumResult(sum,min,max,nElems);
+    }
+  }
+  public static class MinMaxSumResult implements Consumers.Result
+  {
+    public double sum;
+    public double min;
+    public double max;
+    public long nElems;
+    public MinMaxSumResult(double s, double _min, double _max, long _ne) {
+      sum = s;
+      min = _min;
+      max = _max;
+      nElems = _ne;
+    }
+    public long nElems() { return nElems; }
+    public Object value() {
+      HashMap retval = new HashMap();
+      retval.put(Keyword.intern(null, "sum"), sum);
+      retval.put(Keyword.intern(null, "min"), min);
+      retval.put(Keyword.intern(null, "max"), max);
+      return retval;
+    }
+    public Consumers.Result combine(Consumers.Result _other) {
+      MinMaxSumResult other = (MinMaxSumResult)_other;
+      return new MinMaxSumResult( sum + other.sum,
+				  Math.min(min, other.min),
+				  Math.max(max, other.max),
+				  nElems + other.nElems );
+    }
+  }
+  public static class Moments implements Consumers.StagedConsumer, DoubleConsumer
+  {
+    public final double mean;
+    public double m2;
+    public double m3;
+    public double m4;
+    public long nElems;
+    public Moments(double _mean) {
+      mean = _mean;
+      m2 = 0.0;
+      m3 = 0.0;
+      m4 = 0.0;
+      nElems = 0;
+    }
+    public void accept(double val) {
+      double meanDiff = val - mean;
+      double md2 = meanDiff * meanDiff;
+      m2 += md2;
+      double md3 = md2 * meanDiff;
+      m3 += md3;
+      double md4 = md3 * meanDiff;
+      m4 += md4;
+      nElems++;
+    }
+    public Consumers.Result result() {
+      return new MomentsResult(m2,m3,m4,nElems);
+    }
+  }
+  public static class MomentsResult implements Consumers.Result
+  {
+    public double m2;
+    public double m3;
+    public double m4;
+    public long nElems;
+    public MomentsResult(double _m2, double _m3, double _m4, long _ne) {
+      m2 = _m2;
+      m3 = _m3;
+      m4 = _m4;
+      nElems = _ne;
+    }
+    public long nElems() { return nElems; }
+    public Object value() {
+      HashMap retval = new HashMap();
+      retval.put(Keyword.intern(null, "moment-2"), m2);
+      retval.put(Keyword.intern(null, "moment-3"), m3);
+      retval.put(Keyword.intern(null, "moment-4"), m4);
+      return retval;
+    }
+    public Consumers.Result combine(Consumers.Result _other) {
+      MomentsResult other = (MomentsResult)_other;
+      return new MomentsResult( m2 + other.m2,
+				m3 + other.m3,
+				m4 + other.m4,
+				nElems + other.nElems );
+    }
+  }
   //tight loop consume call.
-  public static Result consume(long offset, int grouplen, PrimitiveIO data,
-			       StagedConsumer consumer, DoublePredicate predicate) {
+  public static Consumers.Result consume(long offset, int grouplen, PrimitiveIO data,
+					 Consumers.StagedConsumer consumer,
+					 DoublePredicate predicate) {
+    final DoubleConsumer dconsumer = (DoubleConsumer)consumer;
     if( predicate == null) {
       for (int idx = 0; idx < grouplen; ++idx) {
-	consumer.accept(data.readDouble((long)idx + offset));
+	dconsumer.accept(data.readDouble((long)idx + offset));
       }
     } else {
       for (int idx = 0; idx < grouplen; ++idx) {
 	double dval = data.readDouble((long)idx + offset);
 	if(predicate.test(dval)) {
-	  consumer.accept(dval);
+	  dconsumer.accept(dval);
 	}
       }
     }

@@ -8,9 +8,12 @@
             [clojure.test :refer [deftest is]])
   (:import [tech.v3.datatype DoubleReduction
             DoubleConsumers$Sum
-            DoubleConsumers$Result]
+            Consumers$Result
+            DoubleConsumers$MinMaxSum
+            DoubleConsumers$Moments]
            [java.util Spliterator Spliterator$OfDouble]
            [java.util.function DoubleConsumer]))
+
 
 (deftest summation-reductions
   (let [data (double-array (range 100))
@@ -19,10 +22,11 @@
         answer (double (reduce + data))
         nan-answer (double (- answer 50))]
     (is (= {:n-elems 100 :data {:sum answer}}
-           (reductions/double-reductions {:sum :+} data
-                                         {:nan-strategy-or-predicate :keep})))
+           (reductions/double-reductions {:sum :+}
+                                         {:nan-strategy-or-predicate :keep}
+                                         data)))
     (is (= {:n-elems 99 :data {:sum nan-answer}}
-           (reductions/double-reductions {:sum :+}  nan-data)))
+           (reductions/double-reductions {:sum :+} nan-data)))
     (is (thrown? Throwable
                  (reductions/double-reductions
                   {:sum :+} nan-data
@@ -34,36 +38,22 @@
            (reductions/double-reductions {:sum (:+ binop/builtin-ops)}
                                          nan-data)))
 
-    (is (= {:n-elems 99 :data {:sum nan-answer}}
-           (reductions/double-reductions {:sum (reify DoubleReduction
-                                                  (update [this lhs rhs]
-                                                    (+ lhs rhs)))}
-                                         nan-data)))
-
     (is (= {:n-elems 100 :data {:sum1 answer
                                 :sum2 answer
-                                :sum3 answer
-                                :sum4 answer}}
+                                :sum3 answer}}
            (reductions/double-reductions {:sum1 :+
                                           :sum2 (:identity unop/builtin-ops)
-                                          :sum3 (:+ binop/builtin-ops)
-                                          :sum4 (reify DoubleReduction
-                                                  (update [this lhs rhs]
-                                                    (+ lhs rhs)))}
-                                         data
-                                         {:nan-strategy-or-predicate :keep})))
+                                          :sum3 (:+ binop/builtin-ops)}
+                                         {:nan-strategy-or-predicate :keep}
+                                         data)))
     (is (= {:n-elems 99 :data {:sum1 nan-answer
                                :sum2 nan-answer
-                               :sum3 nan-answer
-                               :sum4 nan-answer}}
+                               :sum3 nan-answer}}
            (reductions/double-reductions {:sum1 :+
                                           :sum2 (:identity unop/builtin-ops)
-                                          :sum3 (:+ binop/builtin-ops)
-                                          :sum4 (reify DoubleReduction
-                                                  (update [this lhs rhs]
-                                                    (+ lhs rhs)))}
-                                         nan-data
-                                         {:nan-strategy-or-predicate :remove})))
+                                          :sum3 (:+ binop/builtin-ops)}
+                                         {:nan-strategy-or-predicate :remove}
+                                         nan-data)))
     ))
 
 (comment
@@ -113,55 +103,54 @@
       []
       (crit/quick-bench
        (reductions/staged-double-consumer-reduction
-        #(DoubleConsumers$Sum.) double-data
-        {:nan-strategy-or-predicate :keep})))
+        #(DoubleConsumers$Sum.) {:nan-strategy-or-predicate :keep}
+        double-data)))
 
 
     (defn benchmark-double-consumer-reduction-remove
       []
       (crit/quick-bench
        (reductions/staged-double-consumer-reduction
-        #(DoubleConsumers$Sum.) double-data
-        {:nan-strategy-or-predicate :remove})))
+        #(DoubleConsumers$Sum.) {:nan-strategy-or-predicate :remove}
+        double-data)))
 
 
     (defn benchmark-multi-consumer-reduction
       []
       (crit/quick-bench
        (reductions/staged-double-reductions {:sum1 :+
-                                             :sum2 (:identity unop/builtin-ops)
-                                             :sum3 (:+ binop/builtin-ops)}
+                                             :min (:min binop/builtin-ops)
+                                             :max (:max binop/builtin-ops)
+                                             }
+                                            {:serial-reduction? true}
                                             double-data)))
 
-
-    (defn benchmark-parallel-loop
+    (defn benchmark-min-max-sum-consumer
       []
       (crit/quick-bench
-       (let [rdr (dtype-base/->reader double-data)
-             n-elems (.lsize rdr)
-             consumer (DoubleConsumers$Sum.)
-             consumer2 (reify DoubleConsumer
-                         (accept [this data]))
-             chained-consumer (.andThen consumer
-                                        (reify DoubleConsumer
-                                          (accept [this data])))
-             c2-consumer (.andThen chained-consumer
-                                   (reify DoubleConsumer
-                                     (accept [this data])))]
-         (parallel-for/indexed-map-reduce
-          n-elems
-          (fn [^long start-idx ^long group-len]
-            (let [dconsumer (DoubleConsumers$Sum.)
-                  predicate (reductions/nan-strategy-or-predicate->double-predicate
-                             :remove)]
-              (dotimes [idx group-len]
-                (let [dval (.readDouble rdr (pmath/+ idx start-idx))]
-                  (when (.test predicate dval)
-                    (.accept dconsumer dval))))
-              (.result dconsumer)))
-          (partial reduce (fn [^DoubleConsumers$Result res1
-                               ^DoubleConsumers$Result res2]
-                            (.combine res1 res2)))))))
+       (reductions/staged-double-consumer-reduction
+        #(DoubleConsumers$MinMaxSum.) {:nan-strategy-or-predicate :remove}
+        double-data)))
+
+
+    (defn benchmark-moments-consumer
+      []
+      (crit/quick-bench
+       (reductions/staged-double-consumer-reduction
+        #(DoubleConsumers$Moments. 49000) {:nan-strategy-or-predicate :remove}
+        double-data)))
+
+
+    (import '[org.apache.commons.math3.stat.descriptive DescriptiveStatistics])
+
+    (defn benchmark-desc-stats-sum-min-max
+      []
+      (crit/quick-bench
+       (let [desc-stats (DescriptiveStatistics. double-data)]
+         {:min (.getMin desc-stats)
+          :max (.getMax desc-stats)
+          :mean (.getMean desc-stats)})
+       ))
 
 
     )
