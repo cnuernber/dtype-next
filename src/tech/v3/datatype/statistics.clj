@@ -187,21 +187,6 @@
    (calculate-descriptive-stat statname {} rdr nil)))
 
 
-(defn- ->double-array-buffer
-  (^ArrayBuffer [item {:keys [nan-strategy]
-                       :as options}]
-   (if (= nan-strategy :keep)
-     (if-let [ary-data (dtype-base/->array-buffer item)]
-       (if (= :float64 (dtype-base/elemwise-datatype ary-data))
-         ary-data
-         (dtype-cmc/make-container :float64 item))
-       (dtype-cmc/make-container :float64 item))
-     (->> (dtype-reductions/reader->double-spliterator item nan-strategy)
-          (dtype-cmc/make-container :float64 item))))
-  (^ArrayBuffer [item]
-   (->double-array-buffer item nil)))
-
-
 (defn- reduce-group
   "There are optimized versions of reductions that combine various operations
   into the same run.  It would be very cool if the compiler could do this
@@ -280,7 +265,7 @@
          percentile-set (set/intersection stats-set percentile-set)
          stats-set (set/difference stats-set percentile-set)
          ^PrimitiveIO rdr (if (or median? percentile?)
-                            (let [darray (->double-array-buffer rdr options)]
+                            (let [darray (dtype-cmc/->array-buffer rdr options :float64)]
                               ;;arrays/sort is blindingly fast.
                               (when median?
                                 (Arrays/sort ^doubles (.ary-data darray)

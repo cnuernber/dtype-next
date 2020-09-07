@@ -178,7 +178,7 @@ call this function exactly N times where N is ForkJoinPool/getCommonPoolParallel
                     consumer)))))
 
 
-(defn consume
+(defn consume!
   "Consume (terminate) a sequence or stream.  If the stream is parallel
   then the consumer had better be threadsafe.
   Returns nil."

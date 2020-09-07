@@ -4,7 +4,9 @@
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.array-buffer :as array-buffer]
             [tech.v3.datatype.native-buffer :as native-buffer]
-            [tech.v3.datatype.casting :as casting]))
+            [tech.v3.datatype.casting :as casting]
+            [tech.v3.datatype.reductions :as reductions])
+  (:import [tech.v3.datatype.array_buffer ArrayBuffer]))
 
 
 (defn copy!
@@ -16,24 +18,28 @@
 
 (defmethod dtype-proto/make-container :jvm-heap
   [container-type datatype elem-seq-or-count options]
-  (let [n-elems (long (if (number? elem-seq-or-count)
-                        elem-seq-or-count
-                        (dtype-base/ecount elem-seq-or-count)))
-        ary-data
-        (case (casting/host-flatten datatype)
-          :boolean (boolean-array n-elems)
-          :int8 (byte-array n-elems)
-          :int16 (short-array n-elems)
-          :char (char-array n-elems)
-          :int32 (int-array n-elems)
-          :int64 (long-array n-elems)
-          :float32 (float-array n-elems)
-          :float64 (double-array n-elems)
-          (make-array (casting/datatype->object-class datatype) n-elems))
-        ary-buf (array-buffer/array-buffer ary-data datatype)]
-    (when-not (number? elem-seq-or-count)
-      (copy! elem-seq-or-count ary-buf options))
-    ary-buf))
+  (if (or (number? elem-seq-or-count)
+          (dtype-base/as-reader elem-seq-or-count))
+    (let [n-elems (long (if (number? elem-seq-or-count)
+                          elem-seq-or-count
+                          (dtype-base/ecount elem-seq-or-count)))
+          ary-data
+          (case (casting/host-flatten datatype)
+            :boolean (boolean-array n-elems)
+            :int8 (byte-array n-elems)
+            :int16 (short-array n-elems)
+            :char (char-array n-elems)
+            :int32 (int-array n-elems)
+            :int64 (long-array n-elems)
+            :float32 (float-array n-elems)
+            :float64 (double-array n-elems)
+            (make-array (casting/datatype->object-class datatype) n-elems))
+          ary-buf (array-buffer/array-buffer ary-data datatype)]
+      (when-not (number? elem-seq-or-count)
+        (copy! elem-seq-or-count ary-buf options))
+      ary-buf)
+    (-> (dtype-proto/make-container :list datatype elem-seq-or-count options)
+        (dtype-base/->array-buffer))))
 
 
 (defmethod dtype-proto/make-container :java-array
@@ -83,4 +89,29 @@
    (when elem-seq-or-count
      (when (number? elem-seq-or-count)
        (throw (Exception. "Must provide existing container of items")))
-     (dtype-proto/make-container :jvm-heap (dtype-base/elemwise-datatype elem-seq-or-count) elem-seq-or-count {}))))
+     (dtype-proto/make-container :jvm-heap
+                                 (dtype-base/elemwise-datatype elem-seq-or-count)
+                                 elem-seq-or-count {}))))
+
+
+(defn ->array-buffer
+  "Perform a NaN-aware conversion into an array buffer.  Default
+  nan-stretegy is :remove which forces a pass over float datatypes
+  in order to remove nan data.  Nan strategies can be:
+  [:keep :remove :exception]"
+  (^ArrayBuffer [datatype {:keys [nan-strategy]} item]
+   (let [nan-strategy (if (or (= datatype :float32)
+                              (= datatype :float64))
+                        nan-strategy
+                        :keep)]
+     (if (= nan-strategy :keep)
+       (if (and (= datatype (dtype-base/elemwise-datatype item))
+                (dtype-base/as-array-buffer item))
+         (dtype-base/->array-buffer item)
+         (make-container datatype item))
+       (->> (reductions/reader->double-spliterator item nan-strategy)
+            (make-container datatype item)))))
+  (^ArrayBuffer [datatype item]
+   (->array-buffer datatype nil item))
+  (^ArrayBuffer [item]
+   (->array-buffer (dtype-base/elemwise-datatype item) nil item)))

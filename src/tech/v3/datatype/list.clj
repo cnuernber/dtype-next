@@ -199,7 +199,5 @@
     (-> (dtype-cmc/make-container :jvm-heap datatype elem-seq-or-count options)
         (wrap-container))
     (let [retval (empty-list datatype)]
-      (parallel-for/doiter
-       item elem-seq-or-count
-       (.add retval item))
+      (parallel-for/consume! #(.add retval %) elem-seq-or-count)
       retval)))
