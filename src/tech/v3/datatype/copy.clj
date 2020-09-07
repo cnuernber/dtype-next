@@ -10,6 +10,9 @@
            [tech.v3.datatype.array_buffer ArrayBuffer]))
 
 
+(set! *warn-on-reflection* true)
+
+
 
 (defn generic-copy!
   [src dst]
@@ -70,7 +73,7 @@
     (let [ary-buf ^ArrayBuffer item
           ary (.ary-data ary-buf)
           ary-off (* (.offset ary-buf)
-                     (casting/numeric-byte-width (.datatype item)))]
+                     (casting/numeric-byte-width (.datatype ary-buf)))]
       [ary (+ ary-off (array-base-offset ary))])
     (array-buffer/is-array-type? item)
     (array-base-offset item)

@@ -183,8 +183,9 @@
 ;;Implement only reductions that we know we will use.
 (defn reduce-+
   [rdr]
+  ;;There is a fast path specifically for summations
   (dtype-reductions/commutative-binary-reduce
-   (:+ binary-op/builtin-ops) rdr))
+   :+ rdr))
 
 
 (defn sum [rdr] (reduce-+ rdr))
@@ -209,6 +210,6 @@
 
 
 (defn mean
-  [rdr]
+  ^double [rdr]
   (pmath// (double (reduce-+ rdr))
            (double (dtype-base/ecount rdr))))

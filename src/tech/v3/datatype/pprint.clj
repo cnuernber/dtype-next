@@ -38,7 +38,7 @@
                   :or {formatter format-object}}]
   (let [rdr (reader-converter rdr)
         ^StringBuilder builder
-        (->> (dtype-proto/->reader rdr {})
+        (->> (dtype-proto/->reader rdr)
              (reduce (fn [^StringBuilder builder val]
                        (.append builder
                                 (formatter val))

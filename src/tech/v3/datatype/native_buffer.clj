@@ -109,14 +109,12 @@
        dtype-proto/PBuffer
        (sub-buffer [this# offset# length#]
          (-> (dtype-proto/sub-buffer ~buffer offset# length#)
-             (dtype-proto/->reader {})))
+             (dtype-proto/->reader)))
        ~(typecast/datatype->io-type (casting/safe-flatten datatype))
        (elemwiseDatatype [rdr#] ~advertised-datatype)
        (lsize [rdr#] ~n-elems)
+       ;;Specialized read functions that are efficient for exactly the datatype.
        (read [rdr# ~'idx]
-         ;;This increases elemwise access costs by about 1/3.  There should be an
-         ;;option I guess to diable it but then we get into a class explosion
-         ;;situation.
          (read-value ~address ~swap? ~datatype ~byte-width))
        (readDouble [rdr# ~'idx]
          (casting/datatype->unchecked-cast-fn
@@ -234,7 +232,7 @@
         (.setMemory (unsafe) address n-bytes (unchecked-byte value))
         (let [^PrimitiveWriter writer (-> (dtype-proto/sub-buffer this offset
                                                                   element-count)
-                                          (dtype-proto/->writer {}))]
+                                          (dtype-proto/->writer))]
           (parallel-for/parallel-for
            idx element-count
            (.writeObject writer idx value))))
@@ -254,11 +252,11 @@
         cached-io)))
   dtype-proto/PToReader
   (convertible-to-reader? [this] true)
-  (->reader [this options]
+  (->reader [this]
     (dtype-proto/->primitive-io this))
   dtype-proto/PToWriter
   (convertible-to-writer? [this] true)
-  (->writer [this options]
+  (->writer [this]
     (dtype-proto/->primitive-io this))
   IObj
   (meta [item] metadata)
@@ -286,7 +284,7 @@
       (when-not (< idx n-elems)
         (throw (IndexOutOfBoundsException. (format "idx %s, n-elems %s"
                                                    idx n-elems))))
-      ((dtype-proto/->writer item {}) idx value)))
+      ((dtype-proto/->writer item) idx value)))
   (applyTo [item argseq]
     (case (count argseq)
       1 (.invoke item (first argseq))

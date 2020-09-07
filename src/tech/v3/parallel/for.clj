@@ -1,6 +1,9 @@
 (ns tech.v3.parallel.for
   (:import [java.util.concurrent ForkJoinPool Callable Future]
-           [java.util ArrayDeque PriorityQueue Comparator Spliterator]))
+           [java.util ArrayDeque PriorityQueue Comparator Spliterator Iterator]
+           [java.util.stream Stream]
+           [java.util.function Consumer IntConsumer LongConsumer DoubleConsumer]
+           [clojure.lang IFn]))
 
 
 (set! *unchecked-math* :warn-on-boxed)
@@ -108,19 +111,85 @@ call this function exactly N times where N is ForkJoinPool/getCommonPoolParallel
    (indexed-map-reduce num-iters indexed-pmap-fn #(apply concat %))))
 
 
-(defn as-iterable ^Iterable [item] item)
+(defn as-spliterator
+  ^Spliterator [item]
+  (cond
+    (instance? Spliterator item)
+    item
+    (instance? Stream item)
+    (.spliterator ^Stream item)))
+
+(defn convertible-to-iterator?
+  [item]
+  (or (instance? Iterable item)
+      (instance? Stream item)))
+
+
+(defn ->iterator
+  ^Iterator [item]
+  (cond
+    (instance? Iterable item)
+    (.iterator ^Iterable item)
+    (instance? Stream item)
+    (.iterator ^Stream item)
+    :else
+    (throw (Exception. (format "Item type %s has no iterator"
+                               (type item))))))
 
 
 (defmacro doiter
   "Execute body for every item in the iterable.  Expecting side effects, returns nil."
   [varname iterable & body]
-  `(let [iterable# (as-iterable ~iterable)
-         iter# (.iterator iterable#)]
+  `(let [iter# (->iterator ~iterable)]
      (loop [continue?# (.hasNext iter#)]
        (when continue?#
          (let [~varname (.next iter#)]
            ~@body
            (recur (.hasNext iter#)))))))
+
+
+(defn ->consumer
+  ^Consumer [consumer]
+  (cond
+    (instance? Consumer consumer)
+    consumer
+    (instance? IntConsumer consumer)
+    (let [^IntConsumer consumer consumer]
+      (reify Consumer
+        (accept [this value]
+          (.accept consumer (int value)))))
+    (instance? LongConsumer consumer)
+    (let [^LongConsumer consumer consumer]
+      (reify Consumer
+        (accept [this value]
+          (.accept consumer (long value)))))
+    (instance? DoubleConsumer consumer)
+    (let [^DoubleConsumer consumer consumer]
+      (reify Consumer
+        (accept [this value]
+          (.accept consumer (double value)))))
+    (instance? IFn consumer)
+    (reify Consumer
+      (accept [this value]
+        (consumer value)))
+    :else
+    (throw (Exception.
+            (format "Argument %s is not convertible to a Consumer"
+                    consumer)))))
+
+
+(defn consume
+  "Consume (terminate) a sequence or stream.  If the stream is parallel
+  then the consumer had better be threadsafe.
+  Returns nil."
+  [consumer item]
+  (let [consumer (->consumer consumer)]
+    (if-let [spliterator (as-spliterator item)]
+      (.forEachRemaining ^Spliterator spliterator consumer)
+      (if (convertible-to-iterator? item)
+        (doiter
+         value item
+         (.accept consumer value))))))
 
 
 (defn spliterator-map-reduce

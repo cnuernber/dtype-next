@@ -2,6 +2,7 @@
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.array-buffer :as array-buffer]
             [tech.v3.datatype.native-buffer :as native-buffer]
+            [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.io-sub-buffer :as io-sub-buf]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.parallel.for :as parallel-for])
@@ -24,7 +25,7 @@
     (dtype-proto/ecount item)))
 
 
-(defn ->io
+(defn as-io
   ^PrimitiveIO [item]
   (when-not item (throw (Exception. "Cannot convert nil to reader")))
   (if (instance? PrimitiveIO item)
@@ -33,29 +34,49 @@
       (dtype-proto/->primitive-io item))))
 
 
+(defn ->io
+  ^PrimitiveIO [item]
+  (if-let [io (as-io item)]
+    io
+    (errors/throwf "Item type %s is not convertible to primitive io"
+                   (type item))))
+
+
+(defn as-reader
+  ^PrimitiveReader [item]
+  (when-not item (throw (Exception. "Cannot convert nil to reader")))
+  (if (instance? PrimitiveReader item)
+    item
+    (when (dtype-proto/convertible-to-reader? item)
+      (dtype-proto/->reader item))))
+
+
 (defn ->reader
-  (^PrimitiveReader [item options]
-   (when-not item (throw (Exception. "Cannot convert nil to reader")))
-   (if (instance? PrimitiveReader item)
-     item
-     (when (dtype-proto/convertible-to-reader? item)
-       (dtype-proto/->reader item options ))))
-  (^PrimitiveReader [item]
-   (->reader item {})))
+  ^PrimitiveReader [item]
+  (if-let [io (as-reader item)]
+    io
+    (errors/throwf "Item type %s is not convertible to primitive reader"
+                   (type item))))
+
+
+(defn as-writer
+  ^PrimitiveWriter [item]
+  (when-not item (throw (Exception. "Cannot convert nil to writer")))
+  (if (instance? PrimitiveWriter item)
+    item
+    (when (dtype-proto/convertible-to-writer? item)
+      (dtype-proto/->writer item))))
 
 
 (defn ->writer
-  (^PrimitiveWriter [item options]
-   (when-not item (throw (Exception. "Cannot convert nil to writer")))
-   (if (instance? PrimitiveWriter item)
-     item
-     (when (dtype-proto/convertible-to-writer? item)
-       (dtype-proto/->writer item options))))
-  (^PrimitiveWriter [item]
-   (->writer item {})))
+  ^PrimitiveWriter [item]
+  (if-let [io (as-writer item)]
+    io
+    (errors/throwf "Item type %s is not convertible to primitive writer"
+                   (type item))))
 
 
-(defn ->array-buffer
+(defn as-array-buffer
   ^ArrayBuffer
   [item]
   (if (instance? ArrayBuffer item)
@@ -64,13 +85,29 @@
       (dtype-proto/->array-buffer item))))
 
 
-(defn ->native-buffer
+(defn ->array-buffer
+  ^ArrayBuffer [item]
+  (if-let [retval (as-array-buffer item)]
+    retval
+    (errors/throwf "Item type %s is not convertible to an array buffer"
+                   (type item))))
+
+
+(defn as-native-buffer
   ^NativeBuffer
   [item]
   (if (instance? NativeBuffer item)
     item
     (when (dtype-proto/convertible-to-native-buffer? item)
       (dtype-proto/->native-buffer item))))
+
+
+(defn ->native-buffer
+  ^NativeBuffer [item]
+  (if-let [retval (as-native-buffer item)]
+    retval
+    (errors/throwf "Item type %s is not convertible to an native buffer"
+                   (type item))))
 
 
 (defn sub-buffer
@@ -170,8 +207,10 @@
     (if-let [buf-data (or (->array-buffer buf)
                             (->native-buffer buf))]
       (dtype-proto/->primitive-io buf-data)
-      (when (.isArray (.getClass ^Object buf))
-        (dtype-proto/->primitive-io (array-buffer/array-buffer buf)))))
+      (if (.isArray (.getClass ^Object buf))
+        (dtype-proto/->primitive-io (array-buffer/array-buffer buf))
+        (errors/throwf "Buffer type %s is not convertible to primitive-io"
+                       (type buf)))))
   dtype-proto/PToReader
   (convertible-to-reader? [buf]
     (dtype-proto/convertible-to-primitive-io? buf))
@@ -197,7 +236,7 @@
                           (->native-buffer buf))]
       ;;highest performance
       (dtype-proto/set-constant! buf-data offset value element-count)
-      (if-let [writer (->writer buf {})]
+      (if-let [writer (->writer buf)]
         (dtype-proto/set-constant! writer offset value element-count)
         (throw
          (Exception.

@@ -23,7 +23,7 @@
        dtype-proto/PBuffer
        (sub-buffer [this# offset# length#]
          (-> (dtype-proto/sub-buffer ~buffer offset# length#)
-             (dtype-proto/->reader {})))
+             (dtype-proto/->reader)))
        ~(typecast/datatype->io-type (casting/safe-flatten cast-dtype))
        (elemwiseDatatype [rdr#] ~advertised-datatype)
        (lsize [rdr#] ~n-elems)
@@ -100,11 +100,11 @@
           io)))
   dtype-proto/PToReader
   (convertible-to-reader? [item] true)
-  (->reader [item options]
+  (->reader [item]
     (dtype-proto/->primitive-io item))
   dtype-proto/PToWriter
   (convertible-to-writer? [item] true)
-  (->writer [item options]
+  (->writer [item]
     (dtype-proto/->primitive-io item))
   IObj
   (meta [item] metadata)
@@ -123,7 +123,7 @@
   (invoke [item idx]
     (nth item (int idx)))
   (invoke [item idx value]
-    ((dtype-proto/->writer item {}) idx value))
+    ((dtype-proto/->writer item) idx value))
   (applyTo [item argseq]
     (case (count argseq)
       1 (.invoke item (first argseq))
@@ -245,16 +245,12 @@
                                         nil))
                         dtype-proto/PToReader
                         (convertible-to-reader? [item#] true)
-                        (->reader [item# options#]
-                          (dtype-proto/->reader
-                           (array-buffer item#)
-                           options#))
+                        (->reader [item#]
+                          (dtype-proto/->reader (array-buffer item#)))
                         dtype-proto/PToWriter
                         (convertible-to-writer? [item#] true)
-                        (->writer [item# options#]
-                          (dtype-proto/->writer
-                           (array-buffer item#)
-                           options#))))))))
+                        (->writer [item#]
+                          (dtype-proto/->writer (array-buffer item#)))))))))
 
 
 (initial-implement-arrays)

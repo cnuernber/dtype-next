@@ -10,7 +10,7 @@
             [primitive-math :as pmath]
             [clojure.set :as set])
   (:import [tech.v3.datatype DoubleReduction UnaryOperator PrimitiveIOIterator
-            DoubleList
+            PrimitiveList
             DoubleConsumers$MinMaxSum
             DoubleConsumers$Moments]
            [tech.v3.datatype.array_buffer ArrayBuffer]
@@ -30,7 +30,7 @@
 (def ^:private sum-double-reduction :+)
 
 
-(defn univariate-stat->consumer
+(defn- univariate-stat->consumer
   ^DoubleConsumer [^StorelessUnivariateStatistic stat]
     (reify
       DoubleConsumer
@@ -42,7 +42,7 @@
          :value (.getResult stat)})))
 
 
-(def stats-tower
+(def ^:private stats-tower
   {:sum {:reduction (constantly sum-double-reduction)}
    :min {:reduction (constantly (:min binary-op/builtin-ops))}
    :max {:reduction (constantly (:max binary-op/builtin-ops))}
@@ -114,7 +114,7 @@
                              Double/NaN)))}})
 
 
-(def node-dependencies
+(def ^:private node-dependencies
   (memoize
    (fn [node-kwd]
      (let [node (node-kwd stats-tower)]
@@ -124,7 +124,7 @@
         (set))))))
 
 
-(def reduction-rank
+(def ^:private reduction-rank
   (memoize
    (fn [item]
      (let [node (stats-tower item)
@@ -136,7 +136,7 @@
           (long (apply clojure.core/max 0 (map reduction-rank node-deps))))))))
 
 
-(def reduction-groups
+(def ^:private reduction-groups
   (memoize
    (fn [stat-dependencies]
      (->> stat-dependencies
@@ -187,40 +187,17 @@
    (calculate-descriptive-stat statname {} rdr nil)))
 
 
-(deftype FixedSizedDoubleConsumer [^doubles data ^:unsynchronized-mutable ^long ptr]
-  DoubleConsumer
-  (accept [this value]
-    (aset data ptr value)
-    (set! ptr (unchecked-inc ptr)))
-  dtype-proto/PToArrayBuffer
-  (convertible-to-array-buffer? [item] true)
-  (->array-buffer [item]
-    (ArrayBuffer. data (unchecked-int 0) (int ptr) :float64
-                  {} nil)))
-
-
 (defn- ->double-array-buffer
-  (^ArrayBuffer [item {:keys [nan-strategy-or-predicate]
+  (^ArrayBuffer [item {:keys [nan-strategy]
                        :as options}]
-   (if (= nan-strategy-or-predicate :keep)
-     (->
-      (if-let [ary-data (dtype-base/->array-buffer item)]
-        (if (and (= :float64 (dtype-base/elemwise-datatype ary-data))
-                 (== 0 (.offset ary-data))
-                 (== (dtype-base/ecount (.ary-data ary-data))
-                     (.n-elems ary-data)))
-          (.ary-data ary-data)
-          (-> (dtype-cmc/make-container :float64 item)
-              (->double-array-buffer options)))
-        (-> (dtype-cmc/make-container :float64 item)
-            (->double-array-buffer options)))
-      (dtype-base/->array-buffer))
-     (let [consumer (FixedSizedDoubleConsumer.
-                     (double-array (dtype-base/ecount item))
-                     0)]
-       (-> (dtype-reductions/reader->double-spliterator item nan-strategy-or-predicate)
-           (.forEachRemaining consumer))
-       (dtype-base/->array-buffer consumer))))
+   (if (= nan-strategy :keep)
+     (if-let [ary-data (dtype-base/->array-buffer item)]
+       (if (= :float64 (dtype-base/elemwise-datatype ary-data))
+         ary-data
+         (dtype-cmc/make-container :float64 item))
+       (dtype-cmc/make-container :float64 item))
+     (->> (dtype-reductions/reader->double-spliterator item nan-strategy)
+          (dtype-cmc/make-container :float64 item))))
   (^ArrayBuffer [item]
    (->double-array-buffer item nil)))
 
@@ -228,8 +205,8 @@
 (defn- reduce-group
   "There are optimized versions of reductions that combine various operations
   into the same run.  It would be very cool if the compiler could do this
-  optimization but we are either a ways away *or* we can load dynamic classes
-  in some cases."
+  optimization but we are either a ways away and we cannot load dynamic classes in
+  the graal native pathway."
   [stats-data reductions options rdr]
   (let [reductions-set (set (keys reductions))
         stats-data (merge stats-data
@@ -253,7 +230,7 @@
                                          :moment-3 :moment-4})]
     (if (seq reductions-set)
       (let [{:keys [n-elems data]}
-            (dtype-reductions/staged-double-reductions
+            (dtype-reductions/double-reductions
              (->> (select-keys reductions reductions-set)
                   (map (fn [[kwd red-fn]]
                          [kwd (red-fn stats-data)]))
@@ -268,7 +245,7 @@
 
 (defn- options->apache-nan-strategy
   ^NaNStrategy [options]
-  (case (:nan-strategy-or-predicate options)
+  (case (:nan-strategy options)
     :keep NaNStrategy/FIXED
     :exception NaNStrategy/FAILED
     NaNStrategy/REMOVED))
@@ -280,14 +257,13 @@
 
 
 (defn descriptive-statistics
-  "Calculate a set of descriptive statistics.  If a given statistic (such as mean) is
-  known then a potential large performance increase is to pass it in in the stats-data
-  map.
+  "Calculate a set of descriptive statistics.
 
   options
-    - `:nan-strategy-or-predicate` - defaults to :remove, one of
+    - `:nan-strategy` - defaults to :remove, one of
     [:keep :remove :exception]. The fastest option is :keep but this
-    may result in your results having NaN's in them."
+    may result in your results having NaN's in them.  You can also pass
+  in a double predicate "
   ([stats-names rdr stats-data options]
    (if (== 0 (dtype-base/ecount rdr))
      (->> stats-names
@@ -316,7 +292,7 @@
          ;;In this case we have already filtered out nans at the cost of copying the
          ;;entire array of data.
          options (if median?
-                   (assoc options :nan-strategy-or-predicate :keep)
+                   (assoc options :nan-strategy :keep)
                    options)
          stats-data (merge (when median?
                              (let [n-elems (dtype-base/ecount rdr)]

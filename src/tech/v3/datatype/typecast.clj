@@ -1,6 +1,6 @@
 (ns tech.v3.datatype.typecast
   (:require [tech.v3.datatype.casting :as casting])
-  (:import [tech.v3.datatype BooleanList LongList DoubleList ObjectList]
+  (:import [tech.v3.datatype PrimitiveList]
            [java.util ArrayList List]))
 
 
@@ -104,21 +104,4 @@
       'tech.v3.datatype.ObjectList)))
 
 
-(defn as-boolean-list ^BooleanList [item] item)
-(defn as-long-list ^LongList [item] item)
-(defn as-double-list ^DoubleList [item] item)
-(defn as-object-list ^ObjectList [item] item)
-
-
-(defmacro datatype->list
-  [dtype java-list]
-  (case (casting/host-flatten dtype)
-    :boolean `(as-boolean-list ~java-list)
-    :int8 `(as-long-list ~java-list)
-    :int16 `(as-long-list ~java-list)
-    :char `(as-long-list ~java-list)
-    :int32 `(as-long-list ~java-list)
-    :int64 `(as-long-list ~java-list)
-    :float32 `(as-double-list ~java-list)
-    :float64 `(as-double-list ~java-list)
-    :object `(as-object-list ~java-list)))
+(defn as-primitive-list ^PrimitiveList [item] item)

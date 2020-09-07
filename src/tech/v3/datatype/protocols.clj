@@ -58,10 +58,6 @@
   (copy-raw->item! [raw-data ary-target target-offset options]))
 
 
-(defprotocol PPrototype
-  (from-prototype [item datatype shape]))
-
-
 (defprotocol PClone
   "Clone an object.  Implemented generically for all objects."
   (clone [item]))
@@ -87,23 +83,6 @@
     "Create a sub buffer that shares the backing store with the main buffer."))
 
 
-(defprotocol PToList
-  "Generically implemented for anything that implements ->array"
-  (convertible-to-fastutil-list? [item])
-  (->list-backing-store [item]))
-
-
-(defn list-convertible?
-  [item]
-  (when (and item (convertible-to-fastutil-list? item))
-    (convertible-to-fastutil-list? item)))
-
-
-(defn as-list [item]
-  (when (list-convertible? item)
-    (->list-backing-store item)))
-
-
 (defprotocol PToBufferDesc
   "Conversion to a buffer descriptor for consuming by an external C library."
   (convertible-to-buffer-desc? [item])
@@ -127,60 +106,16 @@ Note that this makes no mention of indianness; buffers are in the format of the 
 ;; :datatype and :unchecked?
 (defprotocol PToWriter
   (convertible-to-writer? [item])
-  (->writer [item options]))
-
-(defn as-writer
-  [item & [options]]
-  (when (convertible-to-writer? item)
-    (->writer item options)))
+  (->writer [item]))
 
 (defprotocol PToReader
   (convertible-to-reader? [item])
-  (->reader [item options]))
-
-(defn as-reader
-  [item & [options]]
-  (when (convertible-to-reader? item)
-    (->reader item options)))
+  (->reader [item]))
 
 (defprotocol POperator
+  "It can be useful to know if a generic operator implements a higher level operation
+  like :+"
   (op-name [item]))
-
-(defprotocol PToUnaryOp
-  (convertible-to-unary-op? [item])
-  (->unary-op [item options]))
-
-(defn as-unary-op
-  [item & [options]]
-  (when (convertible-to-unary-op? item)
-    (->unary-op item options)))
-
-(defprotocol PToUnaryBooleanOp
-  (convertible-to-unary-boolean-op? [item])
-  (->unary-boolean-op [item options]))
-
-(defn as-unary-boolean-op
-  [item & [options]]
-  (when (convertible-to-unary-boolean-op? item)
-    (->unary-boolean-op item options)))
-
-(defprotocol PToBinaryOp
-  (convertible-to-binary-op? [item])
-  (->binary-op [item options]))
-
-(defn as-binary-op
-  [item & [options]]
-  (when (convertible-to-binary-op? item)
-    (->binary-op item options)))
-
-(defprotocol PToBinaryBooleanOp
-  (convertible-to-binary-boolean-op? [item])
-  (->binary-boolean-op [item options]))
-
-(defn as-binary-boolean-op
-  [item & [options]]
-  (when (convertible-to-binary-boolean-op? item)
-    (->binary-boolean-op item options)))
 
 
 (defprotocol PConstantTimeMinMax

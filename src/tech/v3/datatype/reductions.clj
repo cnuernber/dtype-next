@@ -29,27 +29,27 @@
 ;;unspecified nan-strategy is :remove
 
 
-(defn nan-strategy-or-predicate->double-predicate
+(defn nan-strategy->double-predicate
   "Passing in either a keyword nan strategy #{:exception :keep :remove}
   or a DoublePredicate, return a DoublePredicate that filters
   double values."
-  (^DoublePredicate [nan-strategy-or-predicate]
+  (^DoublePredicate [nan-strategy]
    (cond
-     (instance? DoublePredicate nan-strategy-or-predicate)
-     nan-strategy-or-predicate
-     (= nan-strategy-or-predicate :keep)
+     (instance? DoublePredicate nan-strategy)
+     nan-strategy
+     (= nan-strategy :keep)
      nil
      ;;Remove is the default so nil maps to remove
-     (or (nil? nan-strategy-or-predicate)
-         (= nan-strategy-or-predicate :remove))
+     (or (nil? nan-strategy)
+         (= nan-strategy :remove))
      PrimitiveIODoubleSpliterator/removePredicate
-     (= nan-strategy-or-predicate :exception)
+     (= nan-strategy :exception)
      PrimitiveIODoubleSpliterator/exceptPredicate
      :else
-     (errors/throwf "Unrecognized predicate: %s" nan-strategy-or-predicate)))
+     (errors/throwf "Unrecognized predicate: %s" nan-strategy)))
   ;;Remember the default predicate is :remove
   (^DoublePredicate []
-   (nan-strategy-or-predicate->double-predicate nil)))
+   (nan-strategy->double-predicate nil)))
 
 
 (defn- reduce-consumer-results
@@ -61,11 +61,11 @@
 
 
 (defn staged-double-consumer-reduction
-  (^Consumers$Result [staged-consumer-fn {:keys [nan-strategy-or-predicate]} rdr]
+  (^Consumers$Result [staged-consumer-fn {:keys [nan-strategy]} rdr]
    (let [rdr (dtype-base/->reader rdr)
          n-elems (.size rdr)
-         predicate (nan-strategy-or-predicate->double-predicate
-                    nan-strategy-or-predicate)]
+         predicate (nan-strategy->double-predicate
+                    nan-strategy)]
      (parallel-for/indexed-map-reduce
       n-elems
       (fn [^long start-idx ^long group-len]
@@ -219,12 +219,11 @@
   java.util.functions.DoublePredicate that can filter the double stream
   (or throw an exception on an invalid value).
   Implementations of UnaryPredicate also implement DoublePredicate."
-  (^Spliterator$OfDouble [rdr nan-strategy-or-predicate]
+  (^Spliterator$OfDouble [rdr nan-strategy]
    (if-let [rdr (dtype-base/->reader rdr)]
      (PrimitiveIODoubleSpliterator. rdr 0
                                     (.lsize rdr)
-                                    (nan-strategy-or-predicate->double-predicate
-                                     nan-strategy-or-predicate))
+                                    (nan-strategy->double-predicate nan-strategy))
      (errors/throwf "Argument %s is not convertible to reader" (type rdr))))
   (^Spliterator$OfDouble [rdr]
    (reader->double-spliterator rdr nil)))
