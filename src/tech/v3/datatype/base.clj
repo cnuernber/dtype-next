@@ -110,6 +110,12 @@
                    (type item))))
 
 
+(defn as-buffer
+  [item]
+  (or (as-array-buffer item)
+      (as-native-buffer item)))
+
+
 (defn sub-buffer
   ([item ^long offset ^long length]
    (let [n-elems (ecount item)]
@@ -151,18 +157,17 @@
   (->io [item] (random-access->io item))
   dtype-proto/PToReader
   (convertible-to-reader? [item] true)
-  (->reader [item options]
+  (->reader [item]
     (random-access->io item))
   dtype-proto/PToWriter
   (convertible-to-writer? [item] true)
-  (->writer [item options]
+  (->writer [item]
     (random-access->io item)))
 
 
 (defn- inner-buffer-sub-buffer
   [buf ^long offset ^Long len]
-  (when-let [data-buf (or (->array-buffer buf)
-                          (->native-buffer buf))]
+  (when-let [data-buf (as-buffer buf)]
     (with-meta
       (sub-buffer data-buf offset len)
       (meta buf))))
@@ -174,10 +179,10 @@
   (->io [item] item)
   dtype-proto/PToReader
   (convertible-to-reader? [buf] true)
-  (->reader [buf options] buf)
+  (->reader [buf] buf)
   dtype-proto/PToWriter
   (convertible-to-writer? [buf] true)
-  (->writer [buf options] buf)
+  (->writer [buf] buf)
   dtype-proto/PClone
   (clone [buf]
     (dtype-proto/make-container :jvm-heap (elemwise-datatype buf) buf {}))
@@ -204,8 +209,7 @@
         (dtype-proto/convertible-to-native-buffer? buf)
         (.isArray (.getClass ^Object buf))))
   (->primitive-io [buf]
-    (if-let [buf-data (or (->array-buffer buf)
-                            (->native-buffer buf))]
+    (if-let [buf-data (as-buffer buf)]
       (dtype-proto/->primitive-io buf-data)
       (if (.isArray (.getClass ^Object buf))
         (dtype-proto/->primitive-io (array-buffer/array-buffer buf))
@@ -214,12 +218,12 @@
   dtype-proto/PToReader
   (convertible-to-reader? [buf]
     (dtype-proto/convertible-to-primitive-io? buf))
-  (->reader [buf options]
+  (->reader [buf]
     (dtype-proto/->primitive-io buf))
   dtype-proto/PToWriter
   (convertible-to-reader? [buf]
     (dtype-proto/convertible-to-primitive-io? buf))
-  (->writer [buf options]
+  (->writer [buf]
     (dtype-proto/->primitive-io buf))
   dtype-proto/PBuffer
   (sub-buffer [buf offset len]
@@ -232,8 +236,7 @@
                             (type buf)))))))
   dtype-proto/PSetConstant
   (set-constant! [buf offset value element-count]
-    (if-let [buf-data (or (->array-buffer buf)
-                          (->native-buffer buf))]
+    (if-let [buf-data (as-buffer buf)]
       ;;highest performance
       (dtype-proto/set-constant! buf-data offset value element-count)
       (if-let [writer (->writer buf)]
@@ -247,8 +250,7 @@
   ;;find a clone method and this of course breaks graal native.
   dtype-proto/PClone
   (clone [buf]
-    (if-let [buf-data (or (->array-buffer buf)
-                          (->native-buffer buf))]
+    (if-let [buf-data (as-buffer buf)]
       ;;highest performance
       (dtype-proto/clone buf-data)
       (if-let [rdr (->reader buf)]

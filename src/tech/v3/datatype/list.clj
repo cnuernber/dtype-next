@@ -28,7 +28,7 @@
      (let [new-capacity (long (if (< desired-size (* 1024 1024))
                                 (max (* 2 desired-size) 10)
                                 (long (* 1.25 desired-size))))]
-       (if-let [ary-buf (dtype-base/->array-buffer buffer-data)]
+       (if-let [ary-buf (dtype-base/as-array-buffer buffer-data)]
          (let [new-buffer (dtype-cmc/make-container :jvm-heap (.datatype ary-buf)
                                                     new-capacity)]
            (dtype-cmc/copy! buffer-data (dtype-base/sub-buffer new-buffer 0 capacity))
@@ -124,8 +124,7 @@
     (.writeObject cached-io ptr value)
     (set! ptr (unchecked-inc ptr)))
   (addAll [item coll]
-    (if-let [data-buf (or (dtype-base/->array-buffer coll)
-                          (dtype-base/->native-buffer coll))]
+    (if-let [data-buf (dtype-base/as-buffer coll)]
       (let [item-ecount (dtype-base/ecount data-buf)]
         (.ensureCapacity item item-ecount)
         (dtype-cmc/copy! data-buf (dtype-base/sub-buffer buffer ptr item-ecount))
@@ -193,10 +192,10 @@
 
 
 (defmethod dtype-proto/make-container :list
-  [container-type datatype elem-seq-or-count options]
+  [container-type datatype options elem-seq-or-count]
   (if (or (number? elem-seq-or-count)
           (dtype-proto/convertible-to-reader? elem-seq-or-count))
-    (-> (dtype-cmc/make-container :jvm-heap datatype elem-seq-or-count options)
+    (-> (dtype-cmc/make-container :jvm-heap datatype options elem-seq-or-count)
         (wrap-container))
     (let [retval (empty-list datatype)]
       (parallel-for/consume! #(.add retval %) elem-seq-or-count)

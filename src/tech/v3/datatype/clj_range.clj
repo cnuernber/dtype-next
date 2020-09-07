@@ -25,7 +25,7 @@
   (clone [rng] rng)
   dtype-proto/PToReader
   (convertible-to-reader? [rng] true)
-  (->reader [rng options]
+  (->reader [rng]
     (let [start (long (first rng))
           step (long (.get ^Field lr-step-field rng))
           n-elems (.count rng)]
@@ -55,13 +55,12 @@
          step# (casting/datatype->cast-fn :unknown ~datatype
                                           (.get ^Field r-step-field rng#))
          n-elems# (.count rng#)]
-      (-> (reify ~(typecast/datatype->reader-type datatype)
-            (lsize [rdr#] n-elems#)
-            (read [rdr# idx#]
-              (casting/datatype->cast-fn :unknown ~datatype
-                                         (-> (* step# idx#)
-                                             (+ start#)))))
-          (dtype-proto/->reader ~options))))
+      (reify ~(typecast/datatype->reader-type datatype)
+        (lsize [rdr#] n-elems#)
+        (read [rdr# idx#]
+          (casting/datatype->cast-fn :unknown ~datatype
+                                     (-> (* step# idx#)
+                                         (+ start#)))))))
 
 
 (extend-type Range
@@ -76,7 +75,7 @@
                                  #{:int8 :int16 :int32 :int64
                                    :float32 :float64}
                                  (base/elemwise-datatype rng)))
-  (->reader [rng options]
+  (->reader [rng]
     (let [dtype  (base/elemwise-datatype (first rng))]
       (if (casting/integer-type? dtype)
         (let [start (casting/datatype->cast-fn :unknown :int64 (first rng))
@@ -113,6 +112,4 @@
             dtype-proto/PConstantTimeMinMax
             (has-constant-time-min-max? [item] true)
             (constant-time-min [item] (dtype-proto/constant-time-min (min start last-val)))
-            (constant-time-max [item] (dtype-proto/constant-time-max (max start last-val)))))
-
-        ))))
+            (constant-time-max [item] (dtype-proto/constant-time-max (max start last-val)))))))))

@@ -10,7 +10,7 @@
 
 (defn copy-raw-seq->item!
   [raw-data-seq ary-target target-offset options]
-  (let [writer (dtype-base/->writer ary-target options)]
+  (let [writer (dtype-base/->writer ary-target)]
     (reduce (fn [[ary-target target-offset] new-raw-data]
               ;;Fastpath for sequences of numbers.  Avoids more protocol pathways.
               (if (number? new-raw-data)

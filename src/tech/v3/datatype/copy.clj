@@ -102,10 +102,10 @@
        (throw (Exception. (format "src ecount (%s) != dst ecount (%s)"
                                   src-ec dst-ec))))
      ;;Check if managed heap or native heap
-     (let [src-buf (or (dtype-base/->array-buffer src)
-                       (dtype-base/->native-buffer src))
-           dst-buf (or (dtype-base/->array-buffer dst)
-                       (dtype-base/->native-buffer dst))
+     (let [src-buf (or (dtype-base/as-array-buffer src)
+                       (dtype-base/as-native-buffer src))
+           dst-buf (or (dtype-base/as-array-buffer dst)
+                       (dtype-base/as-native-buffer dst))
            _ (when-not (and src dst)
                (throw (Exception.
                        "Src or dst are not convertible to arrays or native buffers")))]
@@ -163,10 +163,10 @@
                         (= (casting/host-flatten src-dtype)
                            (casting/host-flatten dst-dtype))
                         (= src-dtype dst-dtype))
-         src-buf (or (dtype-base/->array-buffer src)
-                     (dtype-base/->native-buffer src))
-         dst-buf (or (dtype-base/->array-buffer dst)
-                     (dtype-base/->native-buffer dst))]
+         src-buf (or (dtype-base/as-array-buffer src)
+                     (dtype-base/as-native-buffer src))
+         dst-buf (or (dtype-base/as-array-buffer dst)
+                     (dtype-base/as-native-buffer dst))]
      (when-not (== (dtype-base/ecount src) (dtype-base/ecount dst))
        (throw (Exception. (format "Elem counts differ: src: %d, dst: %d"
                                   (dtype-base/ecount src) (dtype-base/ecount dst)))))

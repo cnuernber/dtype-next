@@ -204,5 +204,5 @@ and whose values are the indexes that produce those values in the reader."))
 
 
 (defmulti make-container
-  (fn [container-type _datatype _elem-seq-or-count _options]
+  (fn [container-type _datatype _options _elem-seq-or-count]
     container-type))

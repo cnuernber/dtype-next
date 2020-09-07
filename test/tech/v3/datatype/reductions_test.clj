@@ -23,14 +23,14 @@
         nan-answer (double (- answer 50))]
     (is (= {:n-elems 100 :data {:sum answer}}
            (reductions/double-reductions {:sum :+}
-                                         {:nan-strategy-or-predicate :keep}
+                                         {:nan-strategy :keep}
                                          data)))
     (is (= {:n-elems 99 :data {:sum nan-answer}}
            (reductions/double-reductions {:sum :+} nan-data)))
     (is (thrown? Throwable
                  (reductions/double-reductions
                   {:sum :+} nan-data
-                  {:nan-strategy-or-predicate :exception})))
+                  {:nan-strategy :exception})))
     (is (= {:n-elems 99 :data {:sum nan-answer}}
            (reductions/double-reductions {:sum (:identity unop/builtin-ops)}
                                          nan-data)))
@@ -44,7 +44,7 @@
            (reductions/double-reductions {:sum1 :+
                                           :sum2 (:identity unop/builtin-ops)
                                           :sum3 (:+ binop/builtin-ops)}
-                                         {:nan-strategy-or-predicate :keep}
+                                         {:nan-strategy :keep}
                                          data)))
     (is (= {:n-elems 99 :data {:sum1 nan-answer
                                :sum2 nan-answer
@@ -52,7 +52,7 @@
            (reductions/double-reductions {:sum1 :+
                                           :sum2 (:identity unop/builtin-ops)
                                           :sum3 (:+ binop/builtin-ops)}
-                                         {:nan-strategy-or-predicate :remove}
+                                         {:nan-strategy :remove}
                                          nan-data)))
     ))
 
@@ -103,7 +103,7 @@
       []
       (crit/quick-bench
        (reductions/staged-double-consumer-reduction
-        #(DoubleConsumers$Sum.) {:nan-strategy-or-predicate :keep}
+        #(DoubleConsumers$Sum.) {:nan-strategy :keep}
         double-data)))
 
 
@@ -111,7 +111,7 @@
       []
       (crit/quick-bench
        (reductions/staged-double-consumer-reduction
-        #(DoubleConsumers$Sum.) {:nan-strategy-or-predicate :remove}
+        #(DoubleConsumers$Sum.) {:nan-strategy :remove}
         double-data)))
 
 
@@ -129,7 +129,7 @@
       []
       (crit/quick-bench
        (reductions/staged-double-consumer-reduction
-        #(DoubleConsumers$MinMaxSum.) {:nan-strategy-or-predicate :remove}
+        #(DoubleConsumers$MinMaxSum.) {:nan-strategy :remove}
         double-data)))
 
 
@@ -137,7 +137,7 @@
       []
       (crit/quick-bench
        (reductions/staged-double-consumer-reduction
-        #(DoubleConsumers$Moments. 49000) {:nan-strategy-or-predicate :remove}
+        #(DoubleConsumers$Moments. 49000) {:nan-strategy :remove}
         double-data)))
 
 

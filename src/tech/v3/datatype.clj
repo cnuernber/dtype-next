@@ -17,9 +17,13 @@
                 elemwise-datatype
                 ecount
                 ->io
+                as-reader
                 ->reader
+                as-writer
                 ->writer
+                as-array-buffer
                 ->array-buffer
+                as-native-buffer
                 ->native-buffer
                 sub-buffer
                 get-value
