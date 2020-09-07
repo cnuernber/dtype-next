@@ -1,11 +1,11 @@
 (ns tech.v3.datatype
   (:require [tech.v3.datatype.array-buffer]
             [tech.v3.datatype.native-buffer]
+            [tech.v3.datatype.list]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.copy-make-container :as dtype-copy-make-container]
             [tech.v3.datatype.clj-range]
-            [tech.v3.datatype.list]
             [tech.v3.datatype.functional]
             [tech.v3.datatype.copy-raw-to-item]
             [tech.v3.datatype.primitive]
@@ -32,6 +32,7 @@
 (export-symbols tech.v3.datatype.copy-make-container
                 make-container
                 copy!)
+
 
 (defn copy-raw->item!
   "Copy raw data into a buffer.  Data may be a sequence of numbers or a sequence

@@ -87,8 +87,8 @@ call this function exactly N times where N is ForkJoinPool/getCommonPoolParallel
 (defmacro parallel-for
   "Like clojure.core.matrix.macros c-for except this expects index that run from 0 ->
   num-iters.  Idx is named idx-var and body will be called for each idx in parallel.
-  Uses forkjoinpool's common pool for parallelism.  Assumed to be side effecting; returns
-  nil."
+  Uses forkjoinpool's common pool for parallelism.  Assumed to be side effecting;
+  returns nil."
   [idx-var num-iters & body]
   `(let [num-iters# (long ~num-iters)]
      (if (< num-iters# (* 2 (ForkJoinPool/getCommonPoolParallelism)))
@@ -203,8 +203,8 @@ call this function exactly N times where N is ForkJoinPool/getCommonPoolParallel
                             spliterators [src-spliterator]]
                        (if (< idx n-splits)
                          (recur (unchecked-inc idx)
-                                ;;Splitting a spliterator is a side-effecting operation so we can't
-                                ;;allow this to be lazy
+                                ;;Splitting a spliterator is a side-effecting operation
+                                ;;so we can't allow this to be lazy
                                 (->> spliterators
                                      (mapcat #(when % [(.trySplit ^Spliterator %) %]))
                                      (remove nil?)

@@ -1,7 +1,7 @@
 (ns tech.v3.datatype.list
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.protocols :as dtype-proto]
-            [tech.v3.datatype.errors :as errors]
+            [tech.v3.datatype.errors :refer [check-idx] :as errors]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.pprint :as dtype-pp])
@@ -46,12 +46,6 @@
 (defn- list->string
   ^String [list-item]
   (dtype-pp/buffer->string list-item "list"))
-
-
-(defmacro ^:private check-idx
-  [idx n-elems]
-  `(when-not (< ~idx ~n-elems)
-     (errors/throwf "Index %d is out of bounds [0,%d]" ~idx ~n-elems)))
 
 
 (defn- iterable-add-all
@@ -144,9 +138,7 @@
   (count [item] (int ptr))
   Indexed
   (nth [item idx]
-    (when-not (< idx ptr)
-      (throw (IndexOutOfBoundsException. (format "idx %s, n-elems %s"
-                                                 idx ptr))))
+    (check-idx idx ptr)
     (.readObject item idx))
   (nth [item idx def-val]
     (if (and (>= idx 0) (< idx (.count item)))
@@ -157,9 +149,7 @@
     (.nth item (int idx)))
   (invoke [item idx value]
     (let [idx (long idx)]
-      (when-not (< idx ptr)
-        (throw (IndexOutOfBoundsException. (format "idx %s, n-elems %s"
-                                                   idx ptr))))
+      (check-idx idx ptr)
       (.writeObject item idx value)))
   (applyTo [item argseq]
     (case (count argseq)

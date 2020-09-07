@@ -3,6 +3,7 @@
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.typecast :as typecast]
+            [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.pprint :as dtype-pp]
             [tech.v3.parallel.for :as parallel-for]
             [primitive-math :as pmath])
@@ -268,9 +269,7 @@
   (count [item] (int (dtype-proto/ecount item)))
   Indexed
   (nth [item idx]
-    (when-not (< idx n-elems)
-      (throw (IndexOutOfBoundsException. (format "idx %s, n-elems %s"
-                                                 idx n-elems))))
+    (errors/check-idx idx n-elems)
     ((dtype-proto/->primitive-io item) idx))
   (nth [item idx def-val]
     (if (and (>= idx 0) (< idx (.count item)))
@@ -281,9 +280,7 @@
     (.nth item (int idx)))
   (invoke [item idx value]
     (let [idx (long idx)]
-      (when-not (< idx n-elems)
-        (throw (IndexOutOfBoundsException. (format "idx %s, n-elems %s"
-                                                   idx n-elems))))
+      (errors/check-idx idx n-elems)
       ((dtype-proto/->writer item) idx value)))
   (applyTo [item argseq]
     (case (count argseq)

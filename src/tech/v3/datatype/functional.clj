@@ -6,6 +6,7 @@
             [tech.v3.datatype.binary-op :as binary-op]
             [tech.v3.datatype.unary-op :as unary-op]
             [tech.v3.datatype.reductions :as dtype-reductions]
+            [tech.v3.datatype.export-symbols :refer [export-symbols]]
             [primitive-math :as pmath]
             [clojure.set :as set])
   (:import [tech.v3.datatype BinaryOperator PrimitiveReader
@@ -177,8 +178,7 @@
        (reify LongReader
          (lsize [rdr] (.lsize src-rdr))
          (read [rdr idx]
-           (Math/round (.readDouble src-rdr idx))))))
-   nil))
+           (Math/round (.readDouble src-rdr idx))))))))
 
 ;;Implement only reductions that we know we will use.
 (defn reduce-+
@@ -213,3 +213,48 @@
   ^double [rdr]
   (pmath// (double (reduce-+ rdr))
            (double (dtype-base/ecount rdr))))
+
+
+(defn magnitude-squared
+  [item]
+  (-> (sq item)
+      (reduce-+)))
+
+
+(defn magnitude
+  ^double [item]
+  (Math/sqrt (double (magnitude-squared item))))
+
+
+(defn dot-product
+  [lhs rhs]
+  (-> (* lhs rhs)
+      (reduce-+)))
+
+(defn distance-squared
+  [lhs rhs]
+  (magnitude-squared (- lhs rhs)))
+
+(defn distance
+  [lhs rhs]
+  (magnitude (- lhs rhs)))
+
+
+(defn equals
+  [lhs rhs & [error-bar]]
+  (clojure.core/< (double (distance lhs rhs))
+                  (double (clojure.core/or error-bar 0.001))))
+
+
+(export-symbols tech.v3.datatype.statistics
+                descriptive-statistics
+                variance
+                standard-deviation
+                median
+                skew
+                kurtosis
+                quartile-1
+                quartile-3
+                pearsons-correlation
+                spearmans-correlation
+                kendalls-correlation)

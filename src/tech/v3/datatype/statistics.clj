@@ -17,6 +17,8 @@
            [org.apache.commons.math3.stat.descriptive StorelessUnivariateStatistic]
            [org.apache.commons.math3.stat.descriptive.rank Percentile]
            [org.apache.commons.math3.stat.ranking NaNStrategy]
+           [org.apache.commons.math3.stat.correlation
+            KendallsCorrelation PearsonsCorrelation SpearmansCorrelation]
            [clojure.lang IFn]
            [java.util Arrays Map Iterator Spliterator Spliterator$OfDouble]
            [java.util.function DoubleConsumer])
@@ -249,7 +251,7 @@
     [:keep :remove :exception]. The fastest option is :keep but this
     may result in your results having NaN's in them.  You can also pass
   in a double predicate "
-  ([stats-names rdr stats-data options]
+  ([stats-names stats-data options rdr]
    (if (== 0 (dtype-base/ecount rdr))
      (->> stats-names
           (map (fn [sname]
@@ -265,7 +267,8 @@
          percentile-set (set/intersection stats-set percentile-set)
          stats-set (set/difference stats-set percentile-set)
          ^PrimitiveIO rdr (if (or median? percentile?)
-                            (let [darray (dtype-cmc/->array-buffer rdr options :float64)]
+                            (let [darray (dtype-cmc/->array-buffer
+                                          :float64 options rdr)]
                               ;;arrays/sort is blindingly fast.
                               (when median?
                                 (Arrays/sort ^doubles (.ary-data darray)
@@ -326,13 +329,13 @@
                                  {:quartile-3 (.evaluate p 75.0)})))
                       stats-data)]
      (select-keys stats-data (set/union stats-set percentile-set))))
-  ([stats-names rdr options]
-   (descriptive-statistics stats-names rdr nil options))
+  ([stats-names options rdr]
+   (descriptive-statistics stats-names nil options rdr))
   ([stats-names rdr]
-   (descriptive-statistics stats-names rdr nil nil))
+   (descriptive-statistics stats-names nil nil rdr))
   ([rdr]
    (descriptive-statistics [:n-values :min :mean :max :standard-deviation]
-                           rdr nil nil)))
+                            nil nil rdr)))
 
 
 (defmacro define-descriptive-stats
@@ -343,13 +346,13 @@
                    (let [fn-symbol (symbol (name tower-key))]
                      (if (:dependencies tower-node)
                        `(defn ~fn-symbol
-                          ([~'data ~'options]
+                          ([~'options ~'data]
                            (~tower-key (descriptive-statistics #{~tower-key} ~'data
                                                                ~'options)))
                           ([~'data]
                            (~fn-symbol ~'data nil)))
                        `(defn ~fn-symbol
-                          ([~'data ~'options]
+                          ([~'options ~'data]
                            (~tower-key (calculate-descriptive-stat
                                         ~tower-key ~'data
                                         ~'options)))
@@ -361,10 +364,51 @@
 
 
 (defn median
-  ([data options]
-   (:median (descriptive-statistics [:median] data options)))
-  ([data]
+  (^double [options data]
+   (:median (descriptive-statistics [:median] options data)))
+  (^double [data]
    (:median (descriptive-statistics [:median] data))))
+
+
+(defn quartile-1
+  (^double[options data]
+   (:quartile-1 (descriptive-statistics [:quartile-1] options data)))
+  (^double [data]
+   (:quartile-1 (descriptive-statistics [:quartile-1] data))))
+
+
+(defn quartile-3
+  (^double [options data]
+   (:quartile-3 (descriptive-statistics [:quartile-3] options data)))
+  (^double [data]
+   (:quartile-3 (descriptive-statistics [:quartile-3] data))))
+
+
+(defn pearsons-correlation
+  (^double [options lhs rhs]
+   (-> (PearsonsCorrelation.)
+       (.correlation (dtype-cmc/->double-array options lhs)
+                     (dtype-cmc/->double-array options rhs))))
+  (^double [lhs rhs]
+   (pearsons-correlation nil lhs rhs)))
+
+
+(defn spearmans-correlation
+  (^double [options lhs rhs]
+   (-> (SpearmansCorrelation.)
+       (.correlation (dtype-cmc/->double-array options lhs)
+                     (dtype-cmc/->double-array options rhs))))
+  (^double [lhs rhs]
+   (spearmans-correlation nil lhs rhs)))
+
+
+(defn kendalls-correlation
+  (^double [options lhs rhs]
+   (-> (KendallsCorrelation.)
+       (.correlation (dtype-cmc/->double-array options lhs)
+                     (dtype-cmc/->double-array options rhs))))
+  (^double [lhs rhs]
+   (kendalls-correlation nil lhs rhs)))
 
 
 (comment

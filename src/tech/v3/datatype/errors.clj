@@ -17,3 +17,10 @@
   `(if (Double/isNaN ~arg)
      (throw-nan)
      arg))
+
+
+(defmacro check-idx
+  [idx n-elems]
+  `(when-not (< ~idx ~n-elems)
+     (throw (IndexOutOfBoundsException.
+             (format "idx (%s) >= n-elems (%s)" ~idx ~n-elems)))))

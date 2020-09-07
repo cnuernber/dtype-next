@@ -118,3 +118,33 @@
    (->array-buffer datatype nil item))
   (^ArrayBuffer [item]
    (->array-buffer (dtype-base/elemwise-datatype item) nil item)))
+
+
+(defn ->array
+  "Perform a NaN-aware conversion into an array.  Default
+  nan-strategy is :remove which forces a pass over float datatypes
+  in order to remove nan data.  Nan strategies can be:
+  [:keep :remove :exception]"
+  ([datatype options item]
+   (let [array-buffer (->array-buffer datatype options item)]
+     (if (and (== (.offset array-buffer) 0)
+              (== (.n-elems array-buffer)
+                  (dtype-base/ecount (.ary-data array-buffer))))
+       (.ary-data array-buffer)
+       (.ary-data ^ArrayBuffer (make-container :jvm-heap datatype array-buffer)))))
+  ([datatype item]
+   (->array datatype nil item))
+  (^ArrayBuffer [item]
+   (->array (dtype-base/elemwise-datatype item) nil item)))
+
+
+(defn ->double-array
+  "Nan-aware conversion to double array.  By default NaN values are removed.
+  See documentation for ->array-buffer.  Returns a double array.  If a double
+  array is passed in or an array buffer that exactly maps to an entire double array
+  then and nan-strategy is :keep then that value itself is returned.
+  The default nan-strategy is :remove."
+  (^doubles [options data]
+   (->array :float64 options data))
+  (^doubles [data]
+   (->array :float64 data)))
