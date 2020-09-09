@@ -6,6 +6,6 @@ import java.util.stream.DoubleStream;
 
 public interface DoubleReader extends DoubleIO
 {
-  default void write(long idx, double value) { throw new UnsupportedOperationException(); }
+  default void writeDouble(long idx, double value) { throw new UnsupportedOperationException(); }
   default boolean supportsWrite() { return false; }
 }

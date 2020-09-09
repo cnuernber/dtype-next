@@ -257,4 +257,7 @@
                 quartile-3
                 pearsons-correlation
                 spearmans-correlation
-                kendalls-correlation)
+                kendalls-correlation
+                percentiles
+                quartiles
+                quartile-outlier-fn)

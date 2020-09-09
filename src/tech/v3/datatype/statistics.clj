@@ -7,15 +7,19 @@
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.array-buffer :as array-buffer]
             [tech.v3.parallel.for :as parallel-for]
+            [tech.v3.datatype.list]
             [primitive-math :as pmath]
             [clojure.set :as set])
   (:import [tech.v3.datatype DoubleReduction UnaryOperator PrimitiveIOIterator
-            PrimitiveList
+            PrimitiveIO
             DoubleConsumers$MinMaxSum
-            DoubleConsumers$Moments]
+            DoubleConsumers$Moments
+            UnaryPredicate
+            UnaryPredicates$DoubleUnaryPredicate]
            [tech.v3.datatype.array_buffer ArrayBuffer]
            [org.apache.commons.math3.stat.descriptive StorelessUnivariateStatistic]
-           [org.apache.commons.math3.stat.descriptive.rank Percentile]
+           [org.apache.commons.math3.stat.descriptive.rank Percentile
+            Percentile$EstimationType]
            [org.apache.commons.math3.stat.ranking NaNStrategy]
            [org.apache.commons.math3.stat.correlation
             KendallsCorrelation PearsonsCorrelation SpearmansCorrelation]
@@ -160,11 +164,11 @@
 (defn- calculate-descriptive-stat
   "Calculate a single statistic.  Utility method for calculate-descriptive-stats
   method below."
-  ([statname stat-data rdr options]
-   (if (stat-data statname)
+  ([statname stat-data options rdr]
+   (if (get stat-data statname)
      stat-data
      (if-let [{:keys [dependencies reduction formula]} (get stats-tower statname)]
-       (let [stat-data (reduce #(calculate-descriptive-stat %2 %1 rdr options)
+       (let [stat-data (reduce #(calculate-descriptive-stat %2 %1 options rdr)
                                stat-data
                                dependencies)
              stat-data
@@ -186,7 +190,7 @@
        (throw (Exception. (format "Unrecognized descriptive statistic: %s"
                                   statname))))))
   ([statname rdr]
-   (calculate-descriptive-stat statname {} rdr nil)))
+   (calculate-descriptive-stat statname {} nil rdr)))
 
 
 (defn- reduce-group
@@ -306,13 +310,13 @@
                        stats-data (reduce #(calculate-descriptive-stat
                                             %2
                                             %1
-                                            rdr
-                                            options)
+                                            options
+                                            rdr)
                                           stats-data
                                           dependencies)]
                    (reduce-group stats-data reductions options rdr)))
                stats-data))
-         stats-data (reduce #(calculate-descriptive-stat %2 %1 rdr options)
+         stats-data (reduce #(calculate-descriptive-stat %2 %1 options rdr)
                             stats-data
                             calculate-stats-set)
          stats-data (if percentile?
@@ -346,22 +350,21 @@
                    (let [fn-symbol (symbol (name tower-key))]
                      (if (:dependencies tower-node)
                        `(defn ~fn-symbol
-                          ([~'options ~'data]
+                          (~(with-meta ['options 'data] {:tag 'double})
                            (~tower-key (descriptive-statistics #{~tower-key} ~'data
                                                                ~'options)))
-                          ([~'data]
+                          (~(with-meta ['data]
+                              {:tag 'double})
                            (~fn-symbol ~'data nil)))
                        `(defn ~fn-symbol
-                          ([~'options ~'data]
+                          (~(with-meta ['options 'data] {:tag 'double})
                            (~tower-key (calculate-descriptive-stat
-                                        ~tower-key ~'data
-                                        ~'options)))
-                          ([~'data]
+                                        ~tower-key nil ~'options ~'data)))
+                          (~(with-meta ['data] {:tag 'double})
                            (~fn-symbol ~'data nil))))))))))
 
 
 (define-descriptive-stats)
-
 
 (defn median
   (^double [options data]
@@ -409,6 +412,65 @@
                      (dtype-cmc/->double-array options rhs))))
   (^double [lhs rhs]
    (kendalls-correlation nil lhs rhs)))
+
+
+(defn- options->percentile-estimation-strategy
+  ""
+  ^Percentile$EstimationType [{:keys [estimation-type]}]
+  (case estimation-type
+    :r1 Percentile$EstimationType/R_1
+    :r2 Percentile$EstimationType/R_2
+    :r3 Percentile$EstimationType/R_3
+    :r4 Percentile$EstimationType/R_4
+    :r5 Percentile$EstimationType/R_5
+    :r6 Percentile$EstimationType/R_6
+    :r7 Percentile$EstimationType/R_7
+    :r8 Percentile$EstimationType/R_8
+    :r9 Percentile$EstimationType/R_9
+    Percentile$EstimationType/LEGACY))
+
+
+(defn percentiles
+  "Create a reader of percentile values, one for each percentage passed in.
+  Estimation types are in the set of #{:r1,r2...legacy} and are described
+  here: https://commons.apache.org/proper/commons-math/javadocs/api-3.3/index.html.
+
+  nan-strategy can be one of [:keep :remove :exception] and defaults to :exception."
+  (^PrimitiveIO [percentages options data]
+   (let [ary-buf (dtype-cmc/->array-buffer :float64 {:nan-strategy :keep} data)
+         p (doto (Percentile.)
+             (.withNaNStrategy (options->apache-nan-strategy options))
+             (.withEstimationType (options->percentile-estimation-strategy options))
+             (.setData ^doubles (.ary-data ary-buf) (.offset ary-buf)
+                       (.n-elems ary-buf)))]
+     (dtype-base/->reader (mapv #(.evaluate p (double %)) percentages))))
+  (^PrimitiveIO [percentages data]
+   (percentiles percentages nil data)))
+
+
+(defn quartiles
+  "return [min, 25 50 75 max] of item"
+  (^PrimitiveIO [item]
+   (percentiles [0.001 25 50 75 100] item))
+  (^PrimitiveIO [options item]
+   (percentiles [0.001 25 50 75 100] options item)))
+
+
+(defn quartile-outlier-fn
+  "Create a function that, given floating point data, will return true or false
+  if that data is an outlier.  Default range mult is 1.5:
+  (or (< val (- q1 (* range-mult iqr)))
+      (> val (+ q3 (* range-mult iqr)))"
+  [item & [range-mult]]
+  (let [[_ q1 _ q3 _] (quartiles item)
+        q1 (double q1)
+        q3 (double q3)
+        iqr (- q3 q1)
+        range-mult (double (or range-mult 1.5))]
+    (reify UnaryPredicates$DoubleUnaryPredicate
+      (unaryDouble [this x]
+        (or (< x (- q1 (* range-mult iqr)))
+            (> x (+ q3 (* range-mult iqr))))))))
 
 
 (comment

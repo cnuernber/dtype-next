@@ -27,24 +27,116 @@
        ~(typecast/datatype->io-type (casting/safe-flatten cast-dtype))
        (elemwiseDatatype [rdr#] ~advertised-datatype)
        (lsize [rdr#] ~n-elems)
-       (read [rdr# ~'idx]
-         (casting/datatype->unchecked-cast-fn
-          ~datatype ~cast-dtype
-          (aget ~'java-ary (pmath/+ ~offset ~'idx))))
-       (readDouble [rdr# ~'idx]
-         (casting/datatype->unchecked-cast-fn
-          ~datatype :float64
-          (aget ~'java-ary (pmath/+ ~offset ~'idx))))
-       (readLong [rdr# ~'idx]
-         (casting/datatype->unchecked-cast-fn
-          ~datatype :int64
-          (aget ~'java-ary (pmath/+ ~offset ~'idx))))
-       (write [wtr# idx# val#]
-         ;;Writing values is always checked, no options.
-         (aset ~'java-ary (pmath/+ ~offset idx#)
-               (casting/datatype->cast-fn
-                ~cast-dtype ~datatype
-                val#))))))
+       ~@(cond
+           (= cast-dtype :boolean)
+           [`(readBoolean [rdr# ~'idx]
+                          (aget ~'java-ary (pmath/+ ~offset ~'idx)))]
+           ;;For integer types, everything implements readlong.
+           ;;They also implement readX where X maps to exactly the datatype.
+           ;;For example byte arrays implement readLong and readByte.
+           (casting/integer-type? cast-dtype)
+           (concat
+            [`(readLong [rdr# ~'idx]
+                        (casting/datatype->unchecked-cast-fn
+                         ~cast-dtype :int64
+                         (casting/datatype->unchecked-cast-fn
+                          ~datatype ~cast-dtype
+                          (aget ~'java-ary (pmath/+ ~offset ~'idx)))))]
+            (when-not (or (= :int64 cast-dtype)
+                          (= :uint32 cast-dtype)
+                          (= :uint64 cast-dtype))
+              ;;Exact reader fns for the exact datatype
+              [(cond
+                 (= cast-dtype :int8)
+                 `(readByte [rdr# ~'idx]
+                            (aget ~'java-ary (pmath/+ ~offset ~'idx)))
+                 (or (= cast-dtype :uint8)
+                     (= cast-dtype :int16))
+                 `(readShort [rdr# ~'idx]
+                             (casting/datatype->unchecked-cast-fn
+                              ~cast-dtype :int16
+                              (casting/datatype->unchecked-cast-fn
+                               ~datatype ~cast-dtype
+                               (aget ~'java-ary (pmath/+ ~offset ~'idx)))))
+                 (or (= cast-dtype :uint16)
+                     (= cast-dtype :int32)
+                     (= cast-dtype :char))
+                 `(readInt [rdr# ~'idx]
+                           (casting/datatype->unchecked-cast-fn
+                            ~cast-dtype :int32
+                            (casting/datatype->unchecked-cast-fn
+                             ~datatype ~cast-dtype
+                             (aget ~'java-ary (pmath/+ ~offset ~'idx)))))
+                 :else (throw (Exception. (format "Macro expansion error-%s"
+                                                  cast-dtype))))]))
+           (casting/float-type? cast-dtype)
+           [`(readDouble [rdr# ~'idx]
+                         (casting/datatype->unchecked-cast-fn
+                          ~datatype :float64
+                          (aget ~'java-ary (pmath/+ ~offset ~'idx))))
+            `(readFloat [rdr# ~'idx]
+                        (casting/datatype->unchecked-cast-fn
+                         ~datatype :float32
+                         (aget ~'java-ary (pmath/+ ~offset ~'idx))))]
+           :else
+           [`(readObject [rdr# ~'idx]
+                         (casting/datatype->unchecked-cast-fn
+                          ~cast-dtype :object
+                          (casting/datatype->unchecked-cast-fn
+                           ~datatype ~cast-dtype
+                           (aget ~'java-ary (pmath/+ ~offset ~'idx)))))])
+       ~@(cond
+           (= :boolean cast-dtype)
+           [`(writeBoolean [wtr# idx# val#]
+                           (aset ~'java-ary (pmath/+ ~offset idx#) val#))]
+           (casting/integer-type? cast-dtype)
+           (concat
+            [`(writeLong [rdr# ~'idx ~'value]
+                         (aset ~'java-ary (pmath/+ ~offset ~'idx)
+                               (casting/datatype->unchecked-cast-fn
+                                ~cast-dtype ~datatype
+                                (casting/datatype->cast-fn
+                                 :int64 ~cast-dtype ~'value))))]
+            (when-not (or (= :int64 cast-dtype)
+                          (= :uint32 cast-dtype)
+                          (= :uint64 cast-dtype))
+              ;;Exact reader fns for the exact datatype
+              [(cond
+                 (= cast-dtype :int8)
+                 `(writeByte [rdr# ~'idx ~'value]
+                            (aset ~'java-ary (pmath/+ ~offset ~'idx) ~'value))
+                 (or (= cast-dtype :uint8)
+                     (= cast-dtype :int16))
+                 `(writeShort [rdr# ~'idx ~'value]
+                              (aset ~'java-ary (pmath/+ ~offset ~'idx)
+                                    (casting/datatype->unchecked-cast-fn
+                                     ~cast-dtype ~datatype
+                                     (casting/datatype->cast-fn
+                                      :int16 ~cast-dtype ~'value))))
+                 (or (= cast-dtype :uint16)
+                     (= cast-dtype :int32)
+                     (= cast-dtype :char))
+                 `(writeInt [rdr# ~'idx ~'value]
+                            (aset ~'java-ary (pmath/+ ~offset ~'idx)
+                                  (casting/datatype->unchecked-cast-fn
+                                   ~cast-dtype ~datatype
+                                   (casting/datatype->cast-fn
+                                    :int32 ~cast-dtype ~'value))))
+                 :else (throw (Exception. (format "Macro expansion error-%s"
+                                                  cast-dtype))))]))
+           (casting/float-type? cast-dtype)
+           [`(writeDouble [rdr# ~'idx ~'value]
+                          (aset ~'java-ary (pmath/+ ~offset ~'idx)
+                                (casting/datatype->unchecked-cast-fn
+                                 :float64 ~cast-dtype ~'value)))
+            `(writeFloat [rdr# ~'idx ~'value]
+                         (aset ~'java-ary (pmath/+ ~offset ~'idx)
+                               (casting/datatype->unchecked-cast-fn
+                                :float32 ~cast-dtype ~'value)))]
+           :else
+           [`(writeObject [wtr# idx# val#]
+                          ;;Writing values is always checked, no options.
+                          (aset ~'java-ary (pmath/+ ~offset idx#) val#))]))))
 
 
 (declare array-buffer->io)

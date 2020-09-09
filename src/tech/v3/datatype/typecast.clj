@@ -53,12 +53,12 @@
   [dtype]
   (case (casting/safe-flatten dtype)
     :boolean 'tech.v3.datatype.BooleanIO
-    :int8 'tech.v3.datatype.ByteIO
-    :int16 'tech.v3.datatype.ShortIO
-    :char 'tech.v3.datatype.CharIO
-    :int32 'tech.v3.datatype.IntIO
+    :int8 'tech.v3.datatype.LongIO
+    :int16 'tech.v3.datatype.LongIO
+    :char 'tech.v3.datatype.LongIO
+    :int32 'tech.v3.datatype.LongIO
     :int64 'tech.v3.datatype.LongIO
-    :float32 'tech.v3.datatype.FloatIO
+    :float32 'tech.v3.datatype.DoubleIO
     :float64 'tech.v3.datatype.DoubleIO
     :object 'tech.v3.datatype.ObjectIO))
 
@@ -67,12 +67,12 @@
   [dtype]
   (case (casting/safe-flatten dtype)
     :boolean 'tech.v3.datatype.BooleanReader
-    :int8 'tech.v3.datatype.ByteReader
-    :int16 'tech.v3.datatype.ShortReader
-    :char 'tech.v3.datatype.CharReader
-    :int32 'tech.v3.datatype.IntReader
+    :int8 'tech.v3.datatype.LongReader
+    :int16 'tech.v3.datatype.LongReader
+    :char 'tech.v3.datatype.LongReader
+    :int32 'tech.v3.datatype.LongReader
     :int64 'tech.v3.datatype.LongReader
-    :float32 'tech.v3.datatype.FloatReader
+    :float32 'tech.v3.datatype.DoubleReader
     :float64 'tech.v3.datatype.DoubleReader
     :object 'tech.v3.datatype.ObjectReader))
 
@@ -81,12 +81,12 @@
   [dtype]
   (case (casting/safe-flatten dtype)
     :boolean 'tech.v3.datatype.BooleanWriter
-    :int8 'tech.v3.datatype.ByteWriter
-    :int16 'tech.v3.datatype.ShortWriter
-    :char 'tech.v3.datatype.CharWriter
-    :int32 'tech.v3.datatype.IntWriter
+    :int8 'tech.v3.datatype.LongWriter
+    :int16 'tech.v3.datatype.LongtWriter
+    :char 'tech.v3.datatype.LongWriter
+    :int32 'tech.v3.datatype.LongWriter
     :int64 'tech.v3.datatype.LongWriter
-    :float32 'tech.v3.datatype.FloatWriter
+    :float32 'tech.v3.datatype.DoubleWriter
     :float64 'tech.v3.datatype.DoubleWriter
     :object 'tech.v3.datatype.ObjectWriter))
 
