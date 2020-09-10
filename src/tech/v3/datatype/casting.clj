@@ -1,7 +1,8 @@
 (ns tech.v3.datatype.casting
   (:refer-clojure :exclude [cast])
   (:require [clojure.set :as c-set]
-            [primitive-math :as pmath])
+            [primitive-math :as pmath]
+            [tech.v3.datatype.protocols :as dtype-proto])
   (:import [java.util Map Set HashSet]
            [java.util.concurrent ConcurrentHashMap]
            [clojure.lang RT]))
@@ -37,7 +38,10 @@
   [datatype klass]
   (.put datatype->class-map datatype klass)
   (.put class->datatype-map klass datatype)
-  (rebuild-valid-datatypes!))
+  (rebuild-valid-datatypes!)
+  (clojure.core/extend klass
+    dtype-proto/PElemwiseDatatype
+    {:elemwise-datatype (constantly datatype)}))
 
 
 (defn object-class->datatype

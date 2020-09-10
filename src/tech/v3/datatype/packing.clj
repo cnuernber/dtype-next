@@ -41,19 +41,19 @@
            (.get unpack-table (dtype-proto/elemwise-datatype item))]
     (dispatch/vectorized-dispatch-1
      item unpack-fn
-     #(fn [item _op-datatype]
-        (let [^PrimitiveIO item (dtype-proto/->reader item)]
-          (if (casting/integer-type? primitive-datatype)
-            (reify ObjectReader
-              (elemwiseDatatype [rdr] object-datatype)
-              (lsize [rdr] (.lsize item))
-              (readObject [rdr idx]
-                (unpack-fn (.readLong item idx))))
-            (reify ObjectReader
-              (elemwiseDatatype [rdr] object-datatype)
-              (lsize [rdr] (.lsize item))
-              (readObject [rdr idx]
-                (unpack-fn (.readObject item idx))))))))
+     (fn [item _op-datatype]
+       (let [^PrimitiveIO item (dtype-proto/->reader item)]
+         (if (casting/integer-type? primitive-datatype)
+           (reify ObjectReader
+             (elemwiseDatatype [rdr] object-datatype)
+             (lsize [rdr] (.lsize item))
+             (readObject [rdr idx]
+               (unpack-fn (.readLong item idx))))
+           (reify ObjectReader
+             (elemwiseDatatype [rdr] object-datatype)
+             (lsize [rdr] (.lsize item))
+             (readObject [rdr idx]
+               (unpack-fn (.readObject item idx))))))))
     item))
 
 
@@ -63,17 +63,17 @@
            (.get pack-table (dtype-proto/elemwise-datatype item))]
     (dispatch/vectorized-dispatch-1
      item pack-fn
-     #(fn [item _op-datatype]
-        (let [^PrimitiveIO item (dtype-proto/->reader item)]
-          (if (casting/integer-type? primitive-datatype)
-            (reify LongReader
-              (elemwiseDatatype [rdr] packed-datatype)
-              (lsize [rdr] (.lsize item))
-              (readLong [rdr idx]
-                (unchecked-long (pack-fn (.readObject item idx)))))
-            (reify ObjectReader
-              (elemwiseDatatype [rdr] packed-datatype)
-              (lsize [rdr] (.lsize item))
-              (readObject [rdr idx]
-                (pack-fn (.readObject item idx))))))))
+     (fn [item _op-datatype]
+       (let [^PrimitiveIO item (dtype-proto/->reader item)]
+         (if (casting/integer-type? primitive-datatype)
+           (reify LongReader
+             (elemwiseDatatype [rdr] packed-datatype)
+             (lsize [rdr] (.lsize item))
+             (readLong [rdr idx]
+               (unchecked-long (pack-fn (.readObject item idx)))))
+           (reify ObjectReader
+             (elemwiseDatatype [rdr] packed-datatype)
+             (lsize [rdr] (.lsize item))
+             (readObject [rdr idx]
+               (pack-fn (.readObject item idx))))))))
     item))

@@ -82,6 +82,21 @@
         1000))
 
 
+(defn instant->microseconds-since-epoch
+  ^long [^Instant instant]
+  (long (+ (* (.getEpochSecond instant)
+              1000000)
+           (quot (.getNano ^Instant instant)
+                 1000))))
+
+
+(defn microseconds-since-epoch->instant
+  ^Instant [^long microseconds-since-epoch]
+  (Instant/ofEpochSecond (quot microseconds-since-epoch 1000000)
+                         (* (rem microseconds-since-epoch 1000000)
+                            1000)))
+
+
 (defn local-date-time->local-time
   ^LocalTime [^LocalDateTime ldt]
   (.toLocalTime ldt))
