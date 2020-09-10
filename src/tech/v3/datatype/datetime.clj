@@ -4,8 +4,7 @@
             ZonedDateTime Instant ZoneId Duration ZoneOffset
             OffsetDateTime LocalTime]
            [java.time.temporal ChronoUnit Temporal ChronoField
-            WeekFields TemporalAmount]
-           [tech.v3.datatype PackedLocalDate]))
+            WeekFields TemporalAmount]))
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
