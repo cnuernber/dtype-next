@@ -25,7 +25,7 @@
   (elemwise-datatype [item] :int64)
   LongReader
   (lsize [item] n-elems)
-  (read [item idx]
+  (readLong [item idx]
     (+ start (* increment idx)))
   dtype-proto/PBuffer
   (sub-buffer [item offset len]

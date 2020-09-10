@@ -177,7 +177,7 @@
      (let [src-rdr (dtype-base/->reader rdr)]
        (reify LongReader
          (lsize [rdr] (.lsize src-rdr))
-         (read [rdr idx]
+         (readLong [rdr idx]
            (Math/round (.readDouble src-rdr idx))))))))
 
 ;;Implement only reductions that we know we will use.

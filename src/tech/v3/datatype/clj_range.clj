@@ -32,7 +32,7 @@
       (reify
         LongReader
         (lsize [rdr] n-elems)
-        (read [rdr idx]
+        (readLong [rdr idx]
           (-> (* step idx)
               (+ start)))
         dtype-proto/PRangeConvertible
@@ -85,7 +85,7 @@
               last-val (+ start (* step (dec n-elems)))]
           (reify LongReader
             (lsize [rdr] n-elems)
-            (read [rdr idx]
+            (readLong [rdr idx]
               (-> (* step idx)
                   (+ start)))
             (elemwiseDatatype [rdr] dtype)
@@ -103,7 +103,7 @@
               last-val (+ start (* step (dec n-elems)))]
           (reify DoubleReader
             (lsize [rdr] n-elems)
-            (read [rdr idx]
+            (readDouble [rdr idx]
               (-> (* step idx)
                   (+ start)))
             dtype-proto/PRangeConvertible

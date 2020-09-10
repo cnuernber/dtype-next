@@ -17,24 +17,25 @@
         rhs (dtype-base/->reader rhs)
         n-elems (.lsize lhs)]
     (cond
+
       (casting/integer-type? res-dtype)
       (reify LongReader
         (lsize [rdr] n-elems)
-        (read [rdr idx] (.binaryLong binop
-                                     (.readLong lhs idx)
-                                     (.readLong rhs idx))))
+        (readLong [rdr idx] (.binaryLong binop
+                                         (.readLong lhs idx)
+                                         (.readLong rhs idx))))
       (casting/float-type? res-dtype)
       (reify DoubleReader
         (lsize [rdr] n-elems)
-        (read [rdr idx] (.binaryDouble binop
-                                       (.readDouble lhs idx)
-                                       (.readLong rhs idx))))
+        (readDouble [rdr idx] (.binaryDouble binop
+                                             (.readDouble lhs idx)
+                                             (.readLong rhs idx))))
       :else
       (reify ObjectReader
         (lsize [rdr] n-elems)
-        (read [rdr idx] (.binaryObject binop
-                                       (.readObject lhs idx)
-                                       (.readObject rhs idx)))))))
+        (readObject [rdr idx] (.binaryObject binop
+                                             (.readObject lhs idx)
+                                             (.readObject rhs idx)))))))
 
 
 (defmacro make-numeric-object-binary-op

@@ -33,131 +33,135 @@
 (declare chain-native-buffers)
 
 (defmacro read-value
-  [address swap? datatype byte-width]
-  (if (not swap?)
-    (case datatype
-      :int8 `(.getByte (unsafe) (pmath/+ ~address ~'idx))
-      :uint8 `(-> (.getByte (unsafe) (pmath/+ ~address ~'idx))
-                  (pmath/byte->ubyte))
-      :int16 `(.getShort (unsafe) (pmath/+ ~address
-                                           (pmath/* ~'idx ~byte-width)))
-      :uint16 `(-> (.getShort (unsafe) (pmath/+ ~address
+  [address swap? datatype byte-width n-elems]
+  `(do
+     (errors/check-idx ~'idx ~n-elems)
+     ~(if (not swap?)
+       (case datatype
+         :int8 `(.getByte (unsafe) (pmath/+ ~address ~'idx))
+         :uint8 `(-> (.getByte (unsafe) (pmath/+ ~address ~'idx))
+                     (pmath/byte->ubyte))
+         :int16 `(.getShort (unsafe) (pmath/+ ~address
+                                              (pmath/* ~'idx ~byte-width)))
+         :uint16 `(-> (.getShort (unsafe) (pmath/+ ~address
+                                                   (pmath/* ~'idx ~byte-width)))
+                      (pmath/short->ushort))
+         :char `(-> (.getShort (unsafe) (pmath/+ ~address
+                                                 (pmath/* ~'idx ~byte-width)))
+                    (RT/uncheckedCharCast))
+         :int32 `(.getInt (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width)))
+         :uint32 `(-> (.getInt (unsafe) (pmath/+ ~address
+                                                 (pmath/* ~'idx ~byte-width)))
+                      (pmath/int->uint))
+         :int64 `(.getLong (unsafe) (pmath/+ ~address
+                                             (pmath/* ~'idx ~byte-width)))
+         :uint64 `(-> (.getLong (unsafe) (pmath/+ ~address
+                                                  (pmath/* ~'idx ~byte-width))))
+         :float32 `(.getFloat (unsafe) (pmath/+ ~address
                                                 (pmath/* ~'idx ~byte-width)))
-                   (pmath/short->ushort))
-      :char `(-> (.getShort (unsafe) (pmath/+ ~address
-                                              (pmath/* ~'idx ~byte-width)))
-                 (RT/uncheckedCharCast))
-      :int32 `(.getInt (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width)))
-      :uint32 `(-> (.getInt (unsafe) (pmath/+ ~address
-                                              (pmath/* ~'idx ~byte-width)))
-                   (pmath/int->uint))
-      :int64 `(.getLong (unsafe) (pmath/+ ~address
-                                          (pmath/* ~'idx ~byte-width)))
-      :uint64 `(-> (.getLong (unsafe) (pmath/+ ~address
+         :float64 `(.getDouble (unsafe) (pmath/+ ~address
+                                                 (pmath/* ~'idx ~byte-width))))
+       (case datatype
+         :int8 `(.getByte (unsafe) (pmath/+ ~address ~'idx))
+         :uint8 `(-> (.getByte (unsafe) (pmath/+ ~address ~'idx))
+                     (pmath/byte->ubyte))
+         :int16 `(Short/reverseBytes
+                  (.getShort (unsafe) (pmath/+ ~address
                                                (pmath/* ~'idx ~byte-width))))
-      :float32 `(.getFloat (unsafe) (pmath/+ ~address
-                                             (pmath/* ~'idx ~byte-width)))
-      :float64 `(.getDouble (unsafe) (pmath/+ ~address
-                                              (pmath/* ~'idx ~byte-width))))
-    (case datatype
-      :int8 `(.getByte (unsafe) (pmath/+ ~address ~'idx))
-      :uint8 `(-> (.getByte (unsafe) (pmath/+ ~address ~'idx))
-                  (pmath/byte->ubyte))
-      :int16 `(Short/reverseBytes
-               (.getShort (unsafe) (pmath/+ ~address
-                                            (pmath/* ~'idx ~byte-width))))
-      :uint16 `(-> (.getShort (unsafe) (pmath/+ ~address
+         :uint16 `(-> (.getShort (unsafe) (pmath/+ ~address
+                                                   (pmath/* ~'idx ~byte-width)))
+                      (Short/reverseBytes)
+                      (pmath/short->ushort))
+         :char `(-> (.getShort (unsafe) (pmath/+ ~address
+                                                 (pmath/* ~'idx ~byte-width)))
+                    (Short/reverseBytes)
+                    (RT/uncheckedCharCast))
+         :int32 `(-> (.getInt (unsafe) (pmath/+ ~address
                                                 (pmath/* ~'idx ~byte-width)))
-                   (Short/reverseBytes)
-                   (pmath/short->ushort))
-      :char `(-> (.getShort (unsafe) (pmath/+ ~address
-                                              (pmath/* ~'idx ~byte-width)))
-                 (Short/reverseBytes)
-                 (RT/uncheckedCharCast))
-      :int32 `(-> (.getInt (unsafe) (pmath/+ ~address
-                                             (pmath/* ~'idx ~byte-width)))
-                  (Integer/reverseBytes))
-      :uint32 `(-> (.getInt (unsafe) (pmath/+ ~address
-                                              (pmath/* ~'idx ~byte-width)))
-                   (Integer/reverseBytes)
-                   (pmath/int->uint))
-      :int64 `(-> (.getLong (unsafe) (pmath/+ ~address
-                                              (pmath/* ~'idx ~byte-width)))
-                  (Long/reverseBytes))
-      :uint64 `(-> (.getLong (unsafe) (pmath/+ ~address
-                                               (pmath/* ~'idx ~byte-width)))
-                   (Long/reverseBytes))
-      :float32 `(-> (.getInt (unsafe) (pmath/+ ~address
-                                               (pmath/* ~'idx ~byte-width)))
-                    (Integer/reverseBytes)
-                    (Float/intBitsToFloat))
-      :float64 `(-> (.getLong (unsafe) (pmath/+ ~address
-                                                (pmath/* ~'idx ~byte-width)))
-                    (Long/reverseBytes)
-                    (Double/longBitsToDouble)))))
+                     (Integer/reverseBytes))
+         :uint32 `(-> (.getInt (unsafe) (pmath/+ ~address
+                                                 (pmath/* ~'idx ~byte-width)))
+                      (Integer/reverseBytes)
+                      (pmath/int->uint))
+         :int64 `(-> (.getLong (unsafe) (pmath/+ ~address
+                                                 (pmath/* ~'idx ~byte-width)))
+                     (Long/reverseBytes))
+         :uint64 `(-> (.getLong (unsafe) (pmath/+ ~address
+                                                  (pmath/* ~'idx ~byte-width)))
+                      (Long/reverseBytes))
+         :float32 `(-> (.getInt (unsafe) (pmath/+ ~address
+                                                  (pmath/* ~'idx ~byte-width)))
+                       (Integer/reverseBytes)
+                       (Float/intBitsToFloat))
+         :float64 `(-> (.getLong (unsafe) (pmath/+ ~address
+                                                   (pmath/* ~'idx ~byte-width)))
+                       (Long/reverseBytes)
+                       (Double/longBitsToDouble))))))
 
 (defmacro write-value
-  [address swap? datatype byte-width]
-  (if (not swap?)
-    (case datatype
-      :int8 `(.putByte (unsafe) (pmath/+ ~address ~'idx) ~'value)
-      :uint8 `(.putByte (unsafe) (pmath/+ ~address ~'idx)
-                        (casting/datatype->cast-fn :int16 :uint8 ~'value))
-      :int16 `(.putShort (unsafe) (pmath/+ ~address
-                                           (pmath/* ~'idx ~byte-width))
-                         ~'value)
-      :uint16 `(.putShort (unsafe) (pmath/+ ~address
-                                            (pmath/* ~'idx ~byte-width))
-                          (casting/datatype->cast-fn :int32 :uint16 ~'value))
-      :char `(.putShort (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
-                        (unchecked-short (int ~'value)))
-      :int32 `(.putInt (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
-                       ~'value)
-      :uint32 `(.putInt (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
-                        (casting/datatype->cast-fn :int64 :uint32 ~'value))
-      :int64 `(.putLong (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
-                        ~'value)
-      :uint64 `(.putLong (unsafe) (pmath/+ ~address
-                                           (pmath/* ~'idx ~byte-width))
-                         ~'value)
-      :float32 `(.putFloat (unsafe)
-                           (pmath/+ ~address (pmath/* ~'idx ~byte-width))
+  [address swap? datatype byte-width n-elems]
+  `(do
+     (errors/check-idx ~'idx ~n-elems)
+     ~(if (not swap?)
+       (case datatype
+         :int8 `(.putByte (unsafe) (pmath/+ ~address ~'idx) ~'value)
+         :uint8 `(.putByte (unsafe) (pmath/+ ~address ~'idx)
+                           (casting/datatype->cast-fn :int16 :uint8 ~'value))
+         :int16 `(.putShort (unsafe) (pmath/+ ~address
+                                              (pmath/* ~'idx ~byte-width))
+                            ~'value)
+         :uint16 `(.putShort (unsafe) (pmath/+ ~address
+                                               (pmath/* ~'idx ~byte-width))
+                             (casting/datatype->cast-fn :int32 :uint16 ~'value))
+         :char `(.putShort (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
+                           (unchecked-short (int ~'value)))
+         :int32 `(.putInt (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
+                          ~'value)
+         :uint32 `(.putInt (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
+                           (casting/datatype->cast-fn :int64 :uint32 ~'value))
+         :int64 `(.putLong (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
                            ~'value)
-      :float64 `(.putDouble (unsafe)
+         :uint64 `(.putLong (unsafe) (pmath/+ ~address
+                                              (pmath/* ~'idx ~byte-width))
+                            ~'value)
+         :float32 `(.putFloat (unsafe)
+                              (pmath/+ ~address (pmath/* ~'idx ~byte-width))
+                              ~'value)
+         :float64 `(.putDouble (unsafe)
+                               (pmath/+ ~address (pmath/* ~'idx ~byte-width))
+                               ~'value))
+       (case datatype
+         :int8 `(.putByte (unsafe) (pmath/+ ~address ~'idx) ~'value)
+         :uint8 `(.putByte (unsafe) (pmath/+ ~address ~'idx)
+                           (casting/datatype->cast-fn :int16 :uint8 ~'value))
+         :int16 `(.putShort (unsafe) (pmath/+ ~address
+                                              (pmath/* ~'idx ~byte-width))
+                            (Short/reverseBytes ~'value))
+         :uint16 `(.putShort (unsafe) (pmath/+ ~address
+                                               (pmath/* ~'idx ~byte-width))
+                             (Short/reverseBytes (casting/datatype->cast-fn
+                                                  :int32 :uint16 ~'value)))
+         :char `(.putShort (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
+                           (Short/reverseBytes (unchecked-short (int ~'value))))
+         :int32 `(.putInt (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
+                          (Integer/reverseBytes ~'value))
+         :uint32 `(.putInt (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
+                           (Integer/reverseBytes (casting/datatype->cast-fn
+                                                  :int64 :uint32 ~'value)))
+         :int64 `(.putLong (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
+                           (Long/reverseBytes ~'value))
+         :uint64 `(.putLong (unsafe) (pmath/+ ~address
+                                              (pmath/* ~'idx ~byte-width))
+                            (Long/reverseBytes ~'value))
+         :float32 `(.putInt (unsafe)
                             (pmath/+ ~address (pmath/* ~'idx ~byte-width))
-                            ~'value))
-    (case datatype
-      :int8 `(.putByte (unsafe) (pmath/+ ~address ~'idx) ~'value)
-      :uint8 `(.putByte (unsafe) (pmath/+ ~address ~'idx)
-                        (casting/datatype->cast-fn :int16 :uint8 ~'value))
-      :int16 `(.putShort (unsafe) (pmath/+ ~address
-                                           (pmath/* ~'idx ~byte-width))
-                         (Short/reverseBytes ~'value))
-      :uint16 `(.putShort (unsafe) (pmath/+ ~address
-                                            (pmath/* ~'idx ~byte-width))
-                          (Short/reverseBytes (casting/datatype->cast-fn
-                                               :int32 :uint16 ~'value)))
-      :char `(.putShort (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
-                        (Short/reverseBytes (unchecked-short (int ~'value))))
-      :int32 `(.putInt (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
-                       (Integer/reverseBytes ~'value))
-      :uint32 `(.putInt (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
-                        (Integer/reverseBytes (casting/datatype->cast-fn
-                                               :int64 :uint32 ~'value)))
-      :int64 `(.putLong (unsafe) (pmath/+ ~address (pmath/* ~'idx ~byte-width))
-                        (Long/reverseBytes ~'value))
-      :uint64 `(.putLong (unsafe) (pmath/+ ~address
-                                           (pmath/* ~'idx ~byte-width))
-                         (Long/reverseBytes ~'value))
-      :float32 `(.putInt (unsafe)
-                         (pmath/+ ~address (pmath/* ~'idx ~byte-width))
-                         (-> (Float/floatToIntBits ~'value)
-                             (Integer/reverseBytes)))
-      :float64 `(.putLong (unsafe)
-                          (pmath/+ ~address (pmath/* ~'idx ~byte-width))
-                          (-> ~'value
-                              (Double/doubleToLongBits)
-                              (Long/reverseBytes))))))
+                            (-> (Float/floatToIntBits ~'value)
+                                (Integer/reverseBytes)))
+         :float64 `(.putLong (unsafe)
+                             (pmath/+ ~address (pmath/* ~'idx ~byte-width))
+                             (-> ~'value
+                                 (Double/doubleToLongBits)
+                                 (Long/reverseBytes)))))))
 
 
 (defmacro native-buffer->io-macro
@@ -180,7 +184,7 @@
        ~@(cond
            (= datatype :boolean)
            [`(readBoolean [rdr# ~'idx]
-                          (read-value ~address ~swap? ~datatype ~byte-width))]
+                          (read-value ~address ~swap? ~datatype ~byte-width ~n-elems))]
            ;;For integer types, everything implements readlong.
            ;;They also implement readX where X maps to exactly the datatype.
            ;;For example byte arrays implement readLong and readByte.
@@ -189,70 +193,70 @@
             [`(readLong [rdr# ~'idx]
                         (casting/datatype->unchecked-cast-fn
                          ~datatype :int64
-                         (read-value ~address ~swap? ~datatype ~byte-width)))]
+                         (read-value ~address ~swap? ~datatype ~byte-width ~n-elems)))]
             (when-not (= :int64 (casting/safe-flatten datatype))
               ;;Exact reader fns for the exact datatype
               [(cond
                  (= datatype :int8)
                  `(readByte [rdr# ~'idx]
-                            (read-value ~address ~swap? ~datatype ~byte-width))
+                            (read-value ~address ~swap? ~datatype ~byte-width ~n-elems))
                  (= (casting/safe-flatten datatype) :int16)
                  `(readShort [rdr# ~'idx]
-                             (read-value ~address ~swap? ~datatype ~byte-width))
+                             (read-value ~address ~swap? ~datatype ~byte-width ~n-elems))
                  (= datatype :char)
                  `(readChar [rdr# ~'idx]
-                            (read-value ~address ~swap? ~datatype ~byte-width))
+                            (read-value ~address ~swap? ~datatype ~byte-width ~n-elems))
                  (= (casting/safe-flatten datatype) :int32)
                  `(readInt [rdr# ~'idx]
-                           (read-value ~address ~swap? ~datatype ~byte-width))
+                           (read-value ~address ~swap? ~datatype ~byte-width ~n-elems))
                  :else (throw (Exception. (format "Macro expansion error-%s"
                                                   datatype))))]))
            (casting/float-type? datatype)
            [`(readDouble [rdr# ~'idx]
                          (casting/datatype->unchecked-cast-fn
                           ~datatype :float64
-                          (read-value ~address ~swap? ~datatype ~byte-width)))
+                          (read-value ~address ~swap? ~datatype ~byte-width ~n-elems)))
             `(readFloat [rdr# ~'idx]
                         (casting/datatype->unchecked-cast-fn
                          ~datatype :float32
-                         (read-value ~address ~swap? ~datatype ~byte-width)))]
+                         (read-value ~address ~swap? ~datatype ~byte-width ~n-elems)))]
            :else
            [`(readObject [rdr# ~'idx]
-                         (read-value ~address ~swap? ~datatype ~byte-width))])
+                         (read-value ~address ~swap? ~datatype ~byte-width ~n-elems))])
        ~@(cond
            (= :boolean datatype)
            [`(writeBoolean [wtr# idx# ~'value]
-                           (write-value ~address ~swap? ~datatype ~byte-width))]
+                           (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))]
            (casting/integer-type? datatype)
            (concat
             [`(writeLong [rdr# ~'idx ~'value]
-                         (write-value ~address ~swap? ~datatype ~byte-width))]
+                         (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))]
             (when-not (= :int64 (casting/safe-flatten datatype))
               ;;Exact reader fns for the exact datatype
               [(cond
                  (= datatype :int8)
                  `(writeByte [rdr# ~'idx ~'value]
-                             (write-value ~address ~swap? ~datatype ~byte-width))
+                             (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))
                  (= (casting/safe-flatten datatype) :int16)
                  `(writeShort [rdr# ~'idx ~'value]
-                              (write-value ~address ~swap? ~datatype ~byte-width))
+                              (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))
                  (= datatype :char)
                  `(writeChar [rdr# ~'idx ~'value]
-                             (write-value ~address ~swap? ~datatype ~byte-width))
+                             (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))
                  (= (casting/safe-flatten datatype) :int32)
                  `(writeInt [rdr# ~'idx ~'value]
-                            (write-value ~address ~swap? ~datatype ~byte-width))
+                            (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))
                  :else (throw (Exception. (format "Macro expansion error-%s"
                                                   datatype))))]))
            (casting/float-type? datatype)
            [`(writeDouble [rdr# ~'idx ~'value]
-                          (write-value ~address ~swap? ~datatype ~byte-width))
+                          (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))
             `(writeFloat [rdr# ~'idx ~'value]
-                         (write-value ~address ~swap? ~datatype ~byte-width))]
+                         (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))]
            :else
            [`(writeObject [wtr# idx# val#]
                           ;;Writing values is always checked, no options.
-                          (write-value ~address ~swap? ~datatype ~byte-width))]))))
+                          (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))]))))
 
 
 (declare native-buffer->io)

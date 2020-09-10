@@ -145,9 +145,9 @@
     ObjectIO
     (elemwiseDatatype [rdr] :object)
     (lsize [rdr] (long (.size item)))
-    (read [rdr idx]
+    (readObject [rdr idx]
       (.get item idx))
-    (write [wtr idx value]
+    (writeObject [wtr idx value]
       (.set item idx value))))
 
 

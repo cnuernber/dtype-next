@@ -19,17 +19,14 @@
       (casting/integer-type? res-dtype)
       (reify LongReader
         (lsize [rdr] n-elems)
-        (read [rdr idx] (.unaryLong unary-op (.readLong lhs idx)))
         (readLong [rdr idx] (.unaryLong unary-op (.readLong lhs idx))))
       (casting/float-type? res-dtype)
       (reify DoubleReader
         (lsize [rdr] n-elems)
-        (read [rdr idx] (.unaryDouble unary-op (.readDouble lhs idx)))
         (readDouble [rdr idx] (.unaryDouble unary-op (.readDouble lhs idx))))
       :else
       (reify ObjectReader
         (lsize [rdr] n-elems)
-        (read [rdr idx] (.unaryObject unary-op (.readObject lhs idx)))
         (readObject [rdr idx] (.unaryObject unary-op (.readObject lhs idx)))))))
 
 

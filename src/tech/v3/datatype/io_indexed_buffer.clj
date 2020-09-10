@@ -15,48 +15,33 @@
          item (dtype-base/->io item)
          item-dtype (dtype-base/elemwise-datatype item)
          n-elems (.lsize indexes)]
-     (cond
-       (= :boolean item-dtype)
-       (reify BooleanIO
-         (elemwiseDatatype [rdr] item-dtype)
-         (lsize [rdr] n-elems)
-         (read [rdr idx] (.readBoolean item (.readLong indexes idx)))
-         (write [rdr idx value] (.writeBoolean item (.readLong indexes idx) value))
-         dtype-proto/PConstantTimeMinMax
-         (has-constant-time-min-max? [this]
-           (dtype-proto/has-constant-time-min-max? item))
-         (constant-time-min [this] (dtype-proto/constant-time-min item))
-         (constant-time-max [this] (dtype-proto/constant-time-max item)))
-       (casting/integer-type? item-dtype)
-       (reify LongIO
-         (elemwiseDatatype [rdr] item-dtype)
-         (lsize [rdr] n-elems)
-         (read [rdr idx] (.readLong item (.readLong indexes idx)))
-         (write [rdr idx value] (.writeLong item (.readLong indexes idx) value))
-         dtype-proto/PConstantTimeMinMax
-         (has-constant-time-min-max? [this]
-           (dtype-proto/has-constant-time-min-max? item))
-         (constant-time-min [this] (dtype-proto/constant-time-min item))
-         (constant-time-max [this] (dtype-proto/constant-time-max item)))
-       (casting/float-type? item-dtype)
-       (reify DoubleIO
-         (elemwiseDatatype [rdr] item-dtype)
-         (lsize [rdr] n-elems)
-         (read [rdr idx] (.readDouble item (.readLong indexes idx)))
-         (write [rdr idx value] (.writeDouble item (.readLong indexes idx) value))
-         dtype-proto/PConstantTimeMinMax
-         (has-constant-time-min-max? [this]
-           (dtype-proto/has-constant-time-min-max? item))
-         (constant-time-min [this] (dtype-proto/constant-time-min item))
-         (constant-time-max [this] (dtype-proto/constant-time-max item)))
-       :else
-       (reify ObjectIO
-         (elemwiseDatatype [rdr] item-dtype)
-         (lsize [rdr] n-elems)
-         (read [rdr idx] (.readObject item (.readLong item idx)))
-         (write [rdr idx value] (.writeObject item (.readLong item idx) value))
-         dtype-proto/PConstantTimeMinMax
-         (has-constant-time-min-max? [this]
-           (dtype-proto/has-constant-time-min-max? item))
-         (constant-time-min [this] (dtype-proto/constant-time-min item))
-         (constant-time-max [this] (dtype-proto/constant-time-max item)))))))
+     (reify PrimitiveIO
+       (elemwiseDatatype [rdr] item-dtype)
+       (lsize [rdr] n-elems)
+       (readBoolean [this idx] (.readBoolean item (.readLong indexes idx)))
+       (readByte [this idx] (.readByte item (.readLong indexes idx)))
+       (readShort [this idx] (.readShort item (.readLong indexes idx)))
+       (readChar [this idx] (.readChar item (.readLong indexes idx)))
+       (readInt [this idx] (.readInt item (.readLong indexes idx)))
+       (readLong [this idx] (.readLong item (.readLong indexes idx)))
+       (readFloat [this idx] (.readFloat item (.readLong indexes idx)))
+       (readDouble [this idx] (.readDouble item (.readLong indexes idx)))
+       (readObject [this idx] (.readObject item (.readLong indexes idx)))
+       (writeBoolean [this idx val] (.writeBoolean item (.readLong indexes idx) val))
+       (writeByte [this idx val] (.writeByte item (.readLong indexes idx) val))
+       (writeShort [this idx val] (.writeShort item (.readLong indexes idx) val))
+       (writeChar [this idx val] (.writeChar item (.readLong indexes idx) val))
+       (writeInt [this idx val] (.writeInt item (.readLong indexes idx) val))
+       (writeLong [this idx val] (.writeLong item (.readLong indexes idx) val))
+       (writeFloat [this idx val] (.writeFloat item (.readLong indexes idx) val))
+       (writeDouble [this idx val] (.writeDouble item (.readLong indexes idx) val))
+       (writeObject [this idx val] (.writeObject item (.readLong indexes idx) val))
+
+       (allowsRead [this] (.allowsRead item))
+       (allowsWrite [this] (.allowsWrite item))
+
+       dtype-proto/PConstantTimeMinMax
+       (has-constant-time-min-max? [this]
+         (dtype-proto/has-constant-time-min-max? item))
+       (constant-time-min [this] (dtype-proto/constant-time-min item))
+       (constant-time-max [this] (dtype-proto/constant-time-max item))))))
