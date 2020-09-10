@@ -1,5 +1,6 @@
 (ns tech.v3.datatype.pprint
-  (:require [tech.v3.datatype.protocols :as dtype-proto]))
+  (:require [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.packing :as packing]))
 
 
 ;; pretty-printing utilities for matrices
@@ -38,7 +39,8 @@
                   :or {formatter format-object}}]
   (let [rdr (reader-converter rdr)
         ^StringBuilder builder
-        (->> (dtype-proto/->reader rdr)
+        (->> (packing/unpack rdr)
+             (dtype-proto/->reader)
              (reduce (fn [^StringBuilder builder val]
                        (.append builder
                                 (formatter val))

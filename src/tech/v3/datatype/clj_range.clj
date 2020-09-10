@@ -1,7 +1,6 @@
 (ns tech.v3.datatype.clj-range
   "Datatype bindings for clojure ranges."
   (:require [tech.v3.datatype.protocols :as dtype-proto]
-            [tech.v3.datatype.base :as base]
             [tech.v3.datatype.typecast :as typecast]
             [tech.v3.datatype.casting :as casting])
   (:import [clojure.lang LongRange Range]
@@ -69,7 +68,7 @@
 
 (extend-type Range
   dtype-proto/PElemwiseDatatype
-  (elemwiseDatatype [rng] (base/elemwise-datatype (first rng)))
+  (elemwiseDatatype [rng] (dtype-proto/elemwise-datatype (first rng)))
   dtype-proto/PECount
   (ecount [rng] (.count rng))
   dtype-proto/PClone
@@ -82,9 +81,9 @@
   (convertible-to-reader? [rng] (contains?
                                  #{:int8 :int16 :int32 :int64
                                    :float32 :float64}
-                                 (base/elemwise-datatype rng)))
+                                 (dtype-proto/elemwise-datatype rng)))
   (->reader [rng]
-    (let [dtype  (base/elemwise-datatype (first rng))]
+    (let [dtype  (dtype-proto/elemwise-datatype (first rng))]
       (if (casting/integer-type? dtype)
         (let [start (casting/datatype->cast-fn :unknown :int64 (first rng))
               step (casting/datatype->cast-fn :unknown :int64

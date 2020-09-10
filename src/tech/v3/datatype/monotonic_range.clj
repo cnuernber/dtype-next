@@ -2,7 +2,6 @@
   "Ranges that *are* readers.  And that support some level of algebraic operations
   between pairs of them."
   (:require [tech.v3.datatype.protocols :as dtype-proto]
-            [tech.v3.datatype.base :as base]
             [tech.v3.datatype.casting :as casting]
             ;;Complete clojure range support
             [tech.v3.datatype.clj-range :as clj-range])
@@ -159,7 +158,7 @@
                            increment))]
        (Int64Range. start increment n-elems {}))))
   ([start end increment]
-   (make-range start end increment (base/elemwise-datatype start)))
+   (make-range start end increment (dtype-proto/elemwise-datatype start)))
   ([start end]
    (make-range start end 1))
   ([end]

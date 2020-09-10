@@ -1,6 +1,5 @@
 (ns tech.v3.datatype.const-reader
   (:require [tech.v3.datatype.protocols :as dtype-proto]
-            [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.monotonic-range :as monotonic-range])
   (:import [tech.v3.datatype ObjectReader LongReader DoubleReader BooleanReader
@@ -19,7 +18,7 @@
 
 (defn const-reader
   (^PrimitiveReader [item n-elems]
-   (let [item-dtype (dtype-base/elemwise-datatype item)
+   (let [item-dtype (dtype-proto/elemwise-datatype item)
          n-elems (long n-elems)]
      (cond
        (= :boolean item-dtype)
