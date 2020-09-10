@@ -58,9 +58,11 @@
                               (casting/datatype->unchecked-cast-fn
                                ~datatype ~cast-dtype
                                (aget ~'java-ary (pmath/+ ~offset ~'idx)))))
+                 (= cast-dtype :char)
+                 `(readChar [rdr# ~'idx]
+                            (aget ~'java-ary (pmath/+ ~offset ~'idx)))
                  (or (= cast-dtype :uint16)
-                     (= cast-dtype :int32)
-                     (= cast-dtype :char))
+                     (= cast-dtype :int32))
                  `(readInt [rdr# ~'idx]
                            (casting/datatype->unchecked-cast-fn
                             ~cast-dtype :int32
@@ -113,9 +115,11 @@
                                      ~cast-dtype ~datatype
                                      (casting/datatype->cast-fn
                                       :int16 ~cast-dtype ~'value))))
+                 (= cast-dtype :char)
+                 `(writeChar [rdr# ~'idx ~'value]
+                             (aset ~'java-ary (pmath/+ ~offset ~'idx) ~'value))
                  (or (= cast-dtype :uint16)
-                     (= cast-dtype :int32)
-                     (= cast-dtype :char))
+                     (= cast-dtype :int32))
                  `(writeInt [rdr# ~'idx ~'value]
                             (aset ~'java-ary (pmath/+ ~offset ~'idx)
                                   (casting/datatype->unchecked-cast-fn
