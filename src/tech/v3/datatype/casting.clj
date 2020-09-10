@@ -272,10 +272,10 @@
 
 (defmacro check
   [compile-time-max compile-time-min runtime-val datatype]
-  `(if (or (> ~runtime-val
+  `(if (or (pmath/> ~runtime-val
                 ~compile-time-max)
-             (< ~runtime-val
-                ~compile-time-min))
+           (pmath/< ~runtime-val
+                    ~compile-time-min))
      (throw (ex-info (format "Value out of range for %s: %s"
                              (name ~datatype) ~runtime-val)
                      {:min ~compile-time-min
