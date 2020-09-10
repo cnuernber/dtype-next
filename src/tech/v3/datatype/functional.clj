@@ -7,6 +7,8 @@
             [tech.v3.datatype.unary-op :as unary-op]
             [tech.v3.datatype.reductions :as dtype-reductions]
             [tech.v3.datatype.export-symbols :refer [export-symbols]]
+            [tech.v3.datatype.dispatch :refer [vectorized-dispatch-1 vectorized-dispatch-2]]
+            [tech.v3.datatype.rolling]
             [primitive-math :as pmath]
             [clojure.set :as set])
   (:import [tech.v3.datatype BinaryOperator PrimitiveReader
@@ -21,85 +23,7 @@
                             quot rem cast not and or]))
 
 
-(defn vectorized-dispatch-1
-  ([arg1 scalar-fn reader-fn options]
-   (let [arg1-type (arg-type arg1)]
-     (case arg1-type
-       :scalar
-       (scalar-fn arg1)
-       :iterable
-       (map scalar-fn arg1)
-       (let [res-dtype (dtype-base/elemwise-datatype arg1)
-             res-dtype (if-let [op-space (:operation-space options)]
-                         (casting/widest-datatype res-dtype op-space)
-                         res-dtype)]
-         (reader-fn arg1 res-dtype)))))
-  ([arg1 scalar-fn reader-fn]
-   (vectorized-dispatch-1 arg1 scalar-fn reader-fn)))
-
-
-(defn ensure-iterable
-  [item argtype]
-  (cond
-    (instance? Iterable item)
-    item
-    (= :scalar argtype)
-    ;;not the most efficient but will work.
-    (repeat item)
-    :else
-    (if-let [rdr (dtype-base/->reader item)]
-      rdr
-      (throw (Exception. (format "Item %s is not convertible to iterable" item))))))
-
-
-(defn ensure-reader
-  [item n-elems]
-  (if (= :scalar (arg-type item))
-    (const-reader item n-elems)
-    (dtype-base/->reader item)))
-
-
-(defn vectorized-dispatch-2
-  ([arg1 arg2 scalar-fn reader-fn options]
-   (let [arg1-type (arg-type arg1)
-         arg2-type (arg-type arg2)]
-     (cond
-       (clojure.core/and (= arg1-type :scalar) (= arg2-type :scalar))
-       (scalar-fn arg1 arg2)
-       ;;if any of the three arguments are iterable
-       (clojure.core/or (= arg1-type :iterable)
-                        (= arg2-type :iterable))
-       (let [arg1 (ensure-iterable arg1 arg1-type)
-             arg2 (ensure-iterable arg2 arg2-type)]
-         (map scalar-fn arg1 arg2))
-       :else
-       (let [n-elems (long (cond
-                             (clojure.core/and (= :reader arg1-type)
-                                               (= :reader arg2-type))
-                             (let [arg1-ne (dtype-base/ecount arg1)
-                                   arg2-ne (dtype-base/ecount arg2)]
-                               (when-not (== arg1-ne arg2-ne)
-                                 (throw (Exception.
-                                         (format "lhs (%d), rhs (%d) n-elems mismatch"
-                                                 arg1-ne arg2-ne))))
-                               arg1-ne)
-                             (= :reader arg1-type)
-                             (dtype-base/ecount arg1)
-                             :else
-                             (dtype-base/ecount arg2)))
-             arg1 (ensure-reader arg1 n-elems)
-             arg2 (ensure-reader arg2 n-elems)
-             res-dtype (casting/widest-datatype (dtype-base/elemwise-datatype arg1)
-                                                (dtype-base/elemwise-datatype arg2))
-             res-dtype (if-let [op-space (:operation-space options)]
-                         (casting/widest-datatype res-dtype op-space)
-                         res-dtype)]
-         (reader-fn arg1 arg2 res-dtype)))))
-  ([arg1 arg2 scalar-fn reader-fn]
-   (vectorized-dispatch-2 arg1 arg2 scalar-fn reader-fn)))
-
-
-(defmacro implement-arithmetic-operations
+(defmacro ^:private implement-arithmetic-operations
   []
   (let [binary-ops (set (keys binary-op/builtin-ops))
         unary-ops (set (keys unary-op/builtin-ops))
@@ -119,6 +43,8 @@
                   (vectorized-dispatch-1
                    ~'x
                    (unary-op/builtin-ops ~opname)
+                   ;;the default iterable application is fine.
+                   nil
                    #(unary-op/primitive-reader
                      %1
                      (unary-op/builtin-ops ~opname)
@@ -139,6 +65,7 @@
                      (vectorized-dispatch-1
                       ~'x
                       (unary-op/builtin-ops ~opname)
+                      nil
                       #(unary-op/primitive-reader
                         %1
                         (unary-op/builtin-ops ~opname)
@@ -261,3 +188,6 @@
                 percentiles
                 quartiles
                 quartile-outlier-fn)
+
+(export-symbols tech.v3.datatype.rolling
+                fixed-rolling-window)

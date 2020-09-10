@@ -23,6 +23,10 @@
   (ecount [rng] (.count rng))
   dtype-proto/PClone
   (clone [rng] rng)
+  dtype-proto/PToPrimitiveIO
+  (convertible-to-primitive-io? [rng] true)
+  (->primitive-io [rng]
+    (dtype-proto/->reader rng))
   dtype-proto/PToReader
   (convertible-to-reader? [rng] true)
   (->reader [rng]
@@ -70,6 +74,10 @@
   (ecount [rng] (.count rng))
   dtype-proto/PClone
   (clone [rng] rng)
+  dtype-proto/PToPrimitiveIO
+  (convertible-to-primitive-io? [rng] true)
+  (->primitive-io [rng]
+    (dtype-proto/->reader rng))
   dtype-proto/PToReader
   (convertible-to-reader? [rng] (contains?
                                  #{:int8 :int16 :int32 :int64

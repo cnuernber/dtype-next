@@ -14,3 +14,13 @@
          [0.0 99.0 49.0 29.159 5.3027E-4 24.0 75.0]
          (mapv (stats/descriptive-statistics stats-ary test-data)
                stats-ary)))))
+
+
+(deftest percentiles
+  (let [test-data (range 50)]
+    (is (dfn/equals
+         [0.0 11.75 24.5 37.25 49.0]
+         (stats/quartiles test-data)))
+    (let [test-fn (stats/quartile-outlier-fn test-data)]
+      (is (= [true false false true]
+             (mapv test-fn [-100 15 50 100]))))))
