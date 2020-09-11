@@ -37,3 +37,6 @@
                                 (if-not (== data Long/MIN_VALUE)
                                   (dt-base/nanoseconds->duration data)
                                   nil)))
+
+
+(def datatypes #{:packed-instant :packed-local-date :packed-duration})

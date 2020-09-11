@@ -288,3 +288,5 @@
 (casting/add-object-datatype! :local-date LocalDate)
 (casting/add-object-datatype! :local-date-time LocalDateTime)
 (casting/add-object-datatype! :duration Duration)
+
+(def datatypes #{:instant :zoned-date-time :local-date :local-date-time :duration})
