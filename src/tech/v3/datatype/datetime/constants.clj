@@ -1,0 +1,17 @@
+(ns tech.v3.datatype.datetime.constants)
+
+
+(def ^{:tag 'long} seconds-in-day (* 24 3600))
+(def ^{:tag 'long} seconds-in-hour 3600)
+(def ^{:tag 'long} seconds-in-minute 60)
+(def ^{:tag 'long} nanoseconds-in-millisecond 1000000)
+(def ^{:tag 'long} nanoseconds-in-second 1000000000)
+(def ^{:tag 'long} nanoseconds-in-minute 60000000000)
+(def ^{:tag 'long} nanoseconds-in-hour 3600000000000)
+(def ^{:tag 'long} nanoseconds-in-day 86400000000000)
+(def ^{:tag 'long} nanoseconds-in-week 604800000000000)
+(def ^{:tag 'long} milliseconds-in-week 604800000)
+(def ^{:tag 'long} milliseconds-in-day 86400000)
+(def ^{:tag 'long} milliseconds-in-hour 3600000)
+(def ^{:tag 'long} milliseconds-in-minute 60000)
+(def ^{:tag 'long} milliseconds-in-second 1000)

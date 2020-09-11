@@ -5,8 +5,8 @@
             [tech.v3.datatype.pprint :as dtype-pp]
             [primitive-math :as pmath])
   (:import [clojure.lang IObj Counted Indexed IFn]
-           [tech.v3.datatype PrimitiveIO]
-           [java.util Arrays]))
+           [tech.v3.datatype PrimitiveIO ArrayHelpers]
+           [java.util Arrays]) )
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
@@ -90,11 +90,11 @@
        ~@(cond
            (= :boolean cast-dtype)
            [`(writeBoolean [wtr# idx# val#]
-                           (aset ~'java-ary (pmath/+ ~offset idx#) val#))]
+                           (ArrayHelpers/aset ~'java-ary (pmath/+ ~offset idx#) val#))]
            (casting/integer-type? cast-dtype)
            (concat
             [`(writeLong [rdr# ~'idx ~'value]
-                         (aset ~'java-ary (pmath/+ ~offset ~'idx)
+                         (ArrayHelpers/aset ~'java-ary (pmath/+ ~offset ~'idx)
                                (casting/datatype->unchecked-cast-fn
                                 ~cast-dtype ~datatype
                                 (casting/datatype->cast-fn
@@ -106,22 +106,22 @@
               [(cond
                  (= cast-dtype :int8)
                  `(writeByte [rdr# ~'idx ~'value]
-                            (aset ~'java-ary (pmath/+ ~offset ~'idx) ~'value))
+                            (ArrayHelpers/aset ~'java-ary (pmath/+ ~offset ~'idx) ~'value))
                  (or (= cast-dtype :uint8)
                      (= cast-dtype :int16))
                  `(writeShort [rdr# ~'idx ~'value]
-                              (aset ~'java-ary (pmath/+ ~offset ~'idx)
+                              (ArrayHelpers/aset ~'java-ary (pmath/+ ~offset ~'idx)
                                     (casting/datatype->unchecked-cast-fn
                                      ~cast-dtype ~datatype
                                      (casting/datatype->cast-fn
                                       :int16 ~cast-dtype ~'value))))
                  (= cast-dtype :char)
                  `(writeChar [rdr# ~'idx ~'value]
-                             (aset ~'java-ary (pmath/+ ~offset ~'idx) ~'value))
+                             (ArrayHelpers/aset ~'java-ary (pmath/+ ~offset ~'idx) ~'value))
                  (or (= cast-dtype :uint16)
                      (= cast-dtype :int32))
                  `(writeInt [rdr# ~'idx ~'value]
-                            (aset ~'java-ary (pmath/+ ~offset ~'idx)
+                            (ArrayHelpers/aset ~'java-ary (pmath/+ ~offset ~'idx)
                                   (casting/datatype->unchecked-cast-fn
                                    ~cast-dtype ~datatype
                                    (casting/datatype->cast-fn
@@ -130,23 +130,23 @@
                                                   cast-dtype))))]))
            (casting/float-type? cast-dtype)
            [`(writeDouble [rdr# ~'idx ~'value]
-                          (aset ~'java-ary (pmath/+ ~offset ~'idx)
+                          (ArrayHelpers/aset ~'java-ary (pmath/+ ~offset ~'idx)
                                 (casting/datatype->unchecked-cast-fn
                                  :float64 ~cast-dtype ~'value)))
             `(writeFloat [rdr# ~'idx ~'value]
-                         (aset ~'java-ary (pmath/+ ~offset ~'idx)
+                         (ArrayHelpers/aset ~'java-ary (pmath/+ ~offset ~'idx)
                                (casting/datatype->unchecked-cast-fn
                                 :float32 ~cast-dtype ~'value)))]
            :else
            [`(writeObject [wtr# idx# val#]
                           ;;Writing values is always checked, no options.
-                          (aset ~'java-ary (pmath/+ ~offset idx#) val#))]))))
+                          (ArrayHelpers/aset ~'java-ary (pmath/+ ~offset idx#) val#))]))))
 
 
 (declare array-buffer->io)
 
 
-(deftype ArrayBuffer [ary-data ^int offset ^int n-elems datatype metadata
+(deftype ArrayBuffer [ary-data ^long offset ^long n-elems datatype metadata
                       ^:volatile-mutable ^PrimitiveIO cached-io]
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [item] datatype)
@@ -234,8 +234,8 @@
 
 (defn- array-buffer->io
   [ary-data datatype ^ArrayBuffer item offset n-elems]
-  (let [offset (int offset)
-        n-elems (int n-elems)]
+  (let [offset (long offset)
+        n-elems (long n-elems)]
     (case [(dtype-proto/elemwise-datatype ary-data)
            (casting/un-alias-datatype datatype)]
       [:boolean :boolean] (java-array-buffer->io :boolean :boolean datatype item
