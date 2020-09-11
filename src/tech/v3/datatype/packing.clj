@@ -30,10 +30,17 @@
   [datatype]
   (.contains unpack-table datatype))
 
+(defn unpack-datatype
+  [datatype]
+  (get-in unpack-table [datatype :object-datatype]))
+
 (defn unpacked-datatype?
   [datatype]
   (.contains pack-table datatype))
 
+(defn pack-datatype
+  [datatype]
+  (get-in pack-table [datatype :packed-datatype]))
 
 (defn unpack
   [item]

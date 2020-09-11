@@ -152,6 +152,21 @@
       (instant->milliseconds-since-epoch)))
 
 
+(defn instant->zoned-date-time
+  (^ZonedDateTime [^Instant inst ^ZoneId zid]
+   (.atZone inst zid))
+  (^ZonedDateTime [^Instant inst]
+   (instant->zoned-date-time inst (utc-zone-id))))
+
+
+(defn milliseconds-since-epoch->zoned-date-time
+  (^ZonedDateTime [^long zid timezone]
+   (-> (milliseconds-since-epoch->instant zid)
+       (instant->zoned-date-time timezone)))
+  (^ZonedDateTime [^long zid]
+   (milliseconds-since-epoch->zoned-date-time zid (utc-zone-id))))
+
+
 (defn local-date-time->instant
   (^Instant [^LocalDateTime ldt zone-or-offset]
    (cond
@@ -193,9 +208,11 @@
 
 
 (defn local-date-time->milliseconds-since-epoch
-  ^long [^LocalDateTime ldt]
-  (-> (local-date-time->instant ldt)
-      (instant->milliseconds-since-epoch)))
+  (^long [^LocalDateTime ldt timezone]
+   (-> (local-date-time->instant ldt timezone)
+       (instant->milliseconds-since-epoch)))
+  (^long [ldt]
+   (local-date-time->milliseconds-since-epoch (utc-zone-id))))
 
 
 (defn local-date
@@ -239,12 +256,11 @@
 
 
 (defn local-date->milliseconds-since-epoch
-  (^long [^LocalDate ld ^LocalTime lt]
+  (^long [^LocalDate ld ^LocalTime lt zoneid]
    (-> (local-date->local-date-time ld lt)
-       (local-date-time->milliseconds-since-epoch)))
+       (local-date-time->milliseconds-since-epoch zoneid)))
   (^long [^LocalDate ld]
-   (-> (local-date->local-date-time ld)
-       (local-date-time->milliseconds-since-epoch))))
+   (local-date->milliseconds-since-epoch ld 0 (utc-zone-id))))
 
 
 (defn local-time->local-date-time
@@ -252,6 +268,14 @@
    (local-date->local-date-time day ldt))
   (^LocalDateTime [^LocalTime ldt]
    (local-date->local-date-time (local-date) ldt)))
+
+
+(defn milliseconds-since-epoch->local-date
+  (^LocalDate [millis]
+   (milliseconds-since-epoch->local-date millis (utc-zone-id)))
+  (^LocalDate [millis zone-id]
+   (-> (milliseconds-since-epoch->local-date-time millis zone-id)
+       (.toLocalDate))))
 
 (defn duration
   ([]
@@ -288,5 +312,10 @@
 (casting/add-object-datatype! :local-date LocalDate)
 (casting/add-object-datatype! :local-date-time LocalDateTime)
 (casting/add-object-datatype! :duration Duration)
+(casting/alias-datatype! :epoch-milliseconds :int64)
+(casting/alias-datatype! :milliseconds :int64)
+(casting/alias-datatype! :microseconds :int64)
+(casting/alias-datatype! :nanoseconds :int64)
+(casting/alias-datatype! :epoch-microseconds :int64)
 
 (def datatypes #{:instant :zoned-date-time :local-date :local-date-time :duration})
