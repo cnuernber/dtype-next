@@ -3,6 +3,7 @@ package tech.v3.datatype;
 
 import it.unimi.dsi.fastutil.ints.IntComparator;
 import it.unimi.dsi.fastutil.longs.LongComparator;
+import it.unimi.dsi.fastutil.floats.FloatComparator;
 import it.unimi.dsi.fastutil.doubles.DoubleComparator;
 
 
@@ -23,6 +24,14 @@ public class Comparators
       return compareLongs(lhs, rhs);
     }
     public int compareLongs(long lhs, long rhs);
+  }
+  public interface FloatComp extends FloatComparator
+  {
+    default int compare(float lhs, float rhs)
+    {
+      return compareFloats(lhs, rhs);
+    }
+    public int compareFloats(float lhs, float rhs);
   }
   public interface DoubleComp extends DoubleComparator
   {

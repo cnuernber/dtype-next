@@ -102,7 +102,7 @@ public class UnaryPredicates
     default boolean unaryInt(int arg) {
       return unaryObject(arg);
     }
-    default boolean unaryLong(int arg) {
+    default boolean unaryLong(long arg) {
       return unaryObject(arg);
     }
     default boolean unaryFloat(float arg) {
