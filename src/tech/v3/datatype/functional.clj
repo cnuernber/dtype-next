@@ -5,9 +5,12 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.binary-op :as binary-op]
             [tech.v3.datatype.unary-op :as unary-op]
+            [tech.v3.datatype.unary-pred :as unary-pred]
+            [tech.v3.datatype.binary-pred :as binary-pred]
             [tech.v3.datatype.reductions :as dtype-reductions]
             [tech.v3.datatype.export-symbols :refer [export-symbols]]
-            [tech.v3.datatype.dispatch :refer [vectorized-dispatch-1 vectorized-dispatch-2]]
+            [tech.v3.datatype.dispatch :refer [vectorized-dispatch-1
+                                               vectorized-dispatch-2]]
             [tech.v3.datatype.rolling]
             [primitive-math :as pmath]
             [clojure.set :as set])
@@ -20,7 +23,8 @@
                             bit-xor bit-and bit-and-not bit-not bit-set bit-test
                             bit-or bit-flip bit-clear
                             bit-shift-left bit-shift-right unsigned-bit-shift-right
-                            quot rem cast not and or]))
+                            quot rem cast not and or
+                            neg? even? zero? odd? pos?]))
 
 
 (defmacro ^:private implement-arithmetic-operations
@@ -93,6 +97,44 @@
 
 
 (implement-arithmetic-operations)
+
+
+(defmacro ^:private implement-unary-predicates
+  []
+  `(do
+     ~@(->> unary-pred/builtin-ops
+            (map (fn [[k v]]
+                   (let [fn-symbol (symbol (name k))]
+                     `(let [v# (unary-pred/builtin-ops ~k)]
+                        (defn ~fn-symbol
+                          [~'arg]
+                          (vectorized-dispatch-1
+                           ~'arg
+                           v#
+                           (fn [item# dtype#]
+                             (unary-pred/reader item# v#)))))))))))
+
+
+(implement-unary-predicates)
+
+
+(defmacro ^:private implement-binary-predicates
+  []
+  `(do
+     ~@(->> binary-pred/builtin-ops
+            (map (fn [[k v]]
+                   (let [fn-symbol (symbol (name k))]
+                     `(let [v# (binary-pred/builtin-ops ~k)]
+                        (defn ~fn-symbol
+                          [~'lhs ~'rhs]
+                          (vectorized-dispatch-2
+                           ~'lhs ~'rhs
+                           v#
+                           (fn [lhs-rdr# rhs-rdr# op-dtype#]
+                             (binary-pred/reader lhs-rdr# rhs-rdr# v#)))))))))))
+
+
+(implement-binary-predicates)
 
 
 (defn round

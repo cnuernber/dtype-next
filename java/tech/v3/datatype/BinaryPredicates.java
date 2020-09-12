@@ -112,7 +112,7 @@ public class BinaryPredicates
     default boolean binaryInt(int lhs, int rhs) {
       return binaryObject(lhs,rhs);
     }
-    default boolean binaryLong(int lhs, int rhs) {
+    default boolean binaryLong(long lhs, long rhs) {
       return binaryObject(lhs,rhs);
     }
     default boolean binaryFloat(float lhs, float rhs) {
