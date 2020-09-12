@@ -29,6 +29,7 @@
                 get-value
                 set-value!)
 
+
 (export-symbols tech.v3.datatype.copy-make-container
                 make-container
                 copy!)
@@ -47,11 +48,13 @@
 (defn coalesce!
   "Coalesce data from a raw sequence of things into a contiguous buffer.
   Returns the buffer; uses the copy-raw->item! pathway."
-  [raw-data buffer]
+  [buffer raw-data]
   (first (copy-raw->item! raw-data buffer)))
 
 
 (defn ->vector
   "Convert a datatype thing to a vector"
   [item]
-  (vec (->reader item)))
+  (if-let [rdr (as-reader item)]
+    (vec rdr)
+    (vec item)))

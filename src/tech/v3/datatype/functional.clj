@@ -189,5 +189,6 @@
                 quartiles
                 quartile-outlier-fn)
 
+
 (export-symbols tech.v3.datatype.rolling
                 fixed-rolling-window)
