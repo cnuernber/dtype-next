@@ -7,7 +7,7 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.parallel.for :as parallel-for])
   (:import [tech.v3.datatype PrimitiveReader PrimitiveWriter PrimitiveIO
-            ObjectIO]
+            ObjectIO ElemwiseDatatype]
            [tech.v3.datatype.array_buffer ArrayBuffer]
            [tech.v3.datatype.native_buffer NativeBuffer]
            [java.util RandomAccess List]))
@@ -68,6 +68,28 @@
     rdr
     (-> (dtype-proto/make-container :list (elemwise-datatype item) {}  item)
         (->reader))))
+
+
+(defn reader?
+  [item]
+  (dtype-proto/convertible-to-reader? item))
+
+
+(defn ensure-iterable
+  ^Iterable [item argtype]
+  (cond
+    (instance? Iterable item)
+    item
+    (reader? item)
+    (->reader item)
+    :else
+    (let [item-dtype (dtype-proto/elemwise-datatype item)]
+      (reify
+        Iterable
+        (iterator [it]
+          (.iterator ^Iterable (repeat item)))
+        ElemwiseDatatype
+        (elemwiseDatatype [it] item-dtype)))))
 
 
 (defn as-writer

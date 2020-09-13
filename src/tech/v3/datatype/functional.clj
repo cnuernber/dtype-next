@@ -10,7 +10,8 @@
             [tech.v3.datatype.reductions :as dtype-reductions]
             [tech.v3.datatype.export-symbols :refer [export-symbols]]
             [tech.v3.datatype.dispatch :refer [vectorized-dispatch-1
-                                               vectorized-dispatch-2]]
+                                               vectorized-dispatch-2]
+             :as dispatch]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.rolling]
             [primitive-math :as pmath]
@@ -83,8 +84,8 @@
                    nil
                    #(unary-op/reader
                      (unary-op/builtin-ops ~opname)
-                     %2
-                     %1)
+                     %1
+                     %2)
                    ~op-meta))))))
        ~@(->>
           binary-ops
@@ -105,8 +106,8 @@
                       nil
                       #(unary-op/reader
                         (unary-op/builtin-ops ~opname)
-                        %2
-                        %1)
+                        %1
+                        %2)
                       ~op-meta))
                     ([~'x ~'y]
                      (vectorized-dispatch-2
@@ -114,8 +115,7 @@
                       (binary-op/builtin-ops ~opname)
                       #(binary-op/reader
                         (binary-op/builtin-ops ~opname)
-                        %3
-                        %1 %2)
+                        %1 %2 %3)
                       ~op-meta)))
                  `(defn ~(with-meta op-sym
                            {:binary-operator opname})
@@ -125,8 +125,7 @@
                      (binary-op/builtin-ops ~opname)
                      #(binary-op/reader
                        (binary-op/builtin-ops ~opname)
-                       %3
-                       %1 %2)
+                       %1 %2 %3)
                      ~op-meta))))))))))
 
 
@@ -144,10 +143,10 @@
                                  {:unary-predicate k})
                           [~'arg]
                           (vectorized-dispatch-1
-                           ~'arg
                            v#
-                           (fn [item# dtype#]
-                             (unary-pred/reader item# v#)))))))))))
+                           (fn [dtype# item#] (unary-pred/iterable v# item#))
+                           (fn [dtype# item#] (unary-pred/reader v# item#))
+                           ~'arg)))))))))
 
 
 (implement-unary-predicates)
@@ -159,33 +158,38 @@
      ~@(->> binary-pred/builtin-ops
             (map (fn [[k v]]
                    (let [fn-symbol (symbol (name k))]
-                     `(let [v# (binary-pred/builtin-ops ~k)
-                            fn-symbol# (with-meta ~fn-symbol
-                                         {:operation ~k})]
+                     `(let [v# (binary-pred/builtin-ops ~k)]
                         (defn ~(with-meta fn-symbol
                                  {:binary-predicate k})
                           [~'lhs ~'rhs]
                           (vectorized-dispatch-2
-                           ~'lhs ~'rhs
                            v#
-                           (fn [lhs-rdr# rhs-rdr# op-dtype#]
-                             (binary-pred/reader lhs-rdr# rhs-rdr# v#)))))))))))
+                           (fn [op-dtype# lhs# rhs#]
+                             (binary-pred/iterable v# lhs# rhs#))
+                           (fn [op-dtype# lhs-rdr# rhs-rdr#]
+                             (binary-pred/reader v# lhs-rdr# rhs-rdr#))
+                           ~'lhs ~'rhs)))))))))
 
 
 (implement-binary-predicates)
 
+(defn- round-scalar
+  ^long [^double arg]
+  (Math/round arg))
 
 (defn round
   "Returns a long reader but operates in double space."
   [arg]
   (vectorized-dispatch-1
-   arg #(Math/round (double %))
+   round-scalar
+   (fn [dtype arg] (dispatch/typed-map-1 round-scalar :int64 arg))
    (fn [rdr op-dtype]
      (let [src-rdr (dtype-base/->reader rdr)]
        (reify LongReader
          (lsize [rdr] (.lsize src-rdr))
          (readLong [rdr idx]
-           (Math/round (.readDouble src-rdr idx))))))))
+           (Math/round (.readDouble src-rdr idx))))))
+   arg))
 
 ;;Implement only reductions that we know we will use.
 (defn reduce-+

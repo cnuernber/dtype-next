@@ -4,6 +4,7 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.list :as dtype-list]
+            [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.parallel.for :as parallel-for])
   (:import [tech.v3.datatype UnaryPredicate
             UnaryPredicates$BooleanUnaryPredicate
@@ -59,6 +60,13 @@
          (op-name [this] opname)))))
   (^UnaryPredicate [item]
    (->predicate item :_unnamed)))
+
+
+(defn iterable
+  [pred src]
+  (let [pred (->predicate pred)
+        src (dtype-base/ensure-iterable src)]
+    (dispatch/typed-map-1 pred :boolean src)))
 
 
 (defn reader
@@ -177,14 +185,19 @@
      (op-name [this] :zero?))})
 
 
+(defn reader-index-space
+  [rdr]
+  (if (< (dtype-base/ecount rdr) Integer/MAX_VALUE)
+    :int32
+    :int64))
+
+
 (defn bool-reader->indexes
   (^PrimitiveList [{:keys [storage-type]} bool-item]
    (let [n-elems (dtype-base/ecount bool-item)
          reader (dtype-base/->reader bool-item)
          storage-type (or storage-type
-                          (if (< n-elems Integer/MAX_VALUE)
-                            :int32
-                            :int64))]
+                          (reader-index-space bool-item))]
      (parallel-for/indexed-map-reduce
       n-elems
       (fn [^long start-idx ^long len]

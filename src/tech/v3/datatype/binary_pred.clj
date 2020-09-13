@@ -2,6 +2,7 @@
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.base :as dtype-base]
+            [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.datatype.errors :as errors])
   (:import [tech.v3.datatype BinaryPredicate
             BinaryPredicates$BooleanBinaryPredicate
@@ -101,6 +102,14 @@
           (.binaryObject pred
                          (.readObject lhs-rdr idx)
                          (.readObject rhs-rdr idx)))))))
+
+
+(defn iterable
+  [pred lhs rhs]
+  (let [pred (->predicate pred)
+        lhs (dtype-base/ensure-iterable lhs)
+        rhs (dtype-base/ensure-iterable rhs)]
+    (dispatch/typed-map-2 pred :boolean lhs rhs)))
 
 
 (defmacro make-boolean-predicate

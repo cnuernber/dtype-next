@@ -1,19 +1,68 @@
 (ns tech.v3.datatype.unary-op
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.casting :as casting]
+            [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.double-ops :refer [get-significand]]
             [primitive-math :as pmath])
   (:import [tech.v3.datatype LongReader DoubleReader ObjectReader
-            UnaryOperator PrimitiveReader]))
+            UnaryOperator PrimitiveReader
+            UnaryOperators$DoubleUnaryOperator
+            UnaryOperators$ObjectUnaryOperator]
+           [clojure.lang IFn]
+           [java.util.function DoubleUnaryOperator]))
 
 
 (set! *warn-on-reflection* true)
+(set! *unchecked-math* :warn-on-boxed)
+
+
+(defn ->operator
+  (^UnaryOperator [item opname]
+   (cond
+     (instance? UnaryOperator item)
+     item
+     (instance? DoubleUnaryOperator item)
+     (let [^DoubleUnaryOperator item item]
+       (reify UnaryOperators$DoubleUnaryOperator
+         (unaryDouble [this arg]
+           (.applyAsDouble item arg))))
+     (instance? java.util.function.UnaryOperator item)
+     (let [^java.util.function.UnaryOperator item item]
+       (reify UnaryOperators$ObjectUnaryOperator
+         (unaryObject [this arg]
+           (.apply item arg))))
+     (instance? IFn item)
+     (let [^IFn item item]
+       (reify UnaryOperators$ObjectUnaryOperator
+         (unaryObject [this arg]
+           (.invoke item arg))))))
+  (^UnaryOperator [item] (->operator item :_unnamed)))
+
+
+(defn iterable
+  (^Iterable [unary-op res-dtype lhs]
+   (let [unary-op (->operator unary-op)
+         lhs (dtype-base/ensure-iterable lhs)]
+     (cond
+       (casting/integer-type? res-dtype)
+       (dispatch/typed-map-1 (fn [^long arg]
+                               (.unaryLong unary-op arg))
+                             :int64 lhs)
+       (casting/float-type? res-dtype)
+       (dispatch/typed-map-1 (fn [^double arg]
+                               (.unaryDouble unary-op arg))
+                             :float64 lhs)
+       :else
+       (dispatch/typed-map-1 unary-op :res-dtype lhs))))
+  (^Iterable [unary-op lhs]
+   (iterable unary-op (dtype-base/elemwise-datatype lhs) lhs)))
 
 
 (defn reader
-  (^PrimitiveReader [^UnaryOperator unary-op res-dtype lhs]
-   (let [lhs (dtype-base/->reader lhs)
+  (^PrimitiveReader [unary-op res-dtype lhs]
+   (let [unary-op (->operator unary-op)
+         lhs (dtype-base/->reader lhs)
          n-elems (.lsize lhs)]
      (cond
        (casting/integer-type? res-dtype)
@@ -73,7 +122,12 @@
      (unaryLong [this# ~'x] ~opcode)
      (unaryFloat [this# ~'x] ~opcode)
      (unaryDouble [this# ~'x] ~opcode)
-     (unaryObject [this# ~'x] ~opcode)))
+     (unaryObject [this# ~'x]
+       (if (casting/integer-type? (dtype-base/elemwise-datatype ~'x))
+         (let [~'x (unchecked-long ~'x)]
+           ~opcode)
+         (let [~'x (unchecked-double ~'x)]
+           ~opcode)))))
 
 
 (defmacro make-float-double-unary-op
@@ -81,19 +135,7 @@
   `(-> (reify
          dtype-proto/POperator
          (op-name [item#] ~opname)
-         UnaryOperator
-         (unaryBoolean [this# x#]
-           (throw (Exception. (format "op %s not defined for boolean" ~opname))))
-         (unaryByte [this# x#]
-           (throw (Exception. (format "op %s not defined for byte" ~opname))))
-         (unaryShort [this# x#]
-           (throw (Exception. (format "op %s not defined for short" ~opname))))
-         (unaryChar [this# x#]
-           (throw (Exception. (format "op %s not defined for char" ~opname))))
-         (unaryInt [this# x#]
-           (throw (Exception. (format "op %s not defined for int" ~opname))))
-         (unaryLong [this# x#]
-           (throw (Exception. (format "op %s not defined for long" ~opname))))
+         UnaryOperators$DoubleUnaryOperator
          (unaryFloat [this# ~'x] ~opcode)
          (unaryDouble [this# ~'x] ~opcode)
          (unaryObject [this# x#] (.unaryDouble this# x#)))
@@ -106,13 +148,9 @@
          dtype-proto/POperator
          (op-name [item#] ~opname)
          UnaryOperator
-         (unaryBoolean [this# x#]
-           (throw (Exception. (format "op %s not defined for boolean" ~opname))))
-         (unaryByte [this# x#]
-           (throw (Exception. (format "op %s not defined for byte" ~opname))))
-         (unaryShort [this# x#]
-           (throw (Exception. (format "op %s not defined for short" ~opname))))
-         (unaryChar [this# x#]
+         (unaryByte [this# ~'x] (unchecked-byte ~opcode))
+         (unaryShort [this# ~'x] (unchecked-short ~opcode))
+         (unaryChar [this# ~'x]
            (throw (Exception. (format "op %s not defined for char" ~opname))))
          (unaryInt [this# ~'x] ~opcode)
          (unaryLong [this# ~'x] ~opcode)
@@ -128,11 +166,11 @@
          dtype-proto/POperator
          (op-name [item#] ~opname)
          UnaryOperator
-         (unaryBoolean [this# x#]
+         (unaryBoolean [this# ~'x]
            (throw (Exception. (format "op %s not defined for boolean" ~opname))))
-         (unaryByte [this# x#]
+         (unaryByte [this# ~'x]
            (throw (Exception. (format "op %s not defined for byte" ~opname))))
-         (unaryShort [this# x#]
+         (unaryShort [this# ~'x]
            (throw (Exception. (format "op %s not defined for short" ~opname))))
          (unaryChar [this# x#]
            (throw (Exception. (format "op %s not defined for char" ~opname))))

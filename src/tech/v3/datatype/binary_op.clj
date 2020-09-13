@@ -1,14 +1,55 @@
 (ns tech.v3.datatype.binary-op
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.casting :as casting]
+            [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.datatype.protocols :as dtype-proto]
             [primitive-math :as pmath])
   (:import [tech.v3.datatype LongReader DoubleReader ObjectReader
-            BinaryOperator PrimitiveReader]))
+            BinaryOperator PrimitiveReader
+            BinaryOperators$LongBinaryOperator
+            BinaryOperators$DoubleBinaryOperator
+            BinaryOperators$ObjectBinaryOperator]
+           [clojure.lang IFn]))
 
 
 (set! *warn-on-reflection* true)
 
+
+(defn ->operator
+  (^BinaryOperator [item opname]
+   (cond
+     (instance? BinaryOperator item)
+     item
+     (instance? java.util.function.BinaryOperator item)
+     (let [^java.util.function.BinaryOperator item item]
+       (reify BinaryOperators$ObjectBinaryOperator
+         (binaryObject [this lhs rhs]
+           (.apply item lhs rhs))))
+     (instance? IFn item)
+     (let [^IFn item item]
+       (reify BinaryOperators$ObjectBinaryOperator
+         (binaryObject [this lhs rhs]
+           (.invoke item lhs rhs))))))
+  (^BinaryOperator [item] (->operator item :_unnamed)))
+
+
+(defn iterable
+  (^Iterable [binary-op res-dtype lhs rhs]
+   (let [binary-op (->operator binary-op)
+         lhs (dtype-base/ensure-iterable lhs)]
+     (cond
+       (casting/integer-type? res-dtype)
+       (dispatch/typed-map-2 (fn [^long lhs ^long rhs]
+                               (.binaryLong binary-op lhs rhs))
+                             :int64 lhs rhs)
+       (casting/float-type? res-dtype)
+       (dispatch/typed-map-2 (fn [^double lhs ^double rhs]
+                               (.binaryDouble binary-op lhs rhs))
+                             :float64 lhs rhs)
+       :else
+       (dispatch/typed-map-2 binary-op res-dtype lhs rhs))))
+  (^Iterable [binary-op lhs rhs]
+   (iterable binary-op (dtype-base/elemwise-datatype lhs) lhs rhs)))
 
 (defn reader
   (^PrimitiveReader [^BinaryOperator binop res-dtype lhs rhs]
@@ -41,6 +82,9 @@
                   (dtype-base/elemwise-datatype rhs))
            lhs rhs)))
 
+(defn- as-number
+  ^Number [x] x)
+
 
 (defmacro make-numeric-object-binary-op
   ([opname scalar-op object-op identity-value]
@@ -62,7 +106,10 @@
       (binaryLong [this# ~'x ~'y] ~scalar-op)
       (binaryFloat [this# ~'x ~'y] ~scalar-op)
       (binaryDouble [this# ~'x ~'y] ~scalar-op)
-      (binaryObject [this# ~'x ~'y] ~object-op)
+      (binaryObject [this# ~'x ~'y]
+        (let [~'x (as-number ~'x)
+              ~'y (as-number ~'y)]
+          ~object-op))
       (initialDoubleReductionValue [this] (double ~identity-value))))
   ([opname scalar-op object-op]
    `(make-numeric-object-binary-op ~opname ~scalar-op ~object-op 1)))
@@ -131,7 +178,7 @@
            (throw (Exception. (format "Operation %s is not a float operation"
                                       ~opname))))
          (binaryObject [this# ~'x ~'y]
-           (.binaryDouble this# (double ~'x) (double ~'y))))
+           (.binaryDouble this# (long ~'x) (long ~'y))))
        (vary-meta assoc :operation-space :int32)))
 
 
