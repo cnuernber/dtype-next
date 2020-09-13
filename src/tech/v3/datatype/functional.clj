@@ -7,6 +7,7 @@
             [tech.v3.datatype.unary-op :as unary-op]
             [tech.v3.datatype.unary-pred :as unary-pred]
             [tech.v3.datatype.binary-pred :as binary-pred]
+            [tech.v3.datatype.argops :as argops]
             [tech.v3.datatype.reductions :as dtype-reductions]
             [tech.v3.datatype.export-symbols :refer [export-symbols]]
             [tech.v3.datatype.dispatch :refer [vectorized-dispatch-1
@@ -78,7 +79,6 @@
                          {:unary-operator opname})
                   [~'x]
                   (vectorized-dispatch-1
-                   ~'x
                    (unary-op/builtin-ops ~opname)
                    ;;the default iterable application is fine.
                    nil
@@ -86,7 +86,8 @@
                      (unary-op/builtin-ops ~opname)
                      %1
                      %2)
-                   ~op-meta))))))
+                   ~op-meta
+                   ~'x))))))
        ~@(->>
           binary-ops
           (map
@@ -101,77 +102,40 @@
                            {:binary-operator opname})
                     ([~'x]
                      (vectorized-dispatch-1
-                      ~'x
                       (unary-op/builtin-ops ~opname)
                       nil
                       #(unary-op/reader
                         (unary-op/builtin-ops ~opname)
                         %1
                         %2)
-                      ~op-meta))
+                      ~op-meta
+                      ~'x))
                     ([~'x ~'y]
                      (vectorized-dispatch-2
-                      ~'x ~'y
                       (binary-op/builtin-ops ~opname)
+                      #(binary-op/iterable (binary-op/builtin-ops ~opname)
+                                           %1 %2 %3)
                       #(binary-op/reader
                         (binary-op/builtin-ops ~opname)
                         %1 %2 %3)
-                      ~op-meta)))
+                      ~op-meta
+                      ~'x ~'y)))
                  `(defn ~(with-meta op-sym
                            {:binary-operator opname})
                     [~'x ~'y]
                     (vectorized-dispatch-2
-                     ~'x ~'y
                      (binary-op/builtin-ops ~opname)
+                     #(binary-op/iterable (binary-op/builtin-ops ~opname)
+                                          %1 %2 %3)
                      #(binary-op/reader
                        (binary-op/builtin-ops ~opname)
                        %1 %2 %3)
-                     ~op-meta))))))))))
+                     ~op-meta
+                     ~'x ~'y))))))))))
 
 
 (implement-arithmetic-operations)
 
-
-(defmacro ^:private implement-unary-predicates
-  []
-  `(do
-     ~@(->> unary-pred/builtin-ops
-            (map (fn [[k v]]
-                   (let [fn-symbol (symbol (name k))]
-                     `(let [v# (unary-pred/builtin-ops ~k)]
-                        (defn ~(with-meta fn-symbol
-                                 {:unary-predicate k})
-                          [~'arg]
-                          (vectorized-dispatch-1
-                           v#
-                           (fn [dtype# item#] (unary-pred/iterable v# item#))
-                           (fn [dtype# item#] (unary-pred/reader v# item#))
-                           ~'arg)))))))))
-
-
-(implement-unary-predicates)
-
-
-(defmacro ^:private implement-binary-predicates
-  []
-  `(do
-     ~@(->> binary-pred/builtin-ops
-            (map (fn [[k v]]
-                   (let [fn-symbol (symbol (name k))]
-                     `(let [v# (binary-pred/builtin-ops ~k)]
-                        (defn ~(with-meta fn-symbol
-                                 {:binary-predicate k})
-                          [~'lhs ~'rhs]
-                          (vectorized-dispatch-2
-                           v#
-                           (fn [op-dtype# lhs# rhs#]
-                             (binary-pred/iterable v# lhs# rhs#))
-                           (fn [op-dtype# lhs-rdr# rhs-rdr#]
-                             (binary-pred/reader v# lhs-rdr# rhs-rdr#))
-                           ~'lhs ~'rhs)))))))))
-
-
-(implement-binary-predicates)
 
 (defn- round-scalar
   ^long [^double arg]
@@ -257,6 +221,53 @@
                   (double (clojure.core/or error-bar 0.001))))
 
 
+(defmacro ^:private implement-unary-predicates
+  []
+  `(do
+     ~@(->> unary-pred/builtin-ops
+            (map (fn [[k v]]
+                   (let [fn-symbol (symbol (name k))]
+                     `(let [v# (unary-pred/builtin-ops ~k)]
+                        (defn ~(with-meta fn-symbol
+                                 {:unary-predicate k})
+                          [~'arg]
+                          (vectorized-dispatch-1
+                           v#
+                           (fn [dtype# item#] (unary-pred/iterable v# item#))
+                           (fn [dtype# item#] (unary-pred/reader v# item#))
+                           ~'arg)))))))))
+
+
+(implement-unary-predicates)
+
+
+(defmacro ^:private implement-binary-predicates
+  []
+  `(do
+     ~@(->> binary-pred/builtin-ops
+            (map (fn [[k v]]
+                   (let [fn-symbol (symbol (name k))]
+                     `(let [v# (binary-pred/builtin-ops ~k)]
+                        (defn ~(with-meta fn-symbol
+                                 {:binary-predicate k})
+                          [~'lhs ~'rhs]
+                          (vectorized-dispatch-2
+                           v#
+                           (fn [op-dtype# lhs# rhs#]
+                             (binary-pred/iterable v# lhs# rhs#))
+                           (fn [op-dtype# lhs-rdr# rhs-rdr#]
+                             (binary-pred/reader v# lhs-rdr# rhs-rdr#))
+                           nil
+                           ~'lhs ~'rhs)))))))))
+
+
+(implement-binary-predicates)
+
+
+(export-symbols tech.v3.datatype.unary-pred
+                unary-pred/bool-reader->indexes)
+
+
 (export-symbols tech.v3.datatype.statistics
                 descriptive-statistics
                 variance
@@ -276,3 +287,13 @@
 
 (export-symbols tech.v3.datatype.rolling
                 fixed-rolling-window)
+
+
+(export-symbols tech.v3.datatype.argops
+                argsort
+                argfilter
+                binary-argfilter
+                arggroup
+                arggroup-by
+                argpartition
+                argpartition-by)

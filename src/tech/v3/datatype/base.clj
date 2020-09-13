@@ -76,20 +76,20 @@
 
 
 (defn ensure-iterable
-  ^Iterable [item argtype]
-  (cond
-    (instance? Iterable item)
-    item
-    (reader? item)
-    (->reader item)
-    :else
-    (let [item-dtype (dtype-proto/elemwise-datatype item)]
-      (reify
-        Iterable
-        (iterator [it]
-          (.iterator ^Iterable (repeat item)))
-        ElemwiseDatatype
-        (elemwiseDatatype [it] item-dtype)))))
+  (^Iterable [item]
+   (cond
+     (instance? Iterable item)
+     item
+     (reader? item)
+     (->reader item)
+     :else
+     (let [item-dtype (dtype-proto/elemwise-datatype item)]
+       (reify
+         Iterable
+         (iterator [it]
+           (.iterator ^Iterable (repeat item)))
+         ElemwiseDatatype
+         (elemwiseDatatype [it] item-dtype))))))
 
 
 (defn as-writer
@@ -187,7 +187,7 @@
 (extend-type RandomAccess
   dtype-proto/PToPrimitiveIO
   (convertible-to-primitive-io? [item] true)
-  (->io [item] (random-access->io item))
+  (->primitive-io [item] (random-access->io item))
   dtype-proto/PToReader
   (convertible-to-reader? [item] true)
   (->reader [item]

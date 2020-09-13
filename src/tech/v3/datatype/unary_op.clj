@@ -78,7 +78,11 @@
          (lsize [rdr] n-elems)
          (readObject [rdr idx] (.unaryObject unary-op (.readObject lhs idx)))))))
   (^PrimitiveReader [^UnaryOperator unary-op lhs]
-   (reader unary-op (dtype-base/elemwise-datatype lhs) lhs)))
+   (let [lhs-dtype (dtype-base/elemwise-datatype lhs)
+         op-dtype (if (instance? IFn unary-op)
+                    :object
+                    lhs-dtype)]
+     (reader unary-op op-dtype lhs))))
 
 
 (defmacro make-double-unary-op

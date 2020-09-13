@@ -3,18 +3,19 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.dispatch :as dispatch]
-            [tech.v3.datatype.errors :as errors])
+            [tech.v3.datatype.errors :as errors]
+            [primitive-math :as pmath])
   (:import [tech.v3.datatype BinaryPredicate
             BinaryPredicates$BooleanBinaryPredicate
             BinaryPredicates$DoubleBinaryPredicate
             BinaryPredicates$LongBinaryPredicate
             BinaryPredicates$ObjectBinaryPredicate
             BooleanReader LongReader DoubleReader ObjectReader]
-           [clojure.lang IFn]))
+           [clojure.lang IFn]
+           [clojure.lang Numbers]))
 
 
 (set! *warn-on-reflection* true)
-(set! *unchecked-math* :warn-on-boxed)
 
 
 (defn ifn->binary-predicate
@@ -89,7 +90,7 @@
                        (.readLong lhs-rdr idx)
                        (.readLong rhs-rdr idx))))
       (casting/float-type? op-dtype)
-      (reify DoubleReader
+      (reify BooleanReader
         (lsize [rdr] (.lsize lhs-rdr))
         (readBoolean [rdr idx]
           (.binaryDouble pred
@@ -98,7 +99,7 @@
       :else
       (reify ObjectReader
         (lsize [rdr] (.lsize lhs-rdr))
-        (readBoolean [rdr idx]
+        (readObject [rdr idx]
           (.binaryObject pred
                          (.readObject lhs-rdr idx)
                          (.readObject rhs-rdr idx)))))))
@@ -122,7 +123,7 @@
 
 
 (defmacro make-numeric-binary-predicate
-  ([opname op]
+  ([opname op obj-op]
    `(reify
       BinaryPredicates$ObjectBinaryPredicate
       (binaryByte [this ~'x ~'y] ~op)
@@ -132,13 +133,11 @@
       (binaryFloat [this ~'x ~'y] ~op)
       (binaryDouble [this ~'x ~'y] ~op)
       (binaryObject [this ~'x ~'y]
-        (let [~'x (double ~'x)
-              ~'y (double 'y)]
-          ~op))
+        ~obj-op)
       dtype-proto/POperator
       (op-name [this] ~opname)))
   ([op]
-   `(make-numeric-binary-predicate ~op :_unnamed)))
+   `(make-numeric-binary-predicate  :_unnamed ~op)))
 
 
 (def builtin-ops
@@ -173,7 +172,7 @@
      dtype-proto/POperator
      (op-name [this] :eq))
 
-   :> (make-numeric-binary-predicate :> (> x y))
-   :>= (make-numeric-binary-predicate :>= (>= x y))
-   :< (make-numeric-binary-predicate :< (< x y))
-   :<= (make-numeric-binary-predicate :<= (<= x y))})
+   :> (make-numeric-binary-predicate :> (pmath/> x y) (Numbers/gt x y))
+   :>= (make-numeric-binary-predicate :>= (pmath/>= x y) (Numbers/gte x y))
+   :< (make-numeric-binary-predicate :< (pmath/< x y) (Numbers/lt x y))
+   :<= (make-numeric-binary-predicate :<= (pmath/<= x y) (Numbers/lte x y))})

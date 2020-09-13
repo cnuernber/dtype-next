@@ -178,7 +178,7 @@
            (throw (Exception. (format "Operation %s is not a float operation"
                                       ~opname))))
          (binaryObject [this# ~'x ~'y]
-           (.binaryDouble this# (long ~'x) (long ~'y))))
+           (.binaryLong this# (long ~'x) (long ~'y))))
        (vary-meta assoc :operation-space :int32)))
 
 

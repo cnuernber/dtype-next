@@ -3,6 +3,7 @@
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.binary-pred :as binary-pred]
             [tech.v3.datatype.unary-pred :as unary-pred]
+            [tech.v3.datatype.unary-op :as unary-op]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.list :as dtype-list]
             [tech.v3.datatype.reductions :as reductions]
@@ -21,7 +22,7 @@
             BinaryPredicate
             PrimitiveList
             IndexReduction]
-           [java.util Comparator Arrays List Map]))
+           [java.util Comparator Arrays List Map Iterator]))
 
 
 (set! *warn-on-reflection* true)
@@ -191,8 +192,12 @@
 
 
 (defn arggroup
-  "Group by elemens in the reader returning a map of value->list of indexes. Indexes
-  may not be ordered."
+  "Group by elemens in the reader returning a map of value->list of indexes.
+  options:
+    - storage-datatype - :int32 or :int64, defaults to whatever will fit based on
+      the element count of the reader.
+    - ordered? - defaults to true, if true uses a slower algorithm that guarantees the
+      resulting index lists will be ordered."
   (^Map [{:keys [storage-datatype ordered?]
           :or {ordered? true}}
          rdr]
@@ -210,16 +215,54 @@
 
 (defn arggroup-by
   "Group by elemens in the reader returning a map of value->list of indexes. Indexes
-  may not be ordered."
-  (^Map [partition-fn option rdr]
-
-   (let [storage-datatype (or storage-datatype (unary-pred/reader-index-space rdr))]
-     (when-not (dtype-base/reader? rdr)
-       (errors/throwf "Input must be convertible to a reader"))
-     (if ordered?
-       (reductions/ordered-group-by-reduce (index-reducer storage-datatype)
-                                           nil rdr)
-       (reductions/unordered-group-by-reduce (index-reducer storage-datatype)
-                                             nil rdr))))
+  may not be ordered.  :storage-datatype may be specific in the options to set
+  the datatype of the indexes else the system will decide based on reader length."
+  (^Map [partition-fn options rdr]
+   (if (= identity partition-fn)
+     (arggroup options rdr)
+     (arggroup options (unary-op/reader partition-fn rdr))))
   (^Map [partition-fn rdr]
    (arggroup-by partition-fn nil rdr)))
+
+
+(defn- do-argpartition-by
+  [^long start-idx ^Iterator item-iterable first-item]
+  (let [[end-idx next-item]
+        (loop [cur-idx start-idx]
+          (let [has-next? (.hasNext item-iterable)
+                next-item (when has-next? (.next item-iterable))]
+            (if (and has-next? (= first-item next-item))
+              (recur (inc cur-idx))
+              [cur-idx next-item])))
+        end-idx (inc (long end-idx))]
+    (cons [first-item (range (long start-idx) end-idx)]
+          (when (.hasNext item-iterable)
+            (lazy-seq (do-argpartition-by end-idx item-iterable next-item))))))
+
+
+(defn argpartition
+  "Returns a sequence of [partition-key index-reader].  Index generation is not
+  parallelized.  This design allows group-by and partition-by to be used
+  interchangeably as they both result in a sequence of [partition-key idx-reader].
+  This design is lazy."
+  (^Iterable [options item-iterable]
+   (let [iterator (.iterator ^Iterable (dtype-base/ensure-iterable item-iterable))]
+     (when (.hasNext iterator)
+       (do-argpartition-by 0 iterator (.next iterator)))))
+  (^Iterable [item-iterable]
+   (argpartition nil item-iterable)))
+
+
+(defn argpartition-by
+  "Returns a sequence of [partition-key index-reader].  Index generation is not
+  parallelized.  This design allows group-by and partition-by to be used
+  interchangeably as they both result in a sequence of [partition-key idx-reader].
+  This design is lazy."
+  (^Iterable [unary-op options item-iterable]
+   (let [iterator (->> (dtype-base/ensure-iterable item-iterable)
+                       (unary-op/iterable unary-op)
+                       (.iterator))]
+     (when (.hasNext iterator)
+       (do-argpartition-by 0 iterator (.next iterator)))))
+  (^Iterable [unary-op item-iterable]
+   (argpartition-by unary-op nil item-iterable)))
