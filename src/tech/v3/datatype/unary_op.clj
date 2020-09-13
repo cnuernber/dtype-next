@@ -11,23 +11,25 @@
 (set! *warn-on-reflection* true)
 
 
-(defn primitive-reader
-  ^PrimitiveReader [lhs ^UnaryOperator unary-op res-dtype]
-  (let [lhs (dtype-base/->reader lhs)
-        n-elems (.lsize lhs)]
-    (cond
-      (casting/integer-type? res-dtype)
-      (reify LongReader
-        (lsize [rdr] n-elems)
-        (readLong [rdr idx] (.unaryLong unary-op (.readLong lhs idx))))
-      (casting/float-type? res-dtype)
-      (reify DoubleReader
-        (lsize [rdr] n-elems)
-        (readDouble [rdr idx] (.unaryDouble unary-op (.readDouble lhs idx))))
-      :else
-      (reify ObjectReader
-        (lsize [rdr] n-elems)
-        (readObject [rdr idx] (.unaryObject unary-op (.readObject lhs idx)))))))
+(defn reader
+  (^PrimitiveReader [^UnaryOperator unary-op res-dtype lhs]
+   (let [lhs (dtype-base/->reader lhs)
+         n-elems (.lsize lhs)]
+     (cond
+       (casting/integer-type? res-dtype)
+       (reify LongReader
+         (lsize [rdr] n-elems)
+         (readLong [rdr idx] (.unaryLong unary-op (.readLong lhs idx))))
+       (casting/float-type? res-dtype)
+       (reify DoubleReader
+         (lsize [rdr] n-elems)
+         (readDouble [rdr idx] (.unaryDouble unary-op (.readDouble lhs idx))))
+       :else
+       (reify ObjectReader
+         (lsize [rdr] n-elems)
+         (readObject [rdr idx] (.unaryObject unary-op (.readObject lhs idx)))))))
+  (^PrimitiveReader [^UnaryOperator unary-op lhs]
+   (reader unary-op (dtype-base/elemwise-datatype lhs) lhs)))
 
 
 (defmacro make-double-unary-op

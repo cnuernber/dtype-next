@@ -44,9 +44,11 @@
 
 (defn as-reader
   ^PrimitiveReader [item]
-  (when-not item (throw (Exception. "Cannot convert nil to reader")))
-  (if (instance? PrimitiveReader item)
+  (cond
+    (nil? item) item
+    (instance? PrimitiveReader item)
     item
+    :else
     (when (dtype-proto/convertible-to-reader? item)
       (dtype-proto/->reader item))))
 
@@ -57,6 +59,15 @@
     io
     (errors/throwf "Item type %s is not convertible to primitive reader"
                    (type item))))
+
+
+(defn ensure-reader
+  "Ensure item is randomly addressable"
+  ^PrimitiveReader [item]
+  (if-let [rdr (as-reader item)]
+    rdr
+    (-> (dtype-proto/make-container :list (elemwise-datatype item) {}  item)
+        (->reader))))
 
 
 (defn as-writer

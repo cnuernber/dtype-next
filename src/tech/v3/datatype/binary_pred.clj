@@ -44,9 +44,26 @@
    (ifn->binary-predicate ifn :_unnamed)))
 
 
+(defn ->predicate
+  (^BinaryPredicate [item opname]
+   (cond
+     (instance? BinaryPredicate item) item
+     (instance? IFn item) (ifn->binary-predicate item opname)
+     (instance? BinaryPredicate item)
+     (let [^BinaryPredicate item item]
+       (reify
+         BinaryPredicates$ObjectBinaryPredicate
+         (binaryObject [this lhs rhs]
+           (.test item lhs rhs))
+         dtype-proto/POperator
+         (op-name [this] opname)))))
+  (^BinaryPredicate [item] (->predicate item :_unnamed)))
+
+
 (defn reader
-  [lhs-rdr rhs-rdr ^BinaryPredicate pred]
-  (let [lhs-rdr (dtype-base/->reader lhs-rdr)
+  [pred lhs-rdr rhs-rdr]
+  (let [pred (->predicate pred)
+        lhs-rdr (dtype-base/->reader lhs-rdr)
         rhs-rdr (dtype-base/->reader rhs-rdr)
         op-dtype (casting/widest-datatype (.elemwiseDatatype lhs-rdr)
                                           (.elemwiseDatatype rhs-rdr))]

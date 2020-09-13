@@ -10,32 +10,36 @@
 (set! *warn-on-reflection* true)
 
 
-(defn primitive-reader
-  ^PrimitiveReader [lhs rhs
-                    ^BinaryOperator binop res-dtype]
-  (let [lhs (dtype-base/->reader lhs)
-        rhs (dtype-base/->reader rhs)
-        n-elems (.lsize lhs)]
-    (cond
+(defn reader
+  (^PrimitiveReader [^BinaryOperator binop res-dtype lhs rhs]
+   (let [lhs (dtype-base/->reader lhs)
+         rhs (dtype-base/->reader rhs)
+         n-elems (.lsize lhs)]
+     (cond
 
-      (casting/integer-type? res-dtype)
-      (reify LongReader
-        (lsize [rdr] n-elems)
-        (readLong [rdr idx] (.binaryLong binop
-                                         (.readLong lhs idx)
-                                         (.readLong rhs idx))))
-      (casting/float-type? res-dtype)
-      (reify DoubleReader
-        (lsize [rdr] n-elems)
-        (readDouble [rdr idx] (.binaryDouble binop
-                                             (.readDouble lhs idx)
-                                             (.readLong rhs idx))))
-      :else
-      (reify ObjectReader
-        (lsize [rdr] n-elems)
-        (readObject [rdr idx] (.binaryObject binop
-                                             (.readObject lhs idx)
-                                             (.readObject rhs idx)))))))
+       (casting/integer-type? res-dtype)
+       (reify LongReader
+         (lsize [rdr] n-elems)
+         (readLong [rdr idx] (.binaryLong binop
+                                          (.readLong lhs idx)
+                                          (.readLong rhs idx))))
+       (casting/float-type? res-dtype)
+       (reify DoubleReader
+         (lsize [rdr] n-elems)
+         (readDouble [rdr idx] (.binaryDouble binop
+                                              (.readDouble lhs idx)
+                                              (.readLong rhs idx))))
+       :else
+       (reify ObjectReader
+         (lsize [rdr] n-elems)
+         (readObject [rdr idx] (.binaryObject binop
+                                              (.readObject lhs idx)
+                                              (.readObject rhs idx)))))))
+  (^PrimitiveReader [binop lhs rhs]
+   (reader binop (casting/widest-datatype
+                  (dtype-base/elemwise-datatype lhs)
+                  (dtype-base/elemwise-datatype rhs))
+           lhs rhs)))
 
 
 (defmacro make-numeric-object-binary-op

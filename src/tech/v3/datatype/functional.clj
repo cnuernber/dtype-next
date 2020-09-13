@@ -11,11 +11,14 @@
             [tech.v3.datatype.export-symbols :refer [export-symbols]]
             [tech.v3.datatype.dispatch :refer [vectorized-dispatch-1
                                                vectorized-dispatch-2]]
+            [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.rolling]
             [primitive-math :as pmath]
             [clojure.set :as set])
   (:import [tech.v3.datatype BinaryOperator PrimitiveReader
-            LongReader DoubleReader ObjectReader])
+            LongReader DoubleReader ObjectReader
+            UnaryOperator BinaryOperator
+            UnaryPredicate BinaryPredicate])
   (:refer-clojure :exclude [+ - / *
                             <= < >= >
                             identity
@@ -25,6 +28,34 @@
                             bit-shift-left bit-shift-right unsigned-bit-shift-right
                             quot rem cast not and or
                             neg? even? zero? odd? pos?]))
+
+
+(defn unary-operator
+  ^UnaryOperator [op-kwd]
+  (if-let [retval (get unary-op/builtin-ops op-kwd)]
+    retval
+    (errors/throwf "Unrecognized unary operator: %s" op-kwd)))
+
+
+(defn binary-operator
+  ^BinaryOperator [op-kwd]
+  (if-let [retval (get binary-op/builtin-ops op-kwd)]
+    retval
+    (errors/throwf "Unrecognized binary operator: %s" op-kwd)))
+
+
+(defn unary-predicate
+  ^UnaryPredicate [op-kwd]
+  (if-let [retval (get unary-pred/builtin-ops op-kwd)]
+    retval
+    (errors/throwf "Unrecognized unary predicate: %s" op-kwd)))
+
+
+(defn binary-predicate
+  ^BinaryPredicate [op-kwd]
+  (if-let [retval (get binary-pred/builtin-ops op-kwd)]
+    retval
+    (errors/throwf "Unrecognized binary predicate: %s" op-kwd)))
 
 
 (defmacro ^:private implement-arithmetic-operations
@@ -42,17 +73,18 @@
                    op-meta (meta op)
                    op-sym (vary-meta (symbol (name opname))
                                      merge op-meta)]
-               `(defn ~op-sym
+               `(defn ~(with-meta op-sym
+                         {:unary-operator opname})
                   [~'x]
                   (vectorized-dispatch-1
                    ~'x
                    (unary-op/builtin-ops ~opname)
                    ;;the default iterable application is fine.
                    nil
-                   #(unary-op/primitive-reader
-                     %1
+                   #(unary-op/reader
                      (unary-op/builtin-ops ~opname)
-                     %2)
+                     %2
+                     %1)
                    ~op-meta))))))
        ~@(->>
           binary-ops
@@ -64,35 +96,37 @@
                                      merge op-meta)
                    dual-op? (dual-ops opname)]
                (if dual-op?
-                 `(defn ~op-sym
+                 `(defn ~(with-meta op-sym
+                           {:binary-operator opname})
                     ([~'x]
                      (vectorized-dispatch-1
                       ~'x
                       (unary-op/builtin-ops ~opname)
                       nil
-                      #(unary-op/primitive-reader
-                        %1
+                      #(unary-op/reader
                         (unary-op/builtin-ops ~opname)
-                        %2)
+                        %2
+                        %1)
                       ~op-meta))
                     ([~'x ~'y]
                      (vectorized-dispatch-2
                       ~'x ~'y
                       (binary-op/builtin-ops ~opname)
-                      #(binary-op/primitive-reader
-                        %1 %2
+                      #(binary-op/reader
                         (binary-op/builtin-ops ~opname)
-                        %3)
+                        %3
+                        %1 %2)
                       ~op-meta)))
-                 `(defn ~op-sym
+                 `(defn ~(with-meta op-sym
+                           {:binary-operator opname})
                     [~'x ~'y]
                     (vectorized-dispatch-2
                      ~'x ~'y
                      (binary-op/builtin-ops ~opname)
-                     #(binary-op/primitive-reader
-                       %1 %2
+                     #(binary-op/reader
                        (binary-op/builtin-ops ~opname)
-                       %3)
+                       %3
+                       %1 %2)
                      ~op-meta))))))))))
 
 
@@ -106,7 +140,8 @@
             (map (fn [[k v]]
                    (let [fn-symbol (symbol (name k))]
                      `(let [v# (unary-pred/builtin-ops ~k)]
-                        (defn ~fn-symbol
+                        (defn ~(with-meta fn-symbol
+                                 {:unary-predicate k})
                           [~'arg]
                           (vectorized-dispatch-1
                            ~'arg
@@ -124,8 +159,11 @@
      ~@(->> binary-pred/builtin-ops
             (map (fn [[k v]]
                    (let [fn-symbol (symbol (name k))]
-                     `(let [v# (binary-pred/builtin-ops ~k)]
-                        (defn ~fn-symbol
+                     `(let [v# (binary-pred/builtin-ops ~k)
+                            fn-symbol# (with-meta ~fn-symbol
+                                         {:operation ~k})]
+                        (defn ~(with-meta fn-symbol
+                                 {:binary-predicate k})
                           [~'lhs ~'rhs]
                           (vectorized-dispatch-2
                            ~'lhs ~'rhs

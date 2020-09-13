@@ -2,13 +2,18 @@
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.double-ops :as double-ops]
             [tech.v3.datatype.casting :as casting]
-            [tech.v3.datatype.base :as dtype-base])
+            [tech.v3.datatype.base :as dtype-base]
+            [tech.v3.datatype.list :as dtype-list]
+            [tech.v3.parallel.for :as parallel-for])
   (:import [tech.v3.datatype UnaryPredicate
             UnaryPredicates$BooleanUnaryPredicate
             UnaryPredicates$DoubleUnaryPredicate
             UnaryPredicates$LongUnaryPredicate
             UnaryPredicates$ObjectUnaryPredicate
-            BooleanReader LongReader DoubleReader ObjectReader]
+            BooleanReader LongReader DoubleReader ObjectReader
+            PrimitiveList]
+           [java.util List]
+           [java.util.function DoublePredicate Predicate]
            [clojure.lang IFn]))
 
 
@@ -30,9 +35,36 @@
   (^UnaryPredicate [ifn]
    (ifn->unary-predicate ifn :_unnamed)))
 
+
+(defn ->predicate
+  (^UnaryPredicate [item opname]
+   (cond
+     (instance? UnaryPredicate item) item
+     (instance? IFn item) (ifn->unary-predicate item opname)
+     (instance? DoublePredicate item)
+     (let [^DoublePredicate item item]
+       (reify
+         UnaryPredicates$DoubleUnaryPredicate
+         (unaryDouble [this arg]
+           (.test item arg))
+         dtype-proto/POperator
+         (op-name [this] opname)))
+     (instance? Predicate item)
+     (let [^Predicate item item]
+       (reify
+         UnaryPredicates$ObjectUnaryPredicate
+         (unaryObject [this arg]
+           (.test item arg))
+         dtype-proto/POperator
+         (op-name [this] opname)))))
+  (^UnaryPredicate [item]
+   (->predicate item :_unnamed)))
+
+
 (defn reader
-  [src-rdr ^UnaryPredicate pred]
-  (let [src-rdr (dtype-base/->reader src-rdr)
+  [pred src-rdr]
+  (let [pred (->predicate pred)
+        src-rdr (dtype-base/->reader src-rdr)
         src-dtype (dtype-base/elemwise-datatype src-rdr)]
     (cond
       (= :boolean src-dtype)
@@ -143,3 +175,32 @@
        (zero? (double arg)))
      dtype-proto/POperator
      (op-name [this] :zero?))})
+
+
+(defn bool-reader->indexes
+  (^PrimitiveList [{:keys [storage-type]} bool-item]
+   (let [n-elems (dtype-base/ecount bool-item)
+         reader (dtype-base/->reader bool-item)
+         storage-type (or storage-type
+                          (if (< n-elems Integer/MAX_VALUE)
+                            :int32
+                            :int64))]
+     (parallel-for/indexed-map-reduce
+      n-elems
+      (fn [^long start-idx ^long len]
+        (let [start-idx (long start-idx)
+              len (long len)
+              ^PrimitiveList idx-data (case storage-type
+                                        :int32 (dtype-list/make-list :int32)
+                                        ;; :bitmap `(RoaringBitmap.)
+                                        :int64 (dtype-list/make-list :int64))]
+          (dotimes [iter len]
+            (let [iter-idx (unchecked-add start-idx iter)]
+              (when (.readBoolean reader iter-idx)
+                (.addLong idx-data (unchecked-add start-idx iter)))))
+          idx-data))
+      (partial reduce (fn [^List lhs ^List rhs]
+                        (.addAll lhs rhs)
+                        lhs)))))
+  (^PrimitiveList [bool-item]
+   (bool-reader->indexes bool-item)))
