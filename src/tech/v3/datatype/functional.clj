@@ -15,12 +15,17 @@
              :as dispatch]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.rolling]
+            [tech.v3.parallel.for :as parallel-for]
+            [tech.v3.datatype.list :as dtype-list]
             [primitive-math :as pmath]
             [clojure.set :as set])
   (:import [tech.v3.datatype BinaryOperator PrimitiveReader
             LongReader DoubleReader ObjectReader
             UnaryOperator BinaryOperator
-            UnaryPredicate BinaryPredicate])
+            UnaryPredicate BinaryPredicate
+            PrimitiveList]
+           [org.roaringbitmap RoaringBitmap]
+           [java.util List])
   (:refer-clojure :exclude [+ - / *
                             <= < >= >
                             identity
@@ -297,3 +302,60 @@
                 arggroup-by
                 argpartition
                 argpartition-by)
+
+
+(defn fill-range
+  "Given a reader of numeric data and a max span amount, produce
+  a new reader where the difference between any two consecutive elements
+  is less than or equal to the max span amount.  Also return a bitmap of the added
+  indexes.  Uses linear interpolation to fill in areas, operates in double space.
+  Returns
+  {:result :missing}"
+  [numeric-data max-span]
+  (let [num-reader (dtype-base/->reader :float64 numeric-data)
+        max-span (double max-span)
+        n-elems (.lsize num-reader)
+        n-spans (dec n-elems)
+        dec-max-span (dec max-span)
+        retval
+        (parallel-for/indexed-map-reduce
+         n-spans
+         (fn [start-idx group-len]
+           (let [^PrimitiveList new-data (dtype-list/make-list :float64)
+                 new-indexes (RoaringBitmap.)]
+             (dotimes [idx group-len]
+               (let [idx (pmath/+ idx start-idx)
+                     lhs (.read num-reader idx)
+                     rhs (.read num-reader (unchecked-inc idx))
+                     span-len (pmath/- rhs lhs)
+                     _ (.addDouble new-data lhs)
+                     cur-new-idx (.size new-data)]
+                 (when (pmath/>= span-len max-span)
+                   (let [span-fract (pmath// span-len max-span)
+                         num-new-data (Math/floor span-fract)
+                         num-new-data (if (== num-new-data span-fract)
+                                        (unchecked-dec num-new-data)
+                                        num-new-data)
+                         divisor (Math/ceil span-fract)]
+                     (let [add-data (pmath// span-len divisor)]
+                       (dotimes [add-idx (long num-new-data)]
+                         (.addDouble new-data (pmath/+ lhs
+                                                       (pmath/* add-data
+                                                                (unchecked-inc
+                                                                 (double add-idx)))))
+                         (.add new-indexes (pmath/+ cur-new-idx add-idx))))))))
+             {:result new-data
+              :missing new-indexes}))
+         (partial reduce
+                  (fn [{:keys [^List result missing]} new-data]
+                    (let [res-size (.size result)]
+                      (.addAll result ^List (:result new-data))
+                      (.or ^RoaringBitmap missing
+                           (RoaringBitmap/addOffset
+                            ^RoaringBitmap (:missing new-data)
+                            res-size)))
+                    {:result result
+                     :missing missing})))
+        ^List result (:result retval)]
+    (.add result (.read num-reader (unchecked-dec (.lsize num-reader))))
+    (assoc retval :result result)))

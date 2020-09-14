@@ -9,6 +9,7 @@
                  [it.unimi.dsi/fastutil          "8.2.1"]
                  [org.xerial.larray/larray-mmap  "0.4.1"]
                  [org.apache.commons/commons-math3 "3.6.1"]
+                 [org.roaringbitmap/RoaringBitmap  "0.9.0"]
                  [techascent/tech.resource       "4.6"]]
   :java-source-paths ["java"]
   :profiles {:dev

@@ -10,7 +10,8 @@
             ObjectIO ElemwiseDatatype]
            [tech.v3.datatype.array_buffer ArrayBuffer]
            [tech.v3.datatype.native_buffer NativeBuffer]
-           [java.util RandomAccess List]))
+           [java.util RandomAccess List]
+           [java.util.stream Stream]))
 
 
 (defn elemwise-datatype
@@ -90,6 +91,18 @@
            (.iterator ^Iterable (repeat item)))
          ElemwiseDatatype
          (elemwiseDatatype [it] item-dtype))))))
+
+
+(defn iterable?
+  [item]
+  (or (instance? Iterable item)
+      (instance? Stream item)))
+
+
+(defn writer?
+  [item]
+  (when item
+    (dtype-proto/convertible-to-writer? item)))
 
 
 (defn as-writer

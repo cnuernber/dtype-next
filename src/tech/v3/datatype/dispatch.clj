@@ -8,6 +8,8 @@
 
 
 (defn typed-map
+  "Map a function over some sequences.  Return an object that implements
+  elemwiseDatatype so the resulting sequence has a specific type."
   [map-fn res-dtype & args]
   (reify
     ElemwiseDatatype

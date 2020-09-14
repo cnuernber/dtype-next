@@ -4,7 +4,8 @@
            [java.util List Map Set]
            [java.nio ByteOrder
             ByteBuffer ShortBuffer IntBuffer LongBuffer
-            FloatBuffer DoubleBuffer CharBuffer]))
+            FloatBuffer DoubleBuffer CharBuffer]
+           [org.roaringbitmap RoaringBitmap]))
 
 
 (set! *warn-on-reflection* true)
@@ -198,6 +199,24 @@ and whose values are the indexes that produce those values in the reader."))
   (if (= (ByteOrder/nativeOrder) ByteOrder/LITTLE_ENDIAN)
     :little-endian
     :big-endian))
+
+
+(defprotocol PToBitmap
+  (convertible-to-bitmap? [item])
+  (as-roaring-bitmap ^{:tag RoaringBitmap} [item]))
+
+
+(defprotocol PBitmapSet
+  (set-and [lhs rhs])
+  (set-and-not [lhs rhs])
+  (set-or [lhs rhs])
+  (set-xor [lhs rhs])
+  (set-offset [item offset]
+    "Offset a set by an amount")
+  (set-add-range! [item start end])
+  (set-add-block! [item data])
+  (set-remove-range! [item start end])
+  (set-remove-block! [item data]))
 
 
 (declare make-container)

@@ -2,7 +2,7 @@ package tech.v3.datatype;
 
 import java.util.Iterator;
 
-public class PrimitiveIOIter implements PrimitiveIOIterator
+public class PrimitiveIOIter implements PrimitiveIOIterator, Countable
 {
   long idx;
   long num_elems;
