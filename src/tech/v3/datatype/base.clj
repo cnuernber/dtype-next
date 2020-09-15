@@ -33,6 +33,13 @@
     (dtype-proto/ecount item)))
 
 
+(defn shape
+  [item]
+  (if-not item
+    nil
+    (dtype-proto/shape item)))
+
+
 (defn as-io
   ^PrimitiveIO [item]
   (when-not item (throw (Exception. "Cannot convert nil to reader")))
@@ -250,6 +257,20 @@
     buf))
 
 
+(declare shape)
+
+
+(defn scalar?
+  [item]
+  (or (number? item)
+      (string? item)
+      (and
+       (not (when (instance? Class (type item))
+              (.isArray ^Class (type item))))
+       (not (iterable? item))
+       (not (reader? item)))))
+
+
 ;;Datatype library Object defaults.  Here lie dragons.
 (extend-type Object
   dtype-proto/PElemwiseCast
@@ -266,7 +287,7 @@
              (lsize [rdr] (.lsize src-rdr))
              (readObject [rdr idx] (cast-fn (.readObject src-rdr idx))))))
        item)))
-  dtype-proto/PECount
+  dtype-proto/PCountable
   (ecount [item] (count item))
   dtype-proto/PToArrayBuffer
   (convertible-to-array-buffer? [buf] (.isArray (.getClass ^Object buf)))
@@ -335,7 +356,22 @@
   dtype-proto/PToNativeBuffer
   (convertible-to-native-buffer? [buf] false)
   dtype-proto/PToArrayBuffer
-  (convertible-to-array-buffer? [buf] false))
+  (convertible-to-array-buffer? [buf] false)
+  dtype-proto/PShape
+  (shape [item]
+    (cond
+      (scalar? item)
+      nil
+      (and (instance? Class (type item))
+           (.isArray ^Class (type item)))
+      (let [n-elems (count item)]
+        (-> (concat [n-elems]
+                    (when (> n-elems 0)
+                      (let [first-elem (first item)]
+                        (shape first-elem))))
+            vec))
+      :else
+      [(dtype-proto/ecount item)])))
 
 
 (extend-type IPersistentCollection
@@ -343,3 +379,13 @@
   (clone [buf] buf)
   dtype-proto/PToWriter
   (convertible-to-writer? [buf] false))
+
+
+(extend-type List
+  dtype-proto/PShape
+  (shape [item]
+    (if (sequential? (first item))
+      (->> (concat [(.size item)]
+                   (dtype-proto/shape (first item)))
+           vec)
+      [(.size item)])))

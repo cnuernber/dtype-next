@@ -273,7 +273,7 @@
   (endianness [item] endianness)
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [this] datatype)
-  dtype-proto/PECount
+  dtype-proto/PCountable
   (ecount [this] n-elems)
   dtype-proto/PBuffer
   (sub-buffer [this offset length]

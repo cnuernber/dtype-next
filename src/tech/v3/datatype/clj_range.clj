@@ -18,7 +18,7 @@
 (extend-type LongRange
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [rng] :int64)
-  dtype-proto/PECount
+  dtype-proto/PCountable
   (ecount [rng] (.count rng))
   dtype-proto/PClone
   (clone [rng] rng)
@@ -69,7 +69,7 @@
 (extend-type Range
   dtype-proto/PElemwiseDatatype
   (elemwiseDatatype [rng] (dtype-proto/elemwise-datatype (first rng)))
-  dtype-proto/PECount
+  dtype-proto/PCountable
   (ecount [rng] (.count rng))
   dtype-proto/PClone
   (clone [rng] rng)

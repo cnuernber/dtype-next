@@ -11,7 +11,7 @@
        ~cls
      dtype-proto/PElemwiseDatatype
      {:elemwise-datatype (fn [item#] ~datatype)}
-     dtype-proto/PECount
+     dtype-proto/PCountable
      {:ecount (fn [item#] 1)}
      dtype-proto/PToReader
      ;;Reader conversion of primitives is inefficient so we allow it

@@ -37,11 +37,11 @@
   (reinterpret-elemwise-cast [item new-dtype]))
 
 
-(defprotocol PECount
+(defprotocol PCountable
   (^long ecount [item]))
 
 
-(extend-protocol PECount
+(extend-protocol PCountable
   Counted
   (ecount [item] (.count item))
   Countable

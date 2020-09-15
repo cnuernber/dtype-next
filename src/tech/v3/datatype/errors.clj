@@ -6,11 +6,9 @@
   [message & args]
   `(throw (Exception. (format ~message ~@args))))
 
-
 (defmacro throw-nan
   []
   `(throw (NotANumberException.)))
-
 
 (defmacro check-nan-error
   [arg]
@@ -18,9 +16,18 @@
      (throw-nan)
      arg))
 
-
 (defmacro check-idx
   [idx n-elems]
   `(when-not (< ~idx ~n-elems)
      (throw (IndexOutOfBoundsException.
              (format "idx (%s) >= n-elems (%s)" ~idx ~n-elems)))))
+
+(defmacro when-not-error
+  [expr error-msg]
+  `(when-not ~expr
+     (throw (Exception. ~error-msg))))
+
+(defmacro when-not-errorf
+  [expr error-msg & args]
+  `(when-not ~expr
+     (throwf error-msg ~@args)))

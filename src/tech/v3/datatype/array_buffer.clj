@@ -151,7 +151,7 @@
                       ^:volatile-mutable ^PrimitiveIO cached-io]
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [item] datatype)
-  dtype-proto/PECount
+  dtype-proto/PCountable
   (ecount [item] n-elems)
   dtype-proto/PEndianness
   (endianness [item#] :big-endian)
@@ -323,7 +323,7 @@
                                   (.getClass)
                                   (.getComponentType)
                                   (casting/object-class->datatype))))
-                        dtype-proto/PECount
+                        dtype-proto/PCountable
                         (ecount [item#]
                           (alength
                            (typecast/datatype->array ~ary-type item#)))

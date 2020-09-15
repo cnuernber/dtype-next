@@ -49,7 +49,7 @@
 (extend-type RoaringBitmap
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [bitmap] :uint32)
-  dtype-proto/PECount
+  dtype-proto/PCountable
   (ecount [bitmap] (.getLongCardinality bitmap))
   dtype-proto/PToReader
   (convertible-to-reader? [bitmap] true)
