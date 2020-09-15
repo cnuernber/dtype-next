@@ -36,6 +36,9 @@
                             quot rem cast not and or
                             neg? even? zero? odd? pos?]))
 
+(set! *warn-on-reflection* true)
+(set! *unchecked-math* :warn-on-boxed)
+
 
 (defn unary-operator
   ^UnaryOperator [op-kwd]
@@ -312,7 +315,7 @@
   Returns
   {:result :missing}"
   [numeric-data max-span]
-  (let [num-reader (dtype-base/->reader :float64 numeric-data)
+  (let [num-reader (dtype-base/->reader numeric-data)
         max-span (double max-span)
         n-elems (.lsize num-reader)
         n-spans (dec n-elems)
@@ -320,13 +323,13 @@
         retval
         (parallel-for/indexed-map-reduce
          n-spans
-         (fn [start-idx group-len]
+         (fn [^long start-idx ^long group-len]
            (let [^PrimitiveList new-data (dtype-list/make-list :float64)
                  new-indexes (RoaringBitmap.)]
              (dotimes [idx group-len]
                (let [idx (pmath/+ idx start-idx)
-                     lhs (.read num-reader idx)
-                     rhs (.read num-reader (unchecked-inc idx))
+                     lhs (.readDouble num-reader idx)
+                     rhs (.readDouble num-reader (unchecked-inc idx))
                      span-len (pmath/- rhs lhs)
                      _ (.addDouble new-data lhs)
                      cur-new-idx (.size new-data)]
@@ -357,5 +360,5 @@
                     {:result result
                      :missing missing})))
         ^List result (:result retval)]
-    (.add result (.read num-reader (unchecked-dec (.lsize num-reader))))
+    (.add result (.readDouble num-reader (unchecked-dec (.lsize num-reader))))
     (assoc retval :result result)))

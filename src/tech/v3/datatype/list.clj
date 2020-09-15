@@ -120,7 +120,7 @@
   (addAll [item coll]
     (if-let [data-buf (dtype-base/as-buffer coll)]
       (let [item-ecount (dtype-base/ecount data-buf)]
-        (.ensureCapacity item item-ecount)
+        (.ensureCapacity item (+ ptr item-ecount))
         (dtype-cmc/copy! data-buf (dtype-base/sub-buffer buffer ptr item-ecount))
         (set! ptr (+ ptr item-ecount)))
       (if-let [rdr (dtype-base/->reader coll)]

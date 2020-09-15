@@ -5,7 +5,7 @@
             [tech.v3.datatype.pprint :as dtype-pp]
             [primitive-math :as pmath])
   (:import [clojure.lang IObj Counted Indexed IFn]
-           [tech.v3.datatype PrimitiveIO ArrayHelpers]
+           [tech.v3.datatype PrimitiveIO ArrayHelpers BufferCollection]
            [java.util Arrays]) )
 
 (set! *warn-on-reflection* true)
@@ -27,6 +27,7 @@
        ~(typecast/datatype->io-type (casting/safe-flatten cast-dtype))
        (elemwiseDatatype [rdr#] ~advertised-datatype)
        (lsize [rdr#] ~n-elems)
+
        ~@(cond
            (= cast-dtype :boolean)
            [`(readBoolean [rdr# ~'idx]
@@ -224,6 +225,14 @@
     (case (count argseq)
       1 (.invoke item (first argseq))
       2 (.invoke item (first argseq) (second argseq))))
+  BufferCollection
+  (iterator [this]
+    (dtype-proto/->primitive-io this)
+    (.iterator cached-io))
+  (size [this] (int (dtype-proto/ecount this)))
+  (toArray [this]
+    (dtype-proto/->primitive-io this)
+    (.toArray cached-io))
   Object
   (toString [item]
     (dtype-pp/buffer->string item "array-buffer")))

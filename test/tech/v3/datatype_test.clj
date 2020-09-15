@@ -339,9 +339,9 @@
 
   ;;Since the arguments is a long reader, the operation
   ;;operates and returns values in long space.
-  (let [{truevals 1
-         falsevals 0}
-        (dfn/arggroup-by even? (range 20) {:datatype :int64})]
+  (let [{truevals true
+         falsevals false}
+        (dfn/arggroup-by even? {:storage-datatype :int64} (range 20))]
     (is (= (set truevals)
            (set (filter even? (range 20)))))
     (is (= (set falsevals)

@@ -74,7 +74,7 @@
   ^PrimitiveReader [item]
   (if-let [rdr (as-reader item)]
     rdr
-    (-> (dtype-proto/make-container :list (elemwise-datatype item) {}  item)
+    (-> (dtype-proto/make-container :list (elemwise-datatype item) {} item)
         (->reader))))
 
 
@@ -213,8 +213,10 @@
   (->reader [item]
     (random-access->io item))
   dtype-proto/PToWriter
-  (convertible-to-writer? [item] true)
+  (convertible-to-writer? [item] (boolean (not (instance? IPersistentCollection item))))
   (->writer [item]
+    (when (instance? IPersistentCollection item)
+      (throw (Exception. "Item is a persistent collection and thus not convertible to writer")))
     (random-access->io item)))
 
 
@@ -238,7 +240,7 @@
   (->writer [buf] buf)
   dtype-proto/PClone
   (clone [buf]
-    (dtype-proto/make-container :jvm-heap (elemwise-datatype buf) buf {}))
+    (dtype-proto/make-container :jvm-heap (elemwise-datatype buf) {} buf))
   dtype-proto/PSetConstant
   (set-constant! [buf offset value elem-count]
     (let [value (casting/cast value (elemwise-datatype buf))]
@@ -290,8 +292,10 @@
   (->reader [buf]
     (dtype-proto/->primitive-io buf))
   dtype-proto/PToWriter
-  (convertible-to-reader? [buf]
-    (dtype-proto/convertible-to-primitive-io? buf))
+  (convertible-to-writer? [buf]
+    (if-not (instance? IPersistentCollection buf)
+      (dtype-proto/convertible-to-primitive-io? buf)
+      false))
   (->writer [buf]
     (dtype-proto/->primitive-io buf))
   dtype-proto/PBuffer
