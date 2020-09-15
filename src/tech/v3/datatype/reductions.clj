@@ -198,7 +198,7 @@
 
 (defn commutative-binary-reduce
   [op rdr]
-  (if-let [rdr (dtype-base/->reader rdr)]
+  (if-let [rdr (dtype-base/as-reader rdr)]
     (if (instance? BinaryOperator op)
       (let [rdr-dtype (dtype-base/elemwise-datatype rdr)]
         (cond
@@ -235,26 +235,31 @@
   called and Returns the non-finalized result-map.
   If a map is passed in then it's compute operator needs to be threadsafe.
   If result-map is nil then one is created.
-  This implementation takes advantage of the fact that for java8+, we have essentially a lock
+  This implementation takes advantage of the fact that for java8+ we have essentially a lock
   free concurrent hash map as long as there aren't collisions so it performs surprisingly well
-  considering the amount of pressure this can put on the concurrency model."
+  considering the amount of pressure this can put on the concurrency model.
+  Unordered has an advantage with very large datasets in that it does not require a merge step
+  at the end of the parallelized group-by pass."
   (^Map [^IndexReduction reducer batch-data rdr ^Map result-map]
    (let [^Map result-map (or result-map (ConcurrentHashMap.))
-         bifn (IndexReduction$IndexedBiFunction. reducer batch-data)
          rdr (dtype-base/->reader rdr)
          n-elems (.lsize rdr)]
-     ;;Side effecting loop to compute values in-place
-     (parallel-for/parallel-for
-      idx
+     (parallel-for/indexed-map-reduce
       n-elems
-      (do
-        ;;java.util.Map compute really should take more arguments but this way
-        ;;the long is never boxed.
-        (.setIndex bifn idx)
-        (.compute result-map (.readObject rdr idx) bifn)))
+      (fn [^long start-idx ^long group-len]
+        (let [bifn (IndexReduction$IndexedBiFunction. reducer batch-data)
+              end-idx (+ start-idx group-len)]
+          (loop [idx start-idx]
+            (when (< idx end-idx)
+              (.setIndex bifn idx)
+              (.compute result-map (.readObject rdr idx) bifn)
+              (recur (unchecked-inc idx))))
+          result-map)))
      result-map))
   (^Map [reducer batch-data rdr]
-   (unordered-group-by-reduce reducer batch-data rdr nil)))
+   (unordered-group-by-reduce reducer batch-data rdr nil))
+  (^Map [reducer rdr]
+   (unordered-group-by-reduce reducer nil rdr nil)))
 
 
 
@@ -268,8 +273,7 @@
   so if your index reduction merger just does (.addAll lhs rhs) then the final result ends up
   ordered."
   (^Map [^IndexReduction reducer batch-data rdr]
-   (let [bifn (IndexReduction$IndexedBiFunction. reducer batch-data)
-         rdr (dtype-base/->reader rdr)
+   (let [rdr (dtype-base/->reader rdr)
          n-elems (.lsize rdr)
          merge-bifn (reify BiFunction
                       (apply [this lhs rhs]
@@ -279,6 +283,7 @@
       n-elems
       (fn [^long start-idx ^long group-len]
         (let [result-map (HashMap.)
+              bifn (IndexReduction$IndexedBiFunction. reducer batch-data)
               end-idx (+ start-idx group-len)]
           (loop [idx start-idx]
             (when (< idx end-idx)
@@ -287,11 +292,13 @@
               (recur (unchecked-inc idx))))
           result-map))
       (partial reduce (fn [^Map lhs-map ^Map rhs-map]
-                        (.forEach rhs-map
-                                  (reify BiConsumer
-                                    (accept [this k v]
-                                      (.merge lhs-map k v merge-bifn))))
-                        lhs-map))))))
+                (.forEach rhs-map
+                          (reify BiConsumer
+                            (accept [this k v]
+                              (.merge lhs-map k v merge-bifn))))
+                lhs-map)))))
+  (^Map [^IndexReduction reducer rdr]
+   (ordered-group-by-reduce reducer nil rdr)))
 
 
 (comment

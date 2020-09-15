@@ -24,8 +24,15 @@
                 unchecked-cast)
 
 
+(export-symbols tech.v3.datatype.dispatch
+                typed-map
+                vectorized-dispatch-1
+                vectorized-dispatch-2)
+
+
 (export-symbols tech.v3.datatype.base
                 elemwise-datatype
+                elemwise-cast
                 ecount
                 ->io
                 as-reader
@@ -50,6 +57,11 @@
   (elemwise-datatype item))
 
 
+(defn set-datatype
+  [item new-dtype]
+  (dtype-proto/elemwise-cast item new-dtype))
+
+
 (defn clone
   [item]
   (when item
@@ -59,12 +71,6 @@
 (defn reader-as-persistent-vector
   [item]
   (ListPersistentVector. (->reader item)))
-
-
-(export-symbols tech.v3.datatype.dispatch
-                typed-map
-                vectorized-dispatch-1
-                vectorized-dispatch-2)
 
 
 (defmacro make-reader
@@ -108,19 +114,20 @@ user> (dtype/get-datatype *1)
                 (casting/datatype->unchecked-cast-fn
                  :unknown :boolean ~read-op)))
            (casting/integer-type? reader-datatype)
-           :int64 `(reify LongReader
-                     (elemwiseDatatype [rdr#] ~advertised-datatype)
-                     (lsize [rdr#] ~'n-elems)
-                     (readLong [rdr# ~'idx] (unchecked-long ~read-op)))
+           `(reify LongReader
+              (elemwiseDatatype [rdr#] ~advertised-datatype)
+              (lsize [rdr#] ~'n-elems)
+              (readLong [rdr# ~'idx] (unchecked-long ~read-op)))
            (casting/float-type? reader-datatype)
-           :float64 `(reify DoubleReader
-                       (elemwiseDatatype [rdr#] ~advertised-datatype)
-                       (lsize [rdr#] ~'n-elems)
-                       (readDouble [rdr# ~'idx] (unchecked-double ~read-op)))
-           :object `(reify ObjectReader
-                      (elemwiseDatatype [rdr#] ~advertised-datatype)
-                      (lsize [rdr#] ~'n-elems)
-                      (readObject [rdr# ~'idx] ~read-op)))))))
+           `(reify DoubleReader
+              (elemwiseDatatype [rdr#] ~advertised-datatype)
+              (lsize [rdr#] ~'n-elems)
+              (readDouble [rdr# ~'idx] (unchecked-double ~read-op)))
+           :else
+           `(reify ObjectReader
+              (elemwiseDatatype [rdr#] ~advertised-datatype)
+              (lsize [rdr#] ~'n-elems)
+              (readObject [rdr# ~'idx] ~read-op)))))))
 
 
 (export-symbols tech.v3.datatype.io-indexed-buffer

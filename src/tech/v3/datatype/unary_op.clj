@@ -148,20 +148,19 @@
 
 (defmacro make-numeric-unary-op
   [opname opcode]
-  `(-> (reify
-         dtype-proto/POperator
-         (op-name [item#] ~opname)
-         UnaryOperator
-         (unaryByte [this# ~'x] (unchecked-byte ~opcode))
-         (unaryShort [this# ~'x] (unchecked-short ~opcode))
-         (unaryChar [this# ~'x]
-           (throw (Exception. (format "op %s not defined for char" ~opname))))
-         (unaryInt [this# ~'x] ~opcode)
-         (unaryLong [this# ~'x] ~opcode)
-         (unaryFloat [this# ~'x] ~opcode)
-         (unaryDouble [this# ~'x] ~opcode)
-         (unaryObject [this# x#] (.unaryDouble this# x#)))
-       (vary-meta assoc :operation-space :float32)))
+  `(reify
+     dtype-proto/POperator
+     (op-name [item#] ~opname)
+     UnaryOperator
+     (unaryByte [this# ~'x] (byte ~opcode))
+     (unaryShort [this# ~'x] (short ~opcode))
+     (unaryChar [this# ~'x]
+       (throw (Exception. (format "op %s not defined for char" ~opname))))
+     (unaryInt [this# ~'x] ~opcode)
+     (unaryLong [this# ~'x] ~opcode)
+     (unaryFloat [this# ~'x] ~opcode)
+     (unaryDouble [this# ~'x] ~opcode)
+     (unaryObject [this# x#] (.unaryDouble this# x#))))
 
 
 (defmacro make-long-unary-op

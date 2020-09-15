@@ -152,7 +152,7 @@
   (vectorized-dispatch-1
    round-scalar
    (fn [dtype arg] (dispatch/typed-map-1 round-scalar :int64 arg))
-   (fn [rdr op-dtype]
+   (fn [op-dtype rdr]
      (let [src-rdr (dtype-base/->reader rdr)]
        (reify LongReader
          (lsize [rdr] (.lsize src-rdr))
@@ -165,7 +165,7 @@
   [rdr]
   ;;There is a fast path specifically for summations
   (dtype-reductions/commutative-binary-reduce
-   :+ rdr))
+   (:+ binary-op/builtin-ops) rdr))
 
 
 (defn sum [rdr] (reduce-+ rdr))

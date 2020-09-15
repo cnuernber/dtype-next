@@ -2,14 +2,16 @@
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.array-buffer :as array-buffer]
             [tech.v3.datatype.native-buffer :as native-buffer]
+            [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.io-sub-buffer :as io-sub-buf]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.parallel.for :as parallel-for])
   (:import [tech.v3.datatype PrimitiveReader PrimitiveWriter PrimitiveIO
-            ObjectIO ElemwiseDatatype]
+            ObjectIO ElemwiseDatatype ObjectReader]
            [tech.v3.datatype.array_buffer ArrayBuffer]
            [tech.v3.datatype.native_buffer NativeBuffer]
+           [clojure.lang IPersistentCollection]
            [java.util RandomAccess List]
            [java.util.stream Stream]))
 
@@ -17,6 +19,11 @@
 (defn elemwise-datatype
   [item]
   (when-not (nil? item) (dtype-proto/elemwise-datatype item)))
+
+
+(defn elemwise-cast
+  [item new-dtype]
+  (when-not (nil? item) (dtype-proto/elemwise-cast item new-dtype)))
 
 
 (defn ecount
@@ -73,7 +80,7 @@
 
 (defn reader?
   [item]
-  (dtype-proto/convertible-to-reader? item))
+  (when item (dtype-proto/convertible-to-reader? item)))
 
 
 (defn ensure-iterable
@@ -243,6 +250,20 @@
 
 ;;Datatype library Object defaults.  Here lie dragons.
 (extend-type Object
+  dtype-proto/PElemwiseCast
+  (elemwise-cast [item new-dtype]
+    (let [cast-fn #(casting/cast % new-dtype)]
+      (dispatch/vectorized-dispatch-1
+       cast-fn
+       (fn [op-dtype item]
+         (dispatch/typed-map-1 cast-fn new-dtype item))
+       (fn [op-dtype item]
+         (let [src-rdr (->reader item)]
+           (reify ObjectReader
+             (elemwiseDatatype [rdr] new-dtype)
+             (lsize [rdr] (.lsize src-rdr))
+             (readObject [rdr idx] (cast-fn (.readObject src-rdr idx))))))
+       item)))
   dtype-proto/PECount
   (ecount [item] (count item))
   dtype-proto/PToArrayBuffer
@@ -311,3 +332,10 @@
   (convertible-to-native-buffer? [buf] false)
   dtype-proto/PToArrayBuffer
   (convertible-to-array-buffer? [buf] false))
+
+
+(extend-type IPersistentCollection
+  dtype-proto/PClone
+  (clone [buf] buf)
+  dtype-proto/PToWriter
+  (convertible-to-writer? [buf] false))

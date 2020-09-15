@@ -22,6 +22,10 @@
   (elemwise-datatype [item] (.elemwiseDatatype item)))
 
 
+(defprotocol PElemwiseCast
+  (elemwise-cast [item new-dtype]))
+
+
 (defprotocol PContainerDatatype
   (container-datatype [item]))
 

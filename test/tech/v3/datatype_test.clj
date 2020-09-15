@@ -3,7 +3,8 @@
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.parallel.for :as parallel-for]
-            [tech.v3.datatype.functional :as dfn])
+            [tech.v3.datatype.functional :as dfn]
+            [tech.v3.datatype.datetime])
   (:import [java.nio FloatBuffer]
            [java.util ArrayList]))
 
@@ -252,7 +253,7 @@
 
 
 (deftest round-and-friends
-  (is (= [2.0 3.0 4.0 5.0]
+  (is (= [2 3 4 5]
          (vec (dfn/round [2.2 2.8 3.5 4.6]))))
   (is (= [2.0 2.0 3.0 4.0]
          (vec (dfn/floor [2.2 2.8 3.5 4.6]))))
@@ -295,13 +296,13 @@
 
 (deftest object->string-reader-cast
   (is (= :string
-         (-> (dtype/->reader ["a" "b"] :string)
+         (-> (dtype/elemwise-cast ["a" "b"] :string)
              (dtype/get-datatype)))))
 
 
 (deftest object->uint16
   (is (= :uint16
-         (-> (dtype/->reader [1 2] :uint16)
+         (-> (dtype/elemwise-cast [1 2] :uint16)
              (dtype/get-datatype)))))
 
 
@@ -353,44 +354,32 @@
   (let [{truevals true
          falsevals false}
         (dfn/arggroup-by even? {:storage-datatype :int32} (range 20))]
-    (is (= (set truevals)
-           (set (filter even? (range 20)))))
-    (is (= (set falsevals)
-           (set (remove even? (range 20))))))
+    ;;Default group by is ordered
+    (is (= truevals
+           (filter even? (range 20))))
+    (is (= falsevals
+           (remove even? (range 20)))))
 
 
-  ;;Since the arguments is a long reader, the operation
-  ;;operates and returns values in long space.
-  (let [{truevals 1
-         falsevals 0}
+  (let [{truevals true
+         falsevals false}
         (dfn/arggroup-by even? {:storage-datatype :int64} (range 20))]
-    (is (= (set truevals)
-           (set (filter even? (range 20)))))
-    (is (= (set falsevals)
-           (set (remove even? (range 20)))))))
+    (is (= truevals
+           (filter even? (range 20))))
+    (is (= falsevals
+           (remove even? (range 20))))))
 
 
-#_(deftest arggroup-by-bitmap-test
+(deftest arggroup-by-bitmap-test
   ;;The operation returns values in object space
   ;;if it operates as :object datatype.  This is the default.
   (let [{truevals true
          falsevals false}
-        (dfn/arggroup-by-bitmap even? (range 20))]
+        (dfn/arggroup-by even? {:storage-datatype :bitmap} (range 20))]
     (is (= (vec truevals)
            (vec (filter even? (range 20)))))
     (is (= (vec falsevals)
-           (vec (remove even? (range 20))))))
-
-
-  ;;Since the arguments is a long reader, the operation
-  ;;operates and returns values in long space.
-  (let [{truevals 1
-         falsevals 0}
-        (dfn/arggroup-by-int even? (range 20) {:datatype :int64})]
-    (is (= (set truevals)
-           (set (filter even? (range 20)))))
-    (is (= (set falsevals)
-           (set (remove even? (range 20)))))))
+           (vec (remove even? (range 20)))))))
 
 
 (deftest argpartition-by-test
@@ -404,7 +393,7 @@
 
 
 (deftest typed-buffer-destructure
-  (let [[a b c] (dtype/make-container :typed-buffer :int64 [1 2 3])]
+  (let [[a b c] (dtype/make-container :jvm-heap :int64 [1 2 3])]
     (is (= [a b c]
            [1 2 3]))))
 
@@ -442,7 +431,7 @@
 
 (deftest reduce-+-iterable
   (is (= (apply + (range 1000))
-         (-> (range 1000) into-array dfn/reduce-+))))
+         (-> (range 1000) dfn/reduce-+))))
 
 
 (deftest array-list-writers

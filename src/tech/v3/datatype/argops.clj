@@ -22,7 +22,8 @@
             BinaryPredicate
             PrimitiveList
             IndexReduction]
-           [java.util Comparator Arrays List Map Iterator]))
+           [java.util Comparator Arrays List Map Iterator]
+           [org.roaringbitmap RoaringBitmap]))
 
 
 (set! *warn-on-reflection* true)
@@ -184,35 +185,49 @@
 
 (defn index-reducer
   ^IndexReduction [storage-datatype]
-  (reify IndexReduction
-    (reduceIndex [this batch-data ctx idx]
-      (let [^PrimitiveList ctx (if ctx
-                                 ctx
-                                 (dtype-list/make-list storage-datatype))]
-        (.addLong ctx idx)))
-    (reduceReductions [this lhs-ctx rhs-ctx]
-      (.addAll ^List lhs-ctx rhs-ctx)
-      lhs-ctx)))
+  (if-not (= :bitmap storage-datatype)
+    (reify IndexReduction
+      (reduceIndex [this batch-data ctx idx]
+        (let [^PrimitiveList ctx (if ctx
+                                   ctx
+                                   (dtype-list/make-list storage-datatype))]
+          (.addLong ctx idx)
+          ctx))
+      (reduceReductions [this lhs-ctx rhs-ctx]
+        (.addAll ^List lhs-ctx rhs-ctx)
+        lhs-ctx))
+    (reify IndexReduction
+      (reduceIndex [this batch-data ctx idx]
+        (let [^RoaringBitmap  ctx (if ctx
+                                    ctx
+                                    (RoaringBitmap.))]
+          (.add ctx (unchecked-int idx))
+          ctx))
+      (reduceReductions [this lhs-ctx rhs-ctx]
+        (.or ^RoaringBitmap lhs-ctx ^RoaringBitmap rhs-ctx)
+        lhs-ctx))))
 
 
 (defn arggroup
   "Group by elemens in the reader returning a map of value->list of indexes.
   options:
-    - storage-datatype - :int32 or :int64, defaults to whatever will fit based on
+    - storage-datatype - :int32, :int64, or :bitmap, defaults to whatever will fit based on
       the element count of the reader.
-    - ordered? - defaults to true, if true uses a slower algorithm that guarantees the
-      resulting index lists will be ordered."
-  (^Map [{:keys [storage-datatype ordered?]
-          :or {ordered? true}}
+    - unordered? - defaults to true, if true uses a slower algorithm that guarantees the
+      resulting index lists will be ordered.  In the case where storage is bitmap, unordered
+      reductions are used as the bitmap forces the end results to be ordered"
+  (^Map [{:keys [storage-datatype unordered?]}
          rdr]
-   (let [storage-datatype (or storage-datatype (unary-pred/reader-index-space rdr))]
-     (when-not (dtype-base/reader? rdr)
-       (errors/throwf "Input must be convertible to a reader"))
-     (if ordered?
-       (reductions/ordered-group-by-reduce (index-reducer storage-datatype)
-                                           nil rdr)
-       (reductions/unordered-group-by-reduce (index-reducer storage-datatype)
-                                             nil rdr))))
+   (when-not (dtype-base/reader? rdr)
+     (errors/throwf "Input must be convertible to a reader"))
+   (let [storage-datatype (or storage-datatype (unary-pred/reader-index-space rdr))
+         unordered? (if (= storage-datatype :bitmap)
+                      true
+                      unordered?)
+         reducer (index-reducer storage-datatype)]
+     (if-not unordered?
+       (reductions/ordered-group-by-reduce reducer rdr)
+       (reductions/unordered-group-by-reduce reducer rdr))))
   (^Map [rdr]
    (arggroup nil rdr)))
 

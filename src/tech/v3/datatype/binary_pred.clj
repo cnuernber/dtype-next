@@ -13,8 +13,7 @@
             BooleanReader LongReader DoubleReader ObjectReader]
            [clojure.lang IFn]
            [clojure.lang Numbers]
-           [org.apache.commons.numbers.core Precision]))
-
+           [org.apache.commons.math3.util Precision]))
 
 (set! *warn-on-reflection* true)
 
@@ -153,8 +152,8 @@
      (binaryChar [this lhs rhs] (= lhs rhs))
      (binaryInt [this lhs rhs] (== lhs rhs))
      (binaryLong [this lhs rhs] (== lhs rhs))
-     (binaryFloat [this lhs rhs] (== lhs rhs))
-     (binaryDouble [this lhs rhs] (== lhs rhs))
+     (binaryFloat [this lhs rhs] (Precision/equalsIncludingNaN lhs rhs))
+     (binaryDouble [this lhs rhs] (Precision/equalsIncludingNaN lhs rhs))
      (binaryObject [this lhs rhs] (= lhs rhs))
      dtype-proto/POperator
      (op-name [this] :eq))
@@ -167,8 +166,8 @@
      (binaryChar [this lhs rhs] (not= lhs rhs))
      (binaryInt [this lhs rhs] (not= lhs rhs))
      (binaryLong [this lhs rhs] (not= lhs rhs))
-     (binaryFloat [this lhs rhs] (not= lhs rhs))
-     (binaryDouble [this lhs rhs] (not= lhs rhs))
+     (binaryFloat [this lhs rhs] (not (Precision/equalsIncludingNaN lhs rhs)))
+     (binaryDouble [this lhs rhs] (not (Precision/equalsIncludingNaN lhs rhs)))
      (binaryObject [this lhs rhs] (not= lhs rhs))
      dtype-proto/POperator
      (op-name [this] :eq))
