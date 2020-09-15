@@ -155,27 +155,31 @@
 
 
 (defn argfilter
-  [pred options rdr]
-  (if-let [rdr (dtype-base/as-reader rdr)]
-    (unary-pred/bool-reader->indexes options (unary-pred/reader pred rdr))
-    (let [pred (unary-pred/->predicate pred)]
-      (->> rdr
-           (map-indexed (fn [idx data]
-                          (when (.unaryObject pred data) idx)))
-           (remove nil?)))))
+  ([pred options rdr]
+   (if-let [rdr (dtype-base/as-reader rdr)]
+     (unary-pred/bool-reader->indexes options (unary-pred/reader pred rdr))
+     (let [pred (unary-pred/->predicate pred)]
+       (->> rdr
+            (map-indexed (fn [idx data]
+                           (when (.unaryObject pred data) idx)))
+            (remove nil?)))))
+  ([pred rdr]
+   (argfilter pred nil rdr)))
 
 
 (defn binary-argfilter
-  [pred options lhs rhs]
-  (let [lhs (dtype-base/as-reader lhs)
-        rhs (dtype-base/as-reader rhs)]
-    (if (and lhs rhs)
-      (unary-pred/bool-reader->indexes options (binary-pred/reader pred lhs rhs))
-      (let [pred (binary-pred/->predicate pred)]
-        (map (fn [idx lhs rhs]
-               (when (.binaryObject pred lhs rhs) idx))
-             (range) lhs rhs)
-        (remove nil?)))))
+  ([pred options lhs rhs]
+   (let [lhs (dtype-base/as-reader lhs)
+         rhs (dtype-base/as-reader rhs)]
+     (if (and lhs rhs)
+       (unary-pred/bool-reader->indexes options (binary-pred/reader pred lhs rhs))
+       (let [pred (binary-pred/->predicate pred)]
+         (map (fn [idx lhs rhs]
+                (when (.binaryObject pred lhs rhs) idx))
+              (range) lhs rhs)
+         (remove nil?)))))
+  ([pred lhs rhs]
+   (binary-argfilter pred nil lhs rhs)))
 
 
 (defn index-reducer

@@ -107,12 +107,15 @@
 
 (def primitive-types (set (concat numeric-types [:boolean])))
 
+
 (def base-host-datatypes (set (concat host-numeric-types
                                       [:object :boolean])))
+
 
 (def base-datatypes (set (concat host-numeric-types
                                  unsigned-int-types
                                  [:boolean :char :object])))
+
 
 (defn int-width
   ^long [dtype]
@@ -129,12 +132,14 @@
              dtype
              0)))
 
+
 (defn float-width
   ^long [dtype]
   (long (get {:float32 32
               :float64 64}
              dtype
              0)))
+
 
 (defn numeric-byte-width
   ^long [dtype]
@@ -346,7 +351,7 @@
      ~@(for [dtype base-datatypes]
          [`(add-cast-fn ~dtype #(datatype->cast-fn :unknown ~dtype %))
           `(add-unchecked-cast-fn ~dtype #(datatype->unchecked-cast-fn
-                                           :unkown ~dtype %))])))
+                                           :unknown ~dtype %))])))
 
 (def casts (add-all-cast-fns))
 

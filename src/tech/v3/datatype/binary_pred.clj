@@ -12,7 +12,8 @@
             BinaryPredicates$ObjectBinaryPredicate
             BooleanReader LongReader DoubleReader ObjectReader]
            [clojure.lang IFn]
-           [clojure.lang Numbers]))
+           [clojure.lang Numbers]
+           [org.apache.commons.numbers.core Precision]))
 
 
 (set! *warn-on-reflection* true)

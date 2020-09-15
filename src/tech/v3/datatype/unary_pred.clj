@@ -79,22 +79,22 @@
       (reify BooleanReader
         (lsize [rdr] (.lsize src-rdr))
         (readBoolean [rdr idx]
-          (.unaryBoolean pred (.readBoolean rdr idx))))
+          (.unaryBoolean pred (.readBoolean src-rdr idx))))
       (casting/integer-type? src-dtype)
       (reify BooleanReader
         (lsize [rdr] (.lsize src-rdr))
         (readBoolean [rdr idx]
-          (.unaryLong pred (.readLong rdr idx))))
+          (.unaryLong pred (.readLong src-rdr idx))))
       (casting/float-type? src-dtype)
       (reify BooleanReader
         (lsize [rdr] (.lsize src-rdr))
         (readBoolean [rdr idx]
-          (.unaryDouble pred (.readDouble rdr idx))))
+          (.unaryDouble pred (.readDouble src-rdr idx))))
       :else
       (reify BooleanReader
         (lsize [rdr] (.lsize src-rdr))
         (readBoolean [rdr idx]
-          (.unaryObject pred (.readObject rdr idx)))))))
+          (.unaryObject pred (.readObject src-rdr idx)))))))
 
 
 (defn ifn->long-unary-predicate

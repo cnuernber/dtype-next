@@ -243,6 +243,8 @@
 
 ;;Datatype library Object defaults.  Here lie dragons.
 (extend-type Object
+  dtype-proto/PECount
+  (ecount [item] (count item))
   dtype-proto/PToArrayBuffer
   (convertible-to-array-buffer? [buf] (.isArray (.getClass ^Object buf)))
   (->array-buffer [buf]

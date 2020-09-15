@@ -172,10 +172,8 @@
 
 
   (is (= [0 1 0]
-         (-> (dtype/copy! (boolean-array [false true false]) 0
-                          (dtype/make-container :int8 3) 0
-                          3
-                          {:unchecked? true})
+         (-> (dtype/copy! (boolean-array [false true false])
+                          (dtype/make-container :int8 3))
              (dtype/->vector))))
 
 
@@ -228,12 +226,9 @@
 
 (deftest base-math-sanity
   (is (= 0.0 (-> (dfn/- (range 10) (range 10))
-                 (dtype/->reader :float64)
                  (dfn/pow 2)
                  (dfn/reduce-+))))
-
   (is (= 0.0 (-> (dfn/- (into-array (range 10)) (range 10))
-                 (dtype/->reader :float64)
                  (dfn/pow 2)
                  (dfn/reduce-+)))))
 

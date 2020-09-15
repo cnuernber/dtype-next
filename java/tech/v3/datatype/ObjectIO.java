@@ -13,7 +13,7 @@ public interface ObjectIO extends PrimitiveIO
   {
     Object obj = readObject(idx);
     if (obj instanceof Number) {
-      return (double)obj != 0.0;
+      return RT.doubleCast(obj) != 0.0;
     } else if (obj instanceof Boolean) {
       return (boolean) obj;
     }
@@ -21,13 +21,13 @@ public interface ObjectIO extends PrimitiveIO
       return obj != null;
     }
   }
-  default byte readByte(long idx) {return RT.byteCast(readObject(idx));}
-  default short readShort(long idx) {return RT.shortCast(readObject(idx));}
+  default byte readByte(long idx) {return NumericConversions.byteCast(readObject(idx));}
+  default short readShort(long idx) {return NumericConversions.shortCast(readObject(idx));}
   default char readChar(long idx) {return RT.charCast(readObject(idx));}
-  default int readInt(long idx) {return RT.intCast(readObject(idx));}
-  default long readLong(long idx) {return RT.longCast(readObject(idx));}
-  default float readFloat(long idx) {return RT.floatCast(readObject(idx));}
-  default double readDouble(long idx) {return RT.doubleCast(readObject(idx));}
+  default int readInt(long idx) {return NumericConversions.intCast(readObject(idx));}
+  default long readLong(long idx) {return NumericConversions.longCast(readObject(idx));}
+  default float readFloat(long idx) {return NumericConversions.floatCast(readObject(idx));}
+  default double readDouble(long idx) {return NumericConversions.doubleCast(readObject(idx));}
   default Stream typedStream() { return stream(); }
   default void writeBoolean(long idx, boolean val) {
     writeObject(idx, val);
