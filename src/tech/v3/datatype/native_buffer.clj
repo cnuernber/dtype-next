@@ -9,7 +9,7 @@
             [primitive-math :as pmath])
   (:import [xerial.larray.buffer UnsafeUtil]
            [sun.misc Unsafe]
-           [tech.v3.datatype PrimitiveIO PrimitiveWriter]
+           [tech.v3.datatype PrimitiveIO PrimitiveWriter BufferCollection]
            [clojure.lang RT IObj Counted Indexed IFn]))
 
 (set! *warn-on-reflection* true)
@@ -359,6 +359,14 @@
     (case (count argseq)
       1 (.invoke item (first argseq))
       2 (.invoke item (first argseq) (second argseq))))
+  BufferCollection
+  (iterator [this]
+    (dtype-proto/->primitive-io this)
+    (.iterator cached-io))
+  (size [this] (int (dtype-proto/ecount this)))
+  (toArray [this]
+    (dtype-proto/->primitive-io this)
+    (.toArray cached-io))
   Object
   (toString [buffer]
     (dtype-pp/buffer->string buffer (format "native-buffer@0x%016X"
