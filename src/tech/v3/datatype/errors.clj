@@ -23,7 +23,7 @@
 (defmacro check-idx
   [idx n-elems]
   `(when-not (< ~idx ~n-elems)
-     (index-out-of-boundsf "idx (%s) >= n-elems (%s)" ~idx ~n-elems)))
+     (throw-index-out-of-boundsf "idx (%s) >= n-elems (%s)" ~idx ~n-elems)))
 
 (defmacro when-not-error
   [expr error-msg]

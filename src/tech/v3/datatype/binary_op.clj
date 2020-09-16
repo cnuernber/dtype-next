@@ -55,9 +55,9 @@
   (^PrimitiveReader [^BinaryOperator binop res-dtype lhs rhs]
    (let [lhs (dtype-base/->reader lhs)
          rhs (dtype-base/->reader rhs)
-         n-elems (.lsize lhs)]
+         n-elems (.lsize lhs)
+         binop (->operator binop)]
      (cond
-
        (casting/integer-type? res-dtype)
        (reify LongReader
          (lsize [rdr] n-elems)
@@ -72,6 +72,7 @@
                                               (.readLong rhs idx))))
        :else
        (reify ObjectReader
+         (elemwiseDatatype [rdr] res-dtype)
          (lsize [rdr] n-elems)
          (readObject [rdr idx] (.binaryObject binop
                                               (.readObject lhs idx)

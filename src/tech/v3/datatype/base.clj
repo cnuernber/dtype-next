@@ -357,6 +357,10 @@
   (convertible-to-native-buffer? [buf] false)
   dtype-proto/PToArrayBuffer
   (convertible-to-array-buffer? [buf] false)
+  dtype-proto/PRangeConvertible
+  (convertible-to-range? [buf] false)
+  dtype-proto/PToBitmap
+  (convertible-to-bitmap? [buf] false)
   dtype-proto/PShape
   (shape [item]
     (cond

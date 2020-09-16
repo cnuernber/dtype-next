@@ -5,7 +5,8 @@
             [tech.v3.datatype.protocols :as dtype-proto])
   (:import [java.util Map Set HashSet]
            [java.util.concurrent ConcurrentHashMap]
-           [clojure.lang RT]))
+           [clojure.lang RT Keyword]
+           [java.util UUID]))
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
@@ -584,3 +585,9 @@
      :object))
   ([lhs-dtype]
    (simple-operation-space lhs-dtype lhs-dtype)))
+
+
+;;Default object datatypes
+(add-object-datatype! :string String)
+(add-object-datatype! :keyword Keyword)
+(add-object-datatype! :uuid UUID)

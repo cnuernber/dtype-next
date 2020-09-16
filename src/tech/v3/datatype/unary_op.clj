@@ -54,7 +54,7 @@
                                (.unaryDouble unary-op arg))
                              :float64 lhs)
        :else
-       (dispatch/typed-map-1 unary-op :res-dtype lhs))))
+       (dispatch/typed-map-1 unary-op res-dtype lhs))))
   (^Iterable [unary-op lhs]
    (iterable unary-op (dtype-base/elemwise-datatype lhs) lhs)))
 
@@ -67,14 +67,17 @@
      (cond
        (casting/integer-type? res-dtype)
        (reify LongReader
+         (elemwiseDatatype [rdr] res-dtype)
          (lsize [rdr] n-elems)
          (readLong [rdr idx] (.unaryLong unary-op (.readLong lhs idx))))
        (casting/float-type? res-dtype)
        (reify DoubleReader
+         (elemwiseDatatype [rdr] res-dtype)
          (lsize [rdr] n-elems)
          (readDouble [rdr idx] (.unaryDouble unary-op (.readDouble lhs idx))))
        :else
        (reify ObjectReader
+         (elemwiseDatatype [rdr] res-dtype)
          (lsize [rdr] n-elems)
          (readObject [rdr idx] (.unaryObject unary-op (.readObject lhs idx)))))))
   (^PrimitiveReader [^UnaryOperator unary-op lhs]

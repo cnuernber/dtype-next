@@ -48,14 +48,6 @@
   (dtype-pp/buffer->string list-item "list"))
 
 
-(defn- iterable-add-all
-  [item ^List list-data]
-  (parallel-for/doiter
-   data item
-   (.add list-data data)))
-
-
-
 (deftype ListImpl [^:unsynchronized-mutable buffer
                    ^:unsynchronized-mutable ^long capacity
                    ^:unsynchronized-mutable ^long ptr
@@ -118,17 +110,13 @@
     (.writeObject cached-io ptr value)
     (set! ptr (unchecked-inc ptr)))
   (addAll [item coll]
-    (if-let [data-buf (dtype-base/as-buffer coll)]
+    (if-let [data-buf (or (dtype-base/as-buffer coll)
+                          (dtype-base/->reader coll))]
       (let [item-ecount (dtype-base/ecount data-buf)]
         (.ensureCapacity item (+ ptr item-ecount))
         (dtype-cmc/copy! data-buf (dtype-base/sub-buffer buffer ptr item-ecount))
         (set! ptr (+ ptr item-ecount)))
-      (if-let [rdr (dtype-base/->reader coll)]
-        (let [item-ecount (.lsize rdr)]
-          (.ensureCapacity item item-ecount)
-          (dtype-cmc/copy! rdr (dtype-base/sub-buffer buffer ptr item-ecount))
-          (set! ptr (+ ptr item-ecount)))
-        (iterable-add-all coll item)))
+      (parallel-for/consume! #(.add item %) coll))
     true)
   IObj
   (meta [item] metadata)
