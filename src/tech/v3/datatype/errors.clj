@@ -16,11 +16,14 @@
      (throw-nan)
      arg))
 
+(defmacro throw-index-out-of-boundsf
+  [msg & args]
+  `(throw (IndexOutOfBoundsException. (format ~msg ~@args))))
+
 (defmacro check-idx
   [idx n-elems]
   `(when-not (< ~idx ~n-elems)
-     (throw (IndexOutOfBoundsException.
-             (format "idx (%s) >= n-elems (%s)" ~idx ~n-elems)))))
+     (index-out-of-boundsf "idx (%s) >= n-elems (%s)" ~idx ~n-elems)))
 
 (defmacro when-not-error
   [expr error-msg]

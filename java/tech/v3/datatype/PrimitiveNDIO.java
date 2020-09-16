@@ -22,46 +22,46 @@ public interface PrimitiveNDIO extends IOBase, Iterable, IFn,
 
   //Scalar read methods have to be exact to the number of dimensions of the
   //tensor.
-  boolean readBoolean(long idx);
-  boolean readBoolean(long row, long col);
-  boolean readBoolean(long height, long width, long chan);
-  void writeBoolean(long idx, boolean value);
-  void writeBoolean(long row, long col, boolean value);
-  void writeBoolean(long height, long width, long chan, boolean value);
-  long readLong(long idx);
-  long readLong(long row, long col);
-  long readLong(long height, long width, long chan);
-  void writeLong(long idx, long value);
-  void writeLong(long row, long col, long value);
-  void writeLong(long height, long width, long chan, long value);
-  double readDouble(double idx);
-  double readDouble(double row, double col);
-  double readDouble(double height, double width, double chan);
-  void writeDouble(double idx, double value);
-  void writeDouble(double row, double col, double value);
-  void writeDouble(double height, double width, double chan, double value);
+  boolean ndReadBoolean(long idx);
+  boolean ndReadBoolean(long row, long col);
+  boolean ndReadBoolean(long height, long width, long chan);
+  void ndWriteBoolean(long idx, boolean value);
+  void ndWriteBoolean(long row, long col, boolean value);
+  void ndWriteBoolean(long height, long width, long chan, boolean value);
+  long ndReadLong(long idx);
+  long ndReadLong(long row, long col);
+  long ndReadLong(long height, long width, long chan);
+  void ndWriteLong(long idx, long value);
+  void ndWriteLong(long row, long col, long value);
+  void ndWriteLong(long height, long width, long chan, long value);
+  double ndReadDouble(double idx);
+  double ndReadDouble(double row, double col);
+  double ndReadDouble(double height, double width, double chan);
+  void ndWriteDouble(double idx, double value);
+  void ndWriteDouble(double row, double col, double value);
+  void ndWriteDouble(double height, double width, double chan, double value);
 
   // Object read methods can return slices or values.
-  Object readObject(Object idx);
-  Object readObject(Object row, Object col);
-  Object readObject(Object height, Object width, Object chan);
-  Object ndReadObject(Iterable dims);
-  void writeObject(Object idx, Object value);
-  void writeObject(Object row, Object col, Object value);
-  void writeObject(Object height, Object width, Object chan, Object value);
-  Object ndWriteObject(Iterable dims, Object value);
+  Object ndReadObject(long idx);
+  Object ndReadObject(long row, long col);
+  Object ndReadObject(long height, long width, long chan);
+  Object ndReadObjectIter(Iterable dims);
+  void ndWriteObject(long idx, Object value);
+  void ndWriteObject(long row, long col, Object value);
+  void ndWriteObject(long height, long width, long chan, Object value);
+  Object ndWriteObjectIter(Iterable dims, Object value);
 
   default boolean allowsRead() { return true; }
   default boolean allowsWrite() { return false; }
   default Object elemwiseDatatype () { return Keyword.intern(null, "object"); }
   default Object invoke(Object arg) {
-    return readObject(RT.longCast(arg));
+    return ndReadObject(RT.longCast(arg));
   }
   default Object invoke(Object arg, Object arg2) {
-    return readObject(RT.longCast(arg), RT.longCast(arg2));
+    return ndReadObject(RT.longCast(arg), RT.longCast(arg2));
   }
   default Object invoke(Object arg, Object arg2, Object arg3) {
-    return readObject(RT.longCast(arg), RT.longCast(arg2), RT.longCast(arg3));
+    return ndReadObject(RT.longCast(arg), RT.longCast(arg2), RT.longCast(arg3));
   }
   default Object invoke(Object arg, Object arg2, Object arg3, Object arg4) {
     ArrayList args = new ArrayList() { {
@@ -70,7 +70,7 @@ public interface PrimitiveNDIO extends IOBase, Iterable, IFn,
       add(arg3);
       add(arg4);
     } };
-    return ndReadObject(args);
+    return ndReadObjectIter(args);
   }
   default Object invoke(Object arg, Object arg2, Object arg3, Object arg4,
 			Object arg5) {
@@ -81,7 +81,7 @@ public interface PrimitiveNDIO extends IOBase, Iterable, IFn,
       add(arg4);
       add(arg5);
     } };
-    return ndReadObject(args);
+    return ndReadObjectIter(args);
   }
   default Object invoke(Object arg, Object arg2, Object arg3, Object arg4,
 			Object arg5, Object arg6) {
@@ -93,7 +93,7 @@ public interface PrimitiveNDIO extends IOBase, Iterable, IFn,
       add(arg5);
       add(arg6);
     } };
-    return ndReadObject(args);
+    return ndReadObjectIter(args);
   }
   default Object invoke(Object arg, Object arg2, Object arg3, Object arg4,
 			Object arg5, Object arg6, Object arg7) {
@@ -106,7 +106,7 @@ public interface PrimitiveNDIO extends IOBase, Iterable, IFn,
       add(arg6);
       add(arg7);
     } };
-    return ndReadObject(args);
+    return ndReadObjectIter(args);
   }
   default Object invoke(Object arg, Object arg2, Object arg3, Object arg4,
 			Object arg5, Object arg6, Object arg7, Object arg8) {
@@ -120,15 +120,15 @@ public interface PrimitiveNDIO extends IOBase, Iterable, IFn,
       add(arg7);
       add(arg8);
     } };
-    return ndReadObject(args);
+    return ndReadObjectIter(args);
   }
   default Object applyTo(ISeq items) {
-    return ndReadObject((Iterable)items);
+    return ndReadObjectIter((Iterable)items);
   }
-  default Object nth(int idx) { return readObject(idx); }
+  default Object nth(int idx) { return ndReadObject(idx); }
   default Object nth(int idx, Object notFound) {
     if (idx >= 0 && idx <= outermostDim()) {
-      return readObject(idx);
+      return ndReadObject(idx);
     } else {
       return notFound;
     }
@@ -138,9 +138,8 @@ public interface PrimitiveNDIO extends IOBase, Iterable, IFn,
   default Object[] toArray() {
     int nElems = size();
     Object[] data = new Object[nElems];
-
     for(int idx=0; idx < nElems; ++idx) {
-      data[idx] = readObject(idx);
+      data[idx] = ndReadObject(idx);
     }
     return data;
   }

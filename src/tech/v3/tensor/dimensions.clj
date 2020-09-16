@@ -1,4 +1,4 @@
-(ns tech.v2.tensor.dimensions
+(ns tech.v3.tensor.dimensions
   "Compute tensors dimensions control the shape and stride of the tensor along with
   offsetting into the actual data buffer.  This allows multiple backends to share a
   single implementation of a system that will allow transpose, reshape, etc. assuming
@@ -7,25 +7,21 @@
   Shape vectors may have an index buffer in them at a specific dimension instead of a
   number.  This means that that dimension should be indexed indirectly.  If a shape has
   any index buffers then it is considered an indirect shape."
-  (:require [tech.v2.datatype :as dtype]
-            [tech.v2.datatype.protocols :as dtype-proto]
-            [tech.v2.tensor.dimensions.select :as dims-select]
-            [tech.v2.tensor.dimensions.analytics :as dims-analytics]
-            [tech.v2.tensor.dimensions.shape :as shape]
-            [tech.v2.tensor.dimensions.global-to-local :as gtol]
-            [tech.v2.datatype.functional :as dfn]
-            [tech.v2.datatype.index-algebra :as idx-alg]
-            [tech.v2.datatype.typecast :as typecast]
-            [tech.v2.datatype.base :as dtype-base]
-            [tech.v2.tensor.utils
-             :refer [when-not-error reversev]
-             :as utils])
-  (:import [tech.v2.datatype
-            IndexingSystem$Backward
-            IntReader
+  (:require [tech.v3.datatype :as dtype]
+            [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.tensor.dimensions.select :as dims-select]
+            [tech.v3.tensor.dimensions.analytics :as dims-analytics]
+            [tech.v3.tensor.dimensions.shape :as shape]
+            [tech.v3.tensor.dimensions.global-to-local :as gtol]
+            [tech.v3.datatype.functional :as dfn]
+            [tech.v3.datatype.index-algebra :as idx-alg]
+            [tech.v3.datatype.base :as dtype-base]
+            [tech.v3.datatype.errors
+             :refer [when-not-error]
+             :as errors])
+  (:import [tech.v3.datatype PrimitiveIO PrimitiveList ObjectReader
             LongReader]
            [java.util List Map]
-           [it.unimi.dsi.fastutil.ints IntArrayList]
            [clojure.lang IDeref]))
 
 
@@ -242,42 +238,29 @@
   "Shape and strides are not transposed.  Returns
   [valid? local-shape-as-list]"
   [shape offsets strides shape-mins addr]
-  (let [strides (typecast/datatype->reader :int32 strides)
-        shape (typecast/datatype->reader :int32 shape)
-        offsets (typecast/datatype->reader :int32 offsets)
+  (let [strides (dtype-base/->reader strides)
+        shape (dtype-base/->reader shape)
+        offsets (dtype-base/->reader offsets)
         addr (int addr)
         n-elems (.lsize strides)
-        retval (dtype/make-container :list :int32 0)
-        retval-mut (typecast/datatype->mutable :int32 retval)]
+        ^PrimitiveList retval (dtype/make-container :list :int32 0)]
     (loop [idx 0
            addr addr]
       (if (< idx n-elems)
-        (let [local-stride (.read strides idx)
+        (let [local-stride (.readLong strides idx)
               shape-idx (quot addr local-stride)
-              local-shape (.read shape idx)]
+              local-shape (.readLong shape idx)]
           (if (and (< shape-idx local-shape)
                    (>= shape-idx (long (shape-mins idx))))
-            (let [shape-idx (- shape-idx (.read offsets idx))
+            (let [shape-idx (- shape-idx (.readLong offsets idx))
                   shape-idx (if (< shape-idx 0)
                               (+ shape-idx local-shape)
                               shape-idx)]
-              (.append retval-mut (int shape-idx))
+              (.addLong retval (int shape-idx))
               (recur (unchecked-inc idx) (rem addr local-stride)))
             (recur n-elems -1)))
         (when (= 0 addr)
           retval)))))
-
-
-(defn dense-integer-dot-product
-  ^long [^IntReader lhs ^IntReader rhs]
-  (let [n-elems (.lsize lhs)]
-    (loop [idx 0
-           sum 0]
-      (if (< idx n-elems)
-        (recur (unchecked-inc idx)
-               (+ sum (* (.read lhs idx)
-                         (.read rhs idx))))
-        sum))))
 
 
 (defn ->global->local
@@ -294,25 +277,27 @@
   "Harder translation than above.  May return nil in the case where the inverse
   operation hasn't yet been derived.  In this case, the best you can do is a O(N)
   iteration similar to dense math."
-  ^IndexingSystem$Backward
+  ^PrimitiveIO
   [dims global->local*]
-  (if (:direct? dims)
-    (reify IndexingSystem$Backward
-      (localToGlobal [item local-idx] local-idx))
-    ;;TODO - rebuild faster and less memory intensive paths for this.
-    ;;This will just make the problem go away and allows rapid indexing.
-    (if (< (dtype/ecount dims)
-           Integer/MAX_VALUE)
-      (let [group-map (dfn/arggroup-by-int :identity @global->local*)]
-        (reify IndexingSystem$Backward
-          (localToGlobal [item local-idx]
-            (when-let [retval (get group-map (long local-idx))]
-              (dtype/->reader retval :int64)))))
-      (let [group-map (dfn/arggroup-by :identity (->global->local dims))]
-        (reify IndexingSystem$Backward
-          (localToGlobal [item local-idx]
-            (when-let [retval (get group-map (long local-idx))]
-              (dtype/->reader retval :int64))))))))
+  (let [dims-ecount (ecount dims)]
+    (if (:direct? dims)
+      (reify LongReader
+        (lsize [rdr] dims-ecount)
+        (readLong [item local-idx] local-idx))
+      ;;TODO - rebuild faster and less memory intensive paths for this.
+      ;;This will just make the problem go away and allows rapid indexing.
+      (if (< (dtype/ecount dims)
+             Integer/MAX_VALUE)
+        (let [group-map (dfn/arggroup @global->local*)]
+          (reify IndexingSystem$Backward
+            (localToGlobal [item local-idx]
+              (when-let [retval (get group-map (long local-idx))]
+                (dtype/->reader retval :int64)))))
+        (let [group-map (dfn/arggroup-by :identity (->global->local dims))]
+          (reify ObjectReader
+            (localToGlobal [item local-idx]
+              (when-let [retval (get group-map (long local-idx))]
+                (dtype/->reader retval :int64)))))))))
 
 
 (defn create-dimension-transforms [dims]
