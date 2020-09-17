@@ -15,7 +15,9 @@
     (or (instance? PToReader arg)
         (instance? RandomAccess arg)
         (dtype-proto/convertible-to-reader? arg))
-    :reader
+    (if (= 1 (count (dtype-proto/shape arg)))
+      :reader
+      :tensor)
     (instance? Iterable arg)
     :iterable
     :else

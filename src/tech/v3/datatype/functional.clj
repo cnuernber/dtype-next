@@ -41,31 +41,23 @@
 
 
 (defn unary-operator
-  ^UnaryOperator [op-kwd]
-  (if-let [retval (get unary-op/builtin-ops op-kwd)]
-    retval
-    (errors/throwf "Unrecognized unary operator: %s" op-kwd)))
+  ^UnaryOperator [op]
+  (unary-op/->operator op))
 
 
 (defn binary-operator
-  ^BinaryOperator [op-kwd]
-  (if-let [retval (get binary-op/builtin-ops op-kwd)]
-    retval
-    (errors/throwf "Unrecognized binary operator: %s" op-kwd)))
+  ^BinaryOperator [op]
+  (binary-op/->operator op))
 
 
 (defn unary-predicate
-  ^UnaryPredicate [op-kwd]
-  (if-let [retval (get unary-pred/builtin-ops op-kwd)]
-    retval
-    (errors/throwf "Unrecognized unary predicate: %s" op-kwd)))
+  ^UnaryPredicate [op]
+  (unary-pred/->predicate op))
 
 
 (defn binary-predicate
-  ^BinaryPredicate [op-kwd]
-  (if-let [retval (get binary-pred/builtin-ops op-kwd)]
-    retval
-    (errors/throwf "Unrecognized binary predicate: %s" op-kwd)))
+  ^BinaryPredicate [op]
+  (binary-pred/->predicate op))
 
 
 (defmacro ^:private implement-arithmetic-operations

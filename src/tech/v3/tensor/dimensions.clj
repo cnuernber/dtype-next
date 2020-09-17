@@ -354,11 +354,15 @@ tensor : int32, dense vector only.  Not supported by all backends.
 ;;Some examples
 https://cloojure.github.io/doc/core.matrix/clojure.core.matrix.html#var-select"
   [dims & args]
-  (let [data-shp (shape dims)]
-    (errors/when-not-errorf (= (count data-shp)
-                               (count args))
-                            "arg count (%d) must match shape count (%d)"
-                            (count args) (count data-shp))
+  (let [data-shp (shape dims)
+        data-count (count data-shp)
+        arg-count (count args)
+        _ (errors/when-not-errorf (> data-count arg-count)
+                                  "arg count (%d) cannot be greater than shape count (%d)"
+                                  arg-count data-count)
+        args (->> (concat args (repeat :all))
+                  (take (count data-shp)))]
+
     (let [{shape :shape
            strides :strides
            offset :offset}

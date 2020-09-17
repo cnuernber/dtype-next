@@ -5,7 +5,6 @@
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.protocols :as dtype-proto]
-            [tech.v3.datatype.unary-op :as unary]
             [tech.v3.datatype.pprint :as dtype-pprint])
   (:import [java.lang StringBuilder]
            [java.io Writer]
@@ -26,9 +25,9 @@
       (let [n-cols (last item-shape)]
         (->> (range n-cols)
              (mapv (fn [col-idx]
-                     (->> (.select ^PrimitiveNDIO m
-                                   (concat (repeat (dec n-dims) :all)
-                                           [col-idx]))
+                     (->> (dtype-proto/select m
+                                              (concat (repeat (dec n-dims) :all)
+                                                      [col-idx]))
                           dtype/->reader
                           (map #(.length ^String %))
                           (apply max))))))
@@ -65,7 +64,7 @@
 (defn- rprint
   "Recursively joins each element with a leading line break and whitespace. If there are
   no elements left in the matrix it ends with a closing bracket."
-  [^StringBuilder sb ^PrimitiveNDIO tens prefix column-lengths elipsis-vec]
+  [^StringBuilder sb tens prefix column-lengths elipsis-vec]
   (let [tens-shape (dtype/shape tens)
         prefix (str prefix " ")
         n-dims (count tens-shape)
@@ -79,7 +78,7 @@
           (when (> i 0)
             (.append sb NL)
             (.append sb prefix))
-          (rprint sb (.ndReadObject tens i)
+          (rprint sb (tens i)
                   prefix column-lengths (rest elipsis-vec))
           (when (and elipsis?
                      (= (inc i) (quot n-dim-items 2)))
@@ -120,8 +119,8 @@
   representation."
   ([tens]
     (base-tensor->string tens nil))
-  ([^PrimitiveNDIO tens {:keys [prefix formatter]}]
-   (if (.allowsRead tens)
+  ([tens {:keys [prefix formatter]}]
+   (if (.allowsRead ^PrimitiveNDIO tens)
      (let [formatter (or formatter dtype-pprint/format-object)]
        (if (number? tens)
          (formatter tens)
@@ -131,7 +130,7 @@
                ;;We scan the shape to see if we are over an element-count threashold.
                ;;If we are, then we reshape the tensor keeping track of which
                ;;dimensions got reshaped and thus need an elipsis.
-               item-shape (.shape tens)
+               item-shape (dtype/shape tens)
                elipsis-vec (shape->elipsis-vec item-shape)
                tens (->> (map (fn [dim elipsis?]
                                 (if elipsis?
@@ -140,10 +139,10 @@
                                                  dim))
                                   :all))
                               item-shape elipsis-vec)
-                         (.select tens))
+                         (dtype-proto/select tens))
                ;;Format all entries in our reshaped tens.
                tens (->> (packing/unpack tens)
-                         (unary/reader formatter :string))
+                         (dtype/emap formatter :string))
                prefix (or prefix "")
                sb (StringBuilder.)
                column-lengths (column-lengths tens)]
@@ -153,8 +152,8 @@
 
 
 (defn tensor->string
-  ^String [^PrimitiveNDIO tens]
+  ^String [tens]
   (format "#tech.v3.tensor<%s>%s\n%s"
-          (name (dtype/get-datatype tens))
+          (name (dtype/elemwise-datatype tens))
           (dtype/shape tens)
           (base-tensor->string tens)))

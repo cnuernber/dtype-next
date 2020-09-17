@@ -1,5 +1,7 @@
 (ns tech.v3.datatype
-  (:require [tech.v3.datatype.array-buffer]
+  (:require [tech.v3.datatype.dispatch :as dispatch]
+            [tech.v3.datatype.errors :as errors]
+            [tech.v3.datatype.array-buffer]
             [tech.v3.datatype.native-buffer]
             [tech.v3.datatype.list]
             [tech.v3.datatype.casting :as casting]
@@ -10,12 +12,18 @@
             [tech.v3.datatype.functional]
             [tech.v3.datatype.copy-raw-to-item]
             [tech.v3.datatype.primitive]
+            [tech.v3.datatype.argtypes :as argtypes]
             [tech.v3.datatype.nio-buffer]
             [tech.v3.datatype.io-indexed-buffer :as io-idx-buf]
+            [tech.v3.datatype.unary-op :as unary-op]
+            [tech.v3.datatype.unary-pred :as unary-pred]
+            [tech.v3.datatype.binary-op :as binary-op]
+            [tech.v3.datatype.binary-pred :as binary-pred]
             [tech.v3.datatype.export-symbols :refer [export-symbols]])
   (:import [tech.v3.datatype.array_buffer ArrayBuffer]
            [tech.v3.datatype ListPersistentVector BooleanReader
-            LongReader DoubleReader ObjectReader])
+            LongReader DoubleReader ObjectReader]
+           [java.util List])
   (:refer-clojure :exclude [cast]))
 
 
@@ -136,6 +144,73 @@ user> (dtype/get-datatype *1)
 
 (export-symbols tech.v3.datatype.const-reader
                 const-reader)
+
+
+(defn- emap-reader
+  [map-fn res-dtype shapes args]
+  (let [n-elems (long (apply * (first shapes)))
+        ^List args (mapv #(dispatch/scalar->reader % n-elems) args)
+        argcount (.size args)]
+    (if (= res-dtype :boolean)
+      (case argcount
+        1 (unary-pred/reader map-fn (.get args 0))
+        2 (binary-pred/reader map-fn (.get args 0) (.get args 1))
+        (reify BooleanReader
+          (lsize [rdr] n-elems)
+          (readBoolean [rdr idx] (boolean (apply map-fn
+                                                 (map #(% idx) args))))))
+      (case argcount
+        1 (unary-op/reader map-fn res-dtype (.get args 0))
+        2 (binary-op/reader map-fn res-dtype (.get args 0) (.get args 1))
+        (cond
+          (casting/integer-type? res-dtype)
+          (reify LongReader
+            (lsize [rdr] n-elems)
+            (readLong [rdr idx]
+              (long (apply map-fn (map #(% idx) args)))))
+          (casting/float-type? res-dtype)
+          (reify DoubleReader
+            (lsize [rdr] n-elems)
+            (readDouble [rdr idx]
+              (double (apply map-fn (map #(% idx) args)))))
+          :else
+          (reify ObjectReader
+            (lsize [rdr] n-elems)
+            (readObject [rdr idx]
+              (apply map-fn (map #(% idx) args)))))))))
+
+
+(defn emap
+  "Elemwise map
+  1. If input are all scalars, results in a scalar.
+  2. If any inputs are iterables, results in an iterable.
+  3. Either a reader or a tensor is returned.  All input shapes
+  have to match.
+  res-dtype is nil it is deduced from unifying the argument datatypes"
+  [map-fn res-dtype & args]
+  (let [res-dtype (or res-dtype
+                      (reduce casting/widest-datatype
+                              (map elemwise-datatype args)))
+        input-types (set (map argtypes/arg-type args))]
+    (cond
+      (= input-types #{:scalar})
+      (apply map-fn args)
+      (input-types :iterable)
+      (apply dispatch/typed-map map-fn res-dtype args)
+      :else
+      (let [shapes (->> args
+                        (map
+                         #(when (dispatch/reader-like? (argtypes/arg-type %))
+                            (shape %)))
+                        (remove nil?))]
+        (errors/when-not-errorf
+         (apply = shapes)
+         "emap - shapes don't match: %s"
+         (vec shapes))
+        (cond-> (emap-reader map-fn res-dtype shapes args)
+          (input-types :tensor)
+          (dtype-proto/reshape (first shapes)))))))
+
 
 (export-symbols tech.v3.datatype.copy-make-container
                 make-container

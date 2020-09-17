@@ -1,5 +1,6 @@
 (ns tech.v3.datatype.dispatch
-  (:require [tech.v3.datatype.protocols :as dtype-proto]
+  (:require [tech.v3.datatype.errors :as errors]
+            [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.argtypes :refer [arg-type]]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.const-reader :refer [const-reader]])
@@ -53,7 +54,9 @@
            (if iterable-fn
              (iterable-fn res-dtype arg1)
              (typed-map-1 scalar-fn res-dtype arg1))
-           (reader-fn res-dtype arg1))))))
+           (cond-> (reader-fn res-dtype arg1)
+             (= arg1-type :tensor)
+             (dtype-proto/reshape (dtype-proto/shape arg1))))))))
   ([scalar-fn iterable-fn reader-fn arg1]
    (vectorized-dispatch-1 scalar-fn iterable-fn reader-fn nil arg1))
   ([scalar-fn reader-fn arg1]
@@ -80,11 +83,16 @@
     (dtype-proto/->reader item)))
 
 
-(defn ensure-reader
+(defn scalar->reader
   [item n-elems]
   (if (= :scalar (arg-type item))
     (const-reader item n-elems)
-    (dtype-proto/->reader item)))
+    item))
+
+
+(defn reader-like?
+  [argtype]
+  (or (= argtype :reader) (= argtype :tensor)))
 
 
 (defn vectorized-dispatch-2
@@ -113,12 +121,13 @@
              (if iterable-fn
                (iterable-fn res-dtype arg1 arg2)
                (typed-map-2 scalar-fn res-dtype arg1 arg2)))
-           (let [n-elems
+           (let [arg1-reader? (reader-like? arg1-type)
+                 arg2-reader? (reader-like? arg2-type)
+                 n-elems
                  ;;This is hairy because either the left or right operand may be
                  ;;a constant.
                  (long (cond
-                         (and (= :reader arg1-type)
-                              (= :reader arg2-type))
+                         (and arg1-reader? arg2-reader?)
                          (let [arg1-ne (dtype-proto/ecount arg1)
                                arg2-ne (dtype-proto/ecount arg2)]
                            (when-not (== arg1-ne arg2-ne)
@@ -126,12 +135,21 @@
                                      (format "lhs (%d), rhs (%d) n-elems mismatch"
                                              arg1-ne arg2-ne))))
                            arg1-ne)
-                         (= :reader arg1-type)
+                         arg1-reader?
                          (dtype-proto/ecount arg1)
                          :else
                          (dtype-proto/ecount arg2)))
-                 arg1 (ensure-reader arg1 n-elems)
-                 arg2 (ensure-reader arg2 n-elems)]
-             (reader-fn res-dtype arg1 arg2)))))))
+                 arg1-shape (when arg1-reader? (dtype-proto/shape arg1))
+                 arg2-shape (when arg2-reader? (dtype-proto/shape arg2))
+                 arg1 (scalar->reader arg1 n-elems)
+                 arg2 (scalar->reader arg2 n-elems)]
+             (when (and arg1-reader?
+                        arg2-reader?
+                        (not= arg1-shape arg2-shape))
+               (errors/throwf "Arg1 shape (%s) doesn't match arg2 shape (%s)"
+                              arg1-shape arg2-shape))
+             (cond-> (reader-fn res-dtype arg1 arg2)
+               (or (= :tensor arg1-type) (= :tensor arg2-type))
+               (dtype-proto/reshape (or arg1-shape arg2-shape)))))))))
   ([scalar-fn reader-fn arg1 arg2]
    (vectorized-dispatch-2 scalar-fn nil reader-fn nil arg1 arg2)))

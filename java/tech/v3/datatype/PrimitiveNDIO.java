@@ -56,10 +56,6 @@ public interface PrimitiveNDIO extends IOBase, Iterable, IFn,
   void ndWriteObject(long height, long width, long chan, Object value);
   Object ndWriteObjectIter(Iterable dims, Object value);
 
-  //This is here so that we can print implementations of this interface while
-  //eliding information.
-  PrimitiveNDIO select(Iterable args);
-
   default boolean allowsRead() { return true; }
   default boolean allowsWrite() { return false; }
   default Object elemwiseDatatype () { return Keyword.intern(null, "object"); }

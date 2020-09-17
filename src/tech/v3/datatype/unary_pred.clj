@@ -22,6 +22,9 @@
 (set! *unchecked-math* :warn-on-boxed)
 
 
+(declare keyword-predicate)
+
+
 (defn ifn->unary-predicate
   (^UnaryPredicate [ifn opname]
    (when-not (instance? IFn ifn)
@@ -41,6 +44,7 @@
   (^UnaryPredicate [item opname]
    (cond
      (instance? UnaryPredicate item) item
+     (keyword? item) (keyword-predicate item)
      (instance? IFn item) (ifn->unary-predicate item opname)
      (instance? DoublePredicate item)
      (let [^DoublePredicate item item]
