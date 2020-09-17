@@ -20,7 +20,7 @@
              :refer [when-not-error]
              :as errors])
   (:import [tech.v3.datatype PrimitiveIO PrimitiveList ObjectReader
-            LongReader]
+            LongReader LongNDReader]
            [java.util List Map]
            [clojure.lang IDeref]))
 
@@ -264,12 +264,12 @@
 
 
 (defn ->global->local
-  ^LongReader [dims]
+  ^LongNDReader [dims]
   @(:global->local dims))
 
 
 (defn ->local->global
-  ^IndexingSystem$Backward [dims]
+  ^PrimitiveIO [dims]
   @(:local->global dims))
 
 
@@ -286,18 +286,11 @@
         (readLong [item local-idx] local-idx))
       ;;TODO - rebuild faster and less memory intensive paths for this.
       ;;This will just make the problem go away and allows rapid indexing.
-      (if (< (dtype/ecount dims)
-             Integer/MAX_VALUE)
-        (let [group-map (dfn/arggroup @global->local*)]
-          (reify IndexingSystem$Backward
-            (localToGlobal [item local-idx]
-              (when-let [retval (get group-map (long local-idx))]
-                (dtype/->reader retval :int64)))))
-        (let [group-map (dfn/arggroup-by :identity (->global->local dims))]
-          (reify ObjectReader
-            (localToGlobal [item local-idx]
-              (when-let [retval (get group-map (long local-idx))]
-                (dtype/->reader retval :int64)))))))))
+      (let [group-map (dfn/arggroup @global->local*)]
+        (reify ObjectReader
+          (lsize [rdr] (long (count group-map)))
+          (readObject [item local-idx]
+            (get group-map local-idx)))))))
 
 
 (defn create-dimension-transforms [dims]
@@ -315,14 +308,11 @@
   and dense vs non-dense dimensions."
   [existing-dims shape]
   (let [new-dims (dimensions shape)]
-    (when-not-error (<= (ecount new-dims)
-                        (ecount existing-dims))
-      "Reshaped dimensions are larger than tensor"
-      {:tensor-ecount (ecount existing-dims)
-       :reshape-ecount (ecount new-dims)})
-    (if (:native? existing-dims)
-      new-dims
-      (throw (Exception. "Reshape on complex dimensions is unsupported")))))
+    (errors/when-not-errorf (<= (ecount new-dims)
+                                (ecount existing-dims))
+                            "Reshaped dimensions %s are larger than tensor %s"
+                            (ecount new-dims) (ecount existing-dims))
+    new-dims))
 
 
 (defn transpose
@@ -338,9 +328,7 @@
     :as dims} reorder-vec]
   (when-not-error (= (count (distinct reorder-vec))
                      (count shape))
-    "Every dimension must be represented in the reorder vector"
-    {:shape shape
-     :reorder-vec reorder-vec})
+    "Every dimension must be represented in the reorder vector")
   (let [shape (mapv #(.get shape (int %)) reorder-vec)
         strides (mapv #(.get strides (int %)) reorder-vec)
         shape-ecounts (mapv #(.get shape-ecounts (int %)) reorder-vec)
@@ -367,11 +355,10 @@ tensor : int32, dense vector only.  Not supported by all backends.
 https://cloojure.github.io/doc/core.matrix/clojure.core.matrix.html#var-select"
   [dims & args]
   (let [data-shp (shape dims)]
-    (when-not-error (= (count data-shp)
-                       (count args))
-      "arg count must match shape count"
-      {:shape data-shp
-       :args (vec args)})
+    (errors/when-not-errorf (= (count data-shp)
+                               (count args))
+                            "arg count (%d) must match shape count (%d)"
+                            (count args) (count data-shp))
     (let [{shape :shape
            strides :strides
            offset :offset}
@@ -476,35 +463,14 @@ https://cloojure.github.io/doc/core.matrix/clojure.core.matrix.html#var-select"
 
 (defn matrix-column-stride
   "Returns the larger of the 2 strides"
-  ^long [{:keys [shape strides] :as dims}]
-  (when-not-error (= 2 (count shape))
-    "Not a matrix" {:dimensions dims})
+  ^long [{:keys [shape strides]}]
+  (errors/when-not-errorf (= 2 (count shape))
+                          "Not a matrix: %s" shape)
   (apply max strides))
 
 
 (defn matrix-element-stride
-  ^long [{:keys [shape strides] :as dims}]
-  (when-not-error (= 2 (count shape))
-    "Not a matrix" {:dimensions dims})
+  ^long [{:keys [shape strides]}]
+  (errors/when-not-errorf (= 2 (count shape))
+                          "Not a matrix: %s" shape)
   (apply min strides))
-
-
-(defn contiguous-shape
-  "Starting from the right, return a sequence that counts the total number of contigous
-  elements see so far.  Used to decide if contiguous copy routines are worthwhile
-  or if just normal parallelized reader copy is fine."
-  [{:keys [shape strides]}]
-  (loop [rev-shape (reverse shape)
-         rev-strides (reverse strides)
-         start-elem 1
-         retval []]
-    (if (and (number? (first rev-shape))
-             (= (first rev-strides)
-                start-elem))
-      (let [n-elems (* (long (first rev-shape))
-                       (long (first rev-strides)))]
-        (recur (rest rev-shape)
-               (rest rev-strides)
-               n-elems
-               (conj retval n-elems)))
-      (seq (reverse retval)))))

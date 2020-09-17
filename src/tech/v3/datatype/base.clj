@@ -361,6 +361,10 @@
   (convertible-to-range? [buf] false)
   dtype-proto/PToBitmap
   (convertible-to-bitmap? [buf] false)
+  dtype-proto/PConstantTimeMinMax
+  (has-constant-time-min-max? [item] false)
+  dtype-proto/POperator
+  (op-name [item] :_unnamed)
   dtype-proto/PShape
   (shape [item]
     (cond

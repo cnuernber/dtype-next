@@ -298,6 +298,8 @@
 
 
 (export-symbols tech.v3.datatype.argops
+                argmin
+                argmax
                 argsort
                 argfilter
                 binary-argfilter

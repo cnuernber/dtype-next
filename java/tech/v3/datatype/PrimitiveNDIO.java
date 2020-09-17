@@ -15,11 +15,16 @@ public interface PrimitiveNDIO extends IOBase, Iterable, IFn,
 				       Sequential, Indexed,
 				       List, RandomAccess
 {
-  Iterable shape();
-  int rank(); //count of shape
-  //Outermost dimension
-  long outermostDim();
+  Object buffer();
+  Object dimensions();
 
+  LongNDReader indexSystem();
+  PrimitiveIO bufferIO();
+  default Iterable shape() { return indexSystem().shape(); }
+  //count of shape
+  default int rank() { return indexSystem().rank(); }
+  //Outermost dimension
+  default long outermostDim() { return indexSystem().outermostDim(); }
   //Scalar read methods have to be exact to the number of dimensions of the
   //tensor.
   boolean ndReadBoolean(long idx);
@@ -50,6 +55,10 @@ public interface PrimitiveNDIO extends IOBase, Iterable, IFn,
   void ndWriteObject(long row, long col, Object value);
   void ndWriteObject(long height, long width, long chan, Object value);
   Object ndWriteObjectIter(Iterable dims, Object value);
+
+  //This is here so that we can print implementations of this interface while
+  //eliding information.
+  PrimitiveNDIO select(Iterable args);
 
   default boolean allowsRead() { return true; }
   default boolean allowsWrite() { return false; }
@@ -134,6 +143,7 @@ public interface PrimitiveNDIO extends IOBase, Iterable, IFn,
     }
   }
   default int size() { return RT.intCast(outermostDim()); }
+  default Object get(int idx) { return ndReadObject(idx); }
   default boolean isEmpty() { return size() == 0; }
   default Object[] toArray() {
     int nElems = size();

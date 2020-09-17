@@ -33,4 +33,4 @@
 (defmacro when-not-errorf
   [expr error-msg & args]
   `(when-not ~expr
-     (throwf error-msg ~@args)))
+     (throwf ~error-msg ~@args)))

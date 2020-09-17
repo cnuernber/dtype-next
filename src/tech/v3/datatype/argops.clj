@@ -7,7 +7,8 @@
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.list :as dtype-list]
             [tech.v3.datatype.reductions :as reductions]
-            [tech.v3.datatype.errors :as errors])
+            [tech.v3.datatype.errors :as errors]
+            [primitive-math :as pmath])
   (:import [it.unimi.dsi.fastutil.bytes ByteArrays ByteComparator]
            [it.unimi.dsi.fastutil.shorts ShortArrays ShortComparator]
            [it.unimi.dsi.fastutil.ints IntArrays IntComparator]
@@ -27,7 +28,86 @@
 
 
 (set! *warn-on-reflection* true)
-(set! *unchecked-math* :warn-on-boxed)
+
+
+(defn argmax
+  ^long [rdr]
+  (let [rdr (dtype-base/->reader rdr)
+        n-elems (.lsize rdr)]
+    (cond
+      (casting/integer-type? (.elemwiseDatatype rdr))
+      (loop [idx 0
+             max-idx 0
+             max-val Long/MIN_VALUE]
+        (if (< idx n-elems)
+          (let [new-val (.readLong rdr idx)
+                new-max? (pmath/> new-val max-val)]
+            (recur (unchecked-inc idx)
+                   (if new-max? idx max-idx)
+                   (if new-max? new-val max-val)))
+          max-idx))
+      (casting/float-type? (.elemwiseDatatype rdr))
+      (loop [idx 0
+             max-idx 0
+             max-val (- Double/MAX_VALUE)]
+        (if (< idx n-elems)
+          (let [new-val (.readDouble rdr idx)
+                new-max? (pmath/> new-val max-val)]
+            (recur (unchecked-inc idx)
+                   (if new-max? idx max-idx)
+                   (if new-max? new-val max-val)))
+          max-idx))
+      :else
+      (loop [idx 0
+             max-idx 0
+             max-val (- Double/MAX_VALUE)]
+        (if (< idx n-elems)
+          (let [new-val (.readDouble rdr idx)
+                new-max? (> new-val max-val)]
+            (recur (unchecked-inc idx)
+                   (if new-max? idx max-idx)
+                   (if new-max? new-val max-val)))
+          max-idx)))))
+
+
+(defn argmin
+  ^long [rdr]
+  (let [rdr (dtype-base/->reader rdr)
+        n-elems (.lsize rdr)]
+    (cond
+      (casting/integer-type? (.elemwiseDatatype rdr))
+      (loop [idx 0
+             min-idx 0
+             min-val Long/MAX_VALUE]
+        (if (< idx n-elems)
+          (let [new-val (.readLong rdr idx)
+                new-min? (pmath/< new-val min-val)]
+            (recur (unchecked-inc idx)
+                   (if new-min? idx min-idx)
+                   (if new-min? new-val min-val)))
+          min-idx))
+      (casting/float-type? (.elemwiseDatatype rdr))
+      (loop [idx 0
+             min-idx 0
+             min-val Double/MAX_VALUE]
+        (if (< idx n-elems)
+          (let [new-val (.readDouble rdr idx)
+                new-min? (pmath/< new-val min-val)]
+            (recur (unchecked-inc idx)
+                   (if new-min? idx min-idx)
+                   (if new-min? new-val min-val)))
+          min-idx))
+      :else
+      (loop [idx 0
+             min-idx 0
+             min-val (- Double/MIN_VALUE)]
+        (if (< idx n-elems)
+          (let [new-val (.readDouble rdr idx)
+                new-min? (< new-val min-val)]
+            (recur (unchecked-inc idx)
+                   (if new-min? idx min-idx)
+                   (if new-min? new-val min-val)))
+          min-idx)))))
 
 
 (defn ->long-comparator

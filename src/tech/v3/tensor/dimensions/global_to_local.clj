@@ -27,7 +27,7 @@
 (defn elem-idx->addr-fn
   "High-dimension (>3) fallback.  Create a reader that can iterate
   through the dimension members."
-  [reduced-dims]
+  ^PrimitiveIO [reduced-dims]
   (let [^objects shape (object-array (:shape reduced-dims))
         ^longs strides (long-array (:strides reduced-dims))
         ^longs offsets (when-not (every? #(== 0 (long %)) (:offsets reduced-dims))
@@ -54,9 +54,9 @@
                     local-val (if (number? shape-val)
                                 (-> (pmath/rem idx (long shape-val))
                                     (pmath/* stride))
-                                (-> (.readLong ^LongReader shape-val
+                                (-> (.readLong ^PrimitiveIO shape-val
                                                (pmath/rem idx
-                                                          (.lsize ^LongReader shape-val)))
+                                                          (.lsize ^PrimitiveIO shape-val)))
                                     (pmath/* stride)))]
                 (recur (pmath/inc dim) (pmath/+ result local-val)))
               result))))
@@ -72,9 +72,9 @@
                     local-val (if (number? shape-val)
                                 (-> (pmath/rem idx (long shape-val))
                                     (pmath/* stride))
-                                (-> (.readLong ^LongReader shape-val
+                                (-> (.readLong ^PrimitiveIO shape-val
                                                (pmath/rem idx
-                                                          (.lsize ^LongReader shape-val)))
+                                                          (.lsize ^PrimitiveIO shape-val)))
                                     (pmath/* stride)))]
                 (recur (pmath/inc dim) (pmath/+ result local-val)))
               result)))))))
@@ -197,7 +197,7 @@
   [shape-entry]
   (if (number? shape-entry)
     (long shape-entry)
-    (dtype/->reader shape-entry :int64)))
+    (dtype/->reader shape-entry)))
 
 
 (defn reduced-dims->constructor-args
@@ -320,9 +320,9 @@
     (throw (Exception. (format "Invalid .read ast: %s" ast))))
   (let [[opname this-obj idx] ast]
     (.add instructions [:aload 0])
-    (.add instructions [:getfield :this (ensure-field! this-obj fields) LongReader])
+    (.add instructions [:getfield :this (ensure-field! this-obj fields) PrimitiveIO])
     (push-arg! idx fields instructions)
-    (.add instructions [:invokeinterface LongReader "read"])))
+    (.add instructions [:invokeinterface PrimitiveIO "readLong"])))
 
 
 (defmethod apply-ast-fn! '.lsize
@@ -331,8 +331,8 @@
     (throw (Exception. (format "Invalid .read ast: %s" ast))))
   (let [[opname this-obj] ast]
     (.add instructions [:aload 0])
-    (.add instructions [:getfield :this (ensure-field! this-obj fields) LongReader])
-    (.add instructions [:invokeinterface LongReader "lsize"])))
+    (.add instructions [:getfield :this (ensure-field! this-obj fields) PrimitiveIO])
+    (.add instructions [:invokeinterface PrimitiveIO "lsize"])))
 
 
 (defn eval-read-ast!
@@ -359,7 +359,7 @@
                      :type :long}
                     {:flags #{:public :final}
                      :name name
-                     :type LongReader})
+                     :type PrimitiveIO})
                   {:flags #{:public :final}
                    :name name
                    :type :long}))))
@@ -387,15 +387,15 @@
            [:aload carg-idx]
            [:ldc (int dim-idx)]
            [:aaload]
-           [:checkcast LongReader]
-           [:invokeinterface LongReader (clojure.core/name fn-name)]
+           [:checkcast PrimitiveIO]
+           [:invokeinterface PrimitiveIO (clojure.core/name fn-name)]
            [:putfield :this name :long]]
           [[:aload 0]
            [:aload carg-idx]
            [:ldc (int dim-idx)]
            [:aaload]
-           [:checkcast LongReader]
-           [:putfield :this name LongReader]])
+           [:checkcast PrimitiveIO]
+           [:putfield :this name PrimitiveIO]])
         [[:aload 0]
          [:aload carg-idx]
          [:ldc (int dim-idx)]
@@ -466,7 +466,7 @@
 
 (def ^ConcurrentHashMap defined-classes (ConcurrentHashMap.))
 (defn get-or-create-reader
-  (^LongReader [reduced-dims broadcast? force-default-reader?]
+  (^PrimitiveIO [reduced-dims broadcast? force-default-reader?]
    (let [n-dims (count (:shape reduced-dims))]
      (if (and (not force-default-reader?)
               (<= n-dims 4))
@@ -515,20 +515,20 @@
              constructor-args (reduced-dims->constructor-args reduced-dims)]
          (reader-constructor-fn constructor-args))
        (elem-idx->addr-fn reduced-dims))))
-  (^LongReader [reduced-dims]
+  (^PrimitiveIO [reduced-dims]
    (get-or-create-reader reduced-dims
                          (dims-analytics/are-reduced-dims-bcast? reduced-dims)
                          false)))
 
 
 (defn dims->global->local-reader
-  ^LongReader [dims]
+  ^PrimitiveIO [dims]
   (-> (dims-analytics/dims->reduced-dims dims)
       (get-or-create-reader)))
 
 
 (defn reduced-dims->global->local-reader
-  ^LongReader [reduced-dims]
+  ^PrimitiveIO [reduced-dims]
   (get-or-create-reader reduced-dims))
 
 
@@ -554,6 +554,7 @@
         rank n-dims
         outermostDim (long (first shape-ecounts))]
     (reify LongNDReader
+      (shape [rdr] shape-ecounts)
       (lsize [rdr] n-elems)
       (rank [rdr] rank)
       (outermostDim [rdr] outermostDim)
@@ -598,7 +599,8 @@
                        (if continue?
                          (do
                            (when-not (< idx rank)
-                             (errors/throw-index-out-of-boundsf "Dimension error. Tensor is %d dimensional" n-dims))
+                             (errors/throw-index-out-of-boundsf "Dimension error. Tensor is %d dimensional"
+                                                                n-dims))
                            (let [next-val (long (.next iter))]
                              (recur (.hasNext iter)
                                     (-> (* next-val (aget shape-ecount-strides idx))

@@ -3,6 +3,7 @@ package tech.v3.datatype;
 
 public interface LongNDReader extends LongReader
 {
+  Iterable shape();
   int rank();
   long outermostDim();
   long ndReadLong(long idx);

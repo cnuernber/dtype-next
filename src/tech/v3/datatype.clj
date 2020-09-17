@@ -133,6 +133,8 @@ user> (dtype/get-datatype *1)
 (export-symbols tech.v3.datatype.io-indexed-buffer
                 indexed-buffer)
 
+(export-symbols tech.v3.datatype.const-reader
+                const-reader)
 
 (export-symbols tech.v3.datatype.copy-make-container
                 make-container
