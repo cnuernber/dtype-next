@@ -229,3 +229,13 @@ and whose values are the indexes that produce those values in the reader."))
 (defmulti make-container
   (fn [container-type _datatype _options _elem-seq-or-count]
     container-type))
+
+
+(defprotocol PTensor
+  (reshape [t new-shape])
+  (select [t select-args])
+  (transpose [t reorder-vec])
+  (broadcast [t new-shape])
+  (rotate [t offset-vec])
+  (mget [t idx-seq])
+  (mset! [t idx-seq value]))

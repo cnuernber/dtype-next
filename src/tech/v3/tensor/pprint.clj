@@ -2,6 +2,7 @@
   "Nicely print out a tensor of any size."
   (:require [tech.v3.datatype.typecast :as typecast]
             [tech.v3.datatype :as dtype]
+            [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.unary-op :as unary]
@@ -47,14 +48,14 @@
 (defn- append-row
   "Appends a row of data."
   [^StringBuilder sb row column-lengths elipsis?]
-  (let [column-lengths (typecast/datatype->reader :int32 column-lengths)
-        row (typecast/datatype->reader :object row)
+  (let [column-lengths (dtype-base/->reader column-lengths)
+        row (dtype-base/->reader row)
         cc (dtype/ecount column-lengths)]
     (.append sb \[)
     (dotimes [i cc]
       ;; the first element doesn't have a leading ws.
       (when (> i 0) (.append sb \space))
-      (append-elem sb (.read row i) (.read column-lengths i))
+      (append-elem sb (.readObject row i) (.readLong column-lengths i))
       (when (and elipsis?
                  (= (inc i) (quot cc 2)))
         (.append sb " ...")))
@@ -64,7 +65,7 @@
 (defn- rprint
   "Recursively joins each element with a leading line break and whitespace. If there are
   no elements left in the matrix it ends with a closing bracket."
-  [^StringBuilder sb tens prefix column-lengths elipsis-vec]
+  [^StringBuilder sb ^PrimitiveNDIO tens prefix column-lengths elipsis-vec]
   (let [tens-shape (dtype/shape tens)
         prefix (str prefix " ")
         n-dims (count tens-shape)

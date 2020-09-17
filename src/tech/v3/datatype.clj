@@ -34,6 +34,7 @@
                 elemwise-datatype
                 elemwise-cast
                 ecount
+                shape
                 ->io
                 as-reader
                 ->reader
