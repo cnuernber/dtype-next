@@ -181,6 +181,8 @@
        ~(typecast/datatype->io-type (casting/safe-flatten datatype))
        (elemwiseDatatype [rdr#] ~advertised-datatype)
        (lsize [rdr#] ~n-elems)
+       (allowsRead [rdr#] true)
+       (allowsWrite [rdr#] true)
        ~@(cond
            (= datatype :boolean)
            [`(readBoolean [rdr# ~'idx]

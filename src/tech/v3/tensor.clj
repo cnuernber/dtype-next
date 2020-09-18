@@ -7,7 +7,8 @@
             [tech.v3.datatype.pprint :as dtype-pp]
             [tech.v3.tensor.pprint :as tens-pp]
             [tech.v3.tensor.dimensions :as dims]
-            [tech.v3.tensor.dimensions.shape :as dims-shape])
+            [tech.v3.tensor.dimensions.shape :as dims-shape]
+            [tech.v3.tensor.tensor-copy :as tens-cpy])
   (:import [tech.v3.datatype LongNDReader PrimitiveIO PrimitiveNDIO
             ObjectReader]
            [java.util List]))
@@ -321,3 +322,73 @@
      (== 1 (count idx-seq))
      "Generic mset on reader can only have 1 dimension")
     (dtype-base/set-value! t (first idx-seq) value)))
+
+
+(defn tensor-copy!
+  "Specialized copy with optimized pathways for when tensors have contiguous
+  data."
+  ([src dst options]
+   (tens-cpy/tensor-copy! src dst options))
+  ([src dst]
+   (tensor-copy! src dst nil)))
+
+
+(defn dimensions-dense?
+  [^PrimitiveNDIO tens]
+  (dims/dense? (.dimensions tens)))
+
+
+(defn rows
+  [^PrimitiveNDIO src]
+  (errors/when-not-error (== 2 (.rank src))
+    "Only square matricies have rows")
+  (dtype-base/slice src 1))
+
+
+(defn columns
+  [^PrimitiveNDIO src]
+  (errors/when-not-error (== 2 (.rank src))
+    "Only square matricies have rows")
+  (dtype-base/slice-right src 1))
+
+
+(defn ->jvm
+  "Conversion to storage that is efficient for the jvm.
+  Base storage is either jvm-array or persistent-vector."
+  [item & {:keys [datatype base-storage]
+           :or {base-storage :persistent-vector}}]
+  ;;Get the data off the device
+  (let [item-shape (dtype-base/shape item)
+        item-ecount (dtype-base/ecount item)
+        column-len (long (last item-shape))
+        n-columns (quot item-ecount column-len)
+        datatype (or datatype (dtype-base/elemwise-datatype item))
+        data-array (dtype-proto/->reader item)
+        base-data
+        (->> (range n-columns)
+             (map (fn [col-idx]
+                    (let [col-offset (* column-len (long col-idx))]
+                      (case base-storage
+                        :java-array
+                        (let [retval (->
+                                      (dtype-cmc/make-container datatype column-len)
+                                      (dtype-cmc/->array))]
+                          (dtype-cmc/copy! (dtype-base/sub-buffer
+                                            data-array col-offset column-len)
+                                           retval))
+                        :persistent-vector
+                        (->> (dtype-base/sub-buffer data-array col-offset column-len)
+                             (dtype-base/->reader)
+                             (vec)))))))
+        partitionv (fn [& args]
+                     (map vec (apply partition args)))
+        partition-shape (->> (rest item-shape)
+                             drop-last
+                             reverse)]
+    (if (> (count item-shape) 1)
+      (->> partition-shape
+           (reduce (fn [retval part-value]
+                     (partitionv part-value retval))
+                   base-data)
+           vec)
+      (first base-data))))

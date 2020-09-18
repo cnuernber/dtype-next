@@ -1,5 +1,5 @@
 (ns tech.v3.parallel.for
-  (:import [java.util.concurrent ForkJoinPool Callable Future]
+  (:import [java.util.concurrent ForkJoinPool Callable Future ForkJoinTask]
            [java.util ArrayDeque PriorityQueue Comparator Spliterator Iterator]
            [java.util.stream Stream]
            [java.util.function Consumer IntConsumer LongConsumer DoubleConsumer]
@@ -26,7 +26,8 @@ call this function exactly N times where N is ForkJoinPool/getCommonPoolParallel
   indexed-map-fn) are passed to reduce-fn; reduce-fn is called once.
   When called with 2 arguments the reduction function is dorun"
   ([^long num-iters indexed-map-fn reduce-fn max-batch-size]
-   (if (< num-iters (* 2 (ForkJoinPool/getCommonPoolParallelism)))
+   (if (or (< num-iters (* 2 (ForkJoinPool/getCommonPoolParallelism)))
+           (ForkJoinTask/inForkJoinPool))
      (reduce-fn [(indexed-map-fn 0 num-iters)])
      (let [num-iters (long num-iters)
            max-batch-size (long max-batch-size)
