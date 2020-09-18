@@ -231,12 +231,16 @@ and whose values are the indexes that produce those values in the reader."))
     container-type))
 
 
+(defprotocol PToTensor
+  (as-tensor [t]))
+
+
 (defprotocol PTensor
   (reshape [t new-shape])
   (select [t select-args])
   (transpose [t reorder-vec])
   (broadcast [t new-shape])
   (rotate [t offset-vec])
-  (slice [t n-dims right?])
+  (^List slice [t n-dims right?])
   (mget [t idx-seq])
   (mset! [t idx-seq value]))

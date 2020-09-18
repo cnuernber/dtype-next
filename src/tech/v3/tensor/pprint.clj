@@ -1,11 +1,11 @@
 (ns tech.v3.tensor.pprint
   "Nicely print out a tensor of any size."
   (:require [tech.v3.datatype.typecast :as typecast]
-            [tech.v3.datatype :as dtype]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.protocols :as dtype-proto]
-            [tech.v3.datatype.pprint :as dtype-pprint])
+            [tech.v3.datatype.pprint :as dtype-pprint]
+            [tech.v3.datatype.emap :as dtype-emap])
   (:import [java.lang StringBuilder]
            [java.io Writer]
            [tech.v3.datatype PrimitiveNDIO]))
@@ -19,7 +19,7 @@
 (defn- column-lengths
   "Finds the longest string length of each column in an array of Strings."
   [m]
-  (let [item-shape (dtype/shape m)
+  (let [item-shape (dtype-base/shape m)
         n-dims (count item-shape)]
     (if (> n-dims 1)
       (let [n-cols (last item-shape)]
@@ -28,10 +28,10 @@
                      (->> (dtype-proto/select m
                                               (concat (repeat (dec n-dims) :all)
                                                       [col-idx]))
-                          dtype/->reader
+                          dtype-base/->reader
                           (map #(.length ^String %))
                           (apply max))))))
-      (mapv #(.length ^String %) (dtype/->reader m)))))
+      (mapv #(.length ^String %) (dtype-base/->reader m)))))
 
 
 (defn- append-elem
@@ -49,7 +49,7 @@
   [^StringBuilder sb row column-lengths elipsis?]
   (let [column-lengths (dtype-base/->reader column-lengths)
         row (dtype-base/->reader row)
-        cc (dtype/ecount column-lengths)]
+        cc (dtype-base/ecount column-lengths)]
     (.append sb \[)
     (dotimes [i cc]
       ;; the first element doesn't have a leading ws.
@@ -65,7 +65,7 @@
   "Recursively joins each element with a leading line break and whitespace. If there are
   no elements left in the matrix it ends with a closing bracket."
   [^StringBuilder sb tens prefix column-lengths elipsis-vec]
-  (let [tens-shape (dtype/shape tens)
+  (let [tens-shape (dtype-base/shape tens)
         prefix (str prefix " ")
         n-dims (count tens-shape)
         elipsis? (first elipsis-vec)
@@ -130,7 +130,7 @@
                ;;We scan the shape to see if we are over an element-count threashold.
                ;;If we are, then we reshape the tensor keeping track of which
                ;;dimensions got reshaped and thus need an elipsis.
-               item-shape (dtype/shape tens)
+               item-shape (dtype-base/shape tens)
                elipsis-vec (shape->elipsis-vec item-shape)
                tens (->> (map (fn [dim elipsis?]
                                 (if elipsis?
@@ -142,7 +142,7 @@
                          (dtype-proto/select tens))
                ;;Format all entries in our reshaped tens.
                tens (->> (packing/unpack tens)
-                         (dtype/emap formatter :string))
+                         (dtype-emap/emap formatter :string))
                prefix (or prefix "")
                sb (StringBuilder.)
                column-lengths (column-lengths tens)]
@@ -154,6 +154,6 @@
 (defn tensor->string
   ^String [tens]
   (format "#tech.v3.tensor<%s>%s\n%s"
-          (name (dtype/elemwise-datatype tens))
-          (dtype/shape tens)
+          (name (dtype-base/elemwise-datatype tens))
+          (dtype-base/shape tens)
           (base-tensor->string tens)))

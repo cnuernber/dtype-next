@@ -554,7 +554,7 @@
         rank n-dims
         outermostDim (long (first shape-ecounts))]
     (reify LongNDReader
-      (shape [rdr] shape-ecounts)
+      (shape [rdr] (:shape-ecounts dims))
       (lsize [rdr] n-elems)
       (rank [rdr] rank)
       (outermostDim [rdr] outermostDim)

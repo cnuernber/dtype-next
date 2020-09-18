@@ -9,7 +9,8 @@
             [tech.v3.tensor.dimensions :as dims]
             [tech.v3.tensor.dimensions.shape :as dims-shape])
   (:import [tech.v3.datatype LongNDReader PrimitiveIO PrimitiveNDIO
-            ObjectReader]))
+            ObjectReader]
+           [java.util List]))
 
 
 (set! *warn-on-reflection* true)
@@ -31,7 +32,7 @@
   dtype-proto/PCountable
   (ecount [t] (dims/ecount dimensions))
   dtype-proto/PShape
-  (shape [t] (.shape t))
+  (shape [t] (.shape index-system))
   dtype-proto/PClone
   (clone [t]
     (tensor-copy! t
@@ -187,19 +188,19 @@
   (ndReadObject [t idx]
     (if (== 1 rank)
       (.readObject cached-io (.ndReadLong index-system idx))
-      (select t idx)))
+      (dtype-proto/select t [idx])))
   (ndReadObject [t row col]
     (if (== 2 rank)
       (.readObject cached-io (.ndReadLong index-system row col))
-      (select t row col)))
+      (dtype-proto/select t [row col])))
   (ndReadObject [t height width chan]
     (if (== 3 rank)
       (.readObject cached-io (.ndReadLong index-system height width chan))
-      (select t height width chan)))
+      (dtype-proto/select t [height width chan])))
   (ndReadObjectIter [t indexes]
     (if (== (count indexes) rank)
       (.readObject cached-io (.ndReadLongIter index-system indexes))
-      (apply select t indexes)))
+      (dtype-proto/select t indexes)))
   (ndWriteObject [t idx value]
     (if (== 1 rank)
       (.writeObject cached-io (.ndReadLong index-system idx) value)
@@ -216,12 +217,17 @@
   (ndWriteObjectIter [t indexes value]
     (if (== (count indexes) rank)
       (.writeObject cached-io (.ndReadLongIter index-system indexes) value)
-      (tensor-copy! value (apply select t indexes))))
+      (tensor-copy! value (dtype-proto/select t indexes))))
 
   (allowsRead [t] (.allowsRead cached-io))
   (allowsWrite [t] (.allowsWrite cached-io))
+  (iterator [t]
+    (.iterator (dtype-proto/slice t 1 false)))
   Object
   (toString [t] (tens-pp/tensor->string t)))
+
+
+(dtype-pp/implement-tostring-print Tensor)
 
 
 (defn construct-tensor
@@ -282,3 +288,36 @@
     (->tensor item)
     :else
     (errors/throwf "Item %s is not convertible to tensor" (type item))))
+
+
+;;Defaults for tensor protocols
+(extend-type Object
+  dtype-proto/PTensor
+  (reshape [t new-shape]
+    (-> (construct-tensor t (dims/dimensions [(dtype-base/ecount t)]))
+        (dtype-proto/reshape new-shape)))
+  (select [t select-args]
+    (-> (construct-tensor t [(dtype-base/ecount t)])
+        (dtype-proto/select select-args)))
+  (transpose [t reorder-vec]
+    (-> (construct-tensor t [(dtype-base/ecount t)])
+        (dtype-proto/transpose reorder-vec)))
+  (broadcast [t new-shape]
+    (-> (construct-tensor t [(dtype-base/ecount t)])
+        (dtype-proto/broadcast new-shape)))
+  (rotate [t offset-vec]
+    (-> (construct-tensor t [(dtype-base/ecount t)])
+        (dtype-proto/rotate offset-vec)))
+  (slice [t n-dims right?]
+    (-> (construct-tensor t [(dtype-base/ecount t)])
+        (dtype-proto/slice n-dims right?)))
+  (mget [t idx-seq]
+    (errors/when-not-error
+     (== 1 (count idx-seq))
+     "Generic mget on reader can only have 1 dimension")
+    (dtype-base/get-value t (first idx-seq)))
+  (mset! [t idx-seq value]
+    (errors/when-not-error
+     (== 1 (count idx-seq))
+     "Generic mset on reader can only have 1 dimension")
+    (dtype-base/set-value! t (first idx-seq) value)))

@@ -8,7 +8,7 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.parallel.for :as parallel-for])
   (:import [tech.v3.datatype PrimitiveReader PrimitiveWriter PrimitiveIO
-            ObjectIO ElemwiseDatatype ObjectReader]
+            ObjectIO ElemwiseDatatype ObjectReader PrimitiveNDIO]
            [tech.v3.datatype.array_buffer ArrayBuffer]
            [tech.v3.datatype.native_buffer NativeBuffer]
            [clojure.lang IPersistentCollection]
@@ -238,7 +238,7 @@
 (extend-type PrimitiveIO
   dtype-proto/PToPrimitiveIO
   (convertible-to-primitive-io? [buf] true)
-  (->io [item] item)
+  (->primitive-io [item] item)
   dtype-proto/PToReader
   (convertible-to-reader? [buf] true)
   (->reader [buf] buf)
@@ -397,3 +397,111 @@
                    (dtype-proto/shape (first item)))
            vec)
       [(.size item)])))
+
+
+(defn- check-ns
+  [namespace]
+  (errors/when-not-errorf
+   (find-ns namespace)
+   "Required namespace %s has not been required."))
+
+
+(defn reshape
+  "Reshape this item into a new shape.  For this to work, the tensora
+  namespace must be required.
+  Always returns a tensor."
+  [t new-shape]
+  (check-ns 'tech.v3.tensor)
+  (dtype-proto/reshape t new-shape))
+
+
+(defn select
+  "Reshape this item into a new shape.  For this to work, the tensora
+  namespace must be required.
+  Shape arguments may be readers, ranges, integers, or the keywords [:all :lla].
+  :all means take the entire dimension, :lla means reverse the dimension.
+  Arguments are applied left to right and any missing arguments are assumed to
+  be :all."
+  [t & new-shape]
+  (check-ns 'tech.v3.tensor)
+  (dtype-proto/select t new-shape))
+
+
+(defn transpose
+  "In-place transpose an n-d object into a new shape."
+  [t new-shape]
+  (check-ns 'tech.v3.tensor)
+  (dtype-proto/transpose t new-shape))
+
+
+(defn broadcast
+  "Broadcase an element into a new (larger) shape.  The new shape's dimension
+  must be even multiples of the old shape's dimensions.  Elements are repeated."
+  [t new-shape]
+  (check-ns 'tech.v3.tensor)
+  (dtype-proto/broadcast t new-shape))
+
+(defn rotate
+  "Rotate dimensions.  Offset-vec must have same count as the rank of t.  Elements of
+  that dimension are rotated by the amount specified in the offset vector with 0
+  indicating no rotation."
+  [t offset-vec]
+  (check-ns 'tech.v3.tensor)
+  (dtype-proto/rotate t offset-vec))
+
+(defn slice
+  "Slice off Y leftmost dimensions returning a reader of objects.
+  If all dimensions are sliced of then the reader reads actual elements,
+  else it reads subrect tensors."
+  ^List [t n-dims]
+  (check-ns 'tech.v3.tensor)
+  (dtype-proto/slice t n-dims false))
+
+(defn slice-right
+  "Slice off Y rightmost dimensions returning a reader of objects.
+  If all dimensions are sliced of then the reader reads actual elements,
+  else it reads subrect tensors."
+  ^List  [t n-dims]
+  (check-ns 'tech.v3.tensor)
+  (dtype-proto/slice t n-dims true))
+
+(defn mget
+  "Get an item from an ND object.  If fewer dimensions are
+  specified than exist then the return value is a new tensor as a select operation is
+  performed."
+  ([t x]
+   (check-ns 'tech.v3.tensor)
+   (if (instance? PrimitiveNDIO t)
+     (.ndReadObject ^PrimitiveNDIO t x)
+     (mget t [x])))
+  ([t x y]
+   (if (instance? PrimitiveNDIO t)
+     (.ndReadObject ^PrimitiveNDIO t x y)
+     (dtype-proto/mget t [x y])))
+  ([t x y z]
+   (if (instance? PrimitiveNDIO t)
+     (.ndReadObject ^PrimitiveNDIO t x y z)
+     (dtype-proto/mget t [x y z])))
+  ([t x y z & args]
+   (dtype-proto/mget t (concat [x y z] args))))
+
+(defn mset!
+  "Set value(s) on an ND object.  If fewer indexes are provided than dimension then a
+  tensor assignment is done and value is expected to be the same shape as the subrect of
+  the tensor as indexed by the provided dimensions.  Returns t."
+  ([t x value]
+   (check-ns 'tech.v3.tensor)
+   (if (instance? PrimitiveNDIO t)
+     (.ndWriteObject ^PrimitiveNDIO t x value)
+     (dtype-proto/mset! t [x] value)))
+  ([t x y value]
+   (if (instance? PrimitiveNDIO t)
+     (.ndWriteObject ^PrimitiveNDIO t x y value)
+     (dtype-proto/mset! t [x y] value)))
+  ([t x y z value]
+   (if (instance? PrimitiveNDIO t)
+     (.ndWriteObject ^PrimitiveNDIO t x y z value)
+     (dtype-proto/mset! t [x y z] value)))
+  ([t x y z w & args]
+   (let [value (last args)]
+     (dtype-proto/mset! t (concat [x y z w] (butlast args)) value))))

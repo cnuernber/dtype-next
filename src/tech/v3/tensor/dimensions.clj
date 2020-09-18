@@ -357,7 +357,7 @@ https://cloojure.github.io/doc/core.matrix/clojure.core.matrix.html#var-select"
   (let [data-shp (shape dims)
         data-count (count data-shp)
         arg-count (count args)
-        _ (errors/when-not-errorf (> data-count arg-count)
+        _ (errors/when-not-errorf (>= data-count arg-count)
                                   "arg count (%d) cannot be greater than shape count (%d)"
                                   arg-count data-count)
         args (->> (concat args (repeat :all))

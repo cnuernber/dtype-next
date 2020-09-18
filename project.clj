@@ -17,8 +17,7 @@
   :profiles {:dev
              {:dependencies [[criterium "0.4.5"]]}
              :uberjar
-             {:aot [tech.v3.datatype.main]
-              :main tech.v3.datatype.main
+             {:aot [tech.v3.tensor]
               :source-paths ["src" "native_test"]
               :jvm-opts ["-Dclojure.compiler.direct-linking=true"]
               :uberjar-name "dtype-next.jar"}})
