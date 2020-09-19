@@ -193,3 +193,9 @@ user> (dtype/get-datatype *1)
   (if-let [rdr (as-reader item)]
     (vec rdr)
     (vec item)))
+
+
+(defn as-buffer-descriptor
+  [src-item]
+  (when (dtype-proto/convertible-to-buffer-desc? src-item)
+    (dtype-proto/->buffer-descriptor src-item)))

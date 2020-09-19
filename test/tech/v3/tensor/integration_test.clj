@@ -2,7 +2,9 @@
   (:require [tech.v3.datatype :as dtype]
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.tensor :as dtt]
-            [clojure.test :refer :all]))
+            [tech.v3.tensor.tensor-copy :as tc]
+            [clojure.test :refer :all])
+  (:import [tech.v3.datatype PrimitiveNDIO]))
 
 
 (set! *unchecked-math* :warn-on-boxed)
@@ -34,7 +36,7 @@
 (deftest block-rows->tensor
   (let [block-rows (repeatedly 4 #(int-array (range 5)))
         tensor (dtt/new-tensor (dtype/shape block-rows)
-                                :datatype :int32)]
+                               :datatype :int32)]
     (dtype/copy-raw->item! block-rows tensor)
     (is (= [[0 1 2 3 4]
             [0 1 2 3 4]
@@ -60,20 +62,20 @@
                                  (dfn/+ 50)
                                  ;;Clamp top end to 0-255
                                  (dfn/min 255)
-                                 (dtype/copy! (dtype/clone source-image)))
+                                 (dtype/copy! (dtt/new-tensor [512 288 3]
+                                                              :datatype :uint8)))
 
         inline-fn #(as-> source-image dest-image
                      (dtype/select dest-image :all :all [2 1 0])
                      (dtype/emap (fn [^long x]
                                    (-> (+ x 50)
-                                       (min 255)
-                                       unchecked-short))
+                                       (min 255)))
                                  :int16
                                  dest-image)
                      (dtype/copy! dest-image
                                   ;;Note from-prototype fails for reader chains.
                                   ;;So you have to copy or use an actual image.
-                                  (dtype/clone source-image)))]
+                                  (dtt/new-tensor [512 288 3] :datatype :uint8)))]
     ;;warm up and actually check that tostring works as expected
     (is (string? (.toString ^Object (reader-composition))))
     (is (string? (.toString ^Object (inline-fn))))
@@ -95,9 +97,10 @@
     (let [new-tens (dtt/buffer-descriptor->tensor
                     (dtt/ensure-buffer-descriptor test-tensor))]
       (is (dfn/equals test-tensor new-tens))
-      (let [trans-tens (dtt/transpose new-tens [1 0])
+      (let [trans-tens (dtype/transpose new-tens [1 0])
             trans-desc (dtype/as-buffer-descriptor trans-tens)]
-        (is (= {:datatype :float64, :shape [3 3], :strides [8 24]}
+        (is (= {:datatype :float64, :endianness :little-endian
+                :shape [3 3], :strides [8 24]}
                (dissoc trans-desc :ptr)))))))
 
 
@@ -105,7 +108,7 @@
   []
   (let [test-dim 10
         test-tens (dtt/new-tensor [test-dim test-dim 4] :datatype :uint8)
-        reshape-tens (dtt/reshape test-tens [(* test-dim test-dim) 4])
+        reshape-tens (dtype/reshape test-tens [(* test-dim test-dim) 4])
         test-indexes [35 69 83 58 57 13 64 68 48 55 20 33 2 36
                       21 17 88 94 91 85]
         idx-tens (dtype/select reshape-tens (long-array test-indexes) :all)
@@ -135,7 +138,7 @@
 
 
 (deftest simple-clone
-  (let [src-tens (dtt/reshape (range (* 1 128 256)) [1 128 256])
+  (let [src-tens (dtype/reshape (range (* 1 128 256)) [1 128 256])
         sel-tens (dtype/select src-tens 0 (range 3) (range 3))]
     (is (= [[0 1 2] [256 257 258] [512 513 514]]
            (-> sel-tens
@@ -149,54 +152,3 @@
                                       [0.0 0.2 0.4 0.6 0.8 1.0]])
                   (dtt/->tensor [[0.0 0.2 0.4 0.6 0.8 1.0]
                                  [0.0 0.2 0.4 0.6 0.8 1.0]]))))
-
-
-(defn strided-tensor-copy-time-test
-  []
-  (let [src-tens (-> (dtt/new-tensor [2048 2048 4] :datatype :uint8)
-                     (dtype/select (range 256 (* 2 256))
-                                  (range 256 (* 2 256))
-                                  :all))
-        dst-tens (dtt/new-tensor [256 256 4] :datatype :uint8)]
-    ;; (dtype/copy! src-tens dst-tens)
-    (dtype/copy! src-tens dst-tens)))
-
-
-(defn strided-tensor-bit-blit-test
-  []
-  (let [src-tens (-> (dtt/new-tensor [2048 2048 4] :datatype :uint8)
-                     (dtype/select (range 256 (* 2 256))
-                                 (range 256 (* 2 256))
-                                 :all))
-        dst-tens (dtt/new-tensor [256 256 4] :datatype :uint8)]
-    ;; (dtype/copy! src-tens dst-tens)
-    (assert (= :ok (tc/bit-blit! src-tens dst-tens {})))))
-
-
-(defn read-time-test
-  []
-  (let [src-tens (dtt/new-tensor [2048 2048 4] :datatype :uint8)]
-    (let [src-tens (dtype/select src-tens (range 256 (* 2 256))
-                               (range 256 (* 2 256))
-                               :all)
-          reader (typecast/datatype->reader :int8 src-tens true)
-          r-ecount (dtype/ecount reader)]
-      (dotimes [idx r-ecount]
-        (.read reader idx)))))
-
-
-(defn typed-buffer-read-time-test
-  []
-  (let [n-elems (* 256 256 4)
-        buffer (dtype/make-container :typed-buffer :uint8 n-elems)]
-    (time
-     (dotimes [iter 1000]
-       (let [reader (typecast/datatype->reader :int8 buffer true)
-             r-ecount (dtype/ecount reader)]
-         (dotimes [idx r-ecount]
-           (.read reader idx)))))))
-
-
-(comment
-  (strided-tensor-copy-time-test)
-  )

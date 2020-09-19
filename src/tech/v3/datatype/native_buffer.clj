@@ -421,10 +421,12 @@
     (resource/track new-buf #(constantly old-buf) :gc)
     new-buf))
 
+
 (defn- validate-endianness
   [endianness]
   (when-not (#{:little-endian :big-endian} endianness)
-    (throw (Exception. (format "Unrecognized endianness: %s" endianness)))))
+    (throw (Exception. (format "Unrecognized endianness: %s" endianness))))
+  endianness)
 
 
 (defn as-native-buffer

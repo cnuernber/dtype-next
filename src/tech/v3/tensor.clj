@@ -1,16 +1,21 @@
 (ns tech.v3.tensor
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.errors :as errors]
+            [tech.v3.datatype.casting :as casting]
+            [tech.v3.datatype.native-buffer :as native-buffer]
             [tech.v3.datatype.io-indexed-buffer :as indexed-buffer]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.pprint :as dtype-pp]
+            [tech.v3.datatype.argops :as argops]
             [tech.v3.tensor.pprint :as tens-pp]
             [tech.v3.tensor.dimensions :as dims]
             [tech.v3.tensor.dimensions.shape :as dims-shape]
-            [tech.v3.tensor.tensor-copy :as tens-cpy])
+            [tech.v3.tensor.tensor-copy :as tens-cpy]
+            [tech.resource :as resource])
   (:import [tech.v3.datatype LongNDReader PrimitiveIO PrimitiveNDIO
             ObjectReader]
+           [tech.v3.datatype.native_buffer NativeBuffer]
            [java.util List]))
 
 
@@ -41,6 +46,24 @@
                    (dtype-cmc/make-container (dtype-proto/elemwise-datatype t)
                                              (dtype-base/ecount t))
                    (dims/dimensions (dtype-proto/shape t)))))
+
+  dtype-proto/PToBufferDesc
+  (convertible-to-buffer-desc? [item]
+    (and (dtype-proto/convertible-to-native-buffer? buffer)
+         (dims/direct? dimensions)))
+  (->buffer-descriptor [item]
+    (let [nbuf (dtype-base/->native-buffer buffer)]
+      (println (.endianness nbuf))
+      (->
+       {:ptr (.address nbuf)
+        :datatype (dtype-base/elemwise-datatype buffer)
+        :endianness (dtype-proto/endianness nbuf)
+        :shape (dtype-base/shape item)
+        :strides (mapv (partial * (casting/numeric-byte-width
+                                   (dtype-base/elemwise-datatype buffer)))
+                       (:strides dimensions))}
+       ;;Link the descriptor itself to the native buffer in the gc
+       (resource/track (constantly nbuf) :gc))))
   dtype-proto/PToPrimitiveIO
   (convertible-to-primitive-io? [t] true)
   (->primitive-io [t]
@@ -286,7 +309,7 @@
     (instance? PrimitiveNDIO item)
     item
     (dtype-proto/convertible-to-reader? item)
-    (->tensor item)
+    (construct-tensor item (dims/dimensions (dtype-base/shape item)))
     :else
     (errors/throwf "Item %s is not convertible to tensor" (type item))))
 
@@ -340,16 +363,26 @@
 
 (defn rows
   [^PrimitiveNDIO src]
-  (errors/when-not-error (== 2 (.rank src))
-    "Only square matricies have rows")
+  (errors/when-not-error (>= (.rank src) 2)
+    "Tensor has too few dimensions")
   (dtype-base/slice src 1))
 
 
 (defn columns
   [^PrimitiveNDIO src]
-  (errors/when-not-error (== 2 (.rank src))
-    "Only square matricies have rows")
-  (dtype-base/slice-right src 1))
+  (errors/when-not-error (>= (.rank src) 2)
+    "Tensor has too few dimensions")
+  (dtype-base/slice-right src (dec (.rank src))))
+
+
+(defn clone
+  [tens & {:keys [datatype
+                  container-type]}]
+  (let [datatype (or datatype (dtype-base/elemwise-datatype tens))
+        container-type (or container-type :jvm-heap)]
+    (dtype-cmc/copy! tens (new-tensor (dtype-base/shape tens)
+                                      :datatype datatype
+                                      :container-type container-type))))
 
 
 (defn ->jvm
@@ -392,3 +425,38 @@
                    base-data)
            vec)
       (first base-data))))
+
+
+(defn ensure-buffer-descriptor
+  "Get a buffer descriptor from the tensor.  This may copy the data.  If you want to
+  ensure sharing, use the protocol ->buffer-descriptor function."
+  [tens]
+  (let [tens (ensure-tensor tens)]
+    (if (dtype-proto/convertible-to-buffer-desc? tens)
+      (dtype-proto/->buffer-descriptor tens)
+      (-> (clone tens :container-type :native-heap)
+          dtype-proto/->buffer-descriptor))))
+
+
+(defn buffer-descriptor->tensor
+  "Given a buffer descriptor, produce a tensor"
+  [{:keys [ptr datatype shape strides] :as desc}]
+  (when (or (not ptr)
+            (= 0 (long ptr)))
+    (throw (ex-info "Cannot create tensor from nil pointer."
+                    {:ptr ptr})))
+  (let [dtype-size (casting/numeric-byte-width datatype)]
+    (when-not (every? #(= 0 (rem (long %)
+                                 dtype-size))
+                      strides)
+      (throw (ex-info "Strides are not commensurate with datatype size." {})))
+    (let [max-stride-idx (argops/argmax strides)
+          buffer-len (* (long (dtype-base/get-value shape max-stride-idx))
+                        (long (dtype-base/get-value strides max-stride-idx)))
+          ;;Move strides into elem-count instead of byte-count
+          strides (mapv #(quot (long %) dtype-size)
+                        strides)]
+      (-> (native-buffer/wrap-address ptr buffer-len datatype
+                                      (dtype-proto/platform-endianness)
+                                      desc)
+          (construct-tensor (dims/dimensions shape strides))))))

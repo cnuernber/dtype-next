@@ -69,7 +69,7 @@
          (lsize [rdr] n-elems)
          (readDouble [rdr idx] (.binaryDouble binop
                                               (.readDouble lhs idx)
-                                              (.readLong rhs idx))))
+                                              (.readDouble rhs idx))))
        :else
        (reify ObjectReader
          (elemwiseDatatype [rdr] res-dtype)

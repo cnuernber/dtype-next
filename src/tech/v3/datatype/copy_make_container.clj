@@ -66,6 +66,7 @@
     native-buf))
 
 
+
 (defmethod dtype-proto/make-container :native-heap-LE
   [container-type datatype options elem-seq-or-count]
   (dtype-proto/make-container :native-heap datatype
@@ -77,6 +78,13 @@
   [container-type datatype options elem-seq-or-count]
   (dtype-proto/make-container :native-heap datatype
                               (assoc options :endianness :big-endian)
+                              elem-seq-or-count))
+
+
+(defmethod dtype-proto/make-container :native-buffer
+  [container-type datatype options elem-seq-or-count]
+  (dtype-proto/make-container :native-heap datatype
+                              nil
                               elem-seq-or-count))
 
 

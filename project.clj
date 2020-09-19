@@ -15,7 +15,9 @@
                  [techascent/tech.resource       "4.6"]]
   :java-source-paths ["java"]
   :profiles {:dev
-             {:dependencies [[criterium "0.4.5"]]}
+             {:dependencies [[criterium "0.4.5"]
+                             [uncomplicate/neanderthal "0.35.0"]]
+              :test-paths ["neanderthal" "test"]}
              :uberjar
              {:aot [tech.v3.tensor]
               :source-paths ["src" "native_test"]

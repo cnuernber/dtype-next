@@ -259,14 +259,19 @@
 
 (declare shape)
 
+(defn array?
+  [item]
+  (when item
+    (let [cls (.getClass ^Object item)]
+      (.isArray cls))))
+
 
 (defn scalar?
   [item]
   (or (number? item)
       (string? item)
       (and
-       (not (when (instance? Class (type item))
-              (.isArray ^Class (type item))))
+       (not (array? item))
        (not (iterable? item))
        (not (reader? item)))))
 
@@ -303,7 +308,7 @@
   (->primitive-io [buf]
     (if-let [buf-data (as-buffer buf)]
       (dtype-proto/->primitive-io buf-data)
-      (if (.isArray (.getClass ^Object buf))
+      (if (array? buf)
         (dtype-proto/->primitive-io (array-buffer/array-buffer buf))
         (errors/throwf "Buffer type %s is not convertible to primitive-io"
                        (type buf)))))
@@ -370,8 +375,7 @@
     (cond
       (scalar? item)
       nil
-      (and (instance? Class (type item))
-           (.isArray ^Class (type item)))
+      (array? item)
       (let [n-elems (count item)]
         (-> (concat [n-elems]
                     (when (> n-elems 0)
@@ -392,11 +396,13 @@
 (extend-type List
   dtype-proto/PShape
   (shape [item]
-    (if (sequential? (first item))
-      (->> (concat [(.size item)]
-                   (dtype-proto/shape (first item)))
-           vec)
-      [(.size item)])))
+    (let [fitem (first item)]
+      (if (or (reader? fitem)
+              (sequential? fitem))
+        (->> (concat [(.size item)]
+                     (dtype-proto/shape fitem))
+             vec)
+        [(.size item)]))))
 
 
 (defn- check-ns
