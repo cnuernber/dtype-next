@@ -16,7 +16,8 @@
   :java-source-paths ["java"]
   :profiles {:dev
              {:dependencies [[criterium "0.4.5"]
-                             [uncomplicate/neanderthal "0.35.0"]]
+                             [uncomplicate/neanderthal "0.35.0"]
+                             [ch.qos.logback/logback-classic "1.1.3"]]
               :test-paths ["neanderthal" "test"]}
              :uberjar
              {:aot [tech.v3.tensor]

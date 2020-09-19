@@ -4,13 +4,17 @@
             [tech.v3.tensor :as dtt]
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.functional :as dfn]
+            [tech.v3.datatype.unary-pred :as unary-pred]
             [tech.v3.datatype.unary-op :as unary-op]
             [clojure.edn :as edn]
             [tech.v3.parallel.for :as pfor]
             [tech.libs.buffered-image :as bufimg])
   (:import [java.awt.image BufferedImage]
-           [tech.v3.datatype PrimitiveIO]
+           [tech.v3.datatype PrimitiveIO PrimitiveNDIO]
            [clojure.lang IFn]))
+
+(set! *warn-on-reflection* true)
+(set! *unchecked-math* :warn-on-boxed)
 
 
 (def gradient-map (delay (-> (io/resource "gradients.edn")
@@ -39,9 +43,7 @@
                             (format "Failed to find gradient %s"
                                     gradient-name))))
                 gradient-tens @gradient-tens]
-            (dtt/select gradient-tens
-                        (:tensor-index src-gradient-info)
-                        :all :all))
+            (dtype/select gradient-tens (:tensor-index src-gradient-info)))
           (dtt/tensor? gradient-name)
           gradient-name
           (instance? IFn gradient-name)
@@ -61,11 +63,12 @@ function returned: %s"
     ;;Gradients are accessed potentially many many times so reversing it here
     ;;is often wise as opposed to inline reversing in the main loops.
     (-> (if invert-gradient?
-          (-> (dtt/select gradient-line (range (dec n-pixels) -1 -1)
-                          :all)
-              (dtype/copy! (dtt/reshape (dtype/make-container :typed-buffer :uint8
-                                                              (dtype/ecount gradient-line))
-                                        [n-pixels 3])))
+          (-> (dtype/select gradient-line (range (dec n-pixels) -1 -1)
+                            :all)
+              (dtype/copy! (dtype/reshape
+                            (dtype/make-container :uint8
+                                                  (dtype/ecount gradient-line))
+                            [n-pixels 3])))
           gradient-line)
         (dtt/ensure-tensor))))
 
@@ -116,16 +119,17 @@ function returned: %s"
           ;;invalid data in the main loops below and this is faster than
           ;;pre-checking and indexing.
           (let [valid-indexes (when check-invalid?
-                                (dfn/argfilter dfn/valid?
-                                               (dtype/->reader src-tens
-                                                               :float64)))
-               src-reader (if (and valid-indexes
-                                        (not= (dtype/ecount valid-indexes)
-                                              (dtype/ecount src-tens)))
-                            (dtype/indexed-reader valid-indexes src-tens)
+                                (dfn/argfilter (:finite? unary-pred/builtin-ops)
+                                               src-tens))
+                valid-indexes (when (and valid-indexes
+                                         (not= (dtype/ecount valid-indexes)
+                                               (dtype/ecount src-tens)))
+                                valid-indexes)
+               src-reader (if valid-indexes
+                            (dtype/indexed-buffer valid-indexes src-tens)
                             src-tens)]
             (merge
-             (dfn/descriptive-stats src-reader [:min :max])
+             (dfn/descriptive-statistics [:min :max] {:nan-strategy :keep} src-reader)
              {:src-reader src-reader
               :valid-indexes valid-indexes})))
         n-pixels (if valid-indexes
@@ -133,18 +137,19 @@ function returned: %s"
                    (dtype/ecount src-reader))
         data-min (double data-min)
         data-max (double data-max)
-        _ (when (or (dfn/invalid? data-min)
-                    (dfn/invalid? data-max))
+        _ (when (or (dfn/infinite? data-min)
+                    (dfn/infinite? data-max))
             (throw (Exception. "NAN or INF in src data detected!")))
         data-range (- data-max data-min)
         src-reader (if-not (and (flp-close 0.0 data-min)
                                 (flp-close 1.0 data-max))
-                     (unary-op/unary-reader :float64
-                                            (-> (- x data-min)
-                                                (/ data-range))
-                                            src-reader)
+                     (unary-op/reader (fn [^double x]
+                                        (-> (- x data-min)
+                                            (/ data-range)))
+                                      :float64
+                                      src-reader)
                      src-reader)
-        src-reader (typecast/datatype->reader :float64 src-reader)
+        src-reader (dtype/->reader src-reader)
         img-type (if alpha?
                    :byte-abgr
                    :byte-bgr)
@@ -153,15 +158,11 @@ function returned: %s"
                     1 (bufimg/new-image 1 (first img-shape) img-type))
         ;;Flatten out src-tens and res-tens and make them readers
         n-channels (long (if alpha? 4 3))
-        res-tens (dtt/reshape res-image [n-pixels n-channels])
-        res-tens (tens-typecast/datatype->tensor-writer
-                  :uint8 res-tens)
-        gradient-line (gradient-name->gradient-line gradient-name invert-gradient?
-                                                    gradient-default-n)
+        ^PrimitiveNDIO res-tens (dtype/reshape res-image [n-pixels n-channels])
+        ^PrimitiveNDIO gradient-line (gradient-name->gradient-line
+                                      gradient-name invert-gradient?
+                                      gradient-default-n)
         n-gradient-increments (long (first (dtype/shape gradient-line)))
-        gradient-line (tens-typecast/datatype->tensor-reader
-                       :uint8
-                       gradient-line)
         line-last-idx (double (dec n-gradient-increments))
         n-pixels (long (if valid-indexes
                          (dtype/ecount valid-indexes)
@@ -170,25 +171,25 @@ function returned: %s"
       (pfor/parallel-for
        idx
        n-pixels
-       (let [src-val (.read src-reader idx)]
+       (let [src-val (.readDouble src-reader idx)]
          (when (Double/isFinite src-val)
            (let [p-value (min 1.0 (max 0.0 src-val))
                  line-idx (long (Math/round (* p-value line-last-idx)))]
              ;;alpha channel first
-             (.write2d res-tens idx 0 255)
-             (.write2d res-tens idx 1 (.read2d gradient-line line-idx 0))
-             (.write2d res-tens idx 2 (.read2d gradient-line line-idx 1))
-             (.write2d res-tens idx 3 (.read2d gradient-line line-idx 2))))))
+             (.ndWriteLong res-tens idx 0 255)
+             (.ndWriteLong res-tens idx 1 (.ndReadLong gradient-line line-idx 0))
+             (.ndWriteLong res-tens idx 2 (.ndReadLong gradient-line line-idx 1))
+             (.ndWriteLong res-tens idx 3 (.ndReadLong gradient-line line-idx 2))))))
       (pfor/parallel-for
        idx
        n-pixels
-       (let [src-val (.read src-reader idx)]
+       (let [src-val (.readDouble src-reader idx)]
          (when (Double/isFinite src-val)
-           (let [p-value (min 1.0 (max 0.0 (.read src-reader idx)))
+           (let [p-value (min 1.0 (max 0.0 src-val))
                  line-idx (long (Math/round (* p-value line-last-idx)))]
-             (.write2d res-tens idx 0 (.read2d gradient-line line-idx 0))
-             (.write2d res-tens idx 1 (.read2d gradient-line line-idx 1))
-             (.write2d res-tens idx 2 (.read2d gradient-line line-idx 2)))))))
+             (.ndWriteLong res-tens idx 0 (.ndReadLong gradient-line line-idx 0))
+             (.ndWriteLong res-tens idx 1 (.ndReadLong gradient-line line-idx 1))
+             (.ndWriteLong res-tens idx 2 (.ndReadLong gradient-line line-idx 2)))))))
     res-image))
 
 
@@ -201,7 +202,7 @@ function returned: %s"
       (-> (apply colorize src-tens gradient-name options)
           ;;In case of 1d.  colorize always returns buffered image which is always
           ;;2d.
-          (dtt/reshape (concat src-dims [3]))
+          (dtype/reshape (concat src-dims [3]))
           (dtt/->jvm)))))
 
 
@@ -222,9 +223,9 @@ function returned: %s"
     (doseq [[grad-n {:keys [tensor-index gradient-shape]}] existing-map]
       (dtype/copy!
        (if (= gradient-name grad-n)
-         (dtt/select png-img 0 :all :all)
-         (dtt/select existing-tens tensor-index :all :all))
-       (dtt/select img-tens tensor-index :all :all)))
+         (dtype/select png-img 0 :all :all)
+         (dtype/select existing-tens tensor-index :all :all))
+       (dtype/select img-tens tensor-index :all :all)))
     (spit "resources/gradients.edn" existing-map)
     (bufimg/save! new-img "resources/gradients.png")
     :ok))

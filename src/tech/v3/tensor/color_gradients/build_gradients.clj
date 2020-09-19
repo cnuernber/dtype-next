@@ -1,10 +1,10 @@
-(ns tech.v2.tensor.color-gradients.build-gradients
+(ns tech.v3.tensor.color-gradients.build-gradients
   (:require [clojure.java.io :as io]
             [clojure.java.shell :as sh]
             [clojure.edn :as edn]
             [tech.libs.buffered-image :as bufimg]
-            [tech.v2.tensor :as dtt]
-            [tech.v2.datatype :as dtype])
+            [tech.v3.tensor :as dtt]
+            [tech.v3.datatype :as dtype])
   (:import [java.net URL]))
 
 

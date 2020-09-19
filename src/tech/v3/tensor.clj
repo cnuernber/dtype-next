@@ -53,7 +53,6 @@
          (dims/direct? dimensions)))
   (->buffer-descriptor [item]
     (let [nbuf (dtype-base/->native-buffer buffer)]
-      (println (.endianness nbuf))
       (->
        {:ptr (.address nbuf)
         :datatype (dtype-base/elemwise-datatype buffer)
@@ -304,36 +303,42 @@
 
 
 (defn ensure-tensor
-  [item]
-  (cond
-    (instance? PrimitiveNDIO item)
+  ^PrimitiveNDIO [item]
+  (if (instance? PrimitiveNDIO item)
     item
-    (dtype-proto/convertible-to-reader? item)
-    (construct-tensor item (dims/dimensions (dtype-base/shape item)))
-    :else
-    (errors/throwf "Item %s is not convertible to tensor" (type item))))
+    (if-let [item (dtype-proto/as-tensor item)]
+      item
+      (cond
+        (dtype-base/as-buffer item)
+        (construct-tensor (dtype-base/as-buffer item)
+                          (dims/dimensions (dtype-base/shape item)))
+        (and (dtype-proto/convertible-to-reader? item)
+             (= 1 (count (dtype-base/shape item))))
+        (construct-tensor item (dims/dimensions (dtype-base/shape item)))
+        :else
+        (->tensor item)))))
 
 
 ;;Defaults for tensor protocols
 (extend-type Object
   dtype-proto/PTensor
   (reshape [t new-shape]
-    (-> (construct-tensor t (dims/dimensions [(dtype-base/ecount t)]))
+    (-> (ensure-tensor t)
         (dtype-proto/reshape new-shape)))
   (select [t select-args]
-    (-> (construct-tensor t [(dtype-base/ecount t)])
+    (-> (ensure-tensor t)
         (dtype-proto/select select-args)))
   (transpose [t reorder-vec]
-    (-> (construct-tensor t [(dtype-base/ecount t)])
+    (-> (ensure-tensor t)
         (dtype-proto/transpose reorder-vec)))
   (broadcast [t new-shape]
-    (-> (construct-tensor t [(dtype-base/ecount t)])
+    (-> (ensure-tensor t)
         (dtype-proto/broadcast new-shape)))
   (rotate [t offset-vec]
-    (-> (construct-tensor t [(dtype-base/ecount t)])
+    (-> (ensure-tensor t)
         (dtype-proto/rotate offset-vec)))
   (slice [t n-dims right?]
-    (-> (construct-tensor t [(dtype-base/ecount t)])
+    (-> (ensure-tensor t)
         (dtype-proto/slice n-dims right?)))
   (mget [t idx-seq]
     (errors/when-not-error
@@ -344,7 +349,9 @@
     (errors/when-not-error
      (== 1 (count idx-seq))
      "Generic mset on reader can only have 1 dimension")
-    (dtype-base/set-value! t (first idx-seq) value)))
+    (dtype-base/set-value! t (first idx-seq) value))
+  dtype-proto/PToTensor
+  (as-tensor [item] nil))
 
 
 (defn tensor-copy!

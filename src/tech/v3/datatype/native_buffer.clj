@@ -383,7 +383,7 @@
   (let [datatype (.datatype this)
         address (.address this)
         n-elems (.n-elems this)
-        swap? (= (.endianness this) (dtype-proto/platform-endianness))]
+        swap? (not= (.endianness this) (dtype-proto/platform-endianness))]
     (if swap?
       (case (casting/un-alias-datatype datatype)
         :int8 (native-buffer->io-macro :int8 datatype this address n-elems true)

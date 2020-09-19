@@ -155,7 +155,7 @@
   dtype-proto/PCountable
   (ecount [item] n-elems)
   dtype-proto/PEndianness
-  (endianness [item#] :big-endian)
+  (endianness [item#] :little-endian)
   dtype-proto/PToArrayBuffer
   (convertible-to-array-buffer? [item] true)
   (->array-buffer [item] item)

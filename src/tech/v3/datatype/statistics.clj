@@ -481,10 +481,7 @@
     (import '[java.util.stream StreamSupport])
     (import '[java.util.function DoubleBinaryOperator DoublePredicate])
     (require '[criterium.core :as crit])
-    (def double-data (double-array (range 1000000)))
-    (def print-consumer (reify java.util.function.DoubleConsumer
-                          (accept [this val]
-                            (println val)))))
+    (def double-data (double-array (range 1000000))))
 
 
   (defn benchmark-standard-stats-set

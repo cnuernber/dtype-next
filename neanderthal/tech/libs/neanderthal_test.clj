@@ -3,6 +3,7 @@
             [uncomplicate.neanderthal.native :as n-native]
             [tech.v3.tensor :as dtt]
             [tech.v3.datatype.functional :as dfn]
+            [tech.v3.datatype :as dtype]
             [clojure.test :refer [deftest is]]
             [tech.libs.neanderthal]
             [tech.v3.datatype]))
@@ -12,7 +13,7 @@
   (let [a (n-native/dge 3 3 (range 9))]
     (is (dfn/equals (dtt/ensure-tensor a)
                     (-> (dtt/->tensor (partition 3 (range 9)))
-                        (dtt/transpose [1 0]))))
+                        (dtype/transpose [1 0]))))
     (let [second-row (second (n-core/rows a))]
       (is (dfn/equals (dtt/ensure-tensor second-row)
                       [1 4 7])))))

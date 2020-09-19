@@ -1,7 +1,8 @@
-(ns tech.v2.tensor.color-gradient-test
-  (:require [tech.v2.tensor :as dtt]
-            [tech.v2.tensor.color-gradients :as cgrad]
-            [tech.v2.datatype.functional :as dfn]
+(ns tech.v3.tensor.color-gradient-test
+  (:require [tech.v3.tensor :as dtt]
+            [tech.v3.tensor.color-gradients :as cgrad]
+            [tech.v3.datatype.functional :as dfn]
+            [tech.v3.datatype :as dtype]
             [clojure.test :refer :all]))
 
 
@@ -26,7 +27,7 @@
                                       :invert-gradient? true
                                       :data-min 0
                                       :data-max 512)
-                      (dtt/select 0 (range 4) :all)))))
+                      (dtype/select 0 (range 4) :all)))))
 
 
 (deftest colorize->clj-test

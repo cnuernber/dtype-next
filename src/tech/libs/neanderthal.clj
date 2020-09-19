@@ -2,6 +2,7 @@
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.casting :as casting]
+            [tech.v3.datatype.nio-buffer]
             [tech.v3.tensor :as dtt]
             [tech.v3.datatype.native-buffer :as native-buffer]
             [tech.resource :as resource])
@@ -67,9 +68,12 @@
 
 (extend-type Block
   dtype-proto/PToNativeBuffer
-  (is-convertible-native-buffer? [item] true)
+  (convertible-to-native-buffer? [item] true)
   (->native-buffer [item]
     (let [item-offset (.offset item)
-          ptr-val (dtype-base/->native-buffer (.buffer item))]
+          ptr-val (-> (dtype-base/->native-buffer (.buffer item))
+                      (native-buffer/set-native-datatype
+                       (dtype-base/elemwise-datatype
+                        item)))]
       (-> (dtype-base/sub-buffer ptr-val item-offset)
           (resource/track (constantly item) :gc)))))

@@ -2,7 +2,8 @@
   (:require [tech.v3.datatype.array-buffer :as array-buffer]
             [tech.v3.datatype.native-buffer :as native-buffer]
             [tech.v3.datatype.protocols :as dtype-proto]
-            [tech.v3.datatype.casting :as casting])
+            [tech.v3.datatype.casting :as casting]
+            [tech.resource :as resource])
   (:import [java.nio Buffer ByteBuffer ShortBuffer IntBuffer LongBuffer
             FloatBuffer DoubleBuffer]))
 
@@ -69,7 +70,18 @@
                       length# (.remaining buf#)]
                   (when-not (.isDirect buf#)
                     (-> (array-buffer/array-buffer (.array buf#))
-                        (dtype-proto/sub-buffer offset# length#)))))))))))
+                        (dtype-proto/sub-buffer offset# length#)))))
+              dtype-proto/PToNativeBuffer
+              (convertible-to-native-buffer? [buf#]
+                (.isDirect (datatype->nio-buf ~dtype buf#)))
+              (->native-buffer [buf#]
+                (native-buffer/wrap-address
+                 (buffer-address buf#)
+                 (* (dtype-proto/ecount buf#)
+                    (casting/numeric-byte-width (dtype-proto/elemwise-datatype buf#)))
+                 (dtype-proto/elemwise-datatype buf#)
+                 (dtype-proto/endianness buf#)
+                 buf#))))))))
 
 
 (extend-nio-types)
