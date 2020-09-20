@@ -69,7 +69,7 @@
 
 
 (defprotocol PSetConstant
-  (set-constant! [item offset value elem-count]))
+  (set-constant! [item offset elem-count value]))
 
 
 (defprotocol PToNativeBuffer

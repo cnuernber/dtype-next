@@ -27,7 +27,7 @@
                                       :invert-gradient? true
                                       :data-min 0
                                       :data-max 512)
-                      (dtype/select 0 (range 4) :all)))))
+                      (dtt/select 0 (range 4) :all)))))
 
 
 (deftest colorize->clj-test

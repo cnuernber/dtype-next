@@ -5,6 +5,7 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.array-buffer :as array-buffer]
             [tech.v3.tensor :as dtt]
+            [tech.v3.tensor.dimensions :as dims]
             [clojure.java.io :as io]
             [clojure.set :as c-set]
             [clojure.string :as s])
@@ -201,6 +202,10 @@
                            n-elems
                            shape
                            n-channels))
+  dtype-proto/PToTensor
+  (as-tensor [item] (dtt/construct-tensor
+                     item
+                     (dims/dimensions (dtype-base/shape item))))
   dtype-proto/PToPrimitiveIO
   (convertible-to-primitive-io? [item] true)
   (->primitive-io [item]

@@ -168,7 +168,7 @@
                   metadata
                   nil))
   dtype-proto/PSetConstant
-  (set-constant! [this off value elem-count]
+  (set-constant! [this off elem-count value]
     (let [offset (+ offset (int off))
           elem-count (int elem-count)
           end-offset (+ elem-count offset)

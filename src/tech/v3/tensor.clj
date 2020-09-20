@@ -12,6 +12,7 @@
             [tech.v3.tensor.dimensions :as dims]
             [tech.v3.tensor.dimensions.shape :as dims-shape]
             [tech.v3.tensor.tensor-copy :as tens-cpy]
+            [tech.v3.datatype.export-symbols :as export-symbols]
             [tech.resource :as resource])
   (:import [tech.v3.datatype LongNDReader PrimitiveIO PrimitiveNDIO
             ObjectReader]
@@ -467,3 +468,15 @@
                                       (dtype-proto/platform-endianness)
                                       desc)
           (construct-tensor (dims/dimensions shape strides))))))
+
+
+(export-symbols/export-symbols tech.v3.datatype.base
+                               reshape
+                               select
+                               transpose
+                               broadcast
+                               rotate
+                               slice
+                               slice-right
+                               mget
+                               mset!)

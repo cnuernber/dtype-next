@@ -43,7 +43,7 @@
                             (format "Failed to find gradient %s"
                                     gradient-name))))
                 gradient-tens @gradient-tens]
-            (dtype/select gradient-tens (:tensor-index src-gradient-info)))
+            (dtt/select gradient-tens (:tensor-index src-gradient-info)))
           (dtt/tensor? gradient-name)
           gradient-name
           (instance? IFn gradient-name)
@@ -63,9 +63,9 @@ function returned: %s"
     ;;Gradients are accessed potentially many many times so reversing it here
     ;;is often wise as opposed to inline reversing in the main loops.
     (-> (if invert-gradient?
-          (-> (dtype/select gradient-line (range (dec n-pixels) -1 -1)
+          (-> (dtt/select gradient-line (range (dec n-pixels) -1 -1)
                             :all)
-              (dtype/copy! (dtype/reshape
+              (dtype/copy! (dtt/reshape
                             (dtype/make-container :uint8
                                                   (dtype/ecount gradient-line))
                             [n-pixels 3])))
@@ -158,7 +158,7 @@ function returned: %s"
                     1 (bufimg/new-image 1 (first img-shape) img-type))
         ;;Flatten out src-tens and res-tens and make them readers
         n-channels (long (if alpha? 4 3))
-        ^PrimitiveNDIO res-tens (dtype/reshape res-image [n-pixels n-channels])
+        ^PrimitiveNDIO res-tens (dtt/reshape res-image [n-pixels n-channels])
         ^PrimitiveNDIO gradient-line (gradient-name->gradient-line
                                       gradient-name invert-gradient?
                                       gradient-default-n)
@@ -202,7 +202,7 @@ function returned: %s"
       (-> (apply colorize src-tens gradient-name options)
           ;;In case of 1d.  colorize always returns buffered image which is always
           ;;2d.
-          (dtype/reshape (concat src-dims [3]))
+          (dtt/reshape (concat src-dims [3]))
           (dtt/->jvm)))))
 
 
@@ -223,9 +223,9 @@ function returned: %s"
     (doseq [[grad-n {:keys [tensor-index gradient-shape]}] existing-map]
       (dtype/copy!
        (if (= gradient-name grad-n)
-         (dtype/select png-img 0 :all :all)
-         (dtype/select existing-tens tensor-index :all :all))
-       (dtype/select img-tens tensor-index :all :all)))
+         (dtt/select png-img 0 :all :all)
+         (dtt/select existing-tens tensor-index :all :all))
+       (dtt/select img-tens tensor-index :all :all)))
     (spit "resources/gradients.edn" existing-map)
     (bufimg/save! new-img "resources/gradients.png")
     :ok))

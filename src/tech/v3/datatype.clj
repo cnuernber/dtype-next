@@ -60,15 +60,7 @@
                 sub-buffer
                 get-value
                 set-value!
-                reshape
-                select
-                transpose
-                broadcast
-                rotate
-                slice
-                slice-right
-                mget
-                mset!)
+                set-constant!)
 
 
 (export-symbols tech.v3.datatype.emap

@@ -34,3 +34,13 @@
   [expr error-msg & args]
   `(when-not ~expr
      (throwf ~error-msg ~@args)))
+
+
+(defmacro check-offset-length
+  [offset length elem-ecount]
+  `(let [offset# (long ~offset)
+         length# (long ~length)
+         elem-ecount# (long ~elem-ecount)]
+     (when-not-errorf (<= (+ offset# length#) elem-ecount#)
+       "Offset %d + length (%d) out of range of item length %d"
+       offset# length# elem-ecount#)))

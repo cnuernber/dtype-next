@@ -58,7 +58,7 @@
         ;; There are 2N checks for correct datatype in this pathway; everything else
         ;; is read/operated on as a short integer.
         reader-composition  #(-> source-image
-                                 (dtype/select :all :all [2 1 0])
+                                 (dtt/select :all :all [2 1 0])
                                  (dfn/+ 50)
                                  ;;Clamp top end to 0-255
                                  (dfn/min 255)
@@ -66,7 +66,7 @@
                                                               :datatype :uint8)))
 
         inline-fn #(as-> source-image dest-image
-                     (dtype/select dest-image :all :all [2 1 0])
+                     (dtt/select dest-image :all :all [2 1 0])
                      (dtype/emap (fn [^long x]
                                    (-> (+ x 50)
                                        (min 255)))
@@ -97,7 +97,7 @@
     (let [new-tens (dtt/buffer-descriptor->tensor
                     (dtt/ensure-buffer-descriptor test-tensor))]
       (is (dfn/equals test-tensor new-tens))
-      (let [trans-tens (dtype/transpose new-tens [1 0])
+      (let [trans-tens (dtt/transpose new-tens [1 0])
             trans-desc (dtype/as-buffer-descriptor trans-tens)]
         (is (= {:datatype :float64, :endianness :little-endian
                 :shape [3 3], :strides [8 24]}
@@ -108,21 +108,21 @@
   []
   (let [test-dim 10
         test-tens (dtt/new-tensor [test-dim test-dim 4] :datatype :uint8)
-        reshape-tens (dtype/reshape test-tens [(* test-dim test-dim) 4])
+        reshape-tens (dtt/reshape test-tens [(* test-dim test-dim) 4])
         test-indexes [35 69 83 58 57 13 64 68 48 55 20 33 2 36
                       21 17 88 94 91 85]
-        idx-tens (dtype/select reshape-tens (long-array test-indexes) :all)
+        idx-tens (dtt/select reshape-tens (long-array test-indexes) :all)
         ^PrimitiveNDIO writer idx-tens]
     (dotimes [iter (count test-indexes)]
       (.ndWriteLong writer iter 3 255))
     (is (dfn/equals (sort test-indexes)
                     (dfn/argfilter #(not= 0 %)
-                                   (dtype/select test-tens :all :all 3))))))
+                                   (dtt/select test-tens :all :all 3))))))
 
 
 (deftest normal-tensor-select
   (let [test-tens (-> (dtt/->tensor (partition 3 (range 9)))
-                      (dtype/select (concat [0 1] [0 2]) :all))]
+                      (dtt/select (concat [0 1] [0 2]) :all))]
     (is (dfn/equals (dtt/->tensor [[0.000 1.000 2.000]
                                     [3.000 4.000 5.000]
                                     [0.000 1.000 2.000]
@@ -138,8 +138,8 @@
 
 
 (deftest simple-clone
-  (let [src-tens (dtype/reshape (range (* 1 128 256)) [1 128 256])
-        sel-tens (dtype/select src-tens 0 (range 3) (range 3))]
+  (let [src-tens (dtt/reshape (range (* 1 128 256)) [1 128 256])
+        sel-tens (dtt/select src-tens 0 (range 3) (range 3))]
     (is (= [[0 1 2] [256 257 258] [512 513 514]]
            (-> sel-tens
                ;; set the type to something we can test against

@@ -291,7 +291,7 @@
                                            length datatype endianness
                                            resource-type metadata nil))))
   dtype-proto/PSetConstant
-  (set-constant! [this offset value element-count]
+  (set-constant! [this offset element-count value]
     (let [offset (long offset)
           value (casting/cast value datatype)
           element-count (long element-count)

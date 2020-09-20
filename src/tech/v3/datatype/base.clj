@@ -177,13 +177,9 @@
 
 
 (defn sub-buffer
-  ([item ^long offset ^long length]
-   (let [n-elems (ecount item)]
-     (when-not (<= (+ offset length) n-elems)
-       (throw (Exception. (format
-                           "Offset %d + length (%d) out of range of item length %d"
-                           offset length n-elems))))
-     (dtype-proto/sub-buffer item offset length)))
+  ([item offset length]
+   (errors/check-offset-length offset length (ecount item))
+   (dtype-proto/sub-buffer item offset length))
   ([item ^long offset]
    (let [n-elems (ecount item)]
      (sub-buffer item offset (- n-elems offset)))))
@@ -249,10 +245,11 @@
   (clone [buf]
     (dtype-proto/make-container :jvm-heap (elemwise-datatype buf) {} buf))
   dtype-proto/PSetConstant
-  (set-constant! [buf offset value elem-count]
+  (set-constant! [buf offset elem-count value]
+    (errors/check-offset-length offset elem-count (ecount buf))
     (let [value (casting/cast value (elemwise-datatype buf))]
       (parallel-for/parallel-for
-       idx (.lsize buf)
+       idx (long elem-count)
        (.writeObject buf idx value)))
     buf))
 
@@ -334,12 +331,13 @@
                             "Buffer %s does not implement the sub-buffer protocol"
                             (type buf)))))))
   dtype-proto/PSetConstant
-  (set-constant! [buf offset value element-count]
+  (set-constant! [buf offset element-count value]
+    (errors/check-offset-length offset element-count (ecount buf))
     (if-let [buf-data (as-buffer buf)]
       ;;highest performance
-      (dtype-proto/set-constant! buf-data offset value element-count)
+      (dtype-proto/set-constant! buf-data offset element-count value)
       (if-let [writer (->writer buf)]
-        (dtype-proto/set-constant! writer offset value element-count)
+        (dtype-proto/set-constant! writer offset element-count value)
         (throw
          (Exception.
           (format "Buffer is not convertible to writer, array or native buffer: %s"
@@ -405,15 +403,26 @@
         [(.size item)]))))
 
 
+(defn set-constant!
+  "Set a contiguous region of a buffer to a constant value"
+  ([item ^long offset ^long length value]
+   (errors/check-offset-length offset length (ecount item))
+   (dtype-proto/set-constant! item offset length value))
+  ([item offset value]
+   (set-constant! item offset (- (ecount item) (long offset)) value))
+  ([item value]
+   (set-constant! item 0 (ecount item) value)))
+
+
 (defn- check-ns
   [namespace]
   (errors/when-not-errorf
    (find-ns namespace)
-   "Required namespace %s has not been required."))
+   "Required namespace %s is missing." namespace))
 
 
 (defn reshape
-  "Reshape this item into a new shape.  For this to work, the tensora
+  "Reshape this item into a new shape.  For this to work, the tensor
   namespace must be required.
   Always returns a tensor."
   [t new-shape]

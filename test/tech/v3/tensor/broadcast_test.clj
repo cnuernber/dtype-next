@@ -6,8 +6,8 @@
 
 
 (deftest simple-broadcast
-  (let [bcast-tens (dtype/broadcast (dtt/->tensor [5 6 7])
-                                    [3 3])]
+  (let [bcast-tens (dtt/broadcast (dtt/->tensor [5 6 7])
+                                  [3 3])]
     (is (dfn/equals [5 6 7 5 6 7 5 6 7]
                     (dtype/->reader bcast-tens)))
     (is (dfn/equals (dtt/->tensor [[5 6 7] [5 6 7] [5 6 7]])
