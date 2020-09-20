@@ -13,7 +13,7 @@
             [tech.v3.tensor.dimensions.analytics :as dims-analytics]
             [tech.v3.tensor.dimensions.shape :as shape]
             [tech.v3.tensor.dimensions.global-to-local :as gtol]
-            [tech.v3.datatype.functional :as dfn]
+            [tech.v3.datatype.argops :as argops]
             [tech.v3.datatype.index-algebra :as idx-alg]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.errors
@@ -286,7 +286,7 @@
         (readLong [item local-idx] local-idx))
       ;;TODO - rebuild faster and less memory intensive paths for this.
       ;;This will just make the problem go away and allows rapid indexing.
-      (let [group-map (dfn/arggroup @global->local*)]
+      (let [group-map (argops/arggroup @global->local*)]
         (reify ObjectReader
           (lsize [rdr] (long (count group-map)))
           (readObject [item local-idx]

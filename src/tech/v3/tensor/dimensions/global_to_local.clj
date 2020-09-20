@@ -4,7 +4,6 @@
   (:require [tech.v3.tensor.dimensions.shape :as shape]
             [tech.v3.tensor.dimensions.analytics :as dims-analytics]
             [tech.v3.datatype :as dtype]
-            [tech.v3.datatype.functional :as dtype-fn]
             [tech.v3.datatype.index-algebra :as idx-alg]
             [tech.v3.datatype.errors :as errors]
             [primitive-math :as pmath]
