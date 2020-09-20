@@ -1,21 +1,15 @@
-(ns tech.v2.apl.game-of-life
+(ns tech.v3.apl.game-of-life
   "https://youtu.be/a9xAKttWgP4"
-  (:require [tech.v2.tensor :as tens]
-            [tech.v2.datatype :as dtype]
-            [tech.v2.datatype.functional :as dtype-fn]
-            [tech.v2.datatype.boolean-op :as bool-op]
-            [tech.v2.datatype.binary-op :as binary-op]
-            [tech.v2.datatype.unary-op :as unary-op]
+  (:require [tech.v3.tensor :as tens]
+            [tech.v3.datatype :as dtype]
+            [tech.v3.datatype.functional :as dtype-fn]
             [clojure.test :refer :all]))
 
 
 (defn membership
   [lhs rhs]
   (let [membership-set (set (dtype/->vector rhs))]
-    (bool-op/boolean-unary-reader
-     :object
-     (contains? membership-set x)
-     lhs)))
+    (dtype/emap #(contains? membership-set %) :boolean lhs)))
 
 
 (defn apl-take
@@ -89,22 +83,20 @@
 (defn game-of-life-operator
   [original new-matrix]
   ;;We do a typed reader here so that everything happens in byte space with no boxing.
-  (-> (binary-op/binary-reader
+  (-> (dtype/emap
+       (fn [^long x ^long y]
+         (if (or (== 3 y)
+                 (and (not= 0 x)
+                      (== 4 y)))
+           1
+           0))
        :int8
-       ;;Clojure conservatively interprets all integers as longs so we have to specify
-       ;;that we want a byte.
-       (unchecked-byte
-        (if (or (= 3 y)
-                (and (not= 0 x)
-                     (= 4 y)))
-          1
-          0))
        original
        new-matrix)
       ;;Force the actual result to be calculated.  Else we would get a *huge* chain of
       ;;reader maps.  We don't have to specify the datatype here because the statement
       ;;above produced an int8 (byte) reader.
-      (tens/tensor-force)))
+      (tens/clone :datatype :int8)))
 
 
 (def next-gen (game-of-life-operator R-matrix summed))
@@ -115,14 +107,6 @@
   (->> (for [horz-amount rotate-arg
              vert-amount rotate-arg]
          (tens/rotate R [horz-amount vert-amount]))
-       ;;This doesn't help the dense version much but it gives
-       ;;the sparse version at least some parallelism
-       ;;Simple parallel reduction
-       (partition-all 2)
-       (pmap (fn [items]
-               (if (= 2 (count items))
-                 (apply dtype-fn/+ items)
-                 (first items))))
        (apply dtype-fn/+)
        (game-of-life-operator R)))
 
@@ -137,22 +121,6 @@
 
 (def RR (-> (apl-take R-matrix [-10 -20])
             (apl-take [15 35])))
-
-
-(defn mat->pic-mat
-  [R]
-  (->> R
-       (unary-op/unary-reader
-        (if (= 0 (int x))
-          (char 0x02DA)
-          (char 0x2021)))))
-
-
-(defn print-life-generations
-  [& [n-gens]]
-  (doseq [life-item (take (or n-gens 1000) (life-seq RR))]
-    (println (mat->pic-mat life-item))
-    (Thread/sleep 125)))
 
 
 (def end-state

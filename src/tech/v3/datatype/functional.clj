@@ -119,19 +119,23 @@
                         (binary-op/builtin-ops ~opname)
                         %1 %2 %3)
                       ~op-meta
-                      ~'x ~'y)))
+                      ~'x ~'y))
+                    ([~'x ~'y & ~'args]
+                     (reduce ~op-sym (concat [~'x ~'y] ~'args))))
                  `(defn ~(with-meta op-sym
                            {:binary-operator opname})
-                    [~'x ~'y]
-                    (vectorized-dispatch-2
-                     (binary-op/builtin-ops ~opname)
-                     #(binary-op/iterable (binary-op/builtin-ops ~opname)
-                                          %1 %2 %3)
-                     #(binary-op/reader
-                       (binary-op/builtin-ops ~opname)
-                       %1 %2 %3)
-                     ~op-meta
-                     ~'x ~'y))))))))))
+                    ([~'x ~'y]
+                     (vectorized-dispatch-2
+                      (binary-op/builtin-ops ~opname)
+                      #(binary-op/iterable (binary-op/builtin-ops ~opname)
+                                           %1 %2 %3)
+                      #(binary-op/reader
+                        (binary-op/builtin-ops ~opname)
+                        %1 %2 %3)
+                      ~op-meta
+                      ~'x ~'y))
+                    ([~'x ~'y & ~'args]
+                     (reduce ~op-sym (concat [~'x ~'y] ~'args))))))))))))
 
 
 (implement-arithmetic-operations)

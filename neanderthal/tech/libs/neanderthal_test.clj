@@ -13,7 +13,7 @@
   (let [a (n-native/dge 3 3 (range 9))]
     (is (dfn/equals (dtt/ensure-tensor a)
                     (-> (dtt/->tensor (partition 3 (range 9)))
-                        (dtype/transpose [1 0]))))
+                        (dtt/transpose [1 0]))))
     (let [second-row (second (n-core/rows a))]
       (is (dfn/equals (dtt/ensure-tensor second-row)
                       [1 4 7])))))
