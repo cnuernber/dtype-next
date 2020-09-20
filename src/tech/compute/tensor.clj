@@ -2,21 +2,19 @@
   "Functions for dealing with tensors with the compute system"
   (:require [tech.compute.driver :as drv]
             [tech.compute.context :as compute-ctx]
-            [tech.v2.datatype :as dtype]
-            [tech.v2.datatype.protocols :as dtype-proto]
-            [tech.v2.tensor.impl :as dtt-impl]
-            [tech.v2.tensor.dimensions :as dtt-dims]
-            [tech.v2.tensor :as dtt])
-  (:import [tech.v2.tensor.impl Tensor]))
+            [tech.v3.datatype :as dtype]
+            [tech.v3.tensor.dimensions :as dtt-dims]
+            [tech.v3.tensor :as dtt])
+  (:import [tech.v3.tensor Tensor]))
 
 
 (defn new-tensor
   ([shape options]
    (let [{:keys [device]} (compute-ctx/options->context options)
-         datatype (dtt-impl/default-datatype (:datatype options))
+         datatype (or (:datatype options) :float64)
          ecount (long (apply * shape))
          dev-buf (drv/allocate-device-buffer device ecount datatype options)]
-     (dtt-impl/construct-tensor dev-buf (dtt-dims/dimensions shape))))
+     (dtt/construct-tensor dev-buf (dtt-dims/dimensions shape))))
   ([shape]
    (new-tensor shape {})))
 
@@ -24,10 +22,10 @@
 (defn new-host-tensor
   ([shape options]
    (let [{:keys [driver]} (compute-ctx/options->context options)
-         datatype (dtt-impl/default-datatype (:datatype options))
+         datatype (or (:datatype options) :float64)
          ecount (long (apply * shape))
          host-buf (drv/allocate-host-buffer driver ecount datatype options)]
-     (dtt-impl/construct-tensor host-buf (dtt-dims/dimensions shape))))
+     (dtt/construct-tensor host-buf (dtt-dims/dimensions shape))))
   ([shape]
    (new-host-tensor shape {})))
 
@@ -52,8 +50,8 @@
       (throw (Exception. (format "Tensor shapes differ: %s %s"
                                  lhs-shape
                                  rhs-shape))))
-    (when-not (and (dtt-impl/simple-dimensions? (dtt/tensor->dimensions lhs))
-                   (dtt-impl/simple-dimensions? (dtt/tensor->dimensions rhs)))
+    (when-not (and (dtt/simple-dimensions? lhs)
+                   (dtt/simple-dimensions? rhs))
       (throw (Exception. "Both tensors must be 'simple' tensors.
 no offset, no transpose, all data must be dense.")))
     (drv/copy-device->device stream
@@ -91,7 +89,7 @@ no offset, no transpose, all data must be dense.")))
                               n-elems)
      (when (:sync? options)
        (drv/sync-with-host stream))
-     (dtt-impl/construct-tensor dev-buf (dtt/tensor->dimensions input-tens))))
+     (dtt/construct-tensor dev-buf (dtt/tensor->dimensions input-tens))))
   ([input-tens]
    (clone-to-device input-tens {})))
 
@@ -102,8 +100,7 @@ no offset, no transpose, all data must be dense.")))
    (let [device (or (:device options)
                     (compute-ctx/default-device))]
      (if (and (drv/acceptable-device-buffer? device input-tens)
-              (dtt-impl/dims-suitable-for-desc? (dtt-impl/tensor->dimensions
-                                                 input-tens)))
+              (dtt/dims-suitable-for-desc? input-tens))
        input-tens
        (clone-to-device input-tens))))
   ([input-tens]
@@ -137,7 +134,7 @@ no offset, no transpose, all data must be dense.")))
                               buf-elems)
      (when (:sync? options)
        (drv/sync-with-host stream))
-     (dtt-impl/construct-tensor host-buf (dtt/tensor->dimensions device-tens))))
+     (dtt/construct-tensor host-buf (dtt/tensor->dimensions device-tens))))
   ([device-tens]
    (clone-to-host device-tens {:sync? true})))
 
@@ -167,12 +164,12 @@ no offset, no transpose, all data must be dense.")))
 
 
 (defn ->float-array
-  [tens]
+  ^floats [tens]
   (->array tens :float32))
 
 
 (defn ->double-array
-  [tens]
+  ^floats [tens]
   (->array tens :float64))
 
 

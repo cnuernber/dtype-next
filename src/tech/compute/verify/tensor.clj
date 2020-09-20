@@ -1,9 +1,8 @@
 (ns tech.compute.verify.tensor
   (:require [tech.compute.context :as compute-ctx]
-            [tech.v2.tensor.impl :as dtt-impl]
-            [tech.v2.datatype.functional :as dfn]
-            [tech.v2.datatype :as dtype]
-            [tech.v2.tensor :as dtt]
+            [tech.v3.datatype.functional :as dfn]
+            [tech.v3.datatype :as dtype]
+            [tech.v3.tensor :as dtt]
             [tech.compute.tensor :as ct]
             [tech.resource :as resource]
             [clojure.test :refer :all]))
@@ -14,9 +13,7 @@
   `(resource/stack-resource-context
     (compute-ctx/with-context
       {:driver ~driver}
-      (dtt-impl/with-datatype
-        ~datatype
-        ~@body))))
+      ~@body)))
 
 
 (defn clone

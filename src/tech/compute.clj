@@ -2,7 +2,7 @@
   (:require [tech.compute.driver :as drv]
             [tech.compute.registry :as registry]
             [tech.compute.context :as compute-ctx]
-            [tech.v2.datatype :as dtype]
+            [tech.v3.datatype :as dtype]
             [clojure.test :refer :all]
             [tech.resource :as resource]))
 

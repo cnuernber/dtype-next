@@ -58,17 +58,3 @@
       (is (= [170 170 172 255]
              (channel-fn img-type))
           (format "Format %s failed channel order test" img-type)))))
-
-
-(defn strided-tensor-copy-time-test
-  []
-  (let [src-tens (-> (bufimg/new-image 2048 2048 :byte-abgr)
-                     (dtt/select (range 256 (* 2 256))
-                                 (range 256 (* 2 256))
-                                 :all))
-        dst-tens (dtt/ensure-tensor (bufimg/new-image 256 256 :byte-abgr))]
-    ;; (dtype/copy! src-tens dst-tens)
-    (time (dotimes [iter 100]
-            (dtype/copy! src-tens dst-tens)))
-    :ok
-    ))

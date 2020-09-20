@@ -1,7 +1,7 @@
 (ns tech.compute.cpu.driver
   (:require [tech.compute.driver :as drv]
-            [tech.v2.datatype :as dtype]
-            [tech.v2.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype :as dtype]
+            [tech.v3.datatype.protocols :as dtype-proto]
             [clojure.core.async :as async]
             [tech.resource :as resource]
             [tech.resource.stack :as stack]
@@ -137,14 +137,20 @@ Use with care; the synchonization primitives will just hang with this stream."
   (copy-host->device [stream host-buffer host-offset
                       device-buffer device-offset elem-count]
     (with-stream-dispatch stream
-      (dtype/copy! host-buffer host-offset device-buffer device-offset elem-count)))
+      (dtype/copy!
+       (dtype/sub-buffer host-buffer host-offset elem-count)
+       (dtype/sub-buffer device-buffer device-offset elem-count))))
   (copy-device->host [stream device-buffer device-offset host-buffer
                       host-offset elem-count]
     (with-stream-dispatch stream
-      (dtype/copy! device-buffer device-offset host-buffer host-offset elem-count)))
+      (dtype/copy!
+       (dtype/sub-buffer device-buffer device-offset elem-count)
+       (dtype/sub-buffer host-buffer host-offset elem-count))))
   (copy-device->device [stream dev-a dev-a-off dev-b dev-b-off elem-count]
     (with-stream-dispatch stream
-      (dtype/copy! dev-a dev-a-off dev-b dev-b-off elem-count)))
+      (dtype/copy!
+       (dtype/sub-buffer dev-a dev-a-off elem-count)
+       (dtype/sub-buffer dev-b dev-b-off elem-count))))
   (sync-with-host [stream]
     ;;If main thread cpu stream then we are already syncced
     (when-not (is-main-thread-cpu-stream? stream)
@@ -185,7 +191,7 @@ Use with care; the synchonization primitives will just hang with this stream."
 
   (allocate-device-buffer [impl elem-count elem-type options]
     (check-stream-error-atom impl)
-    (dtype/make-container :native-buffer elem-type elem-count options))
+    (dtype/make-container :native-buffer elem-type options elem-count))
 
   (acceptable-device-buffer? [device item]
     (dtype-proto/convertible-to-writer? item))
@@ -203,7 +209,7 @@ Use with care; the synchonization primitives will just hang with this stream."
 
   (allocate-host-buffer [impl elem-count elem-type options]
     (check-stream-error-atom impl)
-    (dtype/make-container :native-buffer elem-type elem-count options))
+    (dtype/make-container :native-buffer elem-type options elem-count))
 
   (acceptable-host-buffer? [impl item]
     (dtype-proto/convertible-to-writer? item)))

@@ -154,7 +154,13 @@ user> (dtype/get-datatype *1)
 
 (export-symbols tech.v3.datatype.copy-make-container
                 make-container
-                copy!)
+                copy!
+                ->byte-array
+                ->short-array
+                ->int-array
+                ->long-array
+                ->float-array
+                ->double-array)
 
 
 (defn ->array-copy

@@ -130,11 +130,13 @@
 
 (defn ->array
   "Perform a NaN-aware conversion into an array.  Default
-  nan-strategy is :remove which forces a pass over float datatypes
-  in order to remove nan data.  Nan strategies can be:
-  [:keep :remove :exception]"
-  ([datatype options item]
-   (let [array-buffer (->array-buffer datatype options item)]
+  nan-strategy is :keep.
+  Nan strategies can be: [:keep :remove :exception]"
+  ([datatype {:keys [nan-strategy]
+              :or {nan-strategy :keep} :as options}
+    item]
+   (let [options (assoc options :nan-strategy nan-strategy)
+         array-buffer (->array-buffer datatype options item)]
      (if (and (== (.offset array-buffer) 0)
               (== (.n-elems array-buffer)
                   (dtype-base/ecount (.ary-data array-buffer))))
@@ -145,13 +147,38 @@
   (^ArrayBuffer [item]
    (->array (dtype-base/elemwise-datatype item) nil item)))
 
+(defn ->byte-array
+  ^bytes [data]
+  (->array :int8 nil data))
+
+(defn ->short-array
+  ^shorts [data]
+  (->array :int16 nil data))
+
+(defn ->int-array
+  ^ints [data]
+  (->array :int32 nil data))
+
+(defn ->long-array
+  ^longs [data]
+  (->array :int64 nil data))
+
+(defn ->float-array
+  "Nan-aware conversion to float array.  By default NaN values are removed.
+  See documentation for ->array-buffer.  Returns a float array.
+  The default nan-strategy is :keep."
+  (^doubles [options data]
+   (->array :float32 options data))
+  (^doubles [data]
+   (->array :float32 data)))
+
 
 (defn ->double-array
   "Nan-aware conversion to double array.  By default NaN values are removed.
   See documentation for ->array-buffer.  Returns a double array.  If a double
   array is passed in or an array buffer that exactly maps to an entire double array
   then and nan-strategy is :keep then that value itself is returned.
-  The default nan-strategy is :remove."
+  The default nan-strategy is :keep."
   (^doubles [options data]
    (->array :float64 options data))
   (^doubles [data]

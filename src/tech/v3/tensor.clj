@@ -101,7 +101,7 @@
                                   (or (not buf-len)
                                       (== (dtype-base/ecount buffer) (long buf-len))))
                        (dtype-base/sub-buffer buffer buf-offset buf-len)
-                     buffer)]
+                       buffer)]
     (construct-tensor new-buffer new-dims)))
   (transpose [t transpose-vec]
     (construct-tensor buffer (dims/transpose dimensions transpose-vec)))
@@ -266,6 +266,30 @@
 
 
 (defn tensor? [item] (instance? PrimitiveNDIO item))
+
+
+(defn tensor->buffer
+  [item]
+  (errors/when-not-error (instance? PrimitiveNDIO item)
+    "Item is not a tensor")
+  (.buffer ^PrimitiveNDIO item))
+
+
+(defn tensor->dimensions
+  [item]
+  (errors/when-not-error (instance? PrimitiveNDIO item)
+    "Item is not a tensor")
+  (.dimensions ^PrimitiveNDIO item))
+
+
+(defn simple-dimensions?
+  [item]
+  (dims/native? (tensor->dimensions item)))
+
+
+(defn dims-suitable-for-desc?
+  [item]
+  (dims/direct? (tensor->dimensions item)))
 
 
 (defn- default-datatype

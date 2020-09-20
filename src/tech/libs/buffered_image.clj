@@ -213,6 +213,8 @@
           src-io (dtype-base/->io int-buffer)]
       (reify LongIO
         (lsize [rdr] n-elems)
+        (allowsRead [rdr] true)
+        (allowsWrite [rdr] true)
         (readLong [rdr idx]
           (let [pix-idx (quot idx n-channels)
                 chan-idx (rem idx n-channels)

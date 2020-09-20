@@ -1,7 +1,7 @@
 (ns tech.compute.verify.utils
   (:require [tech.resource :as resource]
             [clojure.test :refer :all]
-            [tech.v2.datatype.casting :as casting]
+            [tech.v3.datatype.casting :as casting]
             [tech.compute :as compute]
             [tech.compute.context :as compute-ctx])
   (:import [java.math BigDecimal MathContext]))
