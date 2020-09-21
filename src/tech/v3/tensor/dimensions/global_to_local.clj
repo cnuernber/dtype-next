@@ -78,7 +78,6 @@
                 (recur (pmath/inc dim) (pmath/+ result local-val)))
               result)))))))
 
-
 (defn- ast-symbol-access
   [ary-name dim-idx]
   {:ary-name ary-name
@@ -138,43 +137,34 @@
      :broadcast? broadcast?
      :trivial-last-stride? trivial-last-stride?}))
 
-
-(defn global->local-ast
-  ([{:keys [shape strides shape-ecounts shape-ecount-strides] :as _reduced-dims}
-    broadcast? signature]
-   (let [n-dims (long (:n-dims signature))
-         direct-vec (:direct-vec signature)
-         offsets? (:offsets? signature)
-         trivial-last-stride? (:trivial-last-stride? signature)]
-     {:signature signature
-      :ast
-      (if (= n-dims 1)
-        (elemwise-ast 0 (direct-vec 0) offsets? broadcast?
-                      trivial-last-stride? true true)
-        (let [n-dims-dec (dec n-dims)]
-          (->> (range n-dims)
-               (map (fn [dim-idx]
-                      (let [dim-idx (long dim-idx)
-                            least-rapidly-changing-index? (== dim-idx 0)
-                            ;;This optimization removes the 'rem' on the most
-                            ;;significant dimension.  Valid if we aren't
-                            ;;broadcasting
-                            most-rapidly-changing-index? (and (not broadcast?)
-                                                              (== dim-idx n-dims-dec))
-                            trivial-stride? (and most-rapidly-changing-index?
-                                                 trivial-last-stride?)]
-                        (elemwise-ast dim-idx (direct-vec dim-idx) offsets? broadcast?
-                                      trivial-stride? most-rapidly-changing-index?
-                                      least-rapidly-changing-index?))))
-               (apply list '+))))}))
-  ([reduced-dims broadcast?]
-   (global->local-ast reduced-dims broadcast?
-                      (reduced-dims->signature reduced-dims broadcast?)))
-  ([{:keys [^List shape ^List shape-ecounts] :as reduced-dims}]
-   (let [broadcast? (dims-analytics/are-reduced-dims-bcast? reduced-dims)]
-     (global->local-ast reduced-dims
-                        broadcast?
-                        (reduced-dims->signature reduced-dims broadcast?)))))
+(defn signature->ast
+  [signature]
+  (let [n-dims (long (:n-dims signature))
+        direct-vec (:direct-vec signature)
+        offsets? (:offsets? signature)
+        trivial-last-stride? (:trivial-last-stride? signature)
+        broadcast? (:broadcast? signature)]
+    {:signature signature
+     :ast
+     (if (= n-dims 1)
+       (elemwise-ast 0 (direct-vec 0) offsets? broadcast?
+                     trivial-last-stride? true true)
+       (let [n-dims-dec (dec n-dims)]
+         (->> (range n-dims)
+              (map (fn [dim-idx]
+                     (let [dim-idx (long dim-idx)
+                           least-rapidly-changing-index? (== dim-idx 0)
+                           ;;This optimization removes the 'rem' on the most
+                           ;;significant dimension.  Valid if we aren't
+                           ;;broadcasting
+                           most-rapidly-changing-index? (and (not broadcast?)
+                                                             (== dim-idx n-dims-dec))
+                           trivial-stride? (and most-rapidly-changing-index?
+                                                trivial-last-stride?)]
+                       (elemwise-ast dim-idx (direct-vec dim-idx) offsets? broadcast?
+                                     trivial-stride? most-rapidly-changing-index?
+                                     least-rapidly-changing-index?))))
+              (apply list '+))))}))
 
 
 (def constructor-args
@@ -463,56 +453,64 @@
                 :emit (vec read-instructions)}]}))
 
 
-(def ^ConcurrentHashMap defined-classes (ConcurrentHashMap.))
+ (defonce ^ConcurrentHashMap defined-classes (ConcurrentHashMap.))
+
+(defn- absent-sig-fn
+  [signature]
+  (reify Function
+    (apply [this signature]
+      (try
+        (let [ast-data (signature->ast signature)
+              class-def (gen-ast-class-def ast-data)]
+          ;;nested so we capture the class definition
+          (try
+            (let [^Class class-obj (insn/define class-def)
+                  ^Constructor first-constructor
+                  (first (.getDeclaredConstructors
+                          class-obj))]
+              #(try
+                 (let [constructor-args (reduced-dims->constructor-args %)]
+                   (.newInstance first-constructor constructor-args))
+                 (catch Throwable e
+                   (println
+                    (ex-info (format "Error instantiating ast object: %s\n%s"
+                                     e
+                                     (with-out-str
+                                       (clojure.pprint/pprint (:ast ast-data))))
+                             {:error e
+                              :class-def class-def
+                              :signature signature}))
+                   (elem-idx->addr-fn %))))
+            (catch Throwable e
+              (throw (ex-info (format "Error generating ast object: %s\n%s"
+                                      e
+                                      (with-out-str
+                                        (clojure.pprint/pprint (:ast ast-data)))
+                                      ast-data)
+                              {:error e
+                               :class-def class-def
+                               :signature signature})))))
+        (catch Throwable e
+          (println "Index codegen failed:" (.getMessage e))
+          (fn [reduced-dims]
+            (elem-idx->addr-fn reduced-dims)))))))
+
+(defn make-indexing-obj
+  [reduced-dims broadcast?]
+  (let [signature (reduced-dims->signature reduced-dims broadcast?)
+        reader-constructor-fn
+        (or (.get defined-classes signature)
+            (.computeIfAbsent
+             defined-classes
+             signature
+             (absent-sig-fn signature)))]
+    (reader-constructor-fn reduced-dims)))
 (defn get-or-create-reader
   (^PrimitiveIO [reduced-dims broadcast? force-default-reader?]
    (let [n-dims (count (:shape reduced-dims))]
      (if (and (not force-default-reader?)
               (<= n-dims 4))
-       (let [signature (reduced-dims->signature reduced-dims broadcast?)
-             reader-constructor-fn
-             (.computeIfAbsent
-              defined-classes
-              signature
-              (reify Function
-                (apply [this signature]
-                  (let [ast-data (global->local-ast reduced-dims broadcast? signature)
-                        class-def (gen-ast-class-def ast-data)]
-                    ;;nested so we capture the class definition
-                    (try
-                      (let [^Class class-obj (insn/define class-def)
-                            ^Constructor first-constructor
-                            (first (.getDeclaredConstructors
-                                    class-obj))]
-                        #(try
-                           (.newInstance first-constructor %)
-                              (catch Throwable e
-                                (throw (ex-info (format "Error instantiating ast object: %s\n%s"
-                                                        e
-                                                        (with-out-str
-                                                          (clojure.pprint/pprint (:ast ast-data))))
-                                                {:error e
-                                                 :reduced-dims (->> reduced-dims
-                                                                    (map (fn [[k v]]
-                                                                           [k (vec v)]))
-                                                                    (into {}))
-                                                 :class-def class-def
-                                                 :signature signature})))))
-                      (catch Throwable e
-                        (throw (ex-info (format "Error generating ast object: %s\n%s"
-                                                e
-                                                (with-out-str
-                                                  (clojure.pprint/pprint (:ast ast-data)))
-                                                ast-data)
-                                        {:error e
-                                         :reduced-dims (->> reduced-dims
-                                                            (map (fn [[k v]]
-                                                                   [k (vec v)]))
-                                                            (into {}))
-                                         :class-def class-def
-                                         :signature signature}))))))))
-             constructor-args (reduced-dims->constructor-args reduced-dims)]
-         (reader-constructor-fn constructor-args))
+       (make-indexing-obj reduced-dims broadcast?)
        (elem-idx->addr-fn reduced-dims))))
   (^PrimitiveIO [reduced-dims]
    (get-or-create-reader reduced-dims
@@ -606,6 +604,87 @@
                                         (pmath/+ val))
                                     (pmath/inc idx))))
                          val))))))))
+
+(def builtin-signatures
+  [{:n-dims 3,
+    :direct-vec [false false true],
+    :offsets? false,
+    :broadcast? false,
+    :trivial-last-stride? true}
+   {:n-dims 2,
+    :direct-vec [true true],
+    :offsets? false,
+    :broadcast? true,
+    :trivial-last-stride? false}
+   {:n-dims 2,
+    :direct-vec [true true],
+    :offsets? false,
+    :broadcast? false,
+    :trivial-last-stride? true}
+   {:n-dims 1,
+    :direct-vec [true],
+    :offsets? false,
+    :broadcast? false,
+    :trivial-last-stride? false}
+   {:n-dims 2,
+    :direct-vec [true false],
+    :offsets? false,
+    :broadcast? true,
+    :trivial-last-stride? false}
+   {:n-dims 2,
+    :direct-vec [true true],
+    :offsets? true,
+    :broadcast? false,
+    :trivial-last-stride? true}
+   {:n-dims 2,
+    :direct-vec [true false],
+    :offsets? false,
+    :broadcast? false,
+    :trivial-last-stride? true}
+   {:n-dims 2,
+    :direct-vec [true true],
+    :offsets? false,
+    :broadcast? true,
+    :trivial-last-stride? true}
+   {:n-dims 2,
+    :direct-vec [true false],
+    :offsets? true,
+    :broadcast? true,
+    :trivial-last-stride? false}
+   {:n-dims 1,
+    :direct-vec [true],
+    :offsets? false,
+    :broadcast? false,
+    :trivial-last-stride? true}
+   {:n-dims 2,
+    :direct-vec [true false],
+    :offsets? false,
+    :broadcast? true,
+    :trivial-last-stride? true}
+   {:n-dims 2,
+    :direct-vec [true true],
+    :offsets? false,
+    :broadcast? false,
+    :trivial-last-stride? false}
+   {:n-dims 2,
+    :direct-vec [true false],
+    :offsets? true,
+    :broadcast? true,
+    :trivial-last-stride? true}
+   {:n-dims 2,
+    :direct-vec [false true],
+    :offsets? false,
+    :broadcast? false,
+    :trivial-last-stride? true}
+   {:n-dims 2,
+    :direct-vec [true false],
+    :offsets? false,
+    :broadcast? false,
+    :trivial-last-stride? false}])
+
+;;Implement builtin signatures that we always want to have
+(doseq [sig builtin-signatures]
+  (.computeIfAbsent defined-classes sig (absent-sig-fn sig)))
 
 
 (comment

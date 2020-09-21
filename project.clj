@@ -20,7 +20,8 @@
                              [ch.qos.logback/logback-classic "1.1.3"]]
               :test-paths ["neanderthal" "test"]}
              :uberjar
-             {:aot [tech.v3.tensor]
+             {:aot [tech.v3.datatype.main]
               :source-paths ["src" "native_test"]
               :jvm-opts ["-Dclojure.compiler.direct-linking=true"]
-              :uberjar-name "dtype-next.jar"}})
+              :uberjar-name "dtype-next.jar"
+              :main tech.v3.datatype.main}})

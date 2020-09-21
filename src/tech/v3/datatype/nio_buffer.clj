@@ -5,7 +5,8 @@
             [tech.v3.datatype.casting :as casting]
             [tech.resource :as resource])
   (:import [java.nio Buffer ByteBuffer ShortBuffer IntBuffer LongBuffer
-            FloatBuffer DoubleBuffer]))
+            FloatBuffer DoubleBuffer]
+           [tech.v3.datatype UnsafeUtil]))
 
 
 (defn datatype->nio-buf-type
@@ -42,11 +43,9 @@
 (def nio-datatypes #{:int8 :int16 :int32 :int64 :float32 :float64})
 
 
-(def buffer-address
-  (let [addr-field (.getDeclaredField Buffer "address")
-        offset (.objectFieldOffset (native-buffer/unsafe) addr-field)]
-    (fn [^Buffer buf]
-      (.getLong (native-buffer/unsafe) ^Object buf (long offset)))))
+(defn buffer-address
+  ^long [^Buffer buf]
+  (.getLong (native-buffer/unsafe) ^Object buf UnsafeUtil/addressFieldOffset))
 
 
 (defmacro extend-nio-types
