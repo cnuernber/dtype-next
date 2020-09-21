@@ -126,16 +126,20 @@
 
 
 (defn reduced-dims->signature
-  [{:keys [shape strides offsets shape-ecounts shape-ecount-strides]} broadcast?]
-  (let [n-dims (count shape)
-        direct-vec (mapv idx-alg/direct-reader? shape)
-        offsets? (boolean (some #(not= 0 %) offsets))
-        trivial-last-stride? (== 1 (long (.get ^List strides (dec n-dims))))]
-    {:n-dims n-dims
-     :direct-vec direct-vec
-     :offsets? offsets?
-     :broadcast? broadcast?
-     :trivial-last-stride? trivial-last-stride?}))
+  ([{:keys [shape strides offsets shape-ecounts shape-ecount-strides]} broadcast?]
+   (let [n-dims (count shape)
+         direct-vec (mapv idx-alg/direct-reader? shape)
+         offsets? (boolean (some #(not= 0 %) offsets))
+         trivial-last-stride? (== 1 (long (.get ^List strides (dec n-dims))))]
+     {:n-dims n-dims
+      :direct-vec direct-vec
+      :offsets? offsets?
+      :broadcast? broadcast?
+      :trivial-last-stride? trivial-last-stride?}))
+  ([reduced-dims]
+   (reduced-dims->signature reduced-dims
+                            (dims-analytics/are-reduced-dims-bcast?
+                             reduced-dims))))
 
 (defn signature->ast
   [signature]

@@ -17,7 +17,8 @@
   (let [reduced-dims (dims-analytics/reduce-dimensionality base-dims)
         default-reader (gtol/elem-idx->addr-fn reduced-dims)
         ast-reader (gtol/get-or-create-reader reduced-dims)
-        reduced-dims-ast (gtol/global->local-ast reduced-dims)]
+        reduced-dims-ast (gtol/signature->ast
+                          (gtol/reduced-dims->signature reduced-dims))]
     (is (= expected-reduced-shape
            (->> reduced-dims
                 (map (fn [[k v]] [k (vec v)]))

@@ -6,7 +6,8 @@
             [tech.resource :as resource])
   (:import [java.nio Buffer ByteBuffer ShortBuffer IntBuffer LongBuffer
             FloatBuffer DoubleBuffer]
-           [tech.v3.datatype UnsafeUtil]))
+           [tech.v3.datatype UnsafeUtil]
+           [sun.misc Unsafe]))
 
 
 (defn datatype->nio-buf-type

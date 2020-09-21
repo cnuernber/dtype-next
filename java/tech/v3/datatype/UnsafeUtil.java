@@ -8,9 +8,9 @@ import sun.misc.Unsafe;
 public class UnsafeUtil {
   public static long addressField() {
     try {
-      return Unsafe.getUnsafe().objectFieldOffset(Buffer.class.getDeclaredField("address"));
+      return xerial.larray.buffer.UnsafeUtil.getUnsafe().objectFieldOffset(Buffer.class.getDeclaredField("address"));
     }catch (Throwable e) {
-      return 0;
+      return -1;
     }
   }
   public static final long addressFieldOffset = addressField();
