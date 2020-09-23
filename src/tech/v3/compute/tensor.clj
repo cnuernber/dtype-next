@@ -1,7 +1,7 @@
-(ns tech.compute.tensor
+(ns tech.v3.compute.tensor
   "Functions for dealing with tensors with the compute system"
-  (:require [tech.compute.driver :as drv]
-            [tech.compute.context :as compute-ctx]
+  (:require [tech.v3.compute.driver :as drv]
+            [tech.v3.compute.context :as compute-ctx]
             [tech.v3.datatype :as dtype]
             [tech.v3.tensor.dimensions :as dtt-dims]
             [tech.v3.tensor :as dtt])

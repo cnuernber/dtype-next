@@ -1,4 +1,4 @@
-(ns tech.compute.cpu.utils)
+(ns tech.v3.compute.cpu.utils)
 
 
 (set! *warn-on-reflection* true)

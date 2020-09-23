@@ -1,8 +1,8 @@
-(ns tech.compute.context
+(ns tech.v3.compute.context
   "Compute context allows someone to setup the default driver, device, and stream to
   use in function calls."
-  (:require [tech.compute.registry :as registry]
-            [tech.compute.driver :as drv]))
+  (:require [tech.v3.compute.registry :as registry]
+            [tech.v3.compute.driver :as drv]))
 
 
 (def ^:dynamic *context {})

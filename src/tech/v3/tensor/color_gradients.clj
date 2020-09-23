@@ -8,7 +8,7 @@
             [tech.v3.datatype.unary-op :as unary-op]
             [clojure.edn :as edn]
             [tech.v3.parallel.for :as pfor]
-            [tech.libs.buffered-image :as bufimg])
+            [tech.v3.libs.buffered-image :as bufimg])
   (:import [java.awt.image BufferedImage]
            [tech.v3.datatype PrimitiveIO PrimitiveNDIO]
            [clojure.lang IFn]))

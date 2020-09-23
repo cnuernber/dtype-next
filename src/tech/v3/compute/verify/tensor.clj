@@ -1,9 +1,9 @@
-(ns tech.compute.verify.tensor
-  (:require [tech.compute.context :as compute-ctx]
+(ns tech.v3.compute.verify.tensor
+  (:require [tech.v3.compute.context :as compute-ctx]
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype :as dtype]
             [tech.v3.tensor :as dtt]
-            [tech.compute.tensor :as ct]
+            [tech.v3.compute.tensor :as ct]
             [tech.resource :as resource]
             [clojure.test :refer :all]))
 

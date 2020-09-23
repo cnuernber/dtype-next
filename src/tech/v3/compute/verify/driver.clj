@@ -1,11 +1,11 @@
-(ns tech.compute.verify.driver
+(ns tech.v3.compute.verify.driver
   (:require [clojure.test :refer :all]
-            [tech.compute.driver :as drv]
+            [tech.v3.compute.driver :as drv]
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.functional :as dfn]
-            [tech.compute.verify.utils :as verify-utils]
-            [tech.compute :as compute]
-            [tech.compute.context :as compute-ctx]))
+            [tech.v3.compute.verify.utils :as verify-utils]
+            [tech.v3.compute :as compute]
+            [tech.v3.compute.context :as compute-ctx]))
 
 
 (defn simple-stream

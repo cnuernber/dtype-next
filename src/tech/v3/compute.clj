@@ -1,7 +1,7 @@
-(ns tech.compute
-  (:require [tech.compute.driver :as drv]
-            [tech.compute.registry :as registry]
-            [tech.compute.context :as compute-ctx]
+(ns tech.v3.compute
+  (:require [tech.v3.compute.driver :as drv]
+            [tech.v3.compute.registry :as registry]
+            [tech.v3.compute.context :as compute-ctx]
             [tech.v3.datatype :as dtype]
             [clojure.test :refer :all]
             [tech.resource :as resource]))

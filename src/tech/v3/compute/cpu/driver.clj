@@ -1,12 +1,12 @@
-(ns tech.compute.cpu.driver
-  (:require [tech.compute.driver :as drv]
+(ns tech.v3.compute.cpu.driver
+  (:require [tech.v3.compute.driver :as drv]
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.protocols :as dtype-proto]
             [clojure.core.async :as async]
             [tech.resource :as resource]
             [tech.resource.stack :as stack]
-            [tech.compute :as compute]
-            [tech.compute.registry :as registry]))
+            [tech.v3.compute :as compute]
+            [tech.v3.compute.registry :as registry]))
 
 
 (set! *warn-on-reflection* true)

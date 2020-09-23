@@ -1,7 +1,7 @@
-(ns tech.compute.registry
+(ns tech.v3.compute.registry
   "Place to store global information about the drivers available to the compute
   subystem."
-  (:require [tech.compute.driver :as drv]))
+  (:require [tech.v3.compute.driver :as drv]))
 
 
 (def ^:dynamic *registered-drivers* (atom {}))

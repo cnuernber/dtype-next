@@ -1,6 +1,6 @@
-(ns tech.compute.cpu.tensor-test
-  (:require [tech.compute.cpu.driver :as cpu]
-            [tech.compute.verify.tensor :as verify-tens]
+(ns tech.v3.compute.cpu.tensor-test
+  (:require [tech.v3.compute.cpu.driver :as cpu]
+            [tech.v3.compute.verify.tensor :as verify-tens]
             [clojure.test :refer :all]))
 
 

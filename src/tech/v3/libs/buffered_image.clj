@@ -1,4 +1,4 @@
-(ns tech.libs.buffered-image
+(ns tech.v3.libs.buffered-image
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.protocols :as dtype-proto]

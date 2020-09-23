@@ -1,11 +1,12 @@
-(ns tech.libs.neanderthal
+(ns tech.v3.libs.neanderthal
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.nio-buffer]
             [tech.v3.tensor :as dtt]
             [tech.v3.datatype.native-buffer :as native-buffer]
-            [tech.resource :as resource])
+            [tech.resource :as resource]
+            [uncomplicate.commons.core])
   (:import [uncomplicate.neanderthal.internal.api Block]
            [uncomplicate.commons.core Info]))
 

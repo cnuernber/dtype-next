@@ -1,4 +1,4 @@
-(ns tech.compute.driver
+(ns tech.v3.compute.driver
   "Base set of protocols required to move information from the host to the device as well as
   enable some form of computation on a given device.  There is a cpu implementation provided for
   reference.

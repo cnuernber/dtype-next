@@ -1,9 +1,9 @@
-(ns tech.compute.cpu.driver-test
-  (:require [tech.compute.cpu.driver :as cpu]
+(ns tech.v3.compute.cpu.driver-test
+  (:require [tech.v3.compute.cpu.driver :as cpu]
             [clojure.test :refer :all]
-            [tech.compute.verify.utils :refer [def-all-dtype-test
+            [tech.v3.compute.verify.utils :refer [def-all-dtype-test
                                                 def-double-float-test] :as test-utils]
-            [tech.compute.verify.driver :as verify-driver]))
+            [tech.v3.compute.verify.driver :as verify-driver]))
 
 
 (use-fixtures :each test-utils/test-wrapper)

@@ -1,8 +1,8 @@
-(ns tech.libs.buffered-image-test
+(ns tech.v3.libs.buffered-image-test
   (:require [tech.v3.datatype :as dtype]
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.tensor :as dtt]
-            [tech.libs.buffered-image :as bufimg]
+            [tech.v3.libs.buffered-image :as bufimg]
             [clojure.test :refer :all]))
 
 

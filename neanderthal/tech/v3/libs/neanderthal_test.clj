@@ -1,11 +1,11 @@
-(ns tech.libs.neanderthal-test
+(ns tech.v3.libs.neanderthal-test
   (:require [uncomplicate.neanderthal.core :as n-core]
             [uncomplicate.neanderthal.native :as n-native]
             [tech.v3.tensor :as dtt]
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype :as dtype]
             [clojure.test :refer [deftest is]]
-            [tech.libs.neanderthal]
+            [tech.v3.libs.neanderthal]
             [tech.v3.datatype]))
 
 
