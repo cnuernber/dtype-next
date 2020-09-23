@@ -7,7 +7,7 @@
 tech.datatype as a numerics stack fulfills our technical needs at TechAscent in regards
 to scientific computing, data science, and machine learning.  It enables a completely
 unified interface between native heap and JVM heap datastructures with a base level
-of datatype support and various simple accerated operations.
+of datatype support and various simple accelerated operations.
 
 
 In order to fulfill unified support for efficient random access across many datatypes
@@ -54,7 +54,7 @@ in specific key use cases.
 There are a few pathways to this result but the one that appears to have the most
 potential is a simple one.  If, instead of a reader implementing only one
 type-specific read method, readers implemented every type specific read method with
-sane casting rules between the primitive datatypes we can actually, for the same
+default casting rules between the primitive datatypes we can actually, for the same
 implementation cost as measured by the cost to implement a reader of a particular
 datatype, gain identical performance with far more runtime flexibility resulting in
 less need in the first place for compile time case statements generating the
@@ -72,10 +72,12 @@ public interface DoubleReader
 }
 ```
 
-In dtype-next there exists a new concept called a PrimitiveReader:
+In dtype-next there exists a new concept called a PrimitiveIO:
 
 ```java
-public interface PrimitiveReader
+public interface PrimitiveIO extends IOBase, Iterable, IFn,
+				             List, RandomAccess, Sequential,
+                             Indexed
 {
   boolean readBoolean(long idx);
   byte readByte(long idx);
@@ -86,32 +88,50 @@ public interface PrimitiveReader
   float readFloat(long idx);
   double readDouble(long idx);
   Object readObject(long idx);
+  void writeBoolean(long idx, boolean val);
+  void writeByte(long idx, byte val);
+  void writeShort(long idx, short val);
+  void writeChar(long idx, char val);
+  void writeInt(long idx, int val);
+  void writeLong(long idx, long val);
+  void writeFloat(long idx, float val);
+  void writeDouble(long idx, double val);
+  void writeObject(long idx, Object val);
+  default boolean allowsRead() { return true; }
+  default boolean allowsWrite() { return false; }
+  //Lots of implementation of the above interfaces based on these methods.
+  ...
 }
 ```
 
-With this concept in mind, a DoubleReader implements this interface using a
+With this concept in mind, a DoubleIO implements this interface using a
 combination of checked runtime casting and the original `double read(long idx)`
 method:
 
 ```java
-public interface DoubleReader extends PrimitiveReader
+public interface DoubleIO extends PrimitiveIO
 {
-  double read(long idx);
-  default boolean readBoolean(long idx) {return read(idx) != 0.0;}
-  default byte readByte(long idx) {return (byte)read(idx);}
-  default short readShort(long idx) {return (short)read(idx);}
-  default char readChar(long idx) {return (char)read(idx);}
-  default int readInt(long idx) {return (int)(read(idx));}
-  default long readLong(long idx) {return (long)read(idx);}
-  default float readFloat(long idx) {return (float)read(idx);}
-  default double readDouble(long idx) {return read(idx);}
-  default Object readObject(long idx) {return read(idx);}
+  default Object elemwiseDatatype () { return Keyword.intern(null, "float64"); }
+  default boolean readBoolean(long idx) {return readDouble(idx) != 0.0;}
+  default byte readByte(long idx) {return RT.byteCast(readDouble(idx));}
+  default short readShort(long idx) {return RT.byteCast(readDouble(idx));}
+  default char readChar(long idx) {return RT.charCast(readDouble(idx));}
+  default int readInt(long idx) {return RT.intCast(readDouble(idx));}
+  default long readLong(long idx) {return RT.longCast(readDouble(idx));}
+  default float readFloat(long idx) {return (float)readDouble(idx);}
+  default Object readObject(long idx) {return readDouble(idx);}
+
+  //Write interaces implemented below
+  ...
 }
 ```
 
 This means we don't need to create a specific reader to convert a double reader into
-a long reader, for instance.  Thus we no longer have a cartesian join of required
+a long reader.  Thus we no longer have a cartesian join of required
 interfaces but rather we have 'wider' default interface implementations.
+
+For many situations, due to the wider interfaces, we can now implement 1 interface
+with many methods as opposed to many interfaces with 1 method.
 
 
 ## Additional Optimizations
@@ -130,36 +150,23 @@ or correctness.  Here are a set of further optimizations found so far:
 
 
 *  Buffer-specific implementations are mimimized and buffer's implement a single
-class that provides implementations of both the read and write size.  So for example
+class that provides the PrimitiveIO implementation.  For example
 there is a single class implementation that provides typesafe access to byte buffers
 and another that provides typesafe access for byte buffers that are to be interpreted
 as unsigned byte data.  That cuts out half the implementations of readers and writers.
 *  There can be a single const-reader implementation as opposed to N implementations,
-one for each datatype.  Ditto for indexed-readers which are one of the most heavily
-used items in tech.datatype.
+one for each datatype.  Ditto for indexed PrimitiveIO implementations which are one
+of the most heavily used items in tech.datatype.
 *  The arithmetic math vectorization implementation implements 3 overloads - one for
 double, one for long, and one for object.
-*  The + operator implements one class.  In tech.datatype it implemented an override
-for each individual datatype.
+*  The + operator implements one class.  In tech.datatype it implemented a class
+for each individual numeric datatype plus one override for Object.
 
 
 ## Benchmarks
 
 
-At this point the benchmarks are unfair - dtype-next's api namespace doesn't include
-the functionaly that tech.datatype's namespace did.  Notably dtype-next lacks 
-the ability to extend the typesystem to arbitrary classes, list support, bitmap support, 
-etc.
-
-The unary and binary math operations are completely implemented, however, and these
-presented a potential minefield of small type-specific classes.  I estimate that
-currently more than 1/3 of the core functionality of tech.datatype is implemented at
-substantially less cost in terms of both AOT and non AOT require time along with
-uberjar disk size.
-
-
-### Require Time - No AOT
-
+### API Require Time - No AOT
 
 ```clojure
 user> (time (require 'tech.v2.datatype))
@@ -169,12 +176,26 @@ nil
 
 ```clojure
 user> (time (require 'tech.v3.datatype))
-"Elapsed time: 1224.160303 msecs"
+"Elapsed time: 2142.680631 msecs"
 nil
 ```
 
 
-### Require Time - With AOT
+### Tensor Require time - No AOT
+
+```clojure
+user> (time (require 'tech.v2.tensor))
+"Elapsed time: 8696.394848 msecs"
+nil
+```
+
+```clojure
+user> (time (require 'tech.v3.tensor))
+"Elapsed time: 3516.401243 msecs"
+nil
+```
+
+### API Require Time - With AOT
 
 ```clojure
 user> (time (require 'tech.v2.datatype))
@@ -184,25 +205,32 @@ nil
 
 ```clojure
 user> (time (require 'tech.v3.datatype))
-"Elapsed time: 344.311911 msecs"
+"Elapsed time: 525.53414 msecs"
 nil
 ```
 
+### Tensor Require Time - With AOT
+
+```clojure
+user> (time (require 'tech.v2.tensor))
+"Elapsed time: 1478.459059 msecs"
+nil
+```
+
+```clojure
+user> (time (require 'tech.v3.tensor))
+"Elapsed time: 713.795019 msecs"
+nil
+```
 
 ### Tech Platform AOT Uberjar Size
 
 ```console
-chrisn@chrisn-lt-01:~/dev/tech.all/tech.datatype/target/datatype$ unzip datatype.jar -d datatype
-...
-chrisn@chrisn-lt-01:~/dev/tech.all/tech.datatype/target$ cd datatype/
-chrisn@chrisn-lt-01:~/dev/tech.all/tech.datatype/target/datatype$ du -hs tech
-25M     tech
+chrisn@chrisn-lt-01:~/dev/tech.all/tech.datatype$ du -hs target/classes/tech
+26M     target/classes/tech
 ```
 
 ```console
-chrisn@chrisn-lt-01:~/dev/cnuernber/dtype-next/target/dtype-next$ unzip dtype-next.jar -d dtype-next
-...
-chrisn@chrisn-lt-01:~/dev/cnuernber/dtype-next/target/dtype-next$ cd dtype-next
-chrisn@chrisn-lt-01:~/dev/cnuernber/dtype-next/target/dtype-next$ du -hs tech
-4.3M    tech
+chrisn@chrisn-lt-01:~/dev/cnuernber/dtype-next$ du -hs target/classes/tech
+9.1M    target/classes/tech
 ```
