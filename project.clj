@@ -13,7 +13,12 @@
                  [org.apache.commons/commons-math3 "3.6.1"]
                  [org.roaringbitmap/RoaringBitmap  "0.9.0"]
                  [techascent/tech.resource       "4.6"]]
+  :plugins [[lein-codox "0.10.7"]]
   :java-source-paths ["java"]
+  :codox {:namespaces [tech.v3.datatype tech.v3.datatype.functional
+                       tech.v3.tensor tech.v3.compute
+                       tech.v3.libs.buffered-image
+                       tech.v3.libs.neanderthal]}
   :profiles {:dev
              {:dependencies [[criterium "0.4.5"]
                              [uncomplicate/neanderthal "0.35.0"]

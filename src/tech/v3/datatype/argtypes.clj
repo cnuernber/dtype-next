@@ -5,6 +5,11 @@
 
 
 (defn arg-type
+  "Return the type of a thing.  Types could be:
+  :scalar
+  :iterable
+  :reader
+  :tensor (reader with more than 1 dimension)"
   [arg]
   (cond
     (or (instance? Number arg)
@@ -22,3 +27,9 @@
     :iterable
     :else
     :scalar))
+
+
+(defn reader-like?
+  [argtype]
+  (or (= argtype :reader)
+      (= argtype :tensor)))

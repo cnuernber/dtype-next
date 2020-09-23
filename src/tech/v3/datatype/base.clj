@@ -17,16 +17,20 @@
 
 
 (defn elemwise-datatype
+  "Return the datatype of the values in this object."
   [item]
   (when-not (nil? item) (dtype-proto/elemwise-datatype item)))
 
 
 (defn elemwise-cast
+  "Create a new thing by doing a checked cast from the old values
+  to the new values upon at read time."
   [item new-dtype]
   (when-not (nil? item) (dtype-proto/elemwise-cast item new-dtype)))
 
 
 (defn ecount
+  "Return the long number of elements in the object."
   ^long [item]
   (if-not item
     0
@@ -34,13 +38,17 @@
 
 
 (defn shape
+  "Return a persistent vector of the shape of the object."
   [item]
   (if-not item
     nil
     (dtype-proto/shape item)))
 
 
-(defn as-io
+(defn as-primitive-io
+  "If this item is or has a conversion to an implementation of the primitiveIO
+  interface then return the primitive IO interface for this object.
+  Else return nil."
   ^PrimitiveIO [item]
   (when-not item (throw (Exception. "Cannot convert nil to reader")))
   (if (instance? PrimitiveIO item)
@@ -49,16 +57,19 @@
       (dtype-proto/->primitive-io item))))
 
 
-(defn ->io
+(defn ->primitive-io
+  "Convert this item to a primitive-io implementation or throw an exception."
   ^PrimitiveIO [item]
-  (if-let [io (as-io item)]
+  (if-let [io (as-primitive-io item)]
     io
     (errors/throwf "Item type %s is not convertible to primitive io"
                    (type item))))
 
 
 (defn as-reader
-  ^PrimitiveReader [item]
+  "If this object has a read-only or read-write conversion to a primitive
+  io object return the primitive io object."
+  ^PrimitiveIO [item]
   (cond
     (nil? item) item
     (instance? PrimitiveReader item)
@@ -69,28 +80,24 @@
 
 
 (defn ->reader
-  ^PrimitiveReader [item]
+  "If this object has a read-only or read-write conversion to a primitive io
+  object return the primtive io object.  Else throw an exception."
+  ^PrimitiveIO [item]
   (if-let [io (as-reader item)]
     io
     (errors/throwf "Item type %s is not convertible to primitive reader"
                    (type item))))
 
 
-(defn ensure-reader
-  "Ensure item is randomly addressable"
-  ^PrimitiveReader [item]
-  (if-let [rdr (as-reader item)]
-    rdr
-    (-> (dtype-proto/make-container :list (elemwise-datatype item) {} item)
-        (->reader))))
-
-
 (defn reader?
+  "True if this item is convertible to a read-only or read-write PrimitiveIO
+  interface."
   [item]
   (when item (dtype-proto/convertible-to-reader? item)))
 
 
 (defn ensure-iterable
+  "Ensure this object is iterable.  If item is iterable, return the item."
   (^Iterable [item]
    (cond
      (instance? Iterable item)
@@ -325,7 +332,7 @@
   (sub-buffer [buf offset len]
     (if-let [data-buf (inner-buffer-sub-buffer buf offset len)]
       data-buf
-      (if-let [data-io (->io buf)]
+      (if-let [data-io (->primitive-io buf)]
         (io-sub-buf/sub-buffer data-io offset len)
         (throw (Exception. (format
                             "Buffer %s does not implement the sub-buffer protocol"

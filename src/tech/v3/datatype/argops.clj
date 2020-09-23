@@ -8,6 +8,8 @@
             [tech.v3.datatype.list :as dtype-list]
             [tech.v3.datatype.reductions :as reductions]
             [tech.v3.datatype.errors :as errors]
+            [tech.v3.datatype.argtypes :as argtypes]
+            [tech.v3.datatype.const-reader :as const-reader]
             [primitive-math :as pmath])
   (:import [it.unimi.dsi.fastutil.bytes ByteArrays ByteComparator]
            [it.unimi.dsi.fastutil.shorts ShortArrays ShortComparator]
@@ -22,12 +24,32 @@
             Comparators$DoubleComp
             BinaryPredicate
             PrimitiveList
-            IndexReduction]
+            IndexReduction
+            PrimitiveIO]
            [java.util Comparator Arrays List Map Iterator]
            [org.roaringbitmap RoaringBitmap]))
 
 
 (set! *warn-on-reflection* true)
+
+
+(defn ensure-reader
+  "Ensure item is randomly addressable.  This may copy the data into a randomly
+  accessible container."
+  (^PrimitiveIO [item n-const-elems]
+   (let [argtype (argtypes/arg-type item)]
+     (cond
+       (= argtype :scalar)
+       (const-reader/const-reader item n-const-elems)
+       (= argtype :iterable)
+       (-> (dtype-cmc/make-container :list (dtype-base/elemwise-datatype item) {}
+                                     item)
+           (dtype-base/->reader))
+       :else
+       (dtype-base/->reader item))))
+  (^PrimitiveIO
+   [item]
+   (ensure-reader item Long/MAX_VALUE)))
 
 
 (defn argmax
@@ -152,7 +174,7 @@
 (defn index-comparator
   [values src-comparator]
   (let [src-dtype (dtype-base/elemwise-datatype values)
-        values (dtype-base/ensure-reader values)
+        values (ensure-reader values)
         n-values (.lsize values)
         src-comparator (if-let [bin-pred (:binary-predicate (meta src-comparator))]
                          (binary-pred/builtin-ops bin-pred)

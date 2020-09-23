@@ -44,7 +44,7 @@
                 elemwise-cast
                 ecount
                 shape
-                ->io
+                ->primitive-io
                 as-reader
                 ->reader
                 reader?
