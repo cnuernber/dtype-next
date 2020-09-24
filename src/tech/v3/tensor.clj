@@ -419,7 +419,7 @@
   data.  As an example consider a sub-image of a larger image.  Each row can be copied
   contiguously into a new image but there are gaps between them."
   ([src dst options]
-   (tens-cpy/tensor-copy! src dst options))
+   (tens-cpy/tensor-copy! (ensure-tensor src) dst options))
   ([src dst]
    (tensor-copy! src dst nil)))
 
