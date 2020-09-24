@@ -38,7 +38,8 @@
 
 
 (defn shape
-  "Return a persistent vector of the shape of the object."
+  "Return a persistent vector of the shape of the object.  Dimensions
+  are returned from least-rapidly-changing to most-rapidly-changing."
   [item]
   (if-not item
     nil
@@ -115,19 +116,25 @@
 
 
 (defn iterable?
+  "Return true if this is either a instance of Iterable or an instance of
+  java.util.streams.Stream."
   [item]
   (or (instance? Iterable item)
       (instance? Stream item)))
 
 
 (defn writer?
+  "True if this item is convertible to a PrimitiveIO interface that supports
+  writing."
   [item]
   (when item
     (dtype-proto/convertible-to-writer? item)))
 
 
 (defn as-writer
-  ^PrimitiveWriter [item]
+  "If this item is convertible to a PrimtiveIO writing the perform the
+  conversion and return the interface."
+  ^PrimitiveIO [item]
   (when-not item (throw (Exception. "Cannot convert nil to writer")))
   (if (instance? PrimitiveWriter item)
     item
@@ -136,6 +143,9 @@
 
 
 (defn ->writer
+  "If this item is convertible to a PrimtiveIO writing the perform the
+  conversion and return the interface.
+  Else throw an excepion."
   ^PrimitiveWriter [item]
   (if-let [io (as-writer item)]
     io
@@ -144,25 +154,19 @@
 
 
 (defn as-array-buffer
-  ^ArrayBuffer
-  [item]
+  "If this item is convertible to a tech.v3.datatype.array_buffer.ArrayBuffer
+  then convert it and return the typed buffer"
+  ^ArrayBuffer [item]
   (if (instance? ArrayBuffer item)
     item
     (when (dtype-proto/convertible-to-array-buffer? item)
       (dtype-proto/->array-buffer item))))
 
 
-(defn ->array-buffer
-  ^ArrayBuffer [item]
-  (if-let [retval (as-array-buffer item)]
-    retval
-    (errors/throwf "Item type %s is not convertible to an array buffer"
-                   (type item))))
-
-
 (defn as-native-buffer
-  ^NativeBuffer
-  [item]
+  "If this item is convertible to a tech.v3.datatype.native_buffer.NativeBuffer
+  then convert it and return the typed buffer"
+  ^NativeBuffer [item]
   (if (instance? NativeBuffer item)
     item
     (when (dtype-proto/convertible-to-native-buffer? item)
@@ -170,6 +174,8 @@
 
 
 (defn ->native-buffer
+  "Convert to a native buffer if possible, else throw an exception.
+  See as-native-buffer"
   ^NativeBuffer [item]
   (if-let [retval (as-native-buffer item)]
     retval
@@ -178,12 +184,15 @@
 
 
 (defn as-buffer
+  "If this item is representable as a base buffer type, either native or array,
+  return that buffer."
   [item]
   (or (as-array-buffer item)
       (as-native-buffer item)))
 
 
 (defn sub-buffer
+  "Create a sub-buffer (view) of the given buffer."
   ([item offset length]
    (errors/check-offset-length offset length (ecount item))
    (dtype-proto/sub-buffer item offset length))
@@ -193,11 +202,13 @@
 
 
 (defn get-value
+  "Get a value from an object via conversion to a reader."
   [item idx]
   ((->reader item) idx))
 
 
 (defn set-value!
+  "Set a value on an object via conversion to a writer."
   [item idx value]
   ((->writer item) idx value))
 
@@ -260,10 +271,8 @@
        (.writeObject buf idx value)))
     buf))
 
-
-(declare shape)
-
 (defn array?
+  "Return true if this object's class returns true for .isArray."
   [item]
   (when item
     (let [cls (.getClass ^Object item)]
@@ -271,6 +280,7 @@
 
 
 (defn scalar?
+  "Return true if this is a scalar object."
   [item]
   (or (number? item)
       (string? item)
@@ -509,21 +519,25 @@
 
 (defn mset!
   "Set value(s) on an ND object.  If fewer indexes are provided than dimension then a
-  tensor assignment is done and value is expected to be the same shape as the subrect of
-  the tensor as indexed by the provided dimensions.  Returns t."
+  tensor assignment is done and value is expected to be the same shape as the subrect
+  of the tensor as indexed by the provided dimensions.  Returns t."
   ([t x value]
    (check-ns 'tech.v3.tensor)
    (if (instance? PrimitiveNDIO t)
      (.ndWriteObject ^PrimitiveNDIO t x value)
-     (dtype-proto/mset! t [x] value)))
+     (dtype-proto/mset! t [x] value))
+   t)
   ([t x y value]
    (if (instance? PrimitiveNDIO t)
      (.ndWriteObject ^PrimitiveNDIO t x y value)
-     (dtype-proto/mset! t [x y] value)))
+     (dtype-proto/mset! t [x y] value))
+   t)
   ([t x y z value]
    (if (instance? PrimitiveNDIO t)
      (.ndWriteObject ^PrimitiveNDIO t x y z value)
-     (dtype-proto/mset! t [x y z] value)))
+     (dtype-proto/mset! t [x y z] value))
+   t)
   ([t x y z w & args]
    (let [value (last args)]
-     (dtype-proto/mset! t (concat [x y z w] (butlast args)) value))))
+     (dtype-proto/mset! t (concat [x y z w] (butlast args)) value)
+     t)))

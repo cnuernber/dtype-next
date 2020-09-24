@@ -17,6 +17,7 @@
 
 
 (defn const-reader
+  "Create a new reader that only returns the item for the provided indexes."
   (^PrimitiveReader [item n-elems]
    (let [item-dtype (dtype-proto/elemwise-datatype item)
          n-elems (long n-elems)]

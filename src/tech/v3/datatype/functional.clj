@@ -1,4 +1,5 @@
 (ns tech.v3.datatype.functional
+  "Arithmetic and statistical operations based on the PrimitiveIO interface."
   (:require [tech.v3.datatype.argtypes :refer [arg-type]]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.const-reader :refer [const-reader]]

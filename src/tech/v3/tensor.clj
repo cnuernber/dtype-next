@@ -255,6 +255,8 @@
 
 
 (defn construct-tensor
+  "Construct an implementation of tech.v3.datatype.PrimitiveNDIO from a buffer and
+  a dimensions object.  See dimensions/dimensions."
   ^Tensor [buffer dimensions]
   (let [nd-desc (dims/->global->local dimensions)]
     (Tensor. buffer dimensions
@@ -269,6 +271,7 @@
 
 
 (defn tensor->buffer
+  "Get the buffer from a tensor."
   [item]
   (errors/when-not-error (instance? PrimitiveNDIO item)
     "Item is not a tensor")
@@ -276,6 +279,7 @@
 
 
 (defn tensor->dimensions
+  "Get the dimensions object from a tensor."
   [item]
   (errors/when-not-error (instance? PrimitiveNDIO item)
     "Item is not a tensor")
@@ -283,11 +287,15 @@
 
 
 (defn simple-dimensions?
+  "Are the dimensions of this object simple meaning read in order with no
+  breaks due to striding."
   [item]
   (dims/native? (tensor->dimensions item)))
 
 
 (defn dims-suitable-for-desc?
+    "Are the dimensions of this object suitable for use in a buffer description?
+  breaks due to striding."
   [item]
   (dims/direct? (tensor->dimensions item)))
 
@@ -300,6 +308,9 @@
 
 
 (defn ->tensor
+  "Convert some data into a tensor via copying the data.  The datatype and container
+  type can be specified.  The datatype defaults to float64 if the datatype of the
+  incoming data cannot be ascertained."
   ^Tensor [data & {:keys [datatype container-type]
                    :as options}]
   (let [data-shape (dtype-base/shape data)
@@ -317,6 +328,9 @@
 
 
 (defn new-tensor
+  "Create a new tensor with a given shape, datatype and container type.  Datatype
+  defaults to :float64 if not passed in while container-type defaults to
+  java-heap."
   [shape & {:keys [datatype container-type]
             :as options}]
   (let [datatype (default-datatype datatype)
@@ -328,6 +342,8 @@
 
 
 (defn ensure-tensor
+  "Create an implementation of tech.v3.datatype.PrimitiveNDIO from an
+  object.  If possible, represent the data in-place."
   ^PrimitiveNDIO [item]
   (if (instance? PrimitiveNDIO item)
     item
@@ -389,25 +405,31 @@
 
 
 (defn dimensions-dense?
+  "Returns true of the dimensions of a tensor are dense, meaning no gaps due to
+  striding."
   [^PrimitiveNDIO tens]
   (dims/dense? (.dimensions tens)))
 
 
 (defn rows
-  [^PrimitiveNDIO src]
+  "Return the rows of the tensor in a randomly-addressable structure."
+  ^List [^PrimitiveNDIO src]
   (errors/when-not-error (>= (.rank src) 2)
     "Tensor has too few dimensions")
   (dtype-base/slice src 1))
 
 
 (defn columns
-  [^PrimitiveNDIO src]
+  "Return the columns of the tensor in a randomly-addressable structure."
+  ^List [^PrimitiveNDIO src]
   (errors/when-not-error (>= (.rank src) 2)
     "Tensor has too few dimensions")
   (dtype-base/slice-right src (dec (.rank src))))
 
 
 (defn clone
+  "Clone a tensor via copying the tensor into a new container.  Datatype defaults
+  to the datatype of the tensor and container-type defaults to :java-heap."
   [tens & {:keys [datatype
                   container-type]}]
   (let [datatype (or datatype (dtype-base/elemwise-datatype tens))

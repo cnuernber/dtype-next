@@ -1,4 +1,7 @@
 (ns tech.v3.libs.neanderthal
+  "Implementation of the various datatype protocols for neanderthal datatypes.  Users
+  must require this to enable ->reader and as-tensor functionality for neanderthal
+  datatypes."
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.casting :as casting]

@@ -55,7 +55,7 @@
 
 (defn windowed-data-reader
   ^PrimitiveIO [window-size offset item]
-  (let [item (dtype-base/->io item)
+  (let [item (dtype-base/->primitive-io item)
         item-dtype (dtype-base/elemwise-datatype item)
         window-size (long window-size)
         last-index (dec (.lsize item))

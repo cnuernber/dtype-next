@@ -336,12 +336,12 @@
 (defonce ^:dynamic *unchecked-cast-table* (atom {}))
 
 
-(defn add-cast-fn
+(defn add-cast-fn!
   [datatype cast-fn]
   (swap! *cast-table* assoc datatype cast-fn))
 
 
-(defn add-unchecked-cast-fn
+(defn add-unchecked-cast-fn!
   [datatype cast-fn]
   (swap! *unchecked-cast-table* assoc datatype cast-fn))
 
@@ -350,9 +350,9 @@
   []
   `(do
      ~@(for [dtype base-datatypes]
-         [`(add-cast-fn ~dtype #(datatype->cast-fn :unknown ~dtype %))
-          `(add-unchecked-cast-fn ~dtype #(datatype->unchecked-cast-fn
-                                           :unknown ~dtype %))])))
+         [`(add-cast-fn! ~dtype #(datatype->cast-fn :unknown ~dtype %))
+          `(add-unchecked-cast-fn! ~dtype #(datatype->unchecked-cast-fn
+                                            :unknown ~dtype %))])))
 
 (def casts (add-all-cast-fns))
 
@@ -436,6 +436,7 @@
 
 
 (defn cast
+  "Perform a checked cast of a value to specific datatype."
   [value datatype]
   (let [datatype (flatten-datatype datatype)]
     (if (= datatype :object)
@@ -446,6 +447,7 @@
 
 
 (defn unchecked-cast
+  "Perform an unchecked cast of a value to specific datatype."
   [value datatype]
   (let [datatype (flatten-datatype datatype)]
     (if (= datatype :object)

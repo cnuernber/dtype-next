@@ -91,7 +91,7 @@
         (do
           (set! buffer new-buf)
           (set! capacity (dtype-base/ecount new-buf))
-          (set! cached-io (dtype-base/->io new-buf))))))
+          (set! cached-io (dtype-base/->primitive-io new-buf))))))
   (addBoolean [this value]
     ;;Check is done here to avoid fn call when not necessary
     (when (>= ptr capacity) (.ensureCapacity this ptr))

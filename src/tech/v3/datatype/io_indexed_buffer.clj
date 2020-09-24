@@ -10,9 +10,11 @@
 
 
 (defn indexed-buffer
+  "Create a new PrimitiveIO implementatino that indexes into a previous
+  PrimitiveIO implementation via the provided indexes."
   (^PrimitiveIO [indexes item]
    (let [indexes (dtype-base/->reader indexes)
-         item (dtype-base/->io item)
+         item (dtype-base/->primitive-io item)
          item-dtype (dtype-base/elemwise-datatype item)
          n-elems (.lsize indexes)]
      (reify PrimitiveIO

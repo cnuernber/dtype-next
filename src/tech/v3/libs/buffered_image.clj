@@ -210,7 +210,7 @@
   (convertible-to-primitive-io? [item] true)
   (->primitive-io [item]
     (let [n-channels (long n-channels)
-          src-io (dtype-base/->io int-buffer)]
+          src-io (dtype-base/->primitive-io int-buffer)]
       (reify LongIO
         (lsize [rdr] n-elems)
         (allowsRead [rdr] true)

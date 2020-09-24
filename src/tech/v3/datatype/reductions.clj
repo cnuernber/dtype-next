@@ -1,4 +1,6 @@
 (ns tech.v3.datatype.reductions
+  "High performance reductions based on tech.v3.datatype concepts as well
+  as java stream concepts."
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.casting :as casting]

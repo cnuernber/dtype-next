@@ -113,7 +113,7 @@
 
 (defn bitmap->array-buffer
   ^ArrayBuffer [^RoaringBitmap bitmap]
-  (dtype-base/->array-buffer (.toArray bitmap)))
+  (dtype-base/as-array-buffer (.toArray bitmap)))
 
 
 (deftype BitmapSet [^RoaringBitmap bitmap]

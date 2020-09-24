@@ -323,7 +323,7 @@
                       (let [p (doto (Percentile.)
                                 (.withNaNStrategy (options->apache-nan-strategy
                                                    options)))
-                            ary-buf (dtype-base/->array-buffer rdr)]
+                            ary-buf (dtype-base/as-array-buffer rdr)]
                         (.setData p ^doubles (.ary-data ary-buf) (.offset ary-buf)
                                   (.n-elems ary-buf))
                         (merge stats-data

@@ -10,10 +10,14 @@
 
 
 (defn copy!
+  "Mutably copy values from a src container into a destination container.
+  Returns the destination container."
   ([src dst options]
-   (dtype-copy/copy! src dst (:unchecked? options)))
+   (dtype-copy/copy! src dst (:unchecked? options))
+   dst)
   ([src dst]
-   (dtype-copy/copy! src dst true)))
+   (dtype-copy/copy! src dst true)
+   dst))
 
 
 (defmethod dtype-proto/make-container :jvm-heap
@@ -39,7 +43,7 @@
         (copy! elem-seq-or-count ary-buf options))
       ary-buf)
     (-> (dtype-proto/make-container :list datatype options elem-seq-or-count)
-        (dtype-base/->array-buffer))))
+        (dtype-base/as-array-buffer))))
 
 
 (defmethod dtype-proto/make-container :java-array
@@ -89,6 +93,9 @@
 
 
 (defn make-container
+  "Make a container of a given datatype.  Options are container specific
+  and in general unused.  Values will be copied into given container using
+  the most efficient pathway possible."
   ([container-type datatype options elem-seq-or-count]
    (dtype-proto/make-container container-type datatype options elem-seq-or-count))
   ([container-type datatype elem-seq-or-count]
@@ -118,7 +125,7 @@
      (if (= nan-strategy :keep)
        (if (and (= datatype (dtype-base/elemwise-datatype item))
                 (dtype-base/as-array-buffer item))
-         (dtype-base/->array-buffer item)
+         (dtype-base/as-array-buffer item)
          (make-container datatype item))
        (->> (reductions/reader->double-spliterator item nan-strategy)
             (make-container datatype)))))
@@ -148,25 +155,30 @@
    (->array (dtype-base/elemwise-datatype item) nil item)))
 
 (defn ->byte-array
+  "Efficiently convert nearly anyting into a byte array."
   ^bytes [data]
   (->array :int8 nil data))
 
 (defn ->short-array
+  "Efficiently convert nearly anyting into a short array."
   ^shorts [data]
   (->array :int16 nil data))
 
 (defn ->int-array
+  "Efficiently convert nearly anyting into a int array."
   ^ints [data]
   (->array :int32 nil data))
 
 (defn ->long-array
+  "Efficiently convert nearly anyting into a long array."
   ^longs [data]
   (->array :int64 nil data))
 
 (defn ->float-array
-  "Nan-aware conversion to float array.  By default NaN values are removed.
-  See documentation for ->array-buffer.  Returns a float array.
-  The default nan-strategy is :keep."
+    "Nan-aware conversion to double array.
+  See documentation for ->array-buffer.  Returns a double array.
+  options -
+   * nan-strategy - :keep (default) :remove :exception"
   (^doubles [options data]
    (->array :float32 options data))
   (^doubles [data]
@@ -174,11 +186,10 @@
 
 
 (defn ->double-array
-  "Nan-aware conversion to double array.  By default NaN values are removed.
-  See documentation for ->array-buffer.  Returns a double array.  If a double
-  array is passed in or an array buffer that exactly maps to an entire double array
-  then and nan-strategy is :keep then that value itself is returned.
-  The default nan-strategy is :keep."
+  "Nan-aware conversion to double array.
+  See documentation for ->array-buffer.  Returns a double array.
+  options -
+   * nan-strategy - :keep (default) :remove :exception"
   (^doubles [options data]
    (->array :float64 options data))
   (^doubles [data]

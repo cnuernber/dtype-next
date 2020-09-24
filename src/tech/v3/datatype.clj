@@ -1,4 +1,5 @@
 (ns tech.v3.datatype
+  "Base namespace for container creation and elementwise access of data"
   (:require [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.array-buffer]
@@ -39,6 +40,11 @@
                 vectorized-dispatch-2)
 
 
+(export-symbols tech.v3.datatype.argtypes
+                arg-type
+                reader-like?)
+
+
 (export-symbols tech.v3.datatype.base
                 elemwise-datatype
                 elemwise-cast
@@ -48,13 +54,11 @@
                 as-reader
                 ->reader
                 reader?
-                ensure-reader
                 ensure-iterable
                 as-writer
                 ->writer
                 writer?
                 as-array-buffer
-                ->array-buffer
                 as-native-buffer
                 ->native-buffer
                 sub-buffer
@@ -68,22 +72,28 @@
 
 
 (defn get-datatype
+  "Legacy method, returns elemwise-datatype"
   [item]
   (elemwise-datatype item))
 
 
 (defn set-datatype
+  "Legacy method.  Performs elemwise-cast."
   [item new-dtype]
   (dtype-proto/elemwise-cast item new-dtype))
 
 
 (defn clone
+  "Clone an object.  Can clone anything convertible to a reader."
   [item]
   (when item
     (dtype-proto/clone item)))
 
 
 (defn reader-as-persistent-vector
+  "Return a reader wrapped in APersistentVector meaning you can use the reader
+  as, for instance, keys in a map.  Not recommended far large readers although
+  the data is shared."
   [item]
   (ListPersistentVector. (->reader item)))
 
@@ -104,15 +114,7 @@ user> (dtype/make-reader :boolean 5 idx)
 user> (dtype/make-reader :boolean 5 (== idx 0))
 [true false false false false]
 user> (dtype/make-reader :float32 5 (* idx 2))
- [0.0 2.0 4.0 6.0 8.0]
-user> (dtype/make-reader :any-datatype-you-wish 5 (* idx 2))
-[0 2 4 6 8]
-user> (dtype/get-datatype *1)
-:any-datatype-you-wish
-user> (dtype/make-reader [:a :b] 5 (* idx 2))
-[0 2 4 6 8]
-user> (dtype/get-datatype *1)
-[:a :b]"
+ [0.0 2.0 4.0 6.0 8.0]"
   ([datatype n-elems read-op]
    `(make-reader ~datatype ~datatype ~n-elems ~read-op))
   ([reader-datatype advertised-datatype n-elems read-op]
@@ -155,6 +157,7 @@ user> (dtype/get-datatype *1)
 (export-symbols tech.v3.datatype.copy-make-container
                 make-container
                 copy!
+                ->array-buffer
                 ->byte-array
                 ->short-array
                 ->int-array
@@ -164,6 +167,8 @@ user> (dtype/get-datatype *1)
 
 
 (defn ->array-copy
+  "Create a new array that contains the data from the original container.
+  Returns a java array."
   [item]
   (.ary-data ^ArrayBuffer (make-container (elemwise-datatype item) item)))
 
@@ -186,7 +191,7 @@ user> (dtype/get-datatype *1)
 
 
 (defn ->vector
-  "Convert a datatype thing to a vector"
+  "Convert a thing to a persistent vector"
   [item]
   (if-let [rdr (as-reader item)]
     (vec rdr)
@@ -194,6 +199,8 @@ user> (dtype/get-datatype *1)
 
 
 (defn as-buffer-descriptor
+  "If this item is convertible to a buffer descriptor, convert it.  Else
+  return nil."
   [src-item]
   (when (dtype-proto/convertible-to-buffer-desc? src-item)
     (dtype-proto/->buffer-descriptor src-item)))

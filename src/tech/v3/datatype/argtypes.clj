@@ -30,6 +30,7 @@
 
 
 (defn reader-like?
+  "Returns true if this argument type is convertible to a reader."
   [argtype]
   (or (= argtype :reader)
       (= argtype :tensor)))
