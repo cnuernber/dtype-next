@@ -17,6 +17,9 @@ Some expected items:
 *  Full native memory support.  Malloc, free, memset, memcpy.  Just the basics but
    guaranteed to be available.
    
+   
+Checkout the [api documentation](https://cnuernber.github.io/dtype-next/)
+   
 ## Native Test
 
 * In order to get mmap working on the native test I had to grab the larray .so from the 
