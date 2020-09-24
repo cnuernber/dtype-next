@@ -26,6 +26,7 @@ high performance algorithms and systems"
                              :metadata {:doc/format :markdown}
                              :themes [:rdash]
                              :source-paths ["src"]
+                             :output-path "api-docs"
                              :source-uri "https://github.com/cnuernber/dtype-next/blob/master/{filepath}#L{line}"
                              :namespaces [tech.v3.datatype tech.v3.datatype.functional
                                           tech.v3.tensor tech.v3.compute tech.v3.datatype.argops
@@ -44,4 +45,5 @@ high performance algorithms and systems"
               :jvm-opts ["-Dclojure.compiler.direct-linking=true"]
               :uberjar-name "dtype-next.jar"
               :main tech.v3.datatype.main}}
+  :clean-targets [:target-path "api-docs"]
   :aliases {"codox" ["with-profile" "codox,dev" "codox"]})
