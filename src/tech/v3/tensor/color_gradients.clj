@@ -100,7 +100,24 @@ function returned: %s"
   :check-invalid? - If true then the data is scanned for NAN or INF's.  Used in
     conjunction with :alpha?
   :invert-gradient? - When true, reverses the provided gradient.
-  :gradient-default-n - When an IFn is provided, it is quantized over n steps."
+  :gradient-default-n - When an IFn is provided, it is quantized over n steps.
+
+
+  Current built-in gradients are:
+  #{:neon-colors :aquamarine :coffee-tones :deep-sea-colors :fuchsia-tones :green-red
+  :red-blue-tones :brass-tones :army-colors :green-pink-tones :green-brown-terrain
+  :thermometer-colors :cherry-tones :atlantic-colors :dark-terrain :fall-colors
+  :rainbow :fruit-punch-colors :solar-colors :dark-bands :avocado-colors
+  :light-temperature-map :sunset-colors :candy-colors :watermelon-colors
+  :beach-colors :island-colors :pastel :gray-yellow-tones :temperature-map
+  :blue-green-yellow :bright-bands :sandy-terrain :gray-tones :rust-tones
+  :pearl-colors :dark-rainbow :valentine-tones :cmyk-colors :mint-colors
+  :lake-colors :pigeon-tones :aurora-colors :plum-colors :alpine-colors
+  :light-terrain :southwest-colors :sienna-tones :brown-cyan-tones :rose-colors
+  :starry-night-colors}"
+
+
+
   [src-tens gradient-name & {:keys [data-min data-max
                                     alpha?
                                     check-invalid?
