@@ -4,9 +4,10 @@
   some version of an index or list of indexes."
   (:require [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.base :as dtype-base]
-            [tech.v3.datatype.binary-pred :as binary-pred]
-            [tech.v3.datatype.unary-pred :as unary-pred]
             [tech.v3.datatype.unary-op :as unary-op]
+            [tech.v3.datatype.binary-op :as binary-op]
+            [tech.v3.datatype.unary-pred :as unary-pred]
+            [tech.v3.datatype.binary-pred :as binary-pred]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.list :as dtype-list]
             [tech.v3.datatype.reductions :as reductions]
@@ -28,7 +29,9 @@
             BinaryPredicate
             PrimitiveList
             IndexReduction
-            PrimitiveIO]
+            PrimitiveIO
+            UnaryOperator BinaryOperator
+            UnaryPredicate BinaryPredicate]
            [java.util Comparator Arrays List Map Iterator]
            [org.roaringbitmap RoaringBitmap]))
 
@@ -52,6 +55,44 @@
        (dtype-base/->reader item))))
   (^PrimitiveIO [item]
    (ensure-reader item Long/MAX_VALUE)))
+
+
+(defn- find-operator
+  [op op-map optypename opconversion-fn]
+  (clojure.core/or
+   (when (keyword? op)
+     (if-let [retval (get op-map op)]
+       retval
+       (errors/throwf "Failed to find %s %s" optypename op)))
+   (opconversion-fn op)))
+
+
+(defn ->unary-operator
+  "Convert a thing to a unary operator. Thing can be a keyword or
+  an implementation of IFn or an implementation of a UnaryOperator."
+  ^UnaryOperator [op]
+  (find-operator op unary-op/builtin-ops "unary operator" unary-op/->operator))
+
+
+(defn ->binary-operator
+  "Convert a thing to a binary operator.  Thing can be a keyword or
+  an implementation of IFn or an implementation of a BinaryOperator."
+  ^BinaryOperator [op]
+  (find-operator op binary-op/builtin-ops "binary operator" binary-op/->operator))
+
+
+(defn ->unary-predicate
+  "Convert a thing to a unary predicate. Thing can be a keyword or
+  an implementation of IFn or an implementation of a UnaryPredicate."
+  ^UnaryPredicate [op]
+  (find-operator op unary-pred/builtin-ops "unary predicate" unary-pred/->predicate))
+
+
+(defn ->binary-predicate
+  "Convert a thing to a binary predicate.  Thing can be a keyword or
+  an implementation of IFn or an implementation of a BinaryPredicate."
+  ^BinaryPredicate [op]
+  (find-operator op binary-pred/builtin-ops "binary predicate" binary-pred/->predicate))
 
 
 (defn argmax
@@ -209,8 +250,8 @@
         (let [^Comparator comp (->comparator src-comparator)]
           (reify Comparators$IntComp
             (compareInts [this lhs rhs]
-              (let [lhs-value (.readDouble values lhs)
-                    rhs-value (.readDouble values rhs)]
+              (let [lhs-value (.readObject values lhs)
+                    rhs-value (.readObject values rhs)]
                 (.compare comp lhs-value rhs-value))))))
       (cond
         (casting/integer-type? src-dtype)
@@ -231,8 +272,8 @@
         (let [^Comparator comp (->comparator src-comparator)]
           (reify Comparators$LongComp
             (compareLongs [this lhs rhs]
-              (let [lhs-value (.readDouble values lhs)
-                    rhs-value (.readDouble values rhs)]
+              (let [lhs-value (.readObject values lhs)
+                    rhs-value (.readObject values rhs)]
                 (.compare comp lhs-value rhs-value)))))))))
 
 
@@ -259,7 +300,10 @@
            (LongArrays/quickSort idx-ary ^LongComparator comparator))
          idx-ary))))
   ([comparator values]
-   (argsort comparator {}  values))
+   (let [comparator (if (keyword? comparator)
+                      (->binary-predicate comparator)
+                      comparator)]
+     (argsort comparator {} values)))
   ([values]
    (let [val-dtype (dtype-base/elemwise-datatype values)
          comparator (if (casting/numeric-type? val-dtype)
@@ -273,7 +317,8 @@
   of indexes."
   ([pred options rdr]
    (if-let [rdr (dtype-base/as-reader rdr)]
-     (unary-pred/bool-reader->indexes options (unary-pred/reader pred rdr))
+     (unary-pred/bool-reader->indexes options
+                                      (unary-pred/reader (->unary-predicate pred) rdr))
      (let [pred (unary-pred/->predicate pred)]
        (->> rdr
             (map-indexed (fn [idx data]
@@ -290,7 +335,9 @@
    (let [lhs (dtype-base/as-reader lhs)
          rhs (dtype-base/as-reader rhs)]
      (if (and lhs rhs)
-       (unary-pred/bool-reader->indexes options (binary-pred/reader pred lhs rhs))
+       (unary-pred/bool-reader->indexes options (binary-pred/reader
+                                                 (->binary-predicate pred)
+                                                 lhs rhs))
        (let [pred (binary-pred/->predicate pred)]
          (map (fn [idx lhs rhs]
                 (when (.binaryObject pred lhs rhs) idx))
@@ -359,7 +406,7 @@
   (^Map [partition-fn options rdr]
    (if (= identity partition-fn)
      (arggroup options rdr)
-     (arggroup options (unary-op/reader partition-fn rdr))))
+     (arggroup options (unary-op/reader (->unary-operator partition-fn) rdr))))
   (^Map [partition-fn rdr]
    (arggroup-by partition-fn nil rdr)))
 

@@ -13,7 +13,9 @@
             BooleanReader LongReader DoubleReader ObjectReader]
            [clojure.lang IFn]
            [clojure.lang Numbers]
-           [org.apache.commons.math3.util Precision]))
+           [org.apache.commons.math3.util Precision]
+           [java.time Instant LocalDate ZonedDateTime]
+           [java.util Date]))
 
 (set! *warn-on-reflection* true)
 
@@ -172,7 +174,57 @@
      dtype-proto/POperator
      (op-name [this] :eq))
 
-   :> (make-numeric-binary-predicate :> (pmath/> x y) (Numbers/gt x y))
-   :>= (make-numeric-binary-predicate :>= (pmath/>= x y) (Numbers/gte x y))
-   :< (make-numeric-binary-predicate :< (pmath/< x y) (Numbers/lt x y))
-   :<= (make-numeric-binary-predicate :<= (pmath/<= x y) (Numbers/lte x y))})
+   :> (make-numeric-binary-predicate :> (pmath/> x y)
+                                     (cond
+                                       (and (instance? Instant x)
+                                            (instance? Instant y))
+                                       (.isAfter ^Instant x ^Instant y)
+                                       (and (instance? LocalDate x)
+                                            (instance? LocalDate y))
+                                       (.isAfter ^LocalDate x ^LocalDate y)
+                                       (and (instance? ZonedDateTime x)
+                                            (instance? ZonedDateTime y))
+                                       (.isAfter ^ZonedDateTime x ^ZonedDateTime y)
+                                       :else
+                                       (Numbers/gt x y)))
+   :>= (make-numeric-binary-predicate :>= (pmath/>= x y)
+                                      (or (.equals ^Object x y)
+                                          (cond
+                                            (and (instance? Instant x)
+                                                 (instance? Instant y))
+                                            (.isAfter ^Instant x ^Instant y)
+                                            (and (instance? LocalDate x)
+                                                 (instance? LocalDate y))
+                                            (.isAfter ^LocalDate x ^LocalDate y)
+                                            (and (instance? ZonedDateTime x)
+                                                 (instance? ZonedDateTime y))
+                                            (.isAfter ^ZonedDateTime x ^ZonedDateTime y)
+                                            :else
+                                            (Numbers/gt x y))))
+   :< (make-numeric-binary-predicate :< (pmath/< x y)
+                                     (cond
+                                       (and (instance? Instant x)
+                                            (instance? Instant y))
+                                       (.isBefore ^Instant x ^Instant y)
+                                       (and (instance? LocalDate x)
+                                            (instance? LocalDate y))
+                                       (.isBefore ^LocalDate x ^LocalDate y)
+                                       (and (instance? ZonedDateTime x)
+                                            (instance? ZonedDateTime y))
+                                       (.isBefore ^ZonedDateTime x ^ZonedDateTime y)
+                                       :else
+                                       (Numbers/lt x y)))
+   :<= (make-numeric-binary-predicate :<= (pmath/<= x y)
+                                      (or (.equals ^Object x y)
+                                          (cond
+                                            (and (instance? Instant x)
+                                                 (instance? Instant y))
+                                            (.isBefore ^Instant x ^Instant y)
+                                            (and (instance? LocalDate x)
+                                                 (instance? LocalDate y))
+                                            (.isBefore ^LocalDate x ^LocalDate y)
+                                            (and (instance? ZonedDateTime x)
+                                                 (instance? ZonedDateTime y))
+                                            (.isBefore ^ZonedDateTime x ^ZonedDateTime y)
+                                            :else
+                                            (Numbers/lte x y))))})

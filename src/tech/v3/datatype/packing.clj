@@ -1,4 +1,7 @@
 (ns tech.v3.datatype.packing
+  "Implements the 'packed/unpacked' concept in datatype.  This allows us to take objects
+  like LocalDate's and store them in int32 storage which dramatically decreases their
+  size."
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.dispatch :as dispatch])
@@ -8,10 +11,13 @@
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
 
-(defonce ^ConcurrentHashMap pack-table (ConcurrentHashMap.))
-(defonce ^ConcurrentHashMap unpack-table (ConcurrentHashMap.))
+(defonce ^{:private true
+           :tag ConcurrentHashMap} pack-table (ConcurrentHashMap.))
+(defonce ^{:private true
+           :tag ConcurrentHashMap} unpack-table (ConcurrentHashMap.))
 
 (defn add-packed-datatype!
+  "Add a datatype that you wish to be packed into a single scalar numeric value."
   [object-cls object-datatype
    packed-datatype primitive-datatype
    pack-fn unpack-fn]
@@ -27,22 +33,28 @@
 
 
 (defn packed-datatype?
+  "Returns true of this is a datatype that could be unpacked."
   [datatype]
   (.contains unpack-table datatype))
 
 (defn unpack-datatype
+  "Returns the unpacked datatype for this packed datatype."
   [datatype]
-  (get-in unpack-table [datatype :object-datatype]))
+  (get-in unpack-table [datatype :object-datatype] datatype))
 
 (defn unpacked-datatype?
+  "Returns true if this is a datatype that could be packed."
   [datatype]
   (.contains pack-table datatype))
 
 (defn pack-datatype
+  "Returns the packed datatype for this unpacked datatype."
   [datatype]
-  (get-in pack-table [datatype :packed-datatype]))
+  (get-in pack-table [datatype :packed-datatype] datatype))
 
 (defn unpack
+  "Unpack a scalar, iterable, or a reader.  If the item is not a packed datatype
+  this is a no-op."
   [item]
   (if-let [{:keys [unpack-fn object-datatype primitive-datatype]}
            (.get unpack-table (dtype-proto/elemwise-datatype item))]
@@ -65,6 +77,8 @@
 
 
 (defn pack
+  "Pack a scalar, iterable, or a reader into a new scalar, iterable or a reader.
+  If this isn't a packable datatype this is a no-op."
   [item]
   (if-let [{:keys [pack-fn packed-datatype primitive-datatype]}
            (.get pack-table (dtype-proto/elemwise-datatype item))]

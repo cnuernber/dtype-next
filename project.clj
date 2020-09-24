@@ -1,5 +1,6 @@
 (defproject cnuernber/dtype-next "0.1.0-SNAPSHOT"
-  :description "Next generation datatype library"
+  :description "A Clojure library designed to aid in the implementaion of
+high performance algorithms and systems"
   :url "http://github.com/cnuernber/dtype-next"
   :license {:name "EPL-2.0"
             :url "https://www.eclipse.org/legal/epl-2.0/"}
@@ -17,7 +18,11 @@
   :java-source-paths ["java"]
   :codox {:namespaces [tech.v3.datatype tech.v3.datatype.functional
                        tech.v3.tensor tech.v3.compute tech.v3.datatype.argops
+                       tech.v3.datatype.bitmap
+                       tech.v3.datatype.datetime
+                       tech.v3.tensor.dimensions
                        tech.v3.datatype.reductions
+                       tech.v3.datatype.packing
                        tech.v3.parallel.for
                        tech.v3.libs.buffered-image
                        tech.v3.libs.neanderthal]}

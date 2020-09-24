@@ -119,7 +119,7 @@ function returned: %s"
           ;;pre-checking and indexing.
           (let [valid-indexes
                 (when check-invalid?
-                  (argops/argfilter (dfn/->unary-predicate :finite?) src-tens))
+                  (argops/argfilter :finite? src-tens))
                 valid-indexes
                 (when (and valid-indexes
                            (not= (dtype/ecount valid-indexes)

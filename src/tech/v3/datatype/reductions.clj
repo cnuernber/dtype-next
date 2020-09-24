@@ -63,6 +63,12 @@
 
 
 (defn staged-double-consumer-reduction
+  "Given a function that produces an implementation of
+  tech.v3.datatype.Consumers$StagedConsumer perform a reduction.
+
+  A staged consumer is a consumer can be used in a map-reduce pathway
+  where during the map portion .consume is called and then during produces
+  a 'result' on which .combine is called during the reduce pathway."
   (^Consumers$Result [staged-consumer-fn {:keys [nan-strategy]} rdr]
    (let [rdr (dtype-base/->reader rdr)
          n-elems (.size rdr)
@@ -79,6 +85,7 @@
 
 
 (defn reducer-value->consumer-fn
+  "Produce a consumer from a generic reducer value."
   [reducer-value]
   (cond
     ;;Hopefully this returns what we think it should...
@@ -96,6 +103,7 @@
 
 
 (defn double-reductions
+  "Perform a group of reductions on a single double reader."
   ([reducer-map options rdr]
    (let [n-reducers (count reducer-map)]
      (cond
@@ -134,7 +142,7 @@
 
 
 (defn double-summation
-  "The most common operation gets its own pathway"
+  "As fast as possible, sum a reader into a single double."
   (^double [options rdr]
    (double (.value (staged-double-consumer-reduction
                     (reducer-value->consumer-fn :+)
@@ -145,6 +153,8 @@
 
 
 (defn unary-double-summation
+  "Perform a double summation using a unary operator to transform the input stream
+  into a new double stream."
   (^double [^UnaryOperator op options rdr]
    (double (.value (staged-double-consumer-reduction
                     (reducer-value->consumer-fn op)
@@ -155,6 +165,8 @@
 
 
 (defn commutative-binary-double
+  "Perform a commutative reduction using a binary operator to perform
+  the reduction.  The operator needs to be both commutative and associative."
   (^double [^BinaryOperator op options rdr]
    (double (.value (staged-double-consumer-reduction
                     (reducer-value->consumer-fn op)
@@ -165,6 +177,8 @@
 
 
 (defn commutative-binary-long
+  "Perform a commutative reduction in int64 space using a binary operator.  The
+  operator needs to be both commutative and associative."
   ^long [^BinaryOperator op rdr]
   (let [rdr (dtype-base/->reader rdr)]
     (long
@@ -183,6 +197,8 @@
 
 
 (defn commutative-binary-object
+  "Perform a commutative reductions in object space using a binary operator.  The
+  operator needs to be both commutative and associative."
   [op rdr]
   (let [rdr (dtype-base/->reader rdr)]
     (parallel-for/indexed-map-reduce
@@ -199,6 +215,8 @@
 
 
 (defn commutative-binary-reduce
+  "Perform a commutative binary reduction.  The space of the reduction will
+  be determined by the datatype of the reader."
   [op rdr]
   (if-let [rdr (dtype-base/as-reader rdr)]
     (if (instance? BinaryOperator op)

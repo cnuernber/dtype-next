@@ -1,4 +1,5 @@
 (ns tech.v3.libs.buffered-image
+  "Bindings to buffered images for the datatype system"
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.protocols :as dtype-proto]
@@ -22,7 +23,8 @@
 (set! *warn-on-reflection* true)
 
 
-(def image-types
+(def ^{:doc "Mapping from keywords to integer buffered image types"}
+  image-types
   {:byte-bgr BufferedImage/TYPE_3BYTE_BGR
    :byte-abgr BufferedImage/TYPE_4BYTE_ABGR
    :byte-abgr-pre BufferedImage/TYPE_4BYTE_ABGR_PRE
@@ -39,7 +41,8 @@
    :ushort-gray BufferedImage/TYPE_USHORT_GRAY})
 
 
-(def image-enum->image-type-map (c-set/map-invert image-types))
+(def ^{:doc "Mapping from buffered image type to keyword"
+       :private true} image-enum->image-type-map (c-set/map-invert image-types))
 
 
 (defn image-type
@@ -80,7 +83,7 @@
     :int-rgb {:b 0 :g 1 :r 2}))
 
 
-(def data-buffer-types
+(def ^:private data-buffer-types
   {:uint8 DataBuffer/TYPE_BYTE
    :float64 DataBuffer/TYPE_DOUBLE
    :float32 DataBuffer/TYPE_FLOAT
@@ -90,7 +93,7 @@
    :uint16 DataBuffer/TYPE_USHORT})
 
 
-(def data-buffer-type-enum->type-map (c-set/map-invert data-buffer-types))
+(def ^:private data-buffer-type-enum->type-map (c-set/map-invert data-buffer-types))
 
 
 (defprotocol PDataBufferAccess
@@ -150,6 +153,7 @@
 
 
 (defn buffered-image->data-buffer
+  "Given a buffered image, return it's data buffer."
   ^DataBuffer [^BufferedImage img]
   (.. img getRaster getDataBuffer))
 
@@ -309,7 +313,8 @@
      (save! img format-str fname-str))))
 
 
-(def interpolation-types
+(def ^{:doc "Map of keyword to buffered image rendering hint."}
+  interpolation-types
   {:bilinear RenderingHints/VALUE_INTERPOLATION_BILINEAR
    :cubic RenderingHints/VALUE_INTERPOLATION_BICUBIC
    :nearest RenderingHints/VALUE_INTERPOLATION_NEAREST_NEIGHBOR})
@@ -355,6 +360,7 @@
 
 
 (defn downsample-bilinear
+  "Reduce an image size using bilinear filtering."
   ^BufferedImage [^BufferedImage src-img & {:keys [dst-img-width
                                                    dst-img-height
                                                    dst-img-type]}]
@@ -375,6 +381,12 @@
 
 
 (defn resize
+  "Resize an image.
+  Options -
+    * resize-algorithm - One of #{:bilinear :cubic :nearest}.
+      Defaults to - if the new width is larger than then old width, bilinear is chosen
+      else nearest is chosen.
+    * dst-img-type - Defaults to the src image type.  Should be one of the keys of image-types."
   [src-img new-width new-height {:keys [resize-algorithm
                                         dst-img-type]}]
   (let [[src-height src-width _n-channels] (dtype-base/shape src-img)
@@ -394,6 +406,7 @@
                  :interpolation-type resize-algorithm)))
 
 (defn clone
+  "Clone an image into a new buffered image."
   [src-img]
   (dtype-proto/clone src-img))
 

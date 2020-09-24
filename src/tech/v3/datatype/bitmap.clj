@@ -1,4 +1,8 @@
 (ns tech.v3.datatype.bitmap
+  "Functions for working with RoaringBitmaps.  These are integrated deeply into
+  several tech.v3.datatype algorithms and have many potential applications in
+  high performance computing applications as they are both extremely fast and
+  storage-space efficient."
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.clj-range :as clj-range]
@@ -17,17 +21,17 @@
 (set! *warn-on-reflection* true)
 
 
-(def int-array-class (Class/forName "[I"))
+(def ^{:private true} int-array-class (Class/forName "[I"))
 
 
-(defn ensure-int-array
+(defn- ensure-int-array
   ^ints [item]
   (when-not (instance? int-array-class item)
     (let [ary-buf (dtype-cmc/make-container :uint32 item)]
       (.ary-data ^ArrayBuffer ary-buf))))
 
 
-(defn long-range->bitmap
+(defn- long-range->bitmap
   [^LongRange item]
   (let [long-reader (dtype-base/->reader item)
         step (long (.get ^Field clj-range/lr-step-field item))
@@ -112,6 +116,7 @@
 
 
 (defn bitmap->array-buffer
+  "Convert a bitmap to an array buffer."
   ^ArrayBuffer [^RoaringBitmap bitmap]
   (dtype-base/as-array-buffer (.toArray bitmap)))
 
@@ -159,6 +164,8 @@
 
 
 (defn ->bitmap
+  "Create a roaring bitmap.  If this object has a conversion to a roaring bitmap use
+  that, else copy the data into a new roaring bitmap."
   (^RoaringBitmap [item]
    (cond
      (nil? item)
@@ -178,6 +185,7 @@
 
 
 (defn ->unique-bitmap
+  "Perform a conversion to a bitmap.  If this thing is already a bitmap, clone it."
   (^RoaringBitmap [item]
    (if (dtype-proto/convertible-to-bitmap? item)
      (.clone ^RoaringBitmap (dtype-proto/as-roaring-bitmap item))
@@ -187,6 +195,9 @@
 
 
 (defn bitmap->efficient-random-access-reader
+  "Bitmaps do not implement efficient random access although we do provide access of
+  inefficient random access for them.  This converts a bitmap into a flat buffer of data
+  that does support efficient random access."
   [bitmap]
   (when (dtype-proto/convertible-to-bitmap? bitmap)
     (let [^RoaringBitmap bitmap (dtype-proto/as-roaring-bitmap bitmap)
@@ -257,6 +268,8 @@
 
 
 (defn bitmap-as-primitive-list
+  "Return a bitmap as an implementation of a primitive list.  This allows code dependent upon
+  primitive lists to be write to bitmaps."
   (^PrimitiveList [bitmap]
    (let [bitmap (dtype-proto/as-roaring-bitmap bitmap)]
      (BitmapPrimitiveList. bitmap nil)))

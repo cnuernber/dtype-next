@@ -9,10 +9,11 @@
   function itself."
   (:require [tech.v3.datatype.argtypes :refer [arg-type]]
             [tech.v3.datatype.base :as dtype-base]
+            [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.const-reader :refer [const-reader]]
             [tech.v3.datatype.casting :as casting]
-            [tech.v3.datatype.binary-op :as binary-op]
             [tech.v3.datatype.unary-op :as unary-op]
+            [tech.v3.datatype.binary-op :as binary-op]
             [tech.v3.datatype.unary-pred :as unary-pred]
             [tech.v3.datatype.binary-pred :as binary-pred]
             [tech.v3.datatype.argops :as argops]
@@ -46,42 +47,6 @@
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
-
-
-(defn ->unary-operator
-  "Convert a thing to a unary operator. Thing can be a keyword or
-  an implementation of IFn or an implementation of a UnaryOperator."
-  ^UnaryOperator [op]
-  (clojure.core/or
-   (get unary-op/builtin-ops op)
-   (unary-op/->operator op)))
-
-
-(defn ->binary-operator
-  "Convert a thing to a binary operator.  Thing can be a keyword or
-  an implementation of IFn or an implementation of a BinaryOperator."
-  ^BinaryOperator [op]
-  (clojure.core/or
-   (get binary-op/builtin-ops op)
-   (binary-op/->operator op)))
-
-
-(defn ->unary-predicate
-  "Convert a thing to a unary predicate. Thing can be a keyword or
-  an implementation of IFn or an implementation of a UnaryPredicate."
-  ^UnaryPredicate [op]
-  (clojure.core/or
-   (get unary-pred/builtin-ops op)
-   (unary-pred/->predicate op)))
-
-
-(defn binary-predicate
-  "Convert a thing to a binary predicate.  Thing can be a keyword or
-  an implementation of IFn or an implementation of a BinaryPredicate."
-  ^BinaryPredicate [op]
-  (clojure.core/or
-   (get binary-pred/builtin-ops op)
-   (binary-pred/->predicate op)))
 
 
 (defmacro ^:private implement-arithmetic-operations

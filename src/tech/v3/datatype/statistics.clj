@@ -248,13 +248,17 @@
 
 
 (defn descriptive-statistics
-  "Calculate a set of descriptive statistics.
+  "Calculate a set of descriptive statistics on a single reader.
+
+  Available stats:
+  #{:min :quartile-1 :sum :mean :mode :median :quartile-3 :max
+    :variance :standard-deviation :skew :n-values :kurtosis}
 
   options
     - `:nan-strategy` - defaults to :remove, one of
     [:keep :remove :exception]. The fastest option is :keep but this
     may result in your results having NaN's in them.  You can also pass
-  in a double predicate "
+  in a double predicate to filter custom double values."
   ([stats-names stats-data options rdr]
    (if (== 0 (dtype-base/ecount rdr))
      (->> stats-names

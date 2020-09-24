@@ -1,4 +1,5 @@
 (ns tech.v3.parallel.for
+  "Serial and parallel iteration strategies across iterators and index spaces."
   (:import [java.util.concurrent ForkJoinPool Callable Future ForkJoinTask]
            [java.util ArrayDeque PriorityQueue Comparator Spliterator Iterator]
            [java.util.stream Stream]
@@ -10,10 +11,13 @@
 (set! *warn-on-reflection* true)
 
 
-(def ^long default-max-batch-size 64000)
+(def ^{:tag 'long
+       :doc "Default batch size to allow reasonable safe-point access"}
+  default-max-batch-size 64000)
 
 
 (defn common-pool-parallelism
+  "Integer number of threads used in the ForkJoinPool's common pool"
   ^long []
   (ForkJoinPool/getCommonPoolParallelism))
 
@@ -113,6 +117,7 @@ call this function exactly N times where N is ForkJoinPool/getCommonPoolParallel
 
 
 (defn as-spliterator
+  "Convert a stream or a spliterator into a spliterator."
   ^Spliterator [item]
   (cond
     (instance? Spliterator item)
@@ -121,12 +126,14 @@ call this function exactly N times where N is ForkJoinPool/getCommonPoolParallel
     (.spliterator ^Stream item)))
 
 (defn convertible-to-iterator?
+  "True when this is an iterable or a stream."
   [item]
   (or (instance? Iterable item)
       (instance? Stream item)))
 
 
 (defn ->iterator
+  "Convert a stream or an iterable into an iterator."
   ^Iterator [item]
   (cond
     (instance? Iterable item)
@@ -150,6 +157,8 @@ call this function exactly N times where N is ForkJoinPool/getCommonPoolParallel
 
 
 (defn ->consumer
+  "Convert a generic object into a consumer.  Works for any java.util.consumer
+  and a Clojure IFn.  Returns an implementation of java.util.Consumer"
   ^Consumer [consumer]
   (cond
     (instance? Consumer consumer)

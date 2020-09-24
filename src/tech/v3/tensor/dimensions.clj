@@ -157,6 +157,7 @@
 
 
 (defn ecount
+  "Grab the ecount from a dimensions record"
   ^long [{:keys [overall-ecount]}]
   (long overall-ecount))
 
@@ -182,33 +183,39 @@
 
 
 (defn shape
+  "Get the shape of the dimensions object."
   [{:keys [shape-ecounts]}]
   shape-ecounts)
 
 
 (defn strides
+  "Get the strides of the dimensions object."
   [{:keys [strides]}]
   strides)
 
 
 (defn direct?
+  "Is this dimension object a direct dimensions meaning the shape has no
+  indirect (indexed) access."
   [{:keys [shape-direct?]}]
   shape-direct?)
 
 
 (defn native?
+  "Does this dimension object describe packed, in-order access of the underlying data buffer?"
   [{:keys [native?]}]
   native?)
 
 
 (defn dense?
-  "This query isn't answered well above but if it is native then it is definitely
-  dense."
+  "Do the strides indicate a packed data buffer with no holes.  Currently mapped to native?"
   [{:keys [native?]}]
   native?)
 
 
 (defn indirect?
+  "Are these dimensions indirect meaning one of the shape entries is an index buffer
+  (or some other index abstraction like a range with an increment other than 1)?"
   [dims]
   (not (direct? dims)))
 
@@ -264,11 +271,15 @@
 
 
 (defn ->global->local
+  "Get the ND->N addressing operator for these dimensions."
   ^LongNDReader [dims]
   @(:global->local dims))
 
 
 (defn ->local->global
+  "Get an inverse operator for these dims.  Inverting the global->local dimensions
+  means that for some dimensions (like broadcasted dimensions) each local index
+  may correspond to a set of global indexes."
   ^PrimitiveIO [dims]
   @(:local->global dims))
 

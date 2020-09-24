@@ -1,4 +1,11 @@
 (ns tech.v3.tensor
+  "ND bindings for the tech.v3.datatype system.  A Tensor is conceptually just a tuple
+  of a buffer and an index operator that is capable of converting indexes in ND space into
+  a single long index into the buffer.  Tensors implementent the tech.v3.datatype.PrimitiveNDIO
+  interface and outside this file ND objects are expected to simply implement that interface.
+
+  This system relies heavily on the tech.v3.tensor.dimensions namespace to provide the optimized
+  indexing operators described above."
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.casting :as casting]
@@ -267,7 +274,10 @@
                (dtype-base/->reader buffer)))))
 
 
-(defn tensor? [item] (instance? PrimitiveNDIO item))
+(defn tensor?
+  "Returns true if this implements the tech.v3.datatype.PrimitiveNDIO interface."
+  [item]
+  (instance? PrimitiveNDIO item))
 
 
 (defn tensor->buffer
@@ -325,6 +335,15 @@
        (dtype-cmc/make-container container-type datatype options n-elems)
        0 options))
      (dims/dimensions data-shape))))
+
+
+(defn as-tensor
+  "Attempts an in-place conversion of this object to a tech.v3.datatype.PrimitiveNDIO interface.
+  For a guaranteed conversion, use ensure-tensor."
+  ^PrimitiveNDIO [data]
+  (if (instance? PrimitiveNDIO data)
+    data
+    (dtype-proto/as-tensor data)))
 
 
 (defn new-tensor
@@ -396,8 +415,9 @@
 
 
 (defn tensor-copy!
-  "Specialized copy with optimized pathways for when tensors have contiguous
-  data."
+  "Specialized copy with optimized pathways for when tensors have regions of contiguous
+  data.  As an example consider a sub-image of a larger image.  Each row can be copied
+  contiguously into a new image but there are gaps between them."
   ([src dst options]
    (tens-cpy/tensor-copy! src dst options))
   ([src dst]
