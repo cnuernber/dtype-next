@@ -1,5 +1,9 @@
 (ns tech.v3.tensor.color-gradients
-  "https://reference.wolfram.com/language/guide/ColorSchemes.html"
+  "Implement a mapping from double->color for each entry in a tensor.  Produces an image
+  of the same dimensions in pixels as the input tensor.
+
+  Default color schemes are found here:
+  https://reference.wolfram.com/language/guide/ColorSchemes.html"
   (:require [clojure.java.io :as io]
             [tech.v3.tensor :as dtt]
             [tech.v3.datatype :as dtype]

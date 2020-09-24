@@ -21,6 +21,7 @@ high performance algorithms and systems"
                        tech.v3.datatype.bitmap
                        tech.v3.datatype.datetime
                        tech.v3.tensor.dimensions
+                       tech.v3.tensor.color-gradients
                        tech.v3.datatype.reductions
                        tech.v3.datatype.packing
                        tech.v3.parallel.for
