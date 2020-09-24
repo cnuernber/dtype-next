@@ -16,7 +16,7 @@
   :plugins [[lein-codox "0.10.7"]]
   :java-source-paths ["java"]
   :codox {:namespaces [tech.v3.datatype tech.v3.datatype.functional
-                       tech.v3.tensor tech.v3.compute
+                       tech.v3.tensor tech.v3.compute tech.v3.datatype.argops
                        tech.v3.datatype.reductions
                        tech.v3.parallel.for
                        tech.v3.libs.buffered-image

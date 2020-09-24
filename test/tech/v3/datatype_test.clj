@@ -4,6 +4,7 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.functional :as dfn]
+            [tech.v3.datatype.argops :as argops]
             [tech.v3.datatype.datetime])
   (:import [java.nio FloatBuffer]
            [java.util ArrayList]))
@@ -238,7 +239,7 @@
   (let [test-floats (float-array [0 ##NaN 2 4 ##NaN])
         nan-floats (float-array (repeat 5 ##NaN))]
     (is (= [1 4]
-           (-> (dfn/argfilter #(= 0 (Float/compare % Float/NaN)) test-floats)
+           (-> (argops/argfilter #(= 0 (Float/compare % Float/NaN)) test-floats)
                vec)))
     (is (= [false true false false true]
            (dfn/nan? test-floats)))
@@ -248,7 +249,7 @@
 
     (is (= [1 4]
            (->> (dfn/eq test-floats nan-floats)
-                (dfn/argfilter identity)
+                (argops/argfilter identity)
                 vec)))))
 
 
@@ -330,7 +331,7 @@
   ;;if it operates as :object datatype.  This is the default.
   (let [{truevals true
          falsevals false}
-        (dfn/arggroup-by even? (range 20))]
+        (argops/arggroup-by even? (range 20))]
     (is (= (set truevals)
            (set (filter even? (range 20)))))
     (is (= (set falsevals)
@@ -341,7 +342,7 @@
   ;;operates and returns values in long space.
   (let [{truevals true
          falsevals false}
-        (dfn/arggroup-by even? {:storage-datatype :int64} (range 20))]
+        (argops/arggroup-by even? {:storage-datatype :int64} (range 20))]
     (is (= (set truevals)
            (set (filter even? (range 20)))))
     (is (= (set falsevals)
@@ -353,7 +354,7 @@
   ;;if it operates as :object datatype.  This is the default.
   (let [{truevals true
          falsevals false}
-        (dfn/arggroup-by even? {:storage-datatype :int32} (range 20))]
+        (argops/arggroup-by even? {:storage-datatype :int32} (range 20))]
     ;;Default group by is ordered
     (is (= truevals
            (filter even? (range 20))))
@@ -363,7 +364,7 @@
 
   (let [{truevals true
          falsevals false}
-        (dfn/arggroup-by even? {:storage-datatype :int64} (range 20))]
+        (argops/arggroup-by even? {:storage-datatype :int64} (range 20))]
     (is (= truevals
            (filter even? (range 20))))
     (is (= falsevals
@@ -375,7 +376,7 @@
   ;;if it operates as :object datatype.  This is the default.
   (let [{truevals true
          falsevals false}
-        (dfn/arggroup-by even? {:storage-datatype :bitmap} (range 20))]
+        (argops/arggroup-by even? {:storage-datatype :bitmap} (range 20))]
     (is (= (vec truevals)
            (vec (filter even? (range 20)))))
     (is (= (vec falsevals)
@@ -389,7 +390,7 @@
           [1 (range 5 10)]
           [2 (range 10 15)]
           [3 (range 15 20)]]
-         (vec (dfn/argpartition-by #(quot (long %) 5) (range 20))))))
+         (vec (argops/argpartition-by #(quot (long %) 5) (range 20))))))
 
 
 (deftest typed-buffer-destructure
@@ -462,7 +463,7 @@
 (deftest argsort-generic
   (let [data (dtype/make-container :java-array :int16 (shuffle
                                                        (range 10)))
-        indexes (dfn/argsort > data)
+        indexes (argops/argsort > data)
         new-data (dtype/indexed-buffer indexes data)]
     (is (= (vec (reverse (range 10)))
            (vec new-data)))))
@@ -474,7 +475,7 @@
         ;;Noncopying,in-place conversion
         buffers (->> (range 4)
                      (map #(dtype/sub-buffer ldata (* (long %) 5) 5))
-                     (map dtype/reader-as-persistent-vector))
+                     (map dtype/as-persistent-vector))
         ;;copying conversion
         vectors (map (comp vec dtype/->reader) buffers)
         map-fn (fn [item-seq]

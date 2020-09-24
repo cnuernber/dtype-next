@@ -3,6 +3,7 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.tensor :as tens]
             [tech.v3.datatype.functional :as dtype-fn]
+            [tech.v3.datatype.argops :as argops]
             [clojure.test :refer :all]))
 
 
@@ -12,7 +13,7 @@
     (is (= [0.0 1.0 2.0 3.0 4.0 5.0 6.0 7.0 8.0 9.0]
            (dtype/->vector float-data))))
   (let [test-data (dtype-fn/+ (range 10 0 -1) 5)
-        indexes (dtype-fn/argsort test-data)]
+        indexes (argops/argsort test-data)]
     (is (= [6 7 8 9 10 11 12 13 14 15]
            (dtype/indexed-buffer indexes (vec test-data)))))
 

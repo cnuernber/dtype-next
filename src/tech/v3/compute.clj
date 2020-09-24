@@ -1,4 +1,5 @@
 (ns tech.v3.compute
+  "Lightweight framework for computing on remote devices such as GPU's"
   (:require [tech.v3.compute.driver :as drv]
             [tech.v3.compute.registry :as registry]
             [tech.v3.compute.context :as compute-ctx]
@@ -38,16 +39,19 @@
 
 
 (defn driver-name
+  "Get the name of the driver"
   [driver]
   (drv/driver-name driver))
 
 
 (defn get-devices
+  "Get the list of devices on this machine supported by this driver."
   [driver]
   (drv/get-devices driver))
 
 
 (defn default-device
+  "Get the default device for this driver."
   [driver]
   (first (get-devices driver)))
 
@@ -105,14 +109,9 @@ intended usage of the buffer."
                        :elem-count elem-count})))))
 
 
-(defn- provided-or-default-stream
-  [stream device-buffer]
-  (or stream
-      (:stream compute-ctx/*context)
-      (default-stream (->device device-buffer))))
-
 
 (defn device->device-copy-compatible?
+  "Is a copy directly from a device to a device supported?"
   [src-device dst-device]
   (drv/device->device-copy-compatible? src-device dst-device))
 

@@ -1,6 +1,7 @@
 (ns tech.v3.tensor.integration-test
   (:require [tech.v3.datatype :as dtype]
             [tech.v3.datatype.functional :as dfn]
+            [tech.v3.datatype.argops :as argops]
             [tech.v3.tensor :as dtt]
             [tech.v3.tensor.tensor-copy :as tc]
             [clojure.test :refer :all])
@@ -116,8 +117,8 @@
     (dotimes [iter (count test-indexes)]
       (.ndWriteLong writer iter 3 255))
     (is (dfn/equals (sort test-indexes)
-                    (dfn/argfilter #(not= 0 %)
-                                   (dtt/select test-tens :all :all 3))))))
+                    (argops/argfilter #(not= 0 %)
+                                      (dtt/select test-tens :all :all 3))))))
 
 
 (deftest normal-tensor-select

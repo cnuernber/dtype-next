@@ -1,4 +1,7 @@
 (ns tech.v3.datatype.argops
+  "Efficient functions for operating in index space.  Take-off of the argsort, argmin, etc.
+  type functions from Matlab.  These functions generally only work on readers and all return
+  some version of an index or list of indexes."
   (:require [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.binary-pred :as binary-pred]
@@ -11,12 +14,12 @@
             [tech.v3.datatype.argtypes :as argtypes]
             [tech.v3.datatype.const-reader :as const-reader]
             [primitive-math :as pmath])
-  (:import [it.unimi.dsi.fastutil.bytes ByteArrays ByteComparator]
-           [it.unimi.dsi.fastutil.shorts ShortArrays ShortComparator]
+  (:import [it.unimi.dsi.fastutil.bytes ByteComparator]
+           [it.unimi.dsi.fastutil.shorts ShortComparator]
            [it.unimi.dsi.fastutil.ints IntArrays IntComparator]
            [it.unimi.dsi.fastutil.longs LongArrays LongComparator]
-           [it.unimi.dsi.fastutil.floats FloatArrays FloatComparator]
-           [it.unimi.dsi.fastutil.doubles DoubleArrays DoubleComparator]
+           [it.unimi.dsi.fastutil.floats FloatComparator]
+           [it.unimi.dsi.fastutil.doubles DoubleComparator]
            [tech.v3.datatype
             Comparators$IntComp
             Comparators$LongComp
@@ -47,12 +50,12 @@
            (dtype-base/->reader))
        :else
        (dtype-base/->reader item))))
-  (^PrimitiveIO
-   [item]
+  (^PrimitiveIO [item]
    (ensure-reader item Long/MAX_VALUE)))
 
 
 (defn argmax
+  "Return the index of the max item in the reader."
   ^long [rdr]
   (let [rdr (dtype-base/->reader rdr)
         n-elems (.lsize rdr)]
@@ -93,6 +96,7 @@
 
 
 (defn argmin
+  "Return the index of the min item in the reader."
   ^long [rdr]
   (let [rdr (dtype-base/->reader rdr)
         n-elems (.lsize rdr)]
@@ -133,6 +137,7 @@
 
 
 (defn ->long-comparator
+  "Convert a thing to a it.unimi.dsi.fastutil.longs.LongComparator."
   ^LongComparator [src-comparator]
   (cond
     (instance? LongComparator src-comparator)
@@ -147,6 +152,7 @@
 
 
 (defn ->double-comparator
+  "Convert a thing to a it.unimi.dsi.fastutil.longs.DoubleComparator."
   ^DoubleComparator [src-comparator]
   (cond
     (instance? DoubleComparator src-comparator)
@@ -161,6 +167,7 @@
 
 
 (defn ->comparator
+  "Convert a thing to a java.util.Comparator."
   ^Comparator [src-comparator]
   (cond
     (instance? Comparator src-comparator)
@@ -172,6 +179,9 @@
 
 
 (defn index-comparator
+  "Given a reader of values an a source comparator, return either an
+  IntComparator or a LongComparator depending on the number of indexes
+  in the reader that compares the values using the passed in comparator."
   [values src-comparator]
   (let [src-dtype (dtype-base/elemwise-datatype values)
         values (ensure-reader values)
@@ -227,6 +237,7 @@
 
 
 (defn argsort
+  "Sort values in index space.  By default uses a parallelized quicksort algorithm."
   ([comparator {:keys [parallel?]
                  :or {parallel? true}}
     values]
@@ -258,6 +269,8 @@
 
 
 (defn argfilter
+  "Filter out values returning either an iterable of indexes or a reader
+  of indexes."
   ([pred options rdr]
    (if-let [rdr (dtype-base/as-reader rdr)]
      (unary-pred/bool-reader->indexes options (unary-pred/reader pred rdr))
@@ -271,6 +284,8 @@
 
 
 (defn binary-argfilter
+  "Filter out values using a binary predicate.  Returns either an iterable of indexes
+  or a reader of indexes."
   ([pred options lhs rhs]
    (let [lhs (dtype-base/as-reader lhs)
          rhs (dtype-base/as-reader rhs)]
@@ -286,6 +301,9 @@
 
 
 (defn index-reducer
+  "Create an implementation of an tech.v3.datatype.IndexReduction interface that stores
+  the indexes in a particular storage type.  Storage types may be :int32 :int64 or, for
+  storing the result in a RoaringBitmap, :bitmap."
   ^IndexReduction [storage-datatype]
   (if-not (= :bitmap storage-datatype)
     (reify IndexReduction

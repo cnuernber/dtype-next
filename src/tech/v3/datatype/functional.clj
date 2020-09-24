@@ -1,5 +1,12 @@
 (ns tech.v3.datatype.functional
-  "Arithmetic and statistical operations based on the PrimitiveIO interface."
+  "Arithmetic and statistical operations based on the PrimitiveIO interface.  These
+  operators and functions all implement vectorized interfaces so passing in something
+  convertible to a reader will return a reader.  Arithmetic operations are done lazily.
+  These functions generally incur a large dispatch cost so for example each call to '+'
+  checks all the arguments to decide if it should dispatch to an iterable implementation
+  or to a reader implementation.  For tight loops or operations like map and filter,
+  using the specific operators will result in far faster code than using the '+'
+  function itself."
   (:require [tech.v3.datatype.argtypes :refer [arg-type]]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.const-reader :refer [const-reader]]
@@ -41,24 +48,40 @@
 (set! *unchecked-math* :warn-on-boxed)
 
 
-(defn unary-operator
+(defn ->unary-operator
+  "Convert a thing to a unary operator. Thing can be a keyword or
+  an implementation of IFn or an implementation of a UnaryOperator."
   ^UnaryOperator [op]
-  (unary-op/->operator op))
+  (clojure.core/or
+   (get unary-op/builtin-ops op)
+   (unary-op/->operator op)))
 
 
-(defn binary-operator
+(defn ->binary-operator
+  "Convert a thing to a binary operator.  Thing can be a keyword or
+  an implementation of IFn or an implementation of a BinaryOperator."
   ^BinaryOperator [op]
-  (binary-op/->operator op))
+  (clojure.core/or
+   (get binary-op/builtin-ops op)
+   (binary-op/->operator op)))
 
 
-(defn unary-predicate
+(defn ->unary-predicate
+  "Convert a thing to a unary predicate. Thing can be a keyword or
+  an implementation of IFn or an implementation of a UnaryPredicate."
   ^UnaryPredicate [op]
-  (unary-pred/->predicate op))
+  (clojure.core/or
+   (get unary-pred/builtin-ops op)
+   (unary-pred/->predicate op)))
 
 
 (defn binary-predicate
+  "Convert a thing to a binary predicate.  Thing can be a keyword or
+  an implementation of IFn or an implementation of a BinaryPredicate."
   ^BinaryPredicate [op]
-  (binary-pred/->predicate op))
+  (clojure.core/or
+   (get binary-pred/builtin-ops op)
+   (binary-pred/->predicate op)))
 
 
 (defmacro ^:private implement-arithmetic-operations
@@ -147,7 +170,8 @@
   (Math/round arg))
 
 (defn round
-  "Returns a long reader but operates in double space."
+  "Vectorized implementation of Math/round.  Operates in double space
+  but returns a long or long reader."
   [arg]
   (vectorized-dispatch-1
    round-scalar
@@ -292,18 +316,6 @@
 
 (export-symbols tech.v3.datatype.rolling
                 fixed-rolling-window)
-
-
-(export-symbols tech.v3.datatype.argops
-                argmin
-                argmax
-                argsort
-                argfilter
-                binary-argfilter
-                arggroup
-                arggroup-by
-                argpartition
-                argpartition-by)
 
 
 (defn fill-range

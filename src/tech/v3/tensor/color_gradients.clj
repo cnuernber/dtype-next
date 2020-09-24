@@ -4,8 +4,7 @@
             [tech.v3.tensor :as dtt]
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.functional :as dfn]
-            [tech.v3.datatype.unary-pred :as unary-pred]
-            [tech.v3.datatype.unary-op :as unary-op]
+            [tech.v3.datatype.argops :as argops]
             [clojure.edn :as edn]
             [tech.v3.parallel.for :as pfor]
             [tech.v3.libs.buffered-image :as bufimg])
@@ -118,13 +117,14 @@ function returned: %s"
           ;;In that case we prefilter the data and trim it.  We always check for
           ;;invalid data in the main loops below and this is faster than
           ;;pre-checking and indexing.
-          (let [valid-indexes (when check-invalid?
-                                (dfn/argfilter (:finite? unary-pred/builtin-ops)
-                                               src-tens))
-                valid-indexes (when (and valid-indexes
-                                         (not= (dtype/ecount valid-indexes)
-                                               (dtype/ecount src-tens)))
-                                valid-indexes)
+          (let [valid-indexes
+                (when check-invalid?
+                  (argops/argfilter (dfn/->unary-predicate :finite?) src-tens))
+                valid-indexes
+                (when (and valid-indexes
+                           (not= (dtype/ecount valid-indexes)
+                                 (dtype/ecount src-tens)))
+                  valid-indexes)
                src-reader (if valid-indexes
                             (dtype/indexed-buffer valid-indexes src-tens)
                             src-tens)]
@@ -143,9 +143,9 @@ function returned: %s"
         data-range (- data-max data-min)
         src-reader (if-not (and (flp-close 0.0 data-min)
                                 (flp-close 1.0 data-max))
-                     (unary-op/reader (fn [^double x]
-                                        (-> (- x data-min)
-                                            (/ data-range)))
+                     (dtype/emap (fn [^double x]
+                                   (-> (- x data-min)
+                                       (/ data-range)))
                                       :float64
                                       src-reader)
                      src-reader)

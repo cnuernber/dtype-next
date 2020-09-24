@@ -35,7 +35,6 @@
 
 
 (export-symbols tech.v3.datatype.dispatch
-                typed-map
                 vectorized-dispatch-1
                 vectorized-dispatch-2)
 
@@ -71,6 +70,10 @@
                 emap)
 
 
+(export-symbols tech.v3.datatype.argops
+                ensure-reader)
+
+
 (defn get-datatype
   "Legacy method, returns elemwise-datatype"
   [item]
@@ -90,20 +93,16 @@
     (dtype-proto/clone item)))
 
 
-(defn reader-as-persistent-vector
-  "Return a reader wrapped in APersistentVector meaning you can use the reader
-  as, for instance, keys in a map.  Not recommended far large readers although
-  the data is shared."
-  [item]
-  (ListPersistentVector. (->reader item)))
-
-
 (defmacro make-reader
   "Make a reader.  Datatype must be a compile time visible object.
   read-op has 'idx' in scope which is the index to read from.  Returns a
   reader of the appropriate type for the passed in datatype.  Results are unchecked
   casted to the appropriate datatype.  It is up to *you* to ensure this is the result
   you want or throw an exception.
+
+  This function creates a compile-time object that can allow maximum performance.  For
+  most use cases this is probably overkill and 'emap' is a more ideal pathway that
+  matches Clojure constructs a bit closer.
 
   reader-datatype must be a compile time constant but advertised datatype need not be.
 
@@ -191,16 +190,34 @@ user> (dtype/make-reader :float32 5 (* idx 2))
 
 
 (defn ->vector
-  "Convert a thing to a persistent vector"
+  "Copy a thing into a persistent vector."
   [item]
   (if-let [rdr (as-reader item)]
     (vec rdr)
     (vec item)))
 
 
+(defn as-persistent-vector
+  "Return a reader wrapped in APersistentVector meaning you can use the reader
+  as, for instance, keys in a map.  Not recommended far large readers although
+  the data is shared."
+  [item]
+  (ListPersistentVector. (->reader item)))
+
+
 (defn as-buffer-descriptor
   "If this item is convertible to a buffer descriptor, convert it.  Else
-  return nil."
+  return nil.
+
+  Buffer descriptors are a ND description of data.  For example, a native
+  3x3 tensor has a buffer description like thus:
+  {:ptr 140330005614816
+   :datatype :float64
+   :endianness :little-endian
+   :shape [3 3]
+   :strides [24 8]}
+
+  This design allows zero-copy transfer between neanderthal, numpy, tvm, etc."
   [src-item]
   (when (dtype-proto/convertible-to-buffer-desc? src-item)
     (dtype-proto/->buffer-descriptor src-item)))

@@ -4,6 +4,7 @@
             [tech.v3.tensor.dimensions.analytics :as dims-analytics]
             [tech.v3.tensor.dimensions.shape :as shape]
             [tech.v3.datatype.functional :as dtype-fn]
+            [tech.v3.datatype.argops :as argops]
             [tech.v3.datatype.protocols :as dtype-proto]
             [clojure.pprint :as pp]
             [clojure.test :refer :all])
@@ -30,7 +31,7 @@
 (defn base-index-system-test
   ([shape strides offsets max-shape]
    (let [strides (dtype/->reader strides)
-         max-stride-idx (dtype-fn/argmax strides)
+         max-stride-idx (argops/argmax strides)
          shape-dim-data (dtype/->reader (mapv (fn [shape-entry]
                                                 (cond
                                                   (number? shape-entry)

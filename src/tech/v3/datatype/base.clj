@@ -98,11 +98,18 @@
 
 
 (defn ensure-iterable
-  "Ensure this object is iterable.  If item is iterable, return the item."
+  "Ensure this object is iterable.  If item is iterable, return the item.
+  If the item is convertible to a primitiveIO object , convert to it and
+  return the object.  Else if the item is a scalar constant, return
+  an infinite sequence of items."
   (^Iterable [item]
    (cond
      (instance? Iterable item)
      item
+     (instance? Stream item)
+     (reify Iterable
+       (iterator [item]
+         (.iterator ^Stream item)))
      (reader? item)
      (->reader item)
      :else
@@ -442,26 +449,25 @@
   "Reshape this item into a new shape.  For this to work, the tensor
   namespace must be required.
   Always returns a tensor."
-  [t new-shape]
+  ^PrimitiveNDIO [t new-shape]
   (check-ns 'tech.v3.tensor)
   (dtype-proto/reshape t new-shape))
 
 
 (defn select
-  "Reshape this item into a new shape.  For this to work, the tensora
-  namespace must be required.
+  "Perform a subrect projection or selection
   Shape arguments may be readers, ranges, integers, or the keywords [:all :lla].
   :all means take the entire dimension, :lla means reverse the dimension.
   Arguments are applied left to right and any missing arguments are assumed to
   be :all."
-  [t & new-shape]
+  ^PrimitiveNDIO [t & new-shape]
   (check-ns 'tech.v3.tensor)
   (dtype-proto/select t new-shape))
 
 
 (defn transpose
-  "In-place transpose an n-d object into a new shape."
-  [t new-shape]
+  "In-place transpose an n-d object into a new shape.  Returns a tensor."
+  ^PrimitiveNDIO [t new-shape]
   (check-ns 'tech.v3.tensor)
   (dtype-proto/transpose t new-shape))
 
@@ -469,7 +475,7 @@
 (defn broadcast
   "Broadcase an element into a new (larger) shape.  The new shape's dimension
   must be even multiples of the old shape's dimensions.  Elements are repeated."
-  [t new-shape]
+  ^PrimitiveNDIO [t new-shape]
   (check-ns 'tech.v3.tensor)
   (dtype-proto/broadcast t new-shape))
 
@@ -477,7 +483,7 @@
   "Rotate dimensions.  Offset-vec must have same count as the rank of t.  Elements of
   that dimension are rotated by the amount specified in the offset vector with 0
   indicating no rotation."
-  [t offset-vec]
+  ^PrimitiveNDIO [t offset-vec]
   (check-ns 'tech.v3.tensor)
   (dtype-proto/rotate t offset-vec))
 

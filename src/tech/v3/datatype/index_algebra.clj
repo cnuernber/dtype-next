@@ -10,6 +10,7 @@
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.io-indexed-buffer :as indexed-rdr]
             [tech.v3.datatype.functional :as dfn]
+            [tech.v3.datatype.argops :as argops]
             [tech.v3.datatype.casting :as casting])
   (:import [tech.v3.datatype PrimitiveIO LongReader]
            [tech.v3.datatype.monotonic_range Int64Range]
@@ -24,7 +25,7 @@
 (defn- base-dimension->reverse-long-map
   "This could be expensive in a lot of situations.  Hopefully the sequence is a range.
   We return a map that does the sparse reverse mapping on get.  We can return a number
-  or a sequence.  The fallback is (dfn/arggroup-by identity dim)"
+  or a sequence.  The fallback is (argops/arggroup-by identity dim)"
   ^Map [dim]
   (cond
     (number? dim)
@@ -56,8 +57,7 @@
     (dtype-proto/convertible-to-range? dim)
     (dtype-proto/range->reverse-map (dtype-proto/->range dim {}))
     :else
-    (dfn/arggroup-by identity
-                     (dtype-proto/->reader dim))))
+    (argops/arggroup-by identity (dtype-proto/->reader dim))))
 
 
 (defn maybe-range-reader
