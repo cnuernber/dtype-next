@@ -14,27 +14,34 @@ high performance algorithms and systems"
                  [org.apache.commons/commons-math3 "3.6.1"]
                  [org.roaringbitmap/RoaringBitmap  "0.9.0"]
                  [techascent/tech.resource       "4.6"]]
-  :plugins [[lein-codox "0.10.7"]]
   :java-source-paths ["java"]
-  :codox {:namespaces [tech.v3.datatype tech.v3.datatype.functional
-                       tech.v3.tensor tech.v3.compute tech.v3.datatype.argops
-                       tech.v3.datatype.bitmap
-                       tech.v3.datatype.datetime
-                       tech.v3.tensor.dimensions
-                       tech.v3.tensor.color-gradients
-                       tech.v3.datatype.reductions
-                       tech.v3.datatype.packing
-                       tech.v3.parallel.for
-                       tech.v3.libs.buffered-image
-                       tech.v3.libs.neanderthal]}
   :profiles {:dev
              {:dependencies [[criterium "0.4.5"]
                              [uncomplicate/neanderthal "0.35.0"]
                              [ch.qos.logback/logback-classic "1.1.3"]]
               :test-paths ["neanderthal" "test"]}
+             :codox {:dependencies [[codox-theme-rdash "0.1.2"]]
+                     :plugins [[lein-codox "0.10.7"]]
+                     :codox {:project {:name "dtype-next"}
+                             :metadata {:doc/format :markdown}
+                             :themes [:rdash]
+                             :source-paths ["src"]
+                             :source-uri "https://github.com/cnuernber/dtype-next/blob/master/{filepath}#L{line}"
+                             :namespaces [tech.v3.datatype tech.v3.datatype.functional
+                                          tech.v3.tensor tech.v3.compute tech.v3.datatype.argops
+                                          tech.v3.datatype.bitmap
+                                          tech.v3.datatype.datetime
+                                          tech.v3.tensor.dimensions
+                                          tech.v3.tensor.color-gradients
+                                          tech.v3.datatype.reductions
+                                          tech.v3.datatype.packing
+                                          tech.v3.parallel.for
+                                          tech.v3.libs.buffered-image
+                                          tech.v3.libs.neanderthal]}}
              :uberjar
              {:aot [tech.v3.datatype.main]
               :source-paths ["src" "native_test"]
               :jvm-opts ["-Dclojure.compiler.direct-linking=true"]
               :uberjar-name "dtype-next.jar"
-              :main tech.v3.datatype.main}})
+              :main tech.v3.datatype.main}}
+  :aliases {"codox" ["with-profile" "codox,dev" "codox"]})
