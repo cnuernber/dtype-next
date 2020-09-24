@@ -11,10 +11,12 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.native-buffer :as native-buffer]
             [tech.v3.datatype.io-indexed-buffer :as indexed-buffer]
+            [tech.v3.datatype.const-reader :refer [const-reader]]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.pprint :as dtype-pp]
             [tech.v3.datatype.argops :as argops]
+            [tech.v3.datatype.argtypes :refer [arg-type]]
             [tech.v3.tensor.pprint :as tens-pp]
             [tech.v3.tensor.dimensions :as dims]
             [tech.v3.tensor.dimensions.shape :as dims-shape]
@@ -310,22 +312,14 @@
   (dims/direct? (tensor->dimensions item)))
 
 
-(defn- default-datatype
-  [datatype]
-  (if (and datatype (not= :object datatype))
-    datatype
-    :float64))
-
-
 (defn ->tensor
   "Convert some data into a tensor via copying the data.  The datatype and container
-  type can be specified.  The datatype defaults to float64 if the datatype of the
-  incoming data cannot be ascertained."
+  type can be specified.  The datatype defaults to the datatype of the input data and container
+  type defaults to jvm-heap."
   ^Tensor [data & {:keys [datatype container-type]
                    :as options}]
   (let [data-shape (dtype-base/shape data)
-        datatype (default-datatype
-                  (or datatype (dtype-base/elemwise-datatype data)))
+        datatype (or datatype (dtype-base/elemwise-datatype data))
         container-type (or container-type :jvm-heap)
         n-elems (apply * 1 data-shape)]
     (construct-tensor
@@ -352,12 +346,20 @@
   java-heap."
   [shape & {:keys [datatype container-type]
             :as options}]
-  (let [datatype (default-datatype datatype)
+  (let [datatype (or datatype :float64)
         container-type (or container-type :jvm-heap)
         n-elems (apply * 1 shape)]
     (construct-tensor
      (dtype-cmc/make-container container-type datatype options n-elems)
      (dims/dimensions shape))))
+
+
+(defn const-tensor
+  "Construct a tensor from a value and a shape.  Data is represented efficiently via a const-reader."
+  [value shape]
+  (let [dims (dims/dimensions shape)
+        n-elems (dims/ecount dims)]
+    (construct-tensor (const-reader value n-elems) dims)))
 
 
 (defn ensure-tensor
@@ -419,7 +421,11 @@
   data.  As an example consider a sub-image of a larger image.  Each row can be copied
   contiguously into a new image but there are gaps between them."
   ([src dst options]
-   (tens-cpy/tensor-copy! (ensure-tensor src) dst options))
+   (let [src-argtype (arg-type src)
+         src (if (= src-argtype :scalar)
+               (const-tensor src (dtype-base/shape dst))
+               (ensure-tensor src))]
+     (tens-cpy/tensor-copy! src dst options)))
   ([src dst]
    (tensor-copy! src dst nil)))
 

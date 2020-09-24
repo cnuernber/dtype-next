@@ -159,6 +159,16 @@
    (instant->zoned-date-time inst (utc-zone-id))))
 
 
+(defn zoned-date-time
+  (^ZonedDateTime []
+   (ZonedDateTime/now))
+  (^ZonedDateTime [arg]
+   (if (instance? ZonedDateTime arg)
+     arg
+     (-> (milliseconds-since-epoch->instant arg)
+         (instant->zoned-date-time)))))
+
+
 (defn milliseconds-since-epoch->zoned-date-time
   (^ZonedDateTime [^long zid timezone]
    (-> (milliseconds-since-epoch->instant zid)

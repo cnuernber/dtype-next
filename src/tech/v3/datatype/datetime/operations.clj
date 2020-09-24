@@ -280,7 +280,7 @@
     (dispatch/vectorized-dispatch-2
      convert-fn
      #(dispatch/typed-map-2 convert-fn dtype %2 %3)
-     (fn [_ _lhs _rhs]
+     (fn [_ lhs rhs]
        (let [^PrimitiveIO lhs (argops/ensure-reader lhs)
              ^PrimitiveIO rhs (argops/ensure-reader rhs)]
          (reify ObjectReader

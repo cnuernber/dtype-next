@@ -108,12 +108,13 @@ no offset, no transpose, all data must be dense.")))
 
 
 (defn ->tensor
-  [data & {:keys [datatype device stream sync?]
-           :as options}]
-  (-> (dtt/->tensor data
-                    :container-type :native-buffer
-                    :datatype datatype)
-      (ensure-device options)))
+  [data & [{:keys [datatype device stream sync?]
+            :as options}]]
+  (let [datatype (or datatype :float64)]
+    (-> (dtt/->tensor data
+                      :container-type :native-buffer
+                      :datatype datatype)
+        (ensure-device options))))
 
 
 (defn clone-to-host

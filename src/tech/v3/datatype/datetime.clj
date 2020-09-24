@@ -51,6 +51,7 @@
                 instant->local-date-time
                 zoned-date-time->instant
                 zoned-date-time->milliseconds-since-epoch
+                zoned-date-time
                 instant->zoned-date-time
                 milliseconds-since-epoch->zoned-date-time
                 local-date-time->instant
