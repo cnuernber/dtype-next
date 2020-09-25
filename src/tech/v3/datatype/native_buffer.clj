@@ -571,7 +571,7 @@
 
 
 (defn wrap-address
-  [address n-bytes datatype endianness gc-obj]
+  ^NativeBuffer [address n-bytes datatype endianness gc-obj]
   (let [byte-width (casting/numeric-byte-width datatype)
         retval (NativeBuffer. address (quot (long n-bytes) byte-width)
                               datatype endianness #{:gc} nil nil)]
