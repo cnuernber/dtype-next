@@ -1,4 +1,4 @@
-(defproject cnuernber/dtype-next "0.1.0-SNAPSHOT"
+(defproject cnuernber/dtype-next "0.1"
   :description "A Clojure library designed to aid in the implementaion of
 high performance algorithms and systems"
   :url "http://github.com/cnuernber/dtype-next"
@@ -41,7 +41,8 @@ high performance algorithms and systems"
                                    tech.v3.datatype.packing
                                    tech.v3.parallel.for
                                    tech.v3.libs.buffered-image
-                                   tech.v3.libs.neanderthal]}}
+                                   tech.v3.libs.neanderthal]}
+              :clean-targets [:target-path "docs"]}
              :travis
              {:test-paths ["test"]
               :dependencies [[org.clojure/core.async "1.3.610"]]}
@@ -51,5 +52,4 @@ high performance algorithms and systems"
               :jvm-opts ["-Dclojure.compiler.direct-linking=true"]
               :uberjar-name "dtype-next.jar"
               :main tech.v3.datatype.main}}
-  :clean-targets [:target-path "docs"]
   :aliases {"codox" ["with-profile" "codox,dev" "codox"]})
