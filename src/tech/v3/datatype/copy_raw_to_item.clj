@@ -3,6 +3,7 @@
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.casting :as casting]
+            [tech.v3.datatype.argtypes :as argtypes]
             [tech.v3.parallel.for :as parallel-for])
   (:import [java.util RandomAccess]))
 
@@ -13,7 +14,7 @@
   (let [writer (dtype-base/->writer ary-target)]
     (reduce (fn [[ary-target target-offset] new-raw-data]
               ;;Fastpath for sequences of numbers.  Avoids more protocol pathways.
-              (if (number? new-raw-data)
+              (if (= :scalar (argtypes/arg-type new-raw-data))
                 (do
                   (writer target-offset new-raw-data)
                   [ary-target (inc target-offset)])
@@ -45,8 +46,8 @@
       (let [src-reader (dtype-base/->reader raw-data)]
         (if (or (not= :object (casting/flatten-datatype
                                (dtype-base/elemwise-datatype src-reader)))
-                (= :object (casting/flatten-datatype
-                            (dtype-base/elemwise-datatype ary-target))))
+                (and (not= 0 (dtype-base/ecount src-reader))
+                     (= :scalar (argtypes/arg-type (src-reader 0)))))
           (raw-dtype-copy! src-reader ary-target target-offset options)
           (copy-raw-seq->item! (seq raw-data) ary-target target-offset options)))
       (instance? java.lang.Iterable raw-data)

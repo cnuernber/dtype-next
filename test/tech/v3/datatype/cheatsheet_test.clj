@@ -21,6 +21,6 @@
         ;;This actually tests quite a lot but type promotion is one
         ;;thing.
         result-tens (dtype-fn/+ 2 (tens/select test-tens [1 0] :all))]
-    (is (= [[5.000 6.000 7.000]
-            [2.000 3.000 4.000]]
+    (is (= [[5 6 7]
+            [2 3 4]]
            (tens/->jvm result-tens)))))

@@ -20,27 +20,30 @@ high performance algorithms and systems"
                              [uncomplicate/neanderthal "0.35.0"]
                              [ch.qos.logback/logback-classic "1.1.3"]]
               :test-paths ["neanderthal" "test"]}
-             :codox {:dependencies [[codox-theme-rdash "0.1.2"]]
-                     :plugins [[lein-codox "0.10.7"]]
-                     :codox {:project {:name "dtype-next"}
-                             :metadata {:doc/format :markdown}
-                             :themes [:rdash]
-                             :source-paths ["src"]
-                             :output-path "docs"
-                             :doc-paths ["topics"]
-                             :source-uri "https://github.com/cnuernber/dtype-next/blob/master/{filepath}#L{line}"
-                             :namespaces [tech.v3.datatype tech.v3.datatype.functional
-                                          tech.v3.tensor tech.v3.compute tech.v3.datatype.argops
-                                          tech.v3.datatype.bitmap
-                                          tech.v3.datatype.datetime
-                                          tech.v3.datatype.mmap
-                                          tech.v3.tensor.dimensions
-                                          tech.v3.tensor.color-gradients
-                                          tech.v3.datatype.reductions
-                                          tech.v3.datatype.packing
-                                          tech.v3.parallel.for
-                                          tech.v3.libs.buffered-image
-                                          tech.v3.libs.neanderthal]}}
+             :codox
+             {:dependencies [[codox-theme-rdash "0.1.2"]]
+              :plugins [[lein-codox "0.10.7"]]
+              :codox {:project {:name "dtype-next"}
+                      :metadata {:doc/format :markdown}
+                      :themes [:rdash]
+                      :source-paths ["src"]
+                      :output-path "docs"
+                      :doc-paths ["topics"]
+                      :source-uri "https://github.com/cnuernber/dtype-next/blob/master/{filepath}#L{line}"
+                      :namespaces [tech.v3.datatype tech.v3.datatype.functional
+                                   tech.v3.tensor tech.v3.compute tech.v3.datatype.argops
+                                   tech.v3.datatype.bitmap
+                                   tech.v3.datatype.datetime
+                                   tech.v3.datatype.mmap
+                                   tech.v3.tensor.dimensions
+                                   tech.v3.tensor.color-gradients
+                                   tech.v3.datatype.reductions
+                                   tech.v3.datatype.packing
+                                   tech.v3.parallel.for
+                                   tech.v3.libs.buffered-image
+                                   tech.v3.libs.neanderthal]}}
+             :travis
+             {:test-paths ["test"]}
              :uberjar
              {:aot [tech.v3.datatype.main]
               :source-paths ["src" "native_test"]

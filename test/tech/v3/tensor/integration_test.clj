@@ -16,22 +16,22 @@
   (let [test-tens (dtt/->tensor (partition 3 (range 9)))]
     (doseq [row (dtt/rows test-tens)]
       (is (= (dtt/->jvm row)
-             (vec (dtype/make-container :java-array :float32 row)))))
+             (vec (dtype/make-container :java-array :int64 row)))))
 
     (doseq [col (dtt/columns test-tens)]
       (is (= (dtt/->jvm col)
-             (vec (dtype/make-container :java-array :float32 col)))))))
+             (vec (dtype/make-container :java-array :int64 col)))))))
 
 
 (deftest tensor->list-and-back
   (let [test-tens (dtt/->tensor (partition 3 (range 9)))]
     (doseq [row (dtt/rows test-tens)]
       (is (= (dtt/->jvm row)
-             (vec (dtype/make-container :list :float32 row)))))
+             (vec (dtype/make-container :list :int64 row)))))
 
     (doseq [col (dtt/columns test-tens)]
       (is (= (dtt/->jvm col)
-             (vec (dtype/make-container :list :float32 col)))))))
+             (vec (dtype/make-container :list :int64 col)))))))
 
 
 (deftest block-rows->tensor
@@ -91,7 +91,8 @@
   ;; Test that we can get buffer descriptors from tensors.  We should also be able
   ;; to get buffer descriptors from nio buffers if they are direct mapped.
   (let [test-tensor (dtt/->tensor (->> (range 9)
-                                        (partition 3)))]
+                                       (partition 3))
+                                  :datatype :float64)]
     (is (not (dtype/as-buffer-descriptor test-tensor)))
     (is (-> (dtt/ensure-buffer-descriptor test-tensor)
             :ptr))
