@@ -95,6 +95,7 @@ Rules are applied in order.
 
 1,2,and many argument versions of these rules part of the public tech.v3.datatype api so they are
 reused for other generalized functions.  These functions are:
+
 * `vectorized-dispatch-1` - single argument dispatch pathway.
 * `vectorized-dispatch-2` - double argument dispatch pathway.
 * `emap` - generalized n-dimension implementation for n arguments.

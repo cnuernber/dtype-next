@@ -2,7 +2,8 @@
   (:refer-clojure :exclude [cast])
   (:require [clojure.set :as c-set]
             [primitive-math :as pmath]
-            [tech.v3.datatype.protocols :as dtype-proto])
+            [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.errors :as errors])
   (:import [java.util Map Set HashSet]
            [java.util.concurrent ConcurrentHashMap]
            [clojure.lang RT Keyword]
@@ -435,26 +436,26 @@
       flatten-datatype))
 
 
+(defn- perform-cast
+  [cast-table value datatype]
+  (let [datatype (un-alias-datatype datatype)]
+    (if-let [cast-fn (get cast-table datatype)]
+      (cast-fn value)
+      (if (= (flatten-datatype datatype) :object)
+        value
+        (throw (ex-info "No cast available" {:datatype datatype}))))))
+
+
 (defn cast
   "Perform a checked cast of a value to specific datatype."
   [value datatype]
-  (let [datatype (flatten-datatype datatype)]
-    (if (= datatype :object)
-      value
-      (if-let [cast-fn (@*cast-table* datatype)]
-        (cast-fn value)
-        (throw (ex-info "No cast available" {:datatype datatype}))))))
+  (perform-cast @*cast-table* value datatype))
 
 
 (defn unchecked-cast
   "Perform an unchecked cast of a value to specific datatype."
   [value datatype]
-  (let [datatype (flatten-datatype datatype)]
-    (if (= datatype :object)
-      value
-      (if-let [cast-fn (@*unchecked-cast-table* datatype)]
-        (cast-fn value)
-        (throw (ex-info "No unchecked-cast available" {:datatype datatype}))))))
+  (perform-cast @*unchecked-cast-table* value datatype))
 
 
 (defmacro datatype->sparse-value
@@ -591,5 +592,30 @@
 
 ;;Default object datatypes
 (add-object-datatype! :string String)
+(add-cast-fn! :string str)
+(add-unchecked-cast-fn! :string str)
+(defn keyword-cast
+  [item]
+  (when item
+    (if-let [retval (keyword item)]
+      retval
+      (errors/throwf "Unable to cast to keyword: %s" item))))
+
 (add-object-datatype! :keyword Keyword)
+(add-cast-fn! :keyword keyword-cast)
+(add-unchecked-cast-fn! :keyword keyword-cast)
+
 (add-object-datatype! :uuid UUID)
+(defn uuid-cast
+  [item]
+  (when item
+    (cond
+      (instance? UUID item)
+      item
+      (string? item)
+      (UUID/fromString item)
+      :else
+      (errors/throwf "Unable to cast item to uuid: %s" item))))
+
+(add-cast-fn! :uuid uuid-cast)
+(add-unchecked-cast-fn! :uuid uuid-cast)

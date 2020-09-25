@@ -82,7 +82,6 @@
 
 (defn game-of-life-operator
   [original new-matrix]
-  ;;We do a typed reader here so that everything happens in byte space with no boxing.
   (-> (dtype/emap
        (fn [^long x ^long y]
          (if (or (== 3 y)
