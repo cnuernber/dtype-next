@@ -59,8 +59,9 @@
   (if-let [{:keys [unpack-fn object-datatype primitive-datatype]}
            (.get unpack-table (dtype-proto/elemwise-datatype item))]
     (dispatch/vectorized-dispatch-1
-     item unpack-fn
-     (fn [item _op-datatype]
+     unpack-fn
+     nil
+     (fn [_op-datatype item]
        (let [^PrimitiveIO item (dtype-proto/->reader item)]
          (if (casting/integer-type? primitive-datatype)
            (reify ObjectReader
@@ -72,7 +73,9 @@
              (elemwiseDatatype [rdr] object-datatype)
              (lsize [rdr] (.lsize item))
              (readObject [rdr idx]
-               (unpack-fn (.readObject item idx))))))))
+               (unpack-fn (.readObject item idx)))))))
+     nil
+     item)
     item))
 
 
@@ -83,8 +86,9 @@
   (if-let [{:keys [pack-fn packed-datatype primitive-datatype]}
            (.get pack-table (dtype-proto/elemwise-datatype item))]
     (dispatch/vectorized-dispatch-1
-     item pack-fn
-     (fn [item _op-datatype]
+     pack-fn
+     nil
+     (fn [_op-datatype item]
        (let [^PrimitiveIO item (dtype-proto/->reader item)]
          (if (casting/integer-type? primitive-datatype)
            (reify LongReader
@@ -96,5 +100,6 @@
              (elemwiseDatatype [rdr] packed-datatype)
              (lsize [rdr] (.lsize item))
              (readObject [rdr idx]
-               (pack-fn (.readObject item idx))))))))
+               (pack-fn (.readObject item idx)))))))
+     item)
     item))

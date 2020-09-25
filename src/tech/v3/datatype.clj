@@ -60,6 +60,7 @@
                 as-array-buffer
                 as-native-buffer
                 ->native-buffer
+                as-buffer
                 sub-buffer
                 get-value
                 set-value!

@@ -130,8 +130,7 @@
 
 (defn milliseconds->local-time
   ^LocalTime [^long milliseconds]
-  (LocalTime/ofNanoOfDay (* milliseconds
-                            (nanoseconds-in-millisecond))))
+  (LocalTime/ofNanoOfDay (* milliseconds nanoseconds-in-millisecond)))
 
 
 (defn instant->local-date-time

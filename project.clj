@@ -1,4 +1,4 @@
-(defproject cnuernber/dtype-next "0.3-SNAPSHOT"
+(defproject cnuernber/dtype-next "0.3"
   :description "A Clojure library designed to aid in the implementation of
 high performance algorithms and systems"
   :url "http://github.com/cnuernber/dtype-next"
@@ -31,6 +31,7 @@ high performance algorithms and systems"
                       :doc-paths ["topics"]
                       :source-uri "https://github.com/cnuernber/dtype-next/blob/master/{filepath}#L{line}"
                       :namespaces [tech.v3.datatype tech.v3.datatype.functional
+                                   tech.v3.datatype.errors
                                    tech.v3.tensor tech.v3.compute tech.v3.datatype.argops
                                    tech.v3.datatype.bitmap
                                    tech.v3.datatype.datetime
