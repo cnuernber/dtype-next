@@ -10,8 +10,7 @@
             [insn.core :as insn]
             [insn.op :as insn-op]
             [insn.clojure :as insn-clj]
-            [camel-snake-kebab.core :as csk]
-            [clojure.pprint :as pp])
+            [camel-snake-kebab.core :as csk])
   (:import [tech.v3.datatype PrimitiveIO LongReader LongNDReader]
            [java.util List ArrayList Map HashMap]
            [java.lang.reflect Constructor]

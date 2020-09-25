@@ -4,8 +4,7 @@
             [tech.v3.tensor.dimensions.analytics :as dims-analytics]
             [tech.v3.datatype.functional :as dtype-fn]
             [clojure.test :refer [deftest is]]
-            [clojure.pprint :as pp]
-            [criterium.core :as crit])
+            [clojure.pprint :as pp])
   (:import [tech.v3.datatype PrimitiveIO]))
 
 
