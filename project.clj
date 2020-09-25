@@ -33,6 +33,7 @@ high performance algorithms and systems"
                                           tech.v3.tensor tech.v3.compute tech.v3.datatype.argops
                                           tech.v3.datatype.bitmap
                                           tech.v3.datatype.datetime
+                                          tech.v3.datatype.mmap
                                           tech.v3.tensor.dimensions
                                           tech.v3.tensor.color-gradients
                                           tech.v3.datatype.reductions

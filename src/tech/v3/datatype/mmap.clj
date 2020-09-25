@@ -1,4 +1,5 @@
 (ns tech.v3.datatype.mmap
+  "Bindings to an mmap pathway (provided by xerial.larray.mmap)."
   (:require [clojure.java.io :as io]
             [tech.resource :as resource]
             [clojure.tools.logging :as log]
@@ -9,11 +10,6 @@
 
 
 (set! *warn-on-reflection* true)
-
-
-(defn unsafe
-  ^Unsafe []
-  UnsafeUtil/unsafe)
 
 
 (defn mmap-file
