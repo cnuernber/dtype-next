@@ -43,7 +43,8 @@ high performance algorithms and systems"
                                    tech.v3.libs.buffered-image
                                    tech.v3.libs.neanderthal]}}
              :travis
-             {:test-paths ["test"]}
+             {:test-paths ["test"]
+              :dependencies [[org.clojure/core.async "1.3.610"]]}
              :uberjar
              {:aot [tech.v3.datatype.main]
               :source-paths ["src" "native_test"]
