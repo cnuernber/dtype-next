@@ -104,18 +104,16 @@ Note that this makes no mention of indianness; buffers are in the format of the 
 
 (defprotocol PToPrimitiveIO
   (convertible-to-primitive-io? [item])
-  (->primitive-io [item]))
+  (^PrimitiveIO ->primitive-io [item]))
 
-;; Various other type conversions.  These happen quite a lot and we have found that
-;; avoiding 'satisfies' is wise.  In all of these cases, options may contain at least
-;; :datatype and :unchecked?
+
 (defprotocol PToWriter
   (convertible-to-writer? [item])
-  (->writer [item]))
+  (^PrimitiveIO ->writer [item]))
 
 (defprotocol PToReader
   (convertible-to-reader? [item])
-  (->reader [item]))
+  (^PrimitiveIO ->reader [item]))
 
 (defprotocol POperator
   "It can be useful to know if a generic operator implements a higher level operation

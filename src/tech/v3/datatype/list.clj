@@ -56,6 +56,8 @@
   PrimitiveIO
   (elemwiseDatatype [this] (dtype-base/elemwise-datatype buffer))
   (lsize [this] ptr)
+  (allowsRead [this] true)
+  (allowsWrite [this] true)
   (readBoolean [this idx] (check-idx idx ptr) (.readBoolean cached-io idx))
   (readByte [this idx] (check-idx idx ptr) (.readByte cached-io idx))
   (readShort [this idx] (check-idx idx ptr) (.readShort cached-io idx))

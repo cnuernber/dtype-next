@@ -11,7 +11,7 @@
 
 
 (set! *warn-on-reflection* true)
-
+(set! *unchecked-math* :warn-on-boxed)
 
 
 (defn generic-copy!
@@ -92,7 +92,8 @@
   ([src dst n-elems]
    (let [src-dt (casting/host-flatten (dtype-base/elemwise-datatype src))
          src-ec (dtype-base/ecount src)
-         dst-ec (dtype-base/ecount dst)]
+         dst-ec (dtype-base/ecount dst)
+         n-elems (long n-elems)]
      (when-not (= src-dt (casting/host-flatten (dtype-base/elemwise-datatype dst)))
        (throw (Exception. (format "src dtype (%s) != dst dtype (%s)"
                                   src-dt

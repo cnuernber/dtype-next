@@ -16,6 +16,7 @@
             [tech.v3.datatype.argtypes :as argtypes]
             [tech.v3.datatype.nio-buffer]
             [tech.v3.datatype.io-indexed-buffer :as io-idx-buf]
+            [tech.v3.datatype.io-concat-buffer]
             [tech.v3.datatype.unary-op :as unary-op]
             [tech.v3.datatype.unary-pred :as unary-pred]
             [tech.v3.datatype.binary-op :as binary-op]
@@ -152,6 +153,9 @@ user> (dtype/make-reader :float32 5 (* idx 2))
 
 (export-symbols tech.v3.datatype.const-reader
                 const-reader)
+
+(export-symbols tech.v3.datatype.io-concat-buffer
+                concat-buffers)
 
 
 (export-symbols tech.v3.datatype.copy-make-container
