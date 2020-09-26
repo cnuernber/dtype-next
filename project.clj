@@ -1,4 +1,4 @@
-(defproject cnuernber/dtype-next "0.3.2"
+(defproject cnuernber/dtype-next "0.3.3-SNAPSHOT"
   :description "A Clojure library designed to aid in the implementation of
 high performance algorithms and systems"
   :url "http://github.com/cnuernber/dtype-next"
