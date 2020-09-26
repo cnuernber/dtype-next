@@ -21,25 +21,10 @@
     (str x)))
 
 
-(defmulti reader-converter
-  "Given a item that is of a datatype that is unprintable or that prints incorrectly
-  return a new reader of a datatype that will print correctly (or just a reader of
-  strings is fine).  This is sometimes called for iterables also."
-  (fn [item]
-    (when item
-      (dtype-proto/elemwise-datatype item))))
-
-
-(defmethod reader-converter :default
-  [item]
-  item)
-
-
 (defn print-reader-data
   ^String [rdr & {:keys [formatter]
                   :or {formatter format-object}}]
-  (let [rdr (reader-converter rdr)
-        ^StringBuilder builder
+  (let [^StringBuilder builder
         (->> (packing/unpack rdr)
              (dtype-proto/->reader)
              (reduce (fn [^StringBuilder builder val]
