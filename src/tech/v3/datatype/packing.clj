@@ -35,7 +35,7 @@
 (defn packed-datatype?
   "Returns true of this is a datatype that could be unpacked."
   [datatype]
-  (.contains unpack-table datatype))
+  (.containsKey unpack-table datatype))
 
 (defn unpack-datatype
   "Returns the unpacked datatype for this packed datatype."
@@ -45,7 +45,7 @@
 (defn unpacked-datatype?
   "Returns true if this is a datatype that could be packed."
   [datatype]
-  (.contains pack-table datatype))
+  (.containsKey pack-table datatype))
 
 (defn pack-datatype
   "Returns the packed datatype for this unpacked datatype."
@@ -103,3 +103,10 @@
                (pack-fn (.readObject item idx)))))))
      item)
     item))
+
+(defn wrap-with-packing
+  [datatype src-fn]
+  (if-let [{:keys [pack-fn]}
+           (.get pack-table datatype)]
+    #(pack-fn (src-fn %))
+    src-fn))

@@ -177,6 +177,31 @@
           min-idx)))))
 
 
+(defn index-of
+  ^long [value rdr]
+  (let [rdr (ensure-reader rdr)
+        n-elems (.lsize rdr)]
+    (loop [idx 0]
+      (if (< idx n-elems)
+        (if (= (rdr idx) value)
+          idx
+          (recur (unchecked-inc idx)))
+        -1))))
+
+
+(defn last-index-of
+  ^long [value rdr]
+  (let [rdr (ensure-reader (ensure-reader rdr))
+        n-elems (.lsize rdr)
+        n-elems-dec (dec n-elems)]
+    (loop [idx 0]
+      (if (< idx n-elems)
+        (if (= (rdr (pmath/- n-elems-dec idx)) value)
+          (pmath/- n-elems-dec idx)
+          (recur (unchecked-inc idx)))
+        -1))))
+
+
 (defn ->long-comparator
   "Convert a thing to a it.unimi.dsi.fastutil.longs.LongComparator."
   ^LongComparator [src-comparator]
