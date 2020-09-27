@@ -72,10 +72,10 @@ public interface DoubleReader
 }
 ```
 
-In dtype-next there exists a new concept called a PrimitiveIO:
+In dtype-next there exists a new concept called a Buffer:
 
 ```java
-public interface PrimitiveIO extends IOBase, Iterable, IFn,
+public interface Buffer extends IOBase, Iterable, IFn,
 				             List, RandomAccess, Sequential,
                              Indexed
 {
@@ -109,7 +109,7 @@ combination of checked runtime casting and the original `double read(long idx)`
 method:
 
 ```java
-public interface DoubleIO extends PrimitiveIO
+public interface DoubleIO extends Buffer
 {
   default Object elemwiseDatatype () { return Keyword.intern(null, "float64"); }
   default boolean readBoolean(long idx) {return readDouble(idx) != 0.0;}
@@ -150,12 +150,12 @@ or correctness.  Here are a set of further optimizations found so far:
 
 
 *  Buffer-specific implementations are mimimized and buffer's implement a single
-class that provides the PrimitiveIO implementation.  For example
+class that provides the Buffer implementation.  For example
 there is a single class implementation that provides typesafe access to byte buffers
 and another that provides typesafe access for byte buffers that are to be interpreted
 as unsigned byte data.  That cuts out half the implementations of readers and writers.
 *  There can be a single const-reader implementation as opposed to N implementations,
-one for each datatype.  Ditto for indexed PrimitiveIO implementations which are one
+one for each datatype.  Ditto for indexed Buffer implementations which are one
 of the most heavily used items in tech.datatype.
 *  The arithmetic math vectorization implementation implements 3 overloads - one for
 double, one for long, and one for object.

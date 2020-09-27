@@ -515,7 +515,7 @@ user> class-def
  :interfaces [tech.v3.datatype.LongReader],
  :fields
  [{:flags #{:public :final}, :name "shape1", :type :long}
-  {:flags #{:public :final}, :name "shape2", :type tech.v3.datatype.PrimitiveIO}
+  {:flags #{:public :final}, :name "shape2", :type tech.v3.datatype.Buffer}
   {:flags #{:public :final}, :name "shape2-lsize", :type :long}
   {:flags #{:public :final}, :name "shapeEcountStride0", :type :long}
   {:flags #{:public :final}, :name "shapeEcountStride1", :type :long}
@@ -540,14 +540,14 @@ user> class-def
     [:aload 1]
     [:ldc 2]
     [:aaload]
-    [:checkcast tech.v3.datatype.PrimitiveIO]
-    [:putfield :this "shape2" tech.v3.datatype.PrimitiveIO]
+    [:checkcast tech.v3.datatype.Buffer]
+    [:putfield :this "shape2" tech.v3.datatype.Buffer]
     [:aload 0]
     [:aload 1]
     [:ldc 2]
     [:aaload]
-    [:checkcast tech.v3.datatype.PrimitiveIO]
-    [:invokeinterface tech.v3.datatype.PrimitiveIO "lsize"]
+    [:checkcast tech.v3.datatype.Buffer]
+    [:invokeinterface tech.v3.datatype.Buffer "lsize"]
     [:putfield :this "shape2-lsize" :long]
     [:aload 0]
     [:aload 5]
@@ -606,12 +606,12 @@ user> class-def
     [:lmul]
     [:ladd]
     [:aload 0]
-    [:getfield :this "shape2" tech.v3.datatype.PrimitiveIO]
+    [:getfield :this "shape2" tech.v3.datatype.Buffer]
     [:lload 1]
     [:aload 0]
     [:getfield :this "shape2-lsize" :long]
     [:lrem]
-    [:invokeinterface tech.v3.datatype.PrimitiveIO "readLong"]
+    [:invokeinterface tech.v3.datatype.Buffer "readLong"]
     [:ladd]
     [:lreturn]]}]}
 
