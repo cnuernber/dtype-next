@@ -52,15 +52,15 @@
 (defn datatype->io-type
   [dtype]
   (case (casting/safe-flatten dtype)
-    :boolean 'tech.v3.datatype.BooleanIO
-    :int8 'tech.v3.datatype.LongIO
-    :int16 'tech.v3.datatype.LongIO
-    :char 'tech.v3.datatype.LongIO
-    :int32 'tech.v3.datatype.LongIO
-    :int64 'tech.v3.datatype.LongIO
-    :float32 'tech.v3.datatype.DoubleIO
-    :float64 'tech.v3.datatype.DoubleIO
-    :object 'tech.v3.datatype.ObjectIO))
+    :boolean 'tech.v3.datatype.BooleanBuffer
+    :int8 'tech.v3.datatype.LongBuffer
+    :int16 'tech.v3.datatype.LongBuffer
+    :char 'tech.v3.datatype.LongBuffer
+    :int32 'tech.v3.datatype.LongBuffer
+    :int64 'tech.v3.datatype.LongBuffer
+    :float32 'tech.v3.datatype.DoubleBuffer
+    :float64 'tech.v3.datatype.DoubleBuffer
+    :object 'tech.v3.datatype.ObjectBuffer))
 
 
 (defn datatype->reader-type

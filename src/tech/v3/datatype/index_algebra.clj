@@ -12,7 +12,7 @@
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.argops :as argops]
             [tech.v3.datatype.casting :as casting])
-  (:import [tech.v3.datatype PrimitiveIO LongReader]
+  (:import [tech.v3.datatype Buffer LongReader]
            [tech.v3.datatype.monotonic_range Int64Range]
            [clojure.lang IObj MapEntry]
            [java.util Map]))
@@ -63,7 +63,7 @@
 (defn maybe-range-reader
   "Create a range if possible.  If not, return a reader that knows the found mins
   and maxes."
-  [^PrimitiveIO reader]
+  [^Buffer reader]
   (let [first-elem (.readLong reader 0)
         second-elem (.readLong reader 1)
         increment (- second-elem first-elem)
@@ -100,7 +100,7 @@
 
 
 (defn- simplify-reader
-  [^PrimitiveIO reader]
+  [^Buffer reader]
   (let [n-elems (.lsize reader)]
     (cond
       (= n-elems 1)
@@ -163,7 +163,7 @@ back into Y global space indexes."))
 
 (declare ->idx-alg)
 
-(deftype IndexAlg [^PrimitiveIO reader ^long n-reader-elems
+(deftype IndexAlg [^Buffer reader ^long n-reader-elems
                    ^long offset ^long repetitions]
   LongReader
   (lsize [rdr] (* n-reader-elems repetitions))
@@ -232,7 +232,7 @@ back into Y global space indexes."))
         (get [m k]
           (when-let [v (.get src-map k)]
             (fixup-reverse-v v n-reader-elems offset repetitions))))))
-  dtype-proto/PBuffer
+  dtype-proto/PSubBuffer
   (sub-buffer [item new-offset len]
     (let [new-offset (long new-offset)
           len (long len)]
@@ -255,7 +255,7 @@ back into Y global space indexes."))
 (defn dimension->reader
   "Given a generic thing, make the appropriate longreader that is geared towards rapid random access
   and, when possible, has constant time min/max operations."
-  ^PrimitiveIO [item-seq]
+  ^Buffer [item-seq]
   ;;Normalize this to account for single digit numbers
   (cond
     (number? item-seq)
@@ -323,7 +323,7 @@ back into Y global space indexes."))
               (dtype-range/make-range read-value (unchecked-inc read-value))
               {:select-scalar? true})))
         (simplify-range->direct
-         (let [^PrimitiveIO select-arg (if (= select-arg :lla)
+         (let [^Buffer select-arg (if (= select-arg :lla)
                                          (dtype-range/reverse-range n-elems)
                                          (dimension->reader select-arg))
                n-select-arg (.lsize select-arg)]

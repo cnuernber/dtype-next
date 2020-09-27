@@ -9,7 +9,7 @@
             [primitive-math :as pmath])
   (:import [xerial.larray.buffer UnsafeUtil]
            [sun.misc Unsafe]
-           [tech.v3.datatype PrimitiveIO PrimitiveWriter BufferCollection]
+           [tech.v3.datatype Buffer BufferCollection]
            [clojure.lang RT IObj Counted Indexed IFn]))
 
 (set! *warn-on-reflection* true)
@@ -164,7 +164,7 @@
                                  (Long/reverseBytes)))))))
 
 
-(defmacro native-buffer->io-macro
+(defmacro native-buffer->buffer-macro
   [datatype advertised-datatype buffer address n-elems swap?]
   (let [byte-width (casting/numeric-byte-width datatype)]
     `(reify
@@ -174,7 +174,7 @@
        dtype-proto/PEndianness
        (endianness [item] (dtype-proto/endianness ~buffer))
        ;;Forward protocol methods that are efficiently implemented by the buffer
-       dtype-proto/PBuffer
+       dtype-proto/PSubBuffer
        (sub-buffer [this# offset# length#]
          (-> (dtype-proto/sub-buffer ~buffer offset# length#)
              (dtype-proto/->reader)))
@@ -261,13 +261,13 @@
                           (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))]))))
 
 
-(declare native-buffer->io)
+(declare native-buffer->buffer)
 
 
 ;;Size is in elements, not in bytes
 (deftype NativeBuffer [^long address ^long n-elems datatype endianness
                        resource-type metadata
-                       ^:volatile-mutable ^PrimitiveIO cached-io]
+                       ^:volatile-mutable ^Buffer cached-io]
   dtype-proto/PToNativeBuffer
   (convertible-to-native-buffer? [this] true)
   (->native-buffer [this] this)
@@ -275,9 +275,9 @@
   (endianness [item] endianness)
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [this] datatype)
-  dtype-proto/PCountable
+  dtype-proto/PECount
   (ecount [this] n-elems)
-  dtype-proto/PBuffer
+  dtype-proto/PSubBuffer
   (sub-buffer [this offset length]
     (let [byte-width (casting/numeric-byte-width datatype)
           offset (long offset)
@@ -306,9 +306,9 @@
                (or (== 0.0 (double value))
                    (= datatype :int8)))
         (.setMemory (unsafe) address n-bytes (unchecked-byte value))
-        (let [^PrimitiveWriter writer (-> (dtype-proto/sub-buffer this offset
-                                                                  element-count)
-                                          (dtype-proto/->writer))]
+        (let [^Buffer writer (-> (dtype-proto/sub-buffer this offset
+                                                         element-count)
+                                 (dtype-proto/->writer))]
           (parallel-for/parallel-for
            idx element-count
            (.writeObject writer idx value))))
@@ -318,22 +318,22 @@
     (dtype-proto/make-container :native-heap datatype this
                                 {:endianness endianness
                                  :resource-type resource-type}))
-  dtype-proto/PToPrimitiveIO
-  (convertible-to-primitive-io? [this] true)
-  (->primitive-io [this]
+  dtype-proto/PToBuffer
+  (convertible-to-buffer? [this] true)
+  (->buffer [this]
     (if cached-io
       cached-io
       (do
-        (set! cached-io (native-buffer->io this))
+        (set! cached-io (native-buffer->buffer this))
         cached-io)))
   dtype-proto/PToReader
   (convertible-to-reader? [this] true)
   (->reader [this]
-    (dtype-proto/->primitive-io this))
+    (dtype-proto/->buffer this))
   dtype-proto/PToWriter
   (convertible-to-writer? [this] true)
   (->writer [this]
-    (dtype-proto/->primitive-io this))
+    (dtype-proto/->buffer this))
   IObj
   (meta [item] metadata)
   (withMeta [item metadata]
@@ -345,10 +345,10 @@
   Indexed
   (nth [item idx]
     (errors/check-idx idx n-elems)
-    ((dtype-proto/->primitive-io item) idx))
+    ((dtype-proto/->buffer item) idx))
   (nth [item idx def-val]
     (if (and (>= idx 0) (< idx (.count item)))
-      ((dtype-proto/->primitive-io item) idx)
+      ((dtype-proto/->buffer item) idx)
       def-val))
   IFn
   (invoke [item idx]
@@ -363,11 +363,11 @@
       2 (.invoke item (first argseq) (second argseq))))
   BufferCollection
   (iterator [this]
-    (dtype-proto/->primitive-io this)
+    (dtype-proto/->buffer this)
     (.iterator cached-io))
   (size [this] (int (dtype-proto/ecount this)))
   (toArray [this]
-    (dtype-proto/->primitive-io this)
+    (dtype-proto/->buffer this)
     (.toArray cached-io))
   Object
   (toString [buffer]
@@ -378,7 +378,7 @@
 (dtype-pp/implement-tostring-print NativeBuffer)
 
 
-(defn- native-buffer->io
+(defn- native-buffer->buffer
   [^NativeBuffer this]
   (let [datatype (.datatype this)
         address (.address this)
@@ -386,30 +386,30 @@
         swap? (not= (.endianness this) (dtype-proto/platform-endianness))]
     (if swap?
       (case (casting/un-alias-datatype datatype)
-        :int8 (native-buffer->io-macro :int8 datatype this address n-elems true)
-        :uint8 (native-buffer->io-macro :uint8 datatype this address n-elems true)
-        :int16 (native-buffer->io-macro :int16 datatype this address n-elems true)
-        :uint16 (native-buffer->io-macro :uint16 datatype this address n-elems true)
-        :char (native-buffer->io-macro :char datatype this address n-elems true)
-        :int32 (native-buffer->io-macro :int32 datatype this address n-elems true)
-        :uint32 (native-buffer->io-macro :uint32 datatype this address n-elems true)
-        :int64 (native-buffer->io-macro :int64 datatype this address n-elems true)
-        :uint64 (native-buffer->io-macro :uint64 datatype this address n-elems true)
-        :float32 (native-buffer->io-macro :float32 datatype this address n-elems true)
-        :float64 (native-buffer->io-macro :float64 datatype this address n-elems true))
+        :int8 (native-buffer->buffer-macro :int8 datatype this address n-elems true)
+        :uint8 (native-buffer->buffer-macro :uint8 datatype this address n-elems true)
+        :int16 (native-buffer->buffer-macro :int16 datatype this address n-elems true)
+        :uint16 (native-buffer->buffer-macro :uint16 datatype this address n-elems true)
+        :char (native-buffer->buffer-macro :char datatype this address n-elems true)
+        :int32 (native-buffer->buffer-macro :int32 datatype this address n-elems true)
+        :uint32 (native-buffer->buffer-macro :uint32 datatype this address n-elems true)
+        :int64 (native-buffer->buffer-macro :int64 datatype this address n-elems true)
+        :uint64 (native-buffer->buffer-macro :uint64 datatype this address n-elems true)
+        :float32 (native-buffer->buffer-macro :float32 datatype this address n-elems true)
+        :float64 (native-buffer->buffer-macro :float64 datatype this address n-elems true))
       (case (casting/un-alias-datatype datatype)
-        :int8 (native-buffer->io-macro :int8 datatype this address n-elems false)
-        :uint8 (native-buffer->io-macro :uint8 datatype this address n-elems false)
-        :int16 (native-buffer->io-macro :int16 datatype this address n-elems false)
-        :uint16 (native-buffer->io-macro :uint16 datatype this address n-elems false)
-        :char (native-buffer->io-macro :char datatype this address n-elems false)
-        :int32 (native-buffer->io-macro :int32 datatype this address n-elems false)
-        :uint32 (native-buffer->io-macro :uint32 datatype this address n-elems false)
-        :int64 (native-buffer->io-macro :int64 datatype this address n-elems false)
-        :uint64 (native-buffer->io-macro :uint64 datatype this address n-elems false)
-        :float32 (native-buffer->io-macro :float32 datatype this address n-elems false)
-        :float64 (native-buffer->io-macro :float64 datatype this
-                                          address n-elems false)))))
+        :int8 (native-buffer->buffer-macro :int8 datatype this address n-elems false)
+        :uint8 (native-buffer->buffer-macro :uint8 datatype this address n-elems false)
+        :int16 (native-buffer->buffer-macro :int16 datatype this address n-elems false)
+        :uint16 (native-buffer->buffer-macro :uint16 datatype this address n-elems false)
+        :char (native-buffer->buffer-macro :char datatype this address n-elems false)
+        :int32 (native-buffer->buffer-macro :int32 datatype this address n-elems false)
+        :uint32 (native-buffer->buffer-macro :uint32 datatype this address n-elems false)
+        :int64 (native-buffer->buffer-macro :int64 datatype this address n-elems false)
+        :uint64 (native-buffer->buffer-macro :uint64 datatype this address n-elems false)
+        :float32 (native-buffer->buffer-macro :float32 datatype this address n-elems false)
+        :float64 (native-buffer->buffer-macro :float64 datatype this
+                                              address n-elems false)))))
 
 
 (defn- chain-native-buffers

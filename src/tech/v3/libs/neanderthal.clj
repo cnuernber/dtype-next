@@ -25,7 +25,7 @@
                            entry-type)]
         retval
         (throw (Exception. "Unrecognized type.")))))
-  dtype-proto/PCountable
+  dtype-proto/PECount
   (ecount [this] (:dim (.info this)))
   dtype-proto/PShape
   (shape [this] (let [info (.info this)]
@@ -33,9 +33,9 @@
                     [(:m info) (:n info)]
                     [(:dim info)])))
 
-  dtype-proto/PToBufferDesc
-  (convertible-to-buffer-desc? [item] true)
-  (->buffer-descriptor [item]
+  dtype-proto/PToNDBufferDesc
+  (convertible-to-nd-buffer-desc? [item] true)
+  (->nd-buffer-descriptor [item]
     (let [item-info (.info item)
           item-dtype (dtype-proto/elemwise-datatype item)
           item-shape (dtype-proto/shape item)]
@@ -61,13 +61,13 @@
                               [(:stride item-info)]))}
             (resource/track (constantly item))))))
 
-  dtype-proto/PToPrimitiveIO
-  (convertible-to-primitive-io? [item] (= :cpu (:device (.info item))))
-  (->primitive-io [item options]
-    (dtype-proto/->primitive-io (dtype-proto/as-tensor item)))
+  dtype-proto/PToBuffer
+  (convertible-to-buffer? [item] (= :cpu (:device (.info item))))
+  (->buffer [item options]
+    (dtype-proto/->buffer (dtype-proto/as-tensor item)))
   dtype-proto/PToTensor
   (as-tensor [item]
-    (dtt/buffer-descriptor->tensor (dtype-proto/->buffer-descriptor item))))
+    (dtt/nd-buffer-descriptor->tensor (dtype-proto/->nd-buffer-descriptor item))))
 
 
 (extend-type Block

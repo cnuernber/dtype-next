@@ -26,7 +26,7 @@
   (lsize [item] n-elems)
   (readLong [item idx]
     (+ start (* increment idx)))
-  dtype-proto/PBuffer
+  dtype-proto/PSubBuffer
   (sub-buffer [item offset len]
     (let [offset (long offset)
           len (long len)]

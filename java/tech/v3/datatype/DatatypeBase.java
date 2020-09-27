@@ -1,6 +1,6 @@
 package tech.v3.datatype;
 
 
-public interface IOBase extends ElemwiseDatatype, Countable
+public interface DatatypeBase extends ElemwiseDatatype, ECount
 {
 }

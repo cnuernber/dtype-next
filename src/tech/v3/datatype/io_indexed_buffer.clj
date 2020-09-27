@@ -2,22 +2,22 @@
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.casting :as casting])
-  (:import [tech.v3.datatype PrimitiveIO ObjectIO LongIO
-            DoubleIO BooleanIO]))
+  (:import [tech.v3.datatype Buffer ObjectBuffer LongBuffer
+            DoubleBuffer BooleanBuffer]))
 
 
 (set! *warn-on-reflection* true)
 
 
 (defn indexed-buffer
-  "Create a new PrimitiveIO implementatino that indexes into a previous
-  PrimitiveIO implementation via the provided indexes."
-  (^PrimitiveIO [indexes item]
+  "Create a new Buffer implementatino that indexes into a previous
+  Buffer implementation via the provided indexes."
+  (^Buffer [indexes item]
    (let [indexes (dtype-base/->reader indexes)
-         item (dtype-base/->primitive-io item)
+         item (dtype-base/->buffer item)
          item-dtype (dtype-base/elemwise-datatype item)
          n-elems (.lsize indexes)]
-     (reify PrimitiveIO
+     (reify Buffer
        (elemwiseDatatype [rdr] item-dtype)
        (lsize [rdr] n-elems)
        (readBoolean [this idx] (.readBoolean item (.readLong indexes idx)))

@@ -1,7 +1,7 @@
 (ns tech.v3.datatype.pprint
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.packing :as packing])
-  (:import [tech.v3.datatype PrimitiveIO]))
+  (:import [tech.v3.datatype Buffer]))
 
 
 ;; pretty-printing utilities for matrices

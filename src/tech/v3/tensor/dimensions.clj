@@ -19,7 +19,7 @@
             [tech.v3.datatype.errors
              :refer [when-not-error]
              :as errors])
-  (:import [tech.v3.datatype PrimitiveIO PrimitiveList ObjectReader
+  (:import [tech.v3.datatype Buffer PrimitiveList ObjectReader
             LongReader LongNDReader]
            [java.util List Map]
            [clojure.lang IDeref]))
@@ -57,7 +57,7 @@
                        local->global]
   dtype-proto/PShape
   (shape [item] shape-ecounts)
-  dtype-proto/PCountable
+  dtype-proto/PECount
   (ecount [item] overall-ecount))
 
 
@@ -280,7 +280,7 @@
   "Get an inverse operator for these dims.  Inverting the global->local dimensions
   means that for some dimensions (like broadcasted dimensions) each local index
   may correspond to a set of global indexes."
-  ^PrimitiveIO [dims]
+  ^Buffer [dims]
   @(:local->global dims))
 
 
@@ -288,7 +288,7 @@
   "Harder translation than above.  May return nil in the case where the inverse
   operation hasn't yet been derived.  In this case, the best you can do is a O(N)
   iteration similar to dense math."
-  ^PrimitiveIO
+  ^Buffer
   [dims global->local*]
   (let [dims-ecount (ecount dims)]
     (if (:direct? dims)

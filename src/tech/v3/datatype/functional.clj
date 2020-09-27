@@ -1,5 +1,5 @@
 (ns tech.v3.datatype.functional
-  "Arithmetic and statistical operations based on the PrimitiveIO interface.  These
+  "Arithmetic and statistical operations based on the Buffer interface.  These
   operators and functions all implement vectorized interfaces so passing in something
   convertible to a reader will return a reader.  Arithmetic operations are done lazily.
   These functions generally incur a large dispatch cost so for example each call to '+'
@@ -28,7 +28,7 @@
             [tech.v3.datatype.list :as dtype-list]
             [primitive-math :as pmath]
             [clojure.set :as set])
-  (:import [tech.v3.datatype BinaryOperator PrimitiveReader
+  (:import [tech.v3.datatype BinaryOperator Buffer
             LongReader DoubleReader ObjectReader
             UnaryOperator BinaryOperator
             UnaryPredicate BinaryPredicate

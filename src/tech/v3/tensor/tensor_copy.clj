@@ -9,7 +9,7 @@
             [tech.v3.datatype.copy :as dtype-copy]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.errors :as errors])
-  (:import [tech.v3.datatype PrimitiveIO PrimitiveNDIO]
+  (:import [tech.v3.datatype Buffer NDBuffer]
            [java.util List]))
 
 
@@ -70,9 +70,9 @@
 
 (defn bit-blit!
   "Returns :ok if bit blit succeeds"
-  ([^PrimitiveNDIO src ^PrimitiveNDIO dst options]
-   (errors/when-not-errorf (and (instance? PrimitiveNDIO dst)
-                                (instance? PrimitiveNDIO src))
+  ([^NDBuffer src ^NDBuffer dst options]
+   (errors/when-not-errorf (and (instance? NDBuffer dst)
+                                (instance? NDBuffer src))
      "Both src (%s) and dst (%s) must be tensors"
      (type src) (type dst))
    (errors/when-not-errorf (= (.shape dst)
@@ -101,8 +101,8 @@
                              (.dimensions dst))]
          (let [block-size (long (:block-size dims-data))
                n-blocks (long (:n-blocks dims-data))
-               ^PrimitiveIO src-offset-reader (:src-offset-reader dims-data)
-               ^PrimitiveIO dst-offset-reader (:dst-offset-reader dims-data)]
+               ^Buffer src-offset-reader (:src-offset-reader dims-data)
+               ^Buffer dst-offset-reader (:dst-offset-reader dims-data)]
            (when (>= block-size 512)
              (parallel-for/parallel-for
               idx n-blocks

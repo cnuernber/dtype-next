@@ -6,7 +6,7 @@ import clojure.lang.RT;
 import org.roaringbitmap.IntIterator;
 
 
-public class LongBitmapIter implements PrimitiveIOIterator
+public class LongBitmapIter implements BufferIterator
 {
   IntIterator iter;
   public LongBitmapIter(IntIterator _iter)

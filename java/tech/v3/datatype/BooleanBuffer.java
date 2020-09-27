@@ -5,7 +5,7 @@ import clojure.lang.RT;
 import java.util.stream.IntStream;
 
 
-public interface BooleanIO extends PrimitiveIO
+public interface BooleanBuffer extends Buffer
 {
   default byte readByte(long idx) {return (byte) (readBoolean(idx) ? 1 : 0);}
   default short readShort(long idx) {return (short) (readBoolean(idx) ? 1 : 0);}

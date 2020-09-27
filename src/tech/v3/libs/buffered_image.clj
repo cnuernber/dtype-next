@@ -16,7 +16,7 @@
             DataBuffer]
            [java.awt RenderingHints Graphics2D]
            [java.io InputStream]
-           [tech.v3.datatype PrimitiveIO LongIO]
+           [tech.v3.datatype Buffer LongBuffer]
            [javax.imageio ImageIO])
   (:refer-clojure :exclude [load]))
 
@@ -105,7 +105,7 @@
   (elemwise-datatype [item]
     (get data-buffer-type-enum->type-map (.getDataType item)))
 
-  dtype-proto/PCountable
+  dtype-proto/PECount
   (ecount [item]
     (long (* (.getSize item)
              (.getNumBanks item))))
@@ -165,7 +165,7 @@
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [item]
     (dtype-proto/elemwise-datatype (buffered-image->data-buffer item)))
-  dtype-proto/PCountable
+  dtype-proto/PECount
   (ecount [item]
     (dtype-proto/ecount
      (buffered-image->data-buffer item)))
@@ -196,7 +196,7 @@
 (deftype PackedIntUbyteBuffer [int-buffer n-elems shape n-channels]
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [item] :uint8)
-  dtype-proto/PCountable
+  dtype-proto/PECount
   (ecount [item] n-elems)
   dtype-proto/PShape
   (shape [item] shape)
@@ -210,12 +210,12 @@
   (as-tensor [item] (dtt/construct-tensor
                      item
                      (dims/dimensions (dtype-base/shape item))))
-  dtype-proto/PToPrimitiveIO
-  (convertible-to-primitive-io? [item] true)
-  (->primitive-io [item]
+  dtype-proto/PToBuffer
+  (convertible-to-buffer? [item] true)
+  (->buffer [item]
     (let [n-channels (long n-channels)
-          src-io (dtype-base/->primitive-io int-buffer)]
-      (reify LongIO
+          src-io (dtype-base/->buffer int-buffer)]
+      (reify LongBuffer
         (lsize [rdr] n-elems)
         (allowsRead [rdr] true)
         (allowsWrite [rdr] true)

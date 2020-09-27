@@ -4,7 +4,7 @@ import clojure.lang.Keyword;
 import java.util.stream.DoubleStream;
 
 
-public interface DoubleReader extends DoubleIO
+public interface DoubleReader extends DoubleBuffer
 {
   default void writeDouble(long idx, double value) { throw new UnsupportedOperationException(); }
   default boolean supportsWrite() { return false; }

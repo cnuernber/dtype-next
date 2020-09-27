@@ -6,7 +6,7 @@
             [tech.v3.datatype.list :as dtype-list]
             [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.parallel.for :as parallel-for])
-  (:import [tech.v3.datatype UnaryPredicate
+  (:import [tech.v3.datatype UnaryPredicate Buffer
             UnaryPredicates$BooleanUnaryPredicate
             UnaryPredicates$DoubleUnaryPredicate
             UnaryPredicates$LongUnaryPredicate
@@ -74,7 +74,7 @@
 
 
 (defn reader
-  [pred src-rdr]
+  ^Buffer [pred src-rdr]
   (let [pred (->predicate pred)
         src-rdr (dtype-base/->reader src-rdr)
         src-dtype (dtype-base/elemwise-datatype src-rdr)]

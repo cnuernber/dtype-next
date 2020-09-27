@@ -5,7 +5,7 @@ import clojure.lang.RT;
 import clojure.lang.Keyword;
 
 
-public interface SimpleLongSet extends IOBase, LongSet
+public interface SimpleLongSet extends DatatypeBase, LongSet
 {
   default Object getDatatype () { return Keyword.intern(null, "int64"); }
   default int size() { return RT.intCast(lsize()); }

@@ -11,15 +11,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.RandomAccess;
 
-public interface PrimitiveNDIO extends IOBase, Iterable, IFn,
-				       Sequential, Indexed,
-				       List, RandomAccess
+public interface NDBuffer extends DatatypeBase, Iterable, IFn,
+				  Sequential, Indexed,
+				  List, RandomAccess
 {
   Object buffer();
   Object dimensions();
 
   LongNDReader indexSystem();
-  PrimitiveIO bufferIO();
+  Buffer bufferIO();
   default Iterable shape() { return indexSystem().shape(); }
   //count of shape
   default int rank() { return indexSystem().rank(); }

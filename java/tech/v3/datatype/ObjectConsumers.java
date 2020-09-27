@@ -92,7 +92,7 @@ public class ObjectConsumers
     }
   }
   //tight loop consume call.
-  public static Consumers.Result consume(long offset, int grouplen, PrimitiveIO data,
+  public static Consumers.Result consume(long offset, int grouplen, Buffer data,
 					 Consumers.StagedConsumer consumer,
 					 UnaryPredicate predicate) {
     @SuppressWarnings("unchecked")

@@ -6,7 +6,7 @@
             [tech.v3.datatype.double-ops :refer [get-significand]]
             [primitive-math :as pmath])
   (:import [tech.v3.datatype LongReader DoubleReader ObjectReader
-            UnaryOperator PrimitiveReader
+            UnaryOperator Buffer
             UnaryOperators$DoubleUnaryOperator
             UnaryOperators$ObjectUnaryOperator]
            [clojure.lang IFn]
@@ -60,7 +60,7 @@
 
 
 (defn reader
-  (^PrimitiveReader [unary-op res-dtype lhs]
+  (^Buffer [unary-op res-dtype lhs]
    (let [unary-op (->operator unary-op)
          lhs (dtype-base/->reader lhs)
          n-elems (.lsize lhs)]
@@ -80,7 +80,7 @@
          (elemwiseDatatype [rdr] res-dtype)
          (lsize [rdr] n-elems)
          (readObject [rdr idx] (.unaryObject unary-op (.readObject lhs idx)))))))
-  (^PrimitiveReader [^UnaryOperator unary-op lhs]
+  (^Buffer [^UnaryOperator unary-op lhs]
    (let [lhs-dtype (dtype-base/elemwise-datatype lhs)
          op-dtype (if (instance? IFn unary-op)
                     :object

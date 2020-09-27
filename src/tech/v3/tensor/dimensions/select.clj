@@ -3,7 +3,7 @@
   (:require [tech.v3.datatype.index-algebra :as idx-alg]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.list :as dtype-list])
-  (:import [tech.v3.datatype PrimitiveIO]
+  (:import [tech.v3.datatype Buffer]
            [java.util ArrayList List]))
 
 (set! *unchecked-math* :warn-on-boxed)

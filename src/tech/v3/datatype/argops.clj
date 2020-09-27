@@ -29,7 +29,7 @@
             BinaryPredicate
             PrimitiveList
             IndexReduction
-            PrimitiveIO
+            Buffer
             UnaryOperator BinaryOperator
             UnaryPredicate BinaryPredicate]
            [java.util Comparator Arrays List Map Iterator]
@@ -42,7 +42,7 @@
 (defn ensure-reader
   "Ensure item is randomly addressable.  This may copy the data into a randomly
   accessible container."
-  (^PrimitiveIO [item n-const-elems]
+  (^Buffer [item n-const-elems]
    (let [argtype (argtypes/arg-type item)]
      (cond
        (= argtype :scalar)
@@ -53,7 +53,7 @@
            (dtype-base/->reader))
        :else
        (dtype-base/->reader item))))
-  (^PrimitiveIO [item]
+  (^Buffer [item]
    (ensure-reader item Long/MAX_VALUE)))
 
 

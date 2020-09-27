@@ -59,7 +59,7 @@
            `(extend-type ~(datatype->nio-buf-type dtype)
               dtype-proto/PElemwiseDatatype
               (elemwise-datatype [buf#] ~dtype)
-              dtype-proto/PCountable
+              dtype-proto/PECount
               (ecount [buf#] (.remaining (datatype->nio-buf ~dtype buf#)))
               dtype-proto/PToArrayBuffer
               (convertible-to-array-buffer? [buf#]

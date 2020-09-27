@@ -5,7 +5,7 @@
             [tech.v3.tensor :as dtt]
             [tech.v3.tensor.tensor-copy :as tc]
             [clojure.test :refer :all])
-  (:import [tech.v3.datatype PrimitiveNDIO]))
+  (:import [tech.v3.datatype NDBuffer]))
 
 
 (set! *unchecked-math* :warn-on-boxed)
@@ -87,20 +87,20 @@
                                        (inline-fn))))})))
 
 
-(deftest buffer-descriptor
+(deftest nd-buffer-descriptor
   ;; Test that we can get buffer descriptors from tensors.  We should also be able
   ;; to get buffer descriptors from nio buffers if they are direct mapped.
   (let [test-tensor (dtt/->tensor (->> (range 9)
                                        (partition 3))
                                   :datatype :float64)]
-    (is (not (dtype/as-buffer-descriptor test-tensor)))
-    (is (-> (dtt/ensure-buffer-descriptor test-tensor)
+    (is (not (dtype/as-nd-buffer-descriptor test-tensor)))
+    (is (-> (dtt/ensure-nd-buffer-descriptor test-tensor)
             :ptr))
-    (let [new-tens (dtt/buffer-descriptor->tensor
-                    (dtt/ensure-buffer-descriptor test-tensor))]
+    (let [new-tens (dtt/nd-buffer-descriptor->tensor
+                    (dtt/ensure-nd-buffer-descriptor test-tensor))]
       (is (dfn/equals test-tensor new-tens))
       (let [trans-tens (dtt/transpose new-tens [1 0])
-            trans-desc (dtype/as-buffer-descriptor trans-tens)]
+            trans-desc (dtype/as-nd-buffer-descriptor trans-tens)]
         (is (= {:datatype :float64, :endianness :little-endian
                 :shape [3 3], :strides [8 24]}
                (dissoc trans-desc :ptr)))))))
@@ -114,7 +114,7 @@
         test-indexes [35 69 83 58 57 13 64 68 48 55 20 33 2 36
                       21 17 88 94 91 85]
         idx-tens (dtt/select reshape-tens (long-array test-indexes) :all)
-        ^PrimitiveNDIO writer idx-tens]
+        ^NDBuffer writer idx-tens]
     (dotimes [iter (count test-indexes)]
       (.ndWriteLong writer iter 3 255))
     (is (dfn/equals (sort test-indexes)

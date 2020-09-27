@@ -8,7 +8,7 @@
             [tech.v3.datatype.emap :as dtype-emap])
   (:import [java.lang StringBuilder]
            [java.io Writer]
-           [tech.v3.datatype PrimitiveNDIO]))
+           [tech.v3.datatype NDBuffer]))
 
 
 (set! *warn-on-reflection* true)
@@ -120,7 +120,7 @@
   ([tens]
     (base-tensor->string tens nil))
   ([tens {:keys [prefix formatter]}]
-   (if (.allowsRead ^PrimitiveNDIO tens)
+   (if (.allowsRead ^NDBuffer tens)
      (let [formatter (or formatter dtype-pprint/format-object)]
        (if (number? tens)
          (formatter tens)

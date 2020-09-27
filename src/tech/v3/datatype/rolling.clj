@@ -3,7 +3,7 @@
             [tech.v3.datatype.dispatch :refer [vectorized-dispatch-1]]
             [tech.v3.datatype.casting :as casting]
             [primitive-math :as pmath])
-  (:import [tech.v3.datatype PrimitiveIO DoubleIO LongIO ObjectIO]))
+  (:import [tech.v3.datatype Buffer DoubleBuffer LongBuffer ObjectBuffer]))
 
 
 (set! *warn-on-reflection* true)
@@ -54,13 +54,13 @@
 
 
 (defn windowed-data-reader
-  ^PrimitiveIO [window-size offset item]
-  (let [item (dtype-base/->primitive-io item)
+  ^Buffer [window-size offset item]
+  (let [item (dtype-base/->buffer item)
         item-dtype (dtype-base/elemwise-datatype item)
         window-size (long window-size)
         last-index (dec (.lsize item))
         offset (long offset)]
-    (reify PrimitiveIO
+    (reify Buffer
       (elemwiseDatatype [rdr] item-dtype)
       (lsize [rdr] window-size)
       (readBoolean [this idx] (.readBoolean item (window-idx idx offset last-index)))
@@ -77,26 +77,26 @@
 
 
 (defn windowed-reader
-  (^PrimitiveIO [window-size window-fn item]
+  (^Buffer [window-size window-fn item]
    (let [window-size (long window-size)
          n-pad (quot (long window-size) 2)
          elem-dtype (dtype-base/elemwise-datatype item)
          n-elems (dtype-base/ecount item)]
      (cond
        (casting/integer-type? elem-dtype)
-       (reify LongIO
+       (reify LongBuffer
          (lsize [rdr] n-elems)
          (readLong [rdr idx]
            (unchecked-long
             (window-fn (windowed-data-reader window-size (- idx n-pad) item)))))
        (casting/float-type? elem-dtype)
-       (reify DoubleIO
+       (reify DoubleBuffer
          (lsize [rdr] n-elems)
          (readDouble [rdr idx]
            (unchecked-double
             (window-fn (windowed-data-reader window-size (- idx n-pad) item)))))
        :else
-       (reify ObjectIO
+       (reify ObjectBuffer
          (lsize [rdr] n-elems)
          (readObject [rdr idx]
            (window-fn (windowed-data-reader window-size (- idx n-pad) item))))))))

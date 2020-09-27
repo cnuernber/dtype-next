@@ -9,8 +9,8 @@
             [tech.v3.datatype.unary-op :as unop]
             [primitive-math :as pmath])
   (:import [tech.v3.datatype BinaryOperator IndexReduction DoubleReduction
-            PrimitiveIO IndexReduction$IndexedBiFunction UnaryOperator
-            PrimitiveIOIterator PrimitiveIODoubleSpliterator
+            Buffer IndexReduction$IndexedBiFunction UnaryOperator
+            BufferIterator BufferDoubleSpliterator
             Consumers$StagedConsumer Consumers$Result
             DoubleConsumers DoubleConsumers$Sum DoubleConsumers$UnaryOpSum
             DoubleConsumers$BinaryOp
@@ -44,9 +44,9 @@
      ;;Remove is the default so nil maps to remove
      (or (nil? nan-strategy)
          (= nan-strategy :remove))
-     PrimitiveIODoubleSpliterator/removePredicate
+     BufferDoubleSpliterator/removePredicate
      (= nan-strategy :exception)
-     PrimitiveIODoubleSpliterator/exceptPredicate
+     BufferDoubleSpliterator/exceptPredicate
      :else
      (errors/throwf "Unrecognized predicate: %s" nan-strategy)))
   ;;Remember the default predicate is :remove
@@ -241,7 +241,7 @@
   Implementations of UnaryPredicate also implement DoublePredicate."
   (^Spliterator$OfDouble [rdr nan-strategy]
    (if-let [rdr (dtype-base/->reader rdr)]
-     (PrimitiveIODoubleSpliterator. rdr 0
+     (BufferDoubleSpliterator. rdr 0
                                     (.lsize rdr)
                                     (nan-strategy->double-predicate nan-strategy))
      (errors/throwf "Argument %s is not convertible to reader" (type rdr))))
@@ -331,7 +331,7 @@
      (fn [^long start-idx ^long group-len]
        (let [rdr (-> (dtype-base/sub-buffer double-data start-idx group-len)
                      (dtype-base/->reader))
-             ^PrimitiveIOIterator iterator (.iterator rdr)]
+             ^BufferIterator iterator (.iterator rdr)]
          (loop [continue? (.hasNext iterator)
                 first? true
                 accum Double/NaN]

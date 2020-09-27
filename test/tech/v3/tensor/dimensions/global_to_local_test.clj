@@ -5,7 +5,7 @@
             [tech.v3.datatype.functional :as dtype-fn]
             [clojure.test :refer [deftest is]]
             [clojure.pprint :as pp])
-  (:import [tech.v3.datatype PrimitiveIO]))
+  (:import [tech.v3.datatype Buffer]))
 
 
 (set! *unchecked-math* true)
@@ -121,10 +121,10 @@
     (println "Dimension indexing system reader timings")
     (let [base-dims (dims/dimensions [256 256 4] [8192 4 1])
           reduced-dims (dims-analytics/reduce-dimensionality base-dims)
-          ^PrimitiveIO default-reader (gtol/elem-idx->addr-fn reduced-dims)
-          ^PrimitiveIO ast-reader (gtol/get-or-create-reader reduced-dims)
+          ^Buffer default-reader (gtol/elem-idx->addr-fn reduced-dims)
+          ^Buffer ast-reader (gtol/get-or-create-reader reduced-dims)
           n-elems (.lsize default-reader)
-          read-all-fn (fn [^PrimitiveIO rdr]
+          read-all-fn (fn [^Buffer rdr]
                         (dotimes [idx n-elems]
                           (.readLong rdr idx)))]
       (println "Default Reader:")
@@ -136,10 +136,10 @@
     (println "Dimension indirect indexing system reader timings")
     (let [base-dims (dims/dimensions [256 256 [3 2 1 0]] [8192 4 1])
           reduced-dims (dims-analytics/reduce-dimensionality base-dims)
-          ^PrimitiveIO default-reader (gtol/elem-idx->addr-fn reduced-dims)
-          ^PrimitiveIO ast-reader (gtol/get-or-create-reader reduced-dims)
+          ^Buffer default-reader (gtol/elem-idx->addr-fn reduced-dims)
+          ^Buffer ast-reader (gtol/get-or-create-reader reduced-dims)
           n-elems (.lsize default-reader)
-          read-all-fn (fn [^PrimitiveIO rdr]
+          read-all-fn (fn [^Buffer rdr]
                         (dotimes [idx n-elems]
                           (.readLong rdr idx)))]
       (println "Default Reader:")

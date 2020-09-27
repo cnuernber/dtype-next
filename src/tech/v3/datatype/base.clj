@@ -7,8 +7,8 @@
             [tech.v3.datatype.io-sub-buffer :as io-sub-buf]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.parallel.for :as parallel-for])
-  (:import [tech.v3.datatype PrimitiveReader PrimitiveWriter PrimitiveIO
-            ObjectIO ElemwiseDatatype ObjectReader PrimitiveNDIO]
+  (:import [tech.v3.datatype Buffer
+            ObjectBuffer ElemwiseDatatype ObjectReader NDBuffer]
            [tech.v3.datatype.array_buffer ArrayBuffer]
            [tech.v3.datatype.native_buffer NativeBuffer]
            [clojure.lang IPersistentCollection]
@@ -46,34 +46,35 @@
     (dtype-proto/shape item)))
 
 
-(defn as-primitive-io
-  "If this item is or has a conversion to an implementation of the primitiveIO
-  interface then return the primitive IO interface for this object.
+(defn as-buffer
+  "If this item is or has a conversion to an implementation of the Buffer
+  interface then return the buffer interface for this object.
   Else return nil."
-  ^PrimitiveIO [item]
+  ^Buffer [item]
   (when-not item (throw (Exception. "Cannot convert nil to reader")))
-  (if (instance? PrimitiveIO item)
+  (if (instance? Buffer item)
     item
-    (when (dtype-proto/convertible-to-primitive-io? item)
-      (dtype-proto/->primitive-io item))))
+    (when (dtype-proto/convertible-to-buffer? item)
+      (dtype-proto/->buffer item))))
 
 
-(defn ->primitive-io
-  "Convert this item to a primitive-io implementation or throw an exception."
-  ^PrimitiveIO [item]
-  (if-let [io (as-primitive-io item)]
+(defn ->buffer
+  "Convert this item to a buffer implementation or throw an exception."
+  ^Buffer [item]
+  (if-let [io (as-buffer item)]
     io
-    (errors/throwf "Item type %s is not convertible to primitive io"
+    (errors/throwf "Item type %s is not convertible to buffer"
                    (type item))))
 
 
 (defn as-reader
   "If this object has a read-only or read-write conversion to a primitive
-  io object return the primitive io object."
-  ^PrimitiveIO [item]
+  io object return the buffer object."
+  ^Buffer [item]
   (cond
     (nil? item) item
-    (instance? PrimitiveReader item)
+    (and (instance? Buffer item)
+         (.allowsRead ^Buffer item))
     item
     :else
     (when (dtype-proto/convertible-to-reader? item)
@@ -81,9 +82,9 @@
 
 
 (defn ->reader
-  "If this object has a read-only or read-write conversion to a primitive io
-  object return the primtive io object.  Else throw an exception."
-  ^PrimitiveIO [item]
+  "If this object has a read-only or read-write conversion to a buffer
+  object return the buffer object.  Else throw an exception."
+  ^Buffer [item]
   (if-let [io (as-reader item)]
     io
     (errors/throwf "Item type %s is not convertible to primitive reader"
@@ -91,7 +92,7 @@
 
 
 (defn reader?
-  "True if this item is convertible to a read-only or read-write PrimitiveIO
+  "True if this item is convertible to a read-only or read-write Buffer
   interface."
   [item]
   (when item (dtype-proto/convertible-to-reader? item)))
@@ -99,7 +100,7 @@
 
 (defn ensure-iterable
   "Ensure this object is iterable.  If item is iterable, return the item.
-  If the item is convertible to a primitiveIO object , convert to it and
+  If the item is convertible to a buffer object , convert to it and
   return the object.  Else if the item is a scalar constant, return
   an infinite sequence of items."
   (^Iterable [item]
@@ -131,7 +132,7 @@
 
 
 (defn writer?
-  "True if this item is convertible to a PrimitiveIO interface that supports
+  "True if this item is convertible to a Buffer interface that supports
   writing."
   [item]
   (when item
@@ -141,9 +142,10 @@
 (defn as-writer
   "If this item is convertible to a PrimtiveIO writing the perform the
   conversion and return the interface."
-  ^PrimitiveIO [item]
+  ^Buffer [item]
   (when-not item (throw (Exception. "Cannot convert nil to writer")))
-  (if (instance? PrimitiveWriter item)
+  (if (and (instance? Buffer item)
+           (.allowsWrite item))
     item
     (when (dtype-proto/convertible-to-writer? item)
       (dtype-proto/->writer item))))
@@ -153,7 +155,7 @@
   "If this item is convertible to a PrimtiveIO writing the perform the
   conversion and return the interface.
   Else throw an excepion."
-  ^PrimitiveWriter [item]
+  ^Buffer [item]
   (if-let [io (as-writer item)]
     io
     (errors/throwf "Item type %s is not convertible to primitive writer"
@@ -190,7 +192,7 @@
                    (type item))))
 
 
-(defn as-buffer
+(defn as-concrete-buffer
   "If this item is representable as a base buffer type, either native or array,
   return that buffer."
   [item]
@@ -223,7 +225,7 @@
 (defn- random-access->io
   [^List item]
   (reify
-    ObjectIO
+    ObjectBuffer
     (elemwiseDatatype [rdr] :object)
     (lsize [rdr] (long (.size item)))
     (readObject [rdr idx]
@@ -233,9 +235,9 @@
 
 
 (extend-type RandomAccess
-  dtype-proto/PToPrimitiveIO
-  (convertible-to-primitive-io? [item] true)
-  (->primitive-io [item] (random-access->io item))
+  dtype-proto/PToBuffer
+  (convertible-to-buffer? [item] true)
+  (->buffer [item] (random-access->io item))
   dtype-proto/PToReader
   (convertible-to-reader? [item] true)
   (->reader [item]
@@ -250,16 +252,16 @@
 
 (defn- inner-buffer-sub-buffer
   [buf ^long offset ^Long len]
-  (when-let [data-buf (as-buffer buf)]
+  (when-let [data-buf (as-concrete-buffer buf)]
     (with-meta
       (sub-buffer data-buf offset len)
       (meta buf))))
 
 
-(extend-type PrimitiveIO
-  dtype-proto/PToPrimitiveIO
-  (convertible-to-primitive-io? [buf] true)
-  (->primitive-io [item] item)
+(extend-type Buffer
+  dtype-proto/PToBuffer
+  (convertible-to-buffer? [buf] true)
+  (->buffer [item] item)
   dtype-proto/PToReader
   (convertible-to-reader? [buf] true)
   (->reader [buf] buf)
@@ -313,7 +315,7 @@
              (lsize [rdr] (.lsize src-rdr))
              (readObject [rdr idx] (cast-fn (.readObject src-rdr idx))))))
        item)))
-  dtype-proto/PCountable
+  dtype-proto/PECount
   (ecount [item] (count item))
   dtype-proto/PToArrayBuffer
   (convertible-to-array-buffer? [buf] (.isArray (.getClass ^Object buf)))
@@ -321,35 +323,35 @@
     (when-not (.isArray (.getClass ^Object buf))
       (throw (Exception. "Item is not an array: %s" (type buf))))
     (array-buffer/array-buffer buf))
-  dtype-proto/PToPrimitiveIO
-  (convertible-to-primitive-io? [buf]
+  dtype-proto/PToBuffer
+  (convertible-to-buffer? [buf]
     (or (dtype-proto/convertible-to-array-buffer? buf)
         (dtype-proto/convertible-to-native-buffer? buf)
         (.isArray (.getClass ^Object buf))))
-  (->primitive-io [buf]
-    (if-let [buf-data (as-buffer buf)]
-      (dtype-proto/->primitive-io buf-data)
+  (->buffer [buf]
+    (if-let [buf-data (as-concrete-buffer buf)]
+      (dtype-proto/->buffer buf-data)
       (if (array? buf)
-        (dtype-proto/->primitive-io (array-buffer/array-buffer buf))
-        (errors/throwf "Buffer type %s is not convertible to primitive-io"
+        (dtype-proto/->buffer (array-buffer/array-buffer buf))
+        (errors/throwf "Buffer type %s is not convertible to buffer"
                        (type buf)))))
   dtype-proto/PToReader
   (convertible-to-reader? [buf]
-    (dtype-proto/convertible-to-primitive-io? buf))
+    (dtype-proto/convertible-to-buffer? buf))
   (->reader [buf]
-    (dtype-proto/->primitive-io buf))
+    (dtype-proto/->buffer buf))
   dtype-proto/PToWriter
   (convertible-to-writer? [buf]
     (if-not (instance? IPersistentCollection buf)
-      (dtype-proto/convertible-to-primitive-io? buf)
+      (dtype-proto/convertible-to-buffer? buf)
       false))
   (->writer [buf]
-    (dtype-proto/->primitive-io buf))
-  dtype-proto/PBuffer
+    (dtype-proto/->buffer buf))
+  dtype-proto/PSubBuffer
   (sub-buffer [buf offset len]
     (if-let [data-buf (inner-buffer-sub-buffer buf offset len)]
       data-buf
-      (if-let [data-io (->primitive-io buf)]
+      (if-let [data-io (->buffer buf)]
         (io-sub-buf/sub-buffer data-io offset len)
         (throw (Exception. (format
                             "Buffer %s does not implement the sub-buffer protocol"
@@ -357,7 +359,7 @@
   dtype-proto/PSetConstant
   (set-constant! [buf offset element-count value]
     (errors/check-offset-length offset element-count (ecount buf))
-    (if-let [buf-data (as-buffer buf)]
+    (if-let [buf-data (as-concrete-buffer buf)]
       ;;highest performance
       (dtype-proto/set-constant! buf-data offset element-count value)
       (if-let [writer (->writer buf)]
@@ -371,7 +373,7 @@
   ;;find a clone method and this of course breaks graal native.
   dtype-proto/PClone
   (clone [buf]
-    (if-let [buf-data (as-buffer buf)]
+    (if-let [buf-data (as-concrete-buffer buf)]
       ;;highest performance
       (dtype-proto/clone buf-data)
       (if-let [rdr (->reader buf)]
@@ -449,7 +451,7 @@
   "Reshape this item into a new shape.  For this to work, the tensor
   namespace must be required.
   Always returns a tensor."
-  ^PrimitiveNDIO [t new-shape]
+  ^NDBuffer [t new-shape]
   (check-ns 'tech.v3.tensor)
   (dtype-proto/reshape t new-shape))
 
@@ -460,14 +462,14 @@
   :all means take the entire dimension, :lla means reverse the dimension.
   Arguments are applied left to right and any missing arguments are assumed to
   be :all."
-  ^PrimitiveNDIO [t & new-shape]
+  ^NDBuffer [t & new-shape]
   (check-ns 'tech.v3.tensor)
   (dtype-proto/select t new-shape))
 
 
 (defn transpose
   "In-place transpose an n-d object into a new shape.  Returns a tensor."
-  ^PrimitiveNDIO [t new-shape]
+  ^NDBuffer [t new-shape]
   (check-ns 'tech.v3.tensor)
   (dtype-proto/transpose t new-shape))
 
@@ -475,7 +477,7 @@
 (defn broadcast
   "Broadcase an element into a new (larger) shape.  The new shape's dimension
   must be even multiples of the old shape's dimensions.  Elements are repeated."
-  ^PrimitiveNDIO [t new-shape]
+  ^NDBuffer [t new-shape]
   (check-ns 'tech.v3.tensor)
   (dtype-proto/broadcast t new-shape))
 
@@ -483,7 +485,7 @@
   "Rotate dimensions.  Offset-vec must have same count as the rank of t.  Elements of
   that dimension are rotated by the amount specified in the offset vector with 0
   indicating no rotation."
-  ^PrimitiveNDIO [t offset-vec]
+  ^NDBuffer [t offset-vec]
   (check-ns 'tech.v3.tensor)
   (dtype-proto/rotate t offset-vec))
 
@@ -509,16 +511,16 @@
   performed."
   ([t x]
    (check-ns 'tech.v3.tensor)
-   (if (instance? PrimitiveNDIO t)
-     (.ndReadObject ^PrimitiveNDIO t x)
+   (if (instance? NDBuffer t)
+     (.ndReadObject ^NDBuffer t x)
      (mget t [x])))
   ([t x y]
-   (if (instance? PrimitiveNDIO t)
-     (.ndReadObject ^PrimitiveNDIO t x y)
+   (if (instance? NDBuffer t)
+     (.ndReadObject ^NDBuffer t x y)
      (dtype-proto/mget t [x y])))
   ([t x y z]
-   (if (instance? PrimitiveNDIO t)
-     (.ndReadObject ^PrimitiveNDIO t x y z)
+   (if (instance? NDBuffer t)
+     (.ndReadObject ^NDBuffer t x y z)
      (dtype-proto/mget t [x y z])))
   ([t x y z & args]
    (dtype-proto/mget t (concat [x y z] args))))
@@ -529,18 +531,18 @@
   of the tensor as indexed by the provided dimensions.  Returns t."
   ([t x value]
    (check-ns 'tech.v3.tensor)
-   (if (instance? PrimitiveNDIO t)
-     (.ndWriteObject ^PrimitiveNDIO t x value)
+   (if (instance? NDBuffer t)
+     (.ndWriteObject ^NDBuffer t x value)
      (dtype-proto/mset! t [x] value))
    t)
   ([t x y value]
-   (if (instance? PrimitiveNDIO t)
-     (.ndWriteObject ^PrimitiveNDIO t x y value)
+   (if (instance? NDBuffer t)
+     (.ndWriteObject ^NDBuffer t x y value)
      (dtype-proto/mset! t [x y] value))
    t)
   ([t x y z value]
-   (if (instance? PrimitiveNDIO t)
-     (.ndWriteObject ^PrimitiveNDIO t x y z value)
+   (if (instance? NDBuffer t)
+     (.ndWriteObject ^NDBuffer t x y z value)
      (dtype-proto/mset! t [x y z] value))
    t)
   ([t x y z w & args]

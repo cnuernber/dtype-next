@@ -1,7 +1,7 @@
 (ns tech.v3.tensor
   "ND bindings for the tech.v3.datatype system.  A Tensor is conceptually just a tuple
   of a buffer and an index operator that is capable of converting indexes in ND space into
-  a single long index into the buffer.  Tensors implementent the tech.v3.datatype.PrimitiveNDIO
+  a single long index into the buffer.  Tensors implementent the tech.v3.datatype.NDBuffer
   interface and outside this file ND objects are expected to simply implement that interface.
 
   This system relies heavily on the tech.v3.tensor.dimensions namespace to provide the optimized
@@ -23,7 +23,7 @@
             [tech.v3.tensor.tensor-copy :as tens-cpy]
             [tech.v3.datatype.export-symbols :as export-symbols]
             [tech.resource :as resource])
-  (:import [tech.v3.datatype LongNDReader PrimitiveIO PrimitiveNDIO
+  (:import [tech.v3.datatype LongNDReader Buffer NDBuffer
             ObjectReader]
            [tech.v3.datatype.native_buffer NativeBuffer]
            [java.util List]))
@@ -38,14 +38,14 @@
 (deftype Tensor [buffer dimensions
                  ^long rank
                  ^LongNDReader index-system
-                 ^PrimitiveIO cached-io]
+                 ^Buffer cached-io]
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [t] (dtype-proto/elemwise-datatype buffer))
   dtype-proto/PElemwiseCast
   (elemwise-cast [t new-dtype]
     (construct-tensor (dtype-proto/elemwise-cast buffer new-dtype)
                       dimensions))
-  dtype-proto/PCountable
+  dtype-proto/PECount
   (ecount [t] (dims/ecount dimensions))
   dtype-proto/PShape
   (shape [t] (.shape index-system))
@@ -57,11 +57,11 @@
                                              (dtype-base/ecount t))
                    (dims/dimensions (dtype-proto/shape t)))))
 
-  dtype-proto/PToBufferDesc
-  (convertible-to-buffer-desc? [item]
+  dtype-proto/PToNDBufferDesc
+  (convertible-to-nd-buffer-desc? [item]
     (and (dtype-proto/convertible-to-native-buffer? buffer)
          (dims/direct? dimensions)))
-  (->buffer-descriptor [item]
+  (->nd-buffer-descriptor [item]
     (let [nbuf (dtype-base/->native-buffer buffer)]
       (->
        {:ptr (.address nbuf)
@@ -73,18 +73,18 @@
                        (:strides dimensions))}
        ;;Link the descriptor itself to the native buffer in the gc
        (resource/track (constantly nbuf) :gc))))
-  dtype-proto/PToPrimitiveIO
-  (convertible-to-primitive-io? [t] true)
-  (->primitive-io [t]
+  dtype-proto/PToBuffer
+  (convertible-to-buffer? [t] true)
+  (->buffer [t]
     (if (dims/native? dimensions)
-      (dtype-proto/->primitive-io buffer)
+      (dtype-proto/->buffer buffer)
       (indexed-buffer/indexed-buffer (.indexSystem t) buffer)))
   dtype-proto/PToReader
   (convertible-to-reader? [t] (.allowsRead t))
-  (->reader [t] (dtype-proto/->primitive-io t))
+  (->reader [t] (dtype-proto/->buffer t))
   dtype-proto/PToWriter
   (convertible-to-writer? [t] (.allowsWrite t))
-  (->writer [t] (dtype-proto/->primitive-io t))
+  (->writer [t] (dtype-proto/->buffer t))
   dtype-proto/PToArrayBuffer
   (convertible-to-array-buffer? [t]
     (and (dtype-proto/convertible-to-array-buffer? buffer)
@@ -98,7 +98,7 @@
   dtype-proto/PTensor
   (reshape [t new-shape]
     (construct-tensor
-     (dtype-proto/->primitive-io t)
+     (dtype-proto/->buffer t)
      (dims/dimensions new-shape)))
   (select [t select-args]
     (let [{buf-offset :elem-offset
@@ -154,7 +154,7 @@
               (if right?
                 (dims/slice-right dimensions slice-dims)
                 (dims/slice dimensions slice-dims))
-              ^PrimitiveIO offsets (dtype-base/->reader offsets)
+              ^Buffer offsets (dtype-base/->reader offsets)
               n-offsets (.lsize offsets)
               tens-buf buffer
               buf-ecount (:buffer-ecount dimensions)]
@@ -170,7 +170,7 @@
     (.ndReadObjectIter t idx-seq))
   (mset! [t idx-seq value]
     (.ndWriteObjectIter t idx-seq value))
-  PrimitiveNDIO
+  NDBuffer
   (buffer [t] buffer)
   (dimensions [t] dimensions)
   (indexSystem [t] index-system)
@@ -264,38 +264,38 @@
 
 
 (defn construct-tensor
-  "Construct an implementation of tech.v3.datatype.PrimitiveNDIO from a buffer and
+  "Construct an implementation of tech.v3.datatype.NDBuffer from a buffer and
   a dimensions object.  See dimensions/dimensions."
   ^Tensor [buffer dimensions]
   (let [nd-desc (dims/->global->local dimensions)]
     (Tensor. buffer dimensions
              (.rank nd-desc)
              nd-desc
-             (if (dtype-proto/convertible-to-primitive-io? buffer)
-               (dtype-proto/->primitive-io buffer)
+             (if (dtype-proto/convertible-to-buffer? buffer)
+               (dtype-proto/->buffer buffer)
                (dtype-base/->reader buffer)))))
 
 
 (defn tensor?
-  "Returns true if this implements the tech.v3.datatype.PrimitiveNDIO interface."
+  "Returns true if this implements the tech.v3.datatype.NDBuffer interface."
   [item]
-  (instance? PrimitiveNDIO item))
+  (instance? NDBuffer item))
 
 
 (defn tensor->buffer
   "Get the buffer from a tensor."
   [item]
-  (errors/when-not-error (instance? PrimitiveNDIO item)
+  (errors/when-not-error (instance? NDBuffer item)
     "Item is not a tensor")
-  (.buffer ^PrimitiveNDIO item))
+  (.buffer ^NDBuffer item))
 
 
 (defn tensor->dimensions
   "Get the dimensions object from a tensor."
   [item]
-  (errors/when-not-error (instance? PrimitiveNDIO item)
+  (errors/when-not-error (instance? NDBuffer item)
     "Item is not a tensor")
-  (.dimensions ^PrimitiveNDIO item))
+  (.dimensions ^NDBuffer item))
 
 
 (defn simple-dimensions?
@@ -332,10 +332,10 @@
 
 
 (defn as-tensor
-  "Attempts an in-place conversion of this object to a tech.v3.datatype.PrimitiveNDIO interface.
+  "Attempts an in-place conversion of this object to a tech.v3.datatype.NDBuffer interface.
   For a guaranteed conversion, use ensure-tensor."
-  ^PrimitiveNDIO [data]
-  (if (instance? PrimitiveNDIO data)
+  ^NDBuffer [data]
+  (if (instance? NDBuffer data)
     data
     (dtype-proto/as-tensor data)))
 
@@ -363,16 +363,16 @@
 
 
 (defn ensure-tensor
-  "Create an implementation of tech.v3.datatype.PrimitiveNDIO from an
+  "Create an implementation of tech.v3.datatype.NDBuffer from an
   object.  If possible, represent the data in-place."
-  ^PrimitiveNDIO [item]
-  (if (instance? PrimitiveNDIO item)
+  ^NDBuffer [item]
+  (if (instance? NDBuffer item)
     item
     (if-let [item (dtype-proto/as-tensor item)]
       item
       (cond
-        (dtype-base/as-buffer item)
-        (construct-tensor (dtype-base/as-buffer item)
+        (dtype-base/as-concrete-buffer item)
+        (construct-tensor (dtype-base/as-concrete-buffer item)
                           (dims/dimensions (dtype-base/shape item)))
         (and (dtype-proto/convertible-to-reader? item)
              (= 1 (count (dtype-base/shape item))))
@@ -433,13 +433,13 @@
 (defn dimensions-dense?
   "Returns true of the dimensions of a tensor are dense, meaning no gaps due to
   striding."
-  [^PrimitiveNDIO tens]
+  [^NDBuffer tens]
   (dims/dense? (.dimensions tens)))
 
 
 (defn rows
   "Return the rows of the tensor in a randomly-addressable structure."
-  ^List [^PrimitiveNDIO src]
+  ^List [^NDBuffer src]
   (errors/when-not-error (>= (.rank src) 2)
     "Tensor has too few dimensions")
   (dtype-base/slice src 1))
@@ -447,7 +447,7 @@
 
 (defn columns
   "Return the columns of the tensor in a randomly-addressable structure."
-  ^List [^PrimitiveNDIO src]
+  ^List [^NDBuffer src]
   (errors/when-not-error (>= (.rank src) 2)
     "Tensor has too few dimensions")
   (dtype-base/slice-right src (dec (.rank src))))
@@ -507,18 +507,18 @@
       (first base-data))))
 
 
-(defn ensure-buffer-descriptor
+(defn ensure-nd-buffer-descriptor
   "Get a buffer descriptor from the tensor.  This may copy the data.  If you want to
-  ensure sharing, use the protocol ->buffer-descriptor function."
+  ensure sharing, use the protocol ->nd-buffer-descriptor function."
   [tens]
   (let [tens (ensure-tensor tens)]
-    (if (dtype-proto/convertible-to-buffer-desc? tens)
-      (dtype-proto/->buffer-descriptor tens)
+    (if (dtype-proto/convertible-to-nd-buffer-desc? tens)
+      (dtype-proto/->nd-buffer-descriptor tens)
       (-> (clone tens :container-type :native-heap)
-          dtype-proto/->buffer-descriptor))))
+          dtype-proto/->nd-buffer-descriptor))))
 
 
-(defn buffer-descriptor->tensor
+(defn nd-buffer-descriptor->tensor
   "Given a buffer descriptor, produce a tensor"
   [{:keys [ptr datatype shape strides] :as desc}]
   (when (or (not ptr)

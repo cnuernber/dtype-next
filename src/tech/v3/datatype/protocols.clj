@@ -1,5 +1,5 @@
 (ns tech.v3.datatype.protocols
-  (:import [tech.v3.datatype ElemwiseDatatype Countable PrimitiveIO]
+  (:import [tech.v3.datatype ElemwiseDatatype ECount Buffer]
            [clojure.lang Counted]
            [java.util List Map Set]
            [java.nio ByteOrder
@@ -37,14 +37,14 @@
   (reinterpret-elemwise-cast [item new-dtype]))
 
 
-(defprotocol PCountable
+(defprotocol PECount
   (^long ecount [item]))
 
 
-(extend-protocol PCountable
+(extend-protocol PECount
   Counted
   (ecount [item] (.count item))
-  Countable
+  ECount
   (ecount [item] (.lsize item))
   List
   (ecount [item] (.size item))
@@ -82,16 +82,16 @@
   (->array-buffer [buf]))
 
 
-(defprotocol PBuffer
+(defprotocol PSubBuffer
   "Interface to create sub-buffers out of larger contiguous buffers."
   (sub-buffer [buffer offset length]
     "Create a sub buffer that shares the backing store with the main buffer."))
 
 
-(defprotocol PToBufferDesc
+(defprotocol PToNDBufferDesc
   "Conversion to a buffer descriptor for consuming by an external C library."
-  (convertible-to-buffer-desc? [item])
-  (->buffer-descriptor [item]
+  (convertible-to-nd-buffer-desc? [item])
+  (->nd-buffer-descriptor [item]
     "Buffer descriptors are maps such that:
 {:ptr com.sun.jna.Pointer that keeps reference back to original buffer.
  :datatype datatype of data that ptr points to.
@@ -102,18 +102,18 @@
 Note that this makes no mention of indianness; buffers are in the format of the host."))
 
 
-(defprotocol PToPrimitiveIO
-  (convertible-to-primitive-io? [item])
-  (^PrimitiveIO ->primitive-io [item]))
+(defprotocol PToBuffer
+  (convertible-to-buffer? [item])
+  (^Buffer ->buffer [item]))
 
 
 (defprotocol PToWriter
   (convertible-to-writer? [item])
-  (^PrimitiveIO ->writer [item]))
+  (^Buffer ->writer [item]))
 
 (defprotocol PToReader
   (convertible-to-reader? [item])
-  (^PrimitiveIO ->reader [item]))
+  (^Buffer ->reader [item]))
 
 (defprotocol POperator
   "It can be useful to know if a generic operator implements a higher level operation

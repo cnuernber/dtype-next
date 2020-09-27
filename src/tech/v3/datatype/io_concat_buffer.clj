@@ -5,7 +5,7 @@
             [tech.v3.datatype.errors :as errors]
             [primitive-math :as pmath])
   (:import [java.util List]
-           [tech.v3.datatype PrimitiveIO]))
+           [tech.v3.datatype Buffer]))
 
 
 (set! *warn-on-reflection* true)
@@ -30,14 +30,14 @@
 
 
 (defn- dual-concat-buffer
-  ^PrimitiveIO [datatype lhs rhs]
-  (let [lhs (dtype-proto/->primitive-io lhs)
-        rhs (dtype-proto/->primitive-io rhs)
+  ^Buffer [datatype lhs rhs]
+  (let [lhs (dtype-proto/->buffer lhs)
+        rhs (dtype-proto/->buffer rhs)
         n-elems (+ (.lsize lhs) (.lsize rhs))
         lhs-n-elems (.lsize lhs)
         allowsRead (boolean (and (.allowsRead lhs) (.allowsRead rhs)))
         allowsWrite (boolean (and (.allowsWrite lhs) (.allowsWrite rhs)))]
-    (reify PrimitiveIO
+    (reify Buffer
       (elemwiseDatatype [this] datatype)
       (lsize [this] n-elems)
       (allowsRead [this] allowsRead)
@@ -61,7 +61,7 @@
       (writeDouble [this idx val] (dual-write-macro idx n-elems lhs-n-elems .writeDouble lhs rhs val))
       (writeObject [this idx val] (dual-write-macro idx n-elems lhs-n-elems .writeObject lhs rhs val)))))
 
-(defn- as-prim-io ^PrimitiveIO [item] item)
+(defn- as-prim-io ^Buffer [item] item)
 
 (defmacro ^:private same-len-read-macro
   [idx n-elems buf-len read-method buffers]
@@ -80,15 +80,15 @@
 
 
 (defn- same-len-concat-buffer
-  ^PrimitiveIO [datatype buffers]
+  ^Buffer [datatype buffers]
   (let [counts (mapv dtype-proto/ecount buffers)
-        ^List buffers (mapv dtype-proto/->primitive-io buffers)
+        ^List buffers (mapv dtype-proto/->buffer buffers)
         _ (assert (apply = counts))
         n-elems (long (apply + counts))
         buf-len (long (first counts))
-        allowsRead (boolean (every? #(.allowsRead ^PrimitiveIO %) buffers))
-        allowsWrite (boolean (every? #(.allowsWrite ^PrimitiveIO %) buffers))]
-    (reify PrimitiveIO
+        allowsRead (boolean (every? #(.allowsRead ^Buffer %) buffers))
+        allowsWrite (boolean (every? #(.allowsWrite ^Buffer %) buffers))]
+    (reify Buffer
       (elemwiseDatatype [this] datatype)
       (lsize [this] n-elems)
       (allowsRead [this] allowsRead)
@@ -139,14 +139,14 @@
 
 
 (defn- generalized-concat-buffers
-  ^PrimitiveIO [datatype buffers]
+  ^Buffer [datatype buffers]
   (let [counts (mapv dtype-proto/ecount buffers)
-        ^List buffers (mapv dtype-proto/->primitive-io buffers)
+        ^List buffers (mapv dtype-proto/->buffer buffers)
         n-elems (long (apply + counts))
         n-buffers (.size buffers)
-        allowsRead (boolean (every? #(.allowsRead ^PrimitiveIO %) buffers))
-        allowsWrite (boolean (every? #(.allowsWrite ^PrimitiveIO %) buffers))]
-    (reify PrimitiveIO
+        allowsRead (boolean (every? #(.allowsRead ^Buffer %) buffers))
+        allowsWrite (boolean (every? #(.allowsWrite ^Buffer %) buffers))]
+    (reify Buffer
       (elemwiseDatatype [this] datatype)
       (lsize [this] n-elems)
       (allowsRead [this] allowsRead)

@@ -8,7 +8,7 @@
             [tech.v3.datatype.argops :as argops]
             [tech.v3.datatype.errors :as errors]
             [clojure.set :as set])
-  (:import [tech.v3.datatype LongReader ObjectReader PrimitiveIO]
+  (:import [tech.v3.datatype LongReader ObjectReader Buffer]
            [java.time.temporal ChronoUnit Temporal ChronoField
             WeekFields TemporalAmount TemporalField
             TemporalAccessor]
@@ -233,7 +233,7 @@
      (fn [_ iter]
        (dispatch/typed-map-1 convert-fn :int64 iter))
      (fn [_ data]
-       (let [^PrimitiveIO data (dtype-base/->reader data)]
+       (let [^Buffer data (dtype-base/->reader data)]
          (reify LongReader
            (lsize [rdr] (dtype-base/ecount data))
            (readLong [rdr idx]
@@ -281,8 +281,8 @@
      convert-fn
      #(dispatch/typed-map-2 convert-fn dtype %2 %3)
      (fn [_ lhs rhs]
-       (let [^PrimitiveIO lhs (argops/ensure-reader lhs)
-             ^PrimitiveIO rhs (argops/ensure-reader rhs)]
+       (let [^Buffer lhs (argops/ensure-reader lhs)
+             ^Buffer rhs (argops/ensure-reader rhs)]
          (reify ObjectReader
            (elemwiseDatatype [rdr] dtype)
            (lsize [rdr] (dtype-base/ecount lhs))

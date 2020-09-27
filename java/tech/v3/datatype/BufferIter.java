@@ -2,12 +2,12 @@ package tech.v3.datatype;
 
 import java.util.Iterator;
 
-public class PrimitiveIOIter implements PrimitiveIOIterator, Countable
+public class BufferIter implements BufferIterator, ECount
 {
   long idx;
   long num_elems;
-  PrimitiveIO reader;
-  public PrimitiveIOIter(PrimitiveIO _reader)
+  Buffer reader;
+  public BufferIter(Buffer _reader)
   {
     idx = 0;
     num_elems = _reader.lsize();

@@ -17,9 +17,9 @@ import java.util.stream.DoubleStream;
 import java.util.stream.StreamSupport;
 
 
-public interface PrimitiveIO extends IOBase, Iterable, IFn,
-				     List, RandomAccess, Sequential,
-				     Indexed
+public interface Buffer extends DatatypeBase, Iterable, IFn,
+				List, RandomAccess, Sequential,
+				Indexed
 {
   boolean readBoolean(long idx);
   byte readByte(long idx);
@@ -60,7 +60,7 @@ public interface PrimitiveIO extends IOBase, Iterable, IFn,
     return data;
   }
   default Iterator iterator() {
-    return new PrimitiveIOIter(this);
+    return new BufferIter(this);
   }
   default Object invoke(Object arg) {
     return readObject(RT.uncheckedLongCast(arg));
@@ -88,10 +88,7 @@ public interface PrimitiveIO extends IOBase, Iterable, IFn,
     }
   }
   default DoubleStream doubleStream() {
-    return StreamSupport.doubleStream(new RangeDoubleSpliterator(0, size(),
-								 new RangeDoubleSpliterator.LongDoubleConverter() { public double longToDouble(long arg) { return readDouble(arg); } },
-								 false),
-				      false);
+    return StreamSupport.doubleStream(new BufferDoubleSpliterator(this, 0, lsize(), null),false);
   }
   default LongStream longStream() {
     return LongStream.range(0, size()).map(i -> readLong(i));

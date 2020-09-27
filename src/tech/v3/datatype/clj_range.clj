@@ -18,13 +18,13 @@
 (extend-type LongRange
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [rng] :int64)
-  dtype-proto/PCountable
+  dtype-proto/PECount
   (ecount [rng] (.count rng))
   dtype-proto/PClone
   (clone [rng] rng)
-  dtype-proto/PToPrimitiveIO
-  (convertible-to-primitive-io? [rng] true)
-  (->primitive-io [rng]
+  dtype-proto/PToBuffer
+  (convertible-to-buffer? [rng] true)
+  (->buffer [rng]
     (dtype-proto/->reader rng))
   dtype-proto/PToReader
   (convertible-to-reader? [rng] true)
@@ -69,13 +69,13 @@
 (extend-type Range
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [rng] (dtype-proto/elemwise-datatype (first rng)))
-  dtype-proto/PCountable
+  dtype-proto/PECount
   (ecount [rng] (.count rng))
   dtype-proto/PClone
   (clone [rng] rng)
-  dtype-proto/PToPrimitiveIO
-  (convertible-to-primitive-io? [rng] true)
-  (->primitive-io [rng]
+  dtype-proto/PToBuffer
+  (convertible-to-buffer? [rng] true)
+  (->buffer [rng]
     (dtype-proto/->reader rng))
   dtype-proto/PToReader
   (convertible-to-reader? [rng] (contains?

@@ -50,7 +50,8 @@
                 elemwise-cast
                 ecount
                 shape
-                ->primitive-io
+                as-buffer
+                ->buffer
                 as-reader
                 ->reader
                 reader?
@@ -61,7 +62,7 @@
                 as-array-buffer
                 as-native-buffer
                 ->native-buffer
-                as-buffer
+                as-concrete-buffer
                 sub-buffer
                 get-value
                 set-value!
@@ -210,7 +211,7 @@ user> (dtype/make-reader :float32 5 (* idx 2))
   (ListPersistentVector. (->reader item)))
 
 
-(defn as-buffer-descriptor
+(defn as-nd-buffer-descriptor
   "If this item is convertible to a buffer descriptor, convert it.  Else
   return nil.
 
@@ -224,5 +225,5 @@ user> (dtype/make-reader :float32 5 (* idx 2))
 
   This design allows zero-copy transfer between neanderthal, numpy, tvm, etc."
   [src-item]
-  (when (dtype-proto/convertible-to-buffer-desc? src-item)
-    (dtype-proto/->buffer-descriptor src-item)))
+  (when (dtype-proto/convertible-to-nd-buffer-desc? src-item)
+    (dtype-proto/->nd-buffer-descriptor src-item)))

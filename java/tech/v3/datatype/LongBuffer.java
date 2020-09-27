@@ -7,7 +7,7 @@ import java.util.stream.LongStream;
 
 
 
-public interface LongIO extends PrimitiveIO
+public interface LongBuffer extends Buffer
 {
   default Object elemwiseDatatype () { return Keyword.intern(null, "int64"); }
   default boolean readBoolean(long idx) {return readLong(idx) != 0;}

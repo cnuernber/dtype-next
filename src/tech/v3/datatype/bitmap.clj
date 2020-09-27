@@ -12,7 +12,7 @@
   (:import [it.unimi.dsi.fastutil.longs LongSet LongIterator]
            [org.roaringbitmap RoaringBitmap ImmutableBitmapDataProvider]
            [tech.v3.datatype SimpleLongSet LongReader LongBitmapIter BitmapMap
-            PrimitiveList PrimitiveIO]
+            PrimitiveList Buffer]
            [tech.v3.datatype.array_buffer ArrayBuffer]
            [clojure.lang IFn LongRange]
            [java.lang.reflect Field]))
@@ -53,7 +53,7 @@
 (extend-type RoaringBitmap
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [bitmap] :uint32)
-  dtype-proto/PCountable
+  dtype-proto/PECount
   (ecount [bitmap] (.getLongCardinality bitmap))
   dtype-proto/PToReader
   (convertible-to-reader? [bitmap] true)
@@ -229,7 +229,7 @@
 
 
 (deftype BitmapPrimitiveList [^RoaringBitmap bitmap
-                              ^:unsynchronized-mutable ^PrimitiveIO cached-io]
+                              ^:unsynchronized-mutable ^Buffer cached-io]
   PrimitiveList
   (ensureCapacity [this cap])
   (addLong [this arg]

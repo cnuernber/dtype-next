@@ -2,8 +2,7 @@
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.monotonic-range :as monotonic-range])
-  (:import [tech.v3.datatype ObjectReader LongReader DoubleReader BooleanReader
-            PrimitiveReader]))
+  (:import [tech.v3.datatype ObjectReader LongReader DoubleReader BooleanReader Buffer]))
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
@@ -18,7 +17,7 @@
 
 (defn const-reader
   "Create a new reader that only returns the item for the provided indexes."
-  (^PrimitiveReader [item n-elems]
+  (^Buffer [item n-elems]
    (let [item-dtype (dtype-proto/elemwise-datatype item)
          n-elems (long n-elems)]
      (cond

@@ -5,7 +5,7 @@
             [tech.v3.datatype.protocols :as dtype-proto]
             [primitive-math :as pmath])
   (:import [tech.v3.datatype LongReader DoubleReader ObjectReader
-            BinaryOperator PrimitiveReader
+            BinaryOperator Buffer
             BinaryOperators$LongBinaryOperator
             BinaryOperators$DoubleBinaryOperator
             BinaryOperators$ObjectBinaryOperator]
@@ -52,7 +52,7 @@
    (iterable binary-op (dtype-base/elemwise-datatype lhs) lhs rhs)))
 
 (defn reader
-  (^PrimitiveReader [^BinaryOperator binop res-dtype lhs rhs]
+  (^Buffer [^BinaryOperator binop res-dtype lhs rhs]
    (let [lhs (dtype-base/->reader lhs)
          rhs (dtype-base/->reader rhs)
          n-elems (.lsize lhs)
@@ -77,7 +77,7 @@
          (readObject [rdr idx] (.binaryObject binop
                                               (.readObject lhs idx)
                                               (.readObject rhs idx)))))))
-  (^PrimitiveReader [binop lhs rhs]
+  (^Buffer [binop lhs rhs]
    (reader binop (casting/widest-datatype
                   (dtype-base/elemwise-datatype lhs)
                   (dtype-base/elemwise-datatype rhs))

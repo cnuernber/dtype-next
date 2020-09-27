@@ -2,7 +2,7 @@ package tech.v3.datatype;
 
 
 
-public interface PrimitiveList extends PrimitiveIO
+public interface PrimitiveList extends Buffer
 {
   void ensureCapacity(long cap);
   void addBoolean(boolean val);

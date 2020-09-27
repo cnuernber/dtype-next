@@ -6,7 +6,7 @@ import clojure.lang.RT;
 import java.util.stream.Stream;
 
 
-public interface ObjectIO extends PrimitiveIO
+public interface ObjectBuffer extends Buffer
 {
   default Object elemwiseDatatype () { return Keyword.intern(null, "object"); }
   default boolean readBoolean(long idx)

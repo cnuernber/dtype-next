@@ -10,8 +10,8 @@
             [tech.v3.datatype.list]
             [primitive-math :as pmath]
             [clojure.set :as set])
-  (:import [tech.v3.datatype DoubleReduction UnaryOperator PrimitiveIOIterator
-            PrimitiveIO
+  (:import [tech.v3.datatype DoubleReduction UnaryOperator BufferIterator
+            Buffer
             DoubleConsumers$MinMaxSum
             DoubleConsumers$Moments
             UnaryPredicate
@@ -274,7 +274,7 @@
          percentile? (some stats-set percentile-set)
          percentile-set (set/intersection stats-set percentile-set)
          stats-set (set/difference stats-set percentile-set)
-         ^PrimitiveIO rdr (if (or median? percentile?)
+         ^Buffer rdr (if (or median? percentile?)
                             (let [darray (dtype-cmc/->array-buffer
                                           :float64 options rdr)]
                               ;;arrays/sort is blindingly fast.
@@ -440,7 +440,7 @@
   here: https://commons.apache.org/proper/commons-math/javadocs/api-3.3/index.html.
 
   nan-strategy can be one of [:keep :remove :exception] and defaults to :exception."
-  (^PrimitiveIO [percentages options data]
+  (^Buffer [percentages options data]
    (let [ary-buf (dtype-cmc/->array-buffer :float64 {:nan-strategy :keep} data)
          p (doto (Percentile.)
              (.withNaNStrategy (options->apache-nan-strategy options))
@@ -448,15 +448,15 @@
              (.setData ^doubles (.ary-data ary-buf) (.offset ary-buf)
                        (.n-elems ary-buf)))]
      (dtype-base/->reader (mapv #(.evaluate p (double %)) percentages))))
-  (^PrimitiveIO [percentages data]
+  (^Buffer [percentages data]
    (percentiles percentages nil data)))
 
 
 (defn quartiles
   "return [min, 25 50 75 max] of item"
-  (^PrimitiveIO [item]
+  (^Buffer [item]
    (percentiles [0.001 25 50 75 100] item))
-  (^PrimitiveIO [options item]
+  (^Buffer [options item]
    (percentiles [0.001 25 50 75 100] options item)))
 
 
@@ -481,7 +481,7 @@
 
   (do
     (import '[org.apache.commons.math3.stat.descriptive DescriptiveStatistics])
-    (import '[tech.v3.datatype PrimitiveIODoubleSpliterator])
+    (import '[tech.v3.datatype BufferDoubleSpliterator])
     (import '[java.util.stream StreamSupport])
     (import '[java.util.function DoubleBinaryOperator DoublePredicate])
     (require '[criterium.core :as crit])
@@ -508,7 +508,7 @@
   (defn data->spliterator
     [data]
     (let [rdr (dtype-base/->reader data)
-          spliterator (PrimitiveIODoubleSpliterator. rdr 0
+          spliterator (BufferDoubleSpliterator. rdr 0
                                                      (.lsize rdr)
                                                      :remove)]
       spliterator))
@@ -524,7 +524,7 @@
   (defn spliterator-sum
     [data]
     (let [rdr (dtype-base/->reader data)
-          spliterator (PrimitiveIODoubleSpliterator. rdr 0
+          spliterator (BufferDoubleSpliterator. rdr 0
                                                      (.lsize rdr)
                                                      :keep)
           stream (-> (StreamSupport/doubleStream spliterator true))]
@@ -540,7 +540,7 @@
        (fn [^long start-idx ^long group-len]
          (let [sub-buf (dtype-base/sub-buffer rdr start-idx group-len)
                iterable (->nan-aware-iterable sub-buf {:nan-strategy nan-strategy})
-               ^PrimitiveIOIterator iterator (.iterator iterable)]
+               ^BufferIterator iterator (.iterator iterable)]
            (loop [continue? (.hasNext iterator)
                   accum 0.0]
              (if continue?

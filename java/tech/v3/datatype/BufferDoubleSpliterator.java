@@ -13,7 +13,7 @@ import org.apache.commons.math3.exception.NotANumberException;
 //hashtables where they can split and still iterate over an undefined
 //number of things.  They are stricly slower, however, than a parallelized
 //index reduction but they are quite a bit more composeable.
-public class PrimitiveIODoubleSpliterator implements Spliterator.OfDouble
+public class BufferDoubleSpliterator implements Spliterator.OfDouble
 {
   public static final Keyword keep = Keyword.intern(null, "keep");
   public static final Keyword remove = Keyword.intern(null, "remove");
@@ -28,12 +28,12 @@ public class PrimitiveIODoubleSpliterator implements Spliterator.OfDouble
       }
     };
 
-  public final PrimitiveIO reader;
+  public final Buffer reader;
   long index;
   long nElems;
   public final DoublePredicate predicate;
 
-  public PrimitiveIODoubleSpliterator( PrimitiveIO _reader, long _index, long _nElems,
+  public BufferDoubleSpliterator( Buffer _reader, long _index, long _nElems,
 				       Object nanStrategyOrPredicate )
   {
     Objects.requireNonNull(_reader);
@@ -71,7 +71,7 @@ public class PrimitiveIODoubleSpliterator implements Spliterator.OfDouble
       index = midpoint;
       //System.out.println(String.format("trySplit (nonnull): (%d,%d)->(%d,%d),(%d,%d)", prevIndex, nElems,
       //                                  prevIndex, midpoint, midpoint, nElems));
-      return new PrimitiveIODoubleSpliterator(reader, prevIndex, midpoint, predicate);
+      return new BufferDoubleSpliterator(reader, prevIndex, midpoint, predicate);
     }
     // System.out.println(String.format("trySplit (null): index %d, nElems %d", index, nElems));
     return null;

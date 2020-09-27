@@ -6,7 +6,7 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.dispatch :as dispatch])
   (:import  [java.util.concurrent ConcurrentHashMap]
-            [tech.v3.datatype ObjectReader LongReader PrimitiveIO]))
+            [tech.v3.datatype ObjectReader LongReader Buffer]))
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
@@ -62,7 +62,7 @@
      unpack-fn
      nil
      (fn [_op-datatype item]
-       (let [^PrimitiveIO item (dtype-proto/->reader item)]
+       (let [^Buffer item (dtype-proto/->reader item)]
          (if (casting/integer-type? primitive-datatype)
            (reify ObjectReader
              (elemwiseDatatype [rdr] object-datatype)
@@ -89,7 +89,7 @@
      pack-fn
      nil
      (fn [_op-datatype item]
-       (let [^PrimitiveIO item (dtype-proto/->reader item)]
+       (let [^Buffer item (dtype-proto/->reader item)]
          (if (casting/integer-type? primitive-datatype)
            (reify LongReader
              (elemwiseDatatype [rdr] packed-datatype)

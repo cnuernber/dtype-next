@@ -5,7 +5,7 @@
             [tech.v3.datatype.pprint :as dtype-pp]
             [primitive-math :as pmath])
   (:import [clojure.lang IObj Counted Indexed IFn]
-           [tech.v3.datatype PrimitiveIO ArrayHelpers BufferCollection]
+           [tech.v3.datatype Buffer ArrayHelpers BufferCollection]
            [java.util Arrays]) )
 
 (set! *warn-on-reflection* true)
@@ -20,7 +20,7 @@
        (convertible-to-array-buffer? [this#] true)
        (->array-buffer [this#] ~buffer)
        ;;Forward protocol methods that are efficiently implemented by the buffer
-       dtype-proto/PBuffer
+       dtype-proto/PSubBuffer
        (sub-buffer [this# offset# length#]
          (-> (dtype-proto/sub-buffer ~buffer offset# length#)
              (dtype-proto/->reader)))
@@ -149,17 +149,17 @@
 
 
 (deftype ArrayBuffer [ary-data ^long offset ^long n-elems datatype metadata
-                      ^:volatile-mutable ^PrimitiveIO cached-io]
+                      ^:volatile-mutable ^Buffer cached-io]
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [item] datatype)
-  dtype-proto/PCountable
+  dtype-proto/PECount
   (ecount [item] n-elems)
   dtype-proto/PEndianness
   (endianness [item#] :little-endian)
   dtype-proto/PToArrayBuffer
   (convertible-to-array-buffer? [item] true)
   (->array-buffer [item] item)
-  dtype-proto/PBuffer
+  dtype-proto/PSubBuffer
   (sub-buffer [item off len]
     (ArrayBuffer. ary-data
                   (+ offset (int off))
@@ -188,9 +188,9 @@
   dtype-proto/PClone
   (clone [this]
     (dtype-proto/make-container :jvm-heap datatype this {}))
-  dtype-proto/PToPrimitiveIO
-  (convertible-to-primitive-io? [item] true)
-  (->primitive-io [item]
+  dtype-proto/PToBuffer
+  (convertible-to-buffer? [item] true)
+  (->buffer [item]
     (if cached-io cached-io
         (let [io
               (array-buffer->io ary-data datatype item offset n-elems)]
@@ -199,11 +199,11 @@
   dtype-proto/PToReader
   (convertible-to-reader? [item] true)
   (->reader [item]
-    (dtype-proto/->primitive-io item))
+    (dtype-proto/->buffer item))
   dtype-proto/PToWriter
   (convertible-to-writer? [item] true)
   (->writer [item]
-    (dtype-proto/->primitive-io item))
+    (dtype-proto/->buffer item))
   IObj
   (meta [item] metadata)
   (withMeta [item metadata]
@@ -212,10 +212,10 @@
   (count [item] (int (dtype-proto/ecount item)))
   Indexed
   (nth [item idx]
-    ((dtype-proto/->primitive-io item) idx))
+    ((dtype-proto/->buffer item) idx))
   (nth [item idx def-val]
     (if (and (>= idx 0) (< idx (.count item)))
-      ((dtype-proto/->primitive-io item) idx)
+      ((dtype-proto/->buffer item) idx)
       def-val))
   IFn
   (invoke [item idx]
@@ -228,11 +228,11 @@
       2 (.invoke item (first argseq) (second argseq))))
   BufferCollection
   (iterator [this]
-    (dtype-proto/->primitive-io this)
+    (dtype-proto/->buffer this)
     (.iterator cached-io))
   (size [this] (int (dtype-proto/ecount this)))
   (toArray [this]
-    (dtype-proto/->primitive-io this)
+    (dtype-proto/->buffer this)
     (.toArray cached-io))
   Object
   (toString [item]
@@ -324,7 +324,7 @@
                                   (.getClass)
                                   (.getComponentType)
                                   (casting/object-class->datatype))))
-                        dtype-proto/PCountable
+                        dtype-proto/PECount
                         (ecount [item#]
                           (alength
                            (typecast/datatype->array ~ary-type item#)))
@@ -341,7 +341,7 @@
                                         (dtype-proto/elemwise-datatype item#)
                                         {}
                                         nil))
-                        dtype-proto/PBuffer
+                        dtype-proto/PSubBuffer
                         (sub-buffer [item# off# len#]
                           (ArrayBuffer. item#
                                         (int off#)

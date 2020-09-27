@@ -2,7 +2,7 @@ package tech.v3.datatype;
 
 import java.util.Iterator;
 
-public interface PrimitiveIOIterator extends ElemwiseDatatype, Iterator
+public interface BufferIterator extends ElemwiseDatatype, Iterator
 {
   boolean nextBoolean();
   byte nextByte();

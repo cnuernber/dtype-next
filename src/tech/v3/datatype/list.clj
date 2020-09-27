@@ -5,7 +5,7 @@
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.pprint :as dtype-pp])
-  (:import [tech.v3.datatype PrimitiveList PrimitiveIO]
+  (:import [tech.v3.datatype PrimitiveList Buffer]
            [tech.v3.datatype.array_buffer ArrayBuffer]
            [tech.v3.datatype.native_buffer NativeBuffer]
            [clojure.lang IObj Counted Indexed IFn]
@@ -51,9 +51,9 @@
 (deftype ListImpl [^:unsynchronized-mutable buffer
                    ^:unsynchronized-mutable ^long capacity
                    ^:unsynchronized-mutable ^long ptr
-                   ^:unsynchronized-mutable ^PrimitiveIO cached-io
+                   ^:unsynchronized-mutable ^Buffer cached-io
                    metadata]
-  PrimitiveIO
+  Buffer
   (elemwiseDatatype [this] (dtype-base/elemwise-datatype buffer))
   (lsize [this] ptr)
   (allowsRead [this] true)
@@ -93,7 +93,7 @@
         (do
           (set! buffer new-buf)
           (set! capacity (dtype-base/ecount new-buf))
-          (set! cached-io (dtype-base/->primitive-io new-buf))))))
+          (set! cached-io (dtype-base/->buffer new-buf))))))
   (addBoolean [this value]
     ;;Check is done here to avoid fn call when not necessary
     (when (>= ptr capacity) (.ensureCapacity this ptr))

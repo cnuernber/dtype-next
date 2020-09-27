@@ -202,7 +202,7 @@ public class DoubleConsumers
     }
   }
   //tight loop consume call.
-  public static Consumers.Result consume(long offset, int grouplen, PrimitiveIO data,
+  public static Consumers.Result consume(long offset, int grouplen, Buffer data,
 					 Consumers.StagedConsumer consumer,
 					 DoublePredicate predicate) {
     final DoubleConsumer dconsumer = (DoubleConsumer)consumer;

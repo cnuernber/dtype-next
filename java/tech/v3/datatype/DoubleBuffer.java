@@ -7,7 +7,7 @@ import java.util.stream.DoubleStream;
 
 
 
-public interface DoubleIO extends PrimitiveIO
+public interface DoubleBuffer extends Buffer
 {
   default Object elemwiseDatatype () { return Keyword.intern(null, "float64"); }
   default boolean readBoolean(long idx) {return readDouble(idx) != 0.0;}

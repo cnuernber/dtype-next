@@ -11,7 +11,7 @@
             [insn.op :as insn-op]
             [insn.clojure :as insn-clj]
             [camel-snake-kebab.core :as csk])
-  (:import [tech.v3.datatype PrimitiveIO LongReader LongNDReader]
+  (:import [tech.v3.datatype Buffer LongReader LongNDReader]
            [java.util List ArrayList Map HashMap]
            [java.lang.reflect Constructor]
            [java.util.function Function]
@@ -25,7 +25,7 @@
 (defn elem-idx->addr-fn
   "High-dimension (>3) fallback.  Create a reader that can iterate
   through the dimension members."
-  ^PrimitiveIO [reduced-dims]
+  ^Buffer [reduced-dims]
   (let [^objects shape (object-array (:shape reduced-dims))
         ^longs strides (long-array (:strides reduced-dims))
         ^longs offsets (when-not (every? #(== 0 (long %)) (:offsets reduced-dims))
@@ -52,9 +52,9 @@
                     local-val (if (number? shape-val)
                                 (-> (pmath/rem idx (long shape-val))
                                     (pmath/* stride))
-                                (-> (.readLong ^PrimitiveIO shape-val
+                                (-> (.readLong ^Buffer shape-val
                                                (pmath/rem idx
-                                                          (.lsize ^PrimitiveIO shape-val)))
+                                                          (.lsize ^Buffer shape-val)))
                                     (pmath/* stride)))]
                 (recur (pmath/inc dim) (pmath/+ result local-val)))
               result))))
@@ -70,9 +70,9 @@
                     local-val (if (number? shape-val)
                                 (-> (pmath/rem idx (long shape-val))
                                     (pmath/* stride))
-                                (-> (.readLong ^PrimitiveIO shape-val
+                                (-> (.readLong ^Buffer shape-val
                                                (pmath/rem idx
-                                                          (.lsize ^PrimitiveIO shape-val)))
+                                                          (.lsize ^Buffer shape-val)))
                                     (pmath/* stride)))]
                 (recur (pmath/inc dim) (pmath/+ result local-val)))
               result)))))))
@@ -312,9 +312,9 @@
     (throw (Exception. (format "Invalid .read ast: %s" ast))))
   (let [[opname this-obj idx] ast]
     (.add instructions [:aload 0])
-    (.add instructions [:getfield :this (ensure-field! this-obj fields) PrimitiveIO])
+    (.add instructions [:getfield :this (ensure-field! this-obj fields) Buffer])
     (push-arg! idx fields instructions)
-    (.add instructions [:invokeinterface PrimitiveIO "readLong"])))
+    (.add instructions [:invokeinterface Buffer "readLong"])))
 
 
 (defmethod apply-ast-fn! '.lsize
@@ -323,8 +323,8 @@
     (throw (Exception. (format "Invalid .read ast: %s" ast))))
   (let [[opname this-obj] ast]
     (.add instructions [:aload 0])
-    (.add instructions [:getfield :this (ensure-field! this-obj fields) PrimitiveIO])
-    (.add instructions [:invokeinterface PrimitiveIO "lsize"])))
+    (.add instructions [:getfield :this (ensure-field! this-obj fields) Buffer])
+    (.add instructions [:invokeinterface Buffer "lsize"])))
 
 
 (defn eval-read-ast!
@@ -351,7 +351,7 @@
                      :type :long}
                     {:flags #{:public :final}
                      :name name
-                     :type PrimitiveIO})
+                     :type Buffer})
                   {:flags #{:public :final}
                    :name name
                    :type :long}))))
@@ -379,15 +379,15 @@
            [:aload carg-idx]
            [:ldc (int dim-idx)]
            [:aaload]
-           [:checkcast PrimitiveIO]
-           [:invokeinterface PrimitiveIO (clojure.core/name fn-name)]
+           [:checkcast Buffer]
+           [:invokeinterface Buffer (clojure.core/name fn-name)]
            [:putfield :this name :long]]
           [[:aload 0]
            [:aload carg-idx]
            [:ldc (int dim-idx)]
            [:aaload]
-           [:checkcast PrimitiveIO]
-           [:putfield :this name PrimitiveIO]])
+           [:checkcast Buffer]
+           [:putfield :this name Buffer]])
         [[:aload 0]
          [:aload carg-idx]
          [:ldc (int dim-idx)]
@@ -509,26 +509,26 @@
              (absent-sig-fn signature)))]
     (reader-constructor-fn reduced-dims)))
 (defn get-or-create-reader
-  (^PrimitiveIO [reduced-dims broadcast? force-default-reader?]
+  (^Buffer [reduced-dims broadcast? force-default-reader?]
    (let [n-dims (count (:shape reduced-dims))]
      (if (and (not force-default-reader?)
               (<= n-dims 4))
        (make-indexing-obj reduced-dims broadcast?)
        (elem-idx->addr-fn reduced-dims))))
-  (^PrimitiveIO [reduced-dims]
+  (^Buffer [reduced-dims]
    (get-or-create-reader reduced-dims
                          (dims-analytics/are-reduced-dims-bcast? reduced-dims)
                          false)))
 
 
 (defn dims->global->local-reader
-  ^PrimitiveIO [dims]
+  ^Buffer [dims]
   (-> (dims-analytics/dims->reduced-dims dims)
       (get-or-create-reader)))
 
 
 (defn reduced-dims->global->local-reader
-  ^PrimitiveIO [reduced-dims]
+  ^Buffer [reduced-dims]
   (get-or-create-reader reduced-dims))
 
 

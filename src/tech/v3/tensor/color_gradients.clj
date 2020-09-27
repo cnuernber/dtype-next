@@ -13,7 +13,7 @@
             [tech.v3.parallel.for :as pfor]
             [tech.v3.libs.buffered-image :as bufimg])
   (:import [java.awt.image BufferedImage]
-           [tech.v3.datatype PrimitiveIO PrimitiveNDIO]
+           [tech.v3.datatype Buffer NDBuffer]
            [clojure.lang IFn]))
 
 (set! *warn-on-reflection* true)
@@ -179,8 +179,8 @@ function returned: %s"
                     1 (bufimg/new-image 1 (first img-shape) img-type))
         ;;Flatten out src-tens and res-tens and make them readers
         n-channels (long (if alpha? 4 3))
-        ^PrimitiveNDIO res-tens (dtt/reshape res-image [n-pixels n-channels])
-        ^PrimitiveNDIO gradient-line (gradient-name->gradient-line
+        ^NDBuffer res-tens (dtt/reshape res-image [n-pixels n-channels])
+        ^NDBuffer gradient-line (gradient-name->gradient-line
                                       gradient-name invert-gradient?
                                       gradient-default-n)
         n-gradient-increments (long (first (dtype/shape gradient-line)))

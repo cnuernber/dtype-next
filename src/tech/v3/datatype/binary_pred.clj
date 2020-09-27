@@ -5,7 +5,7 @@
             [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.datatype.errors :as errors]
             [primitive-math :as pmath])
-  (:import [tech.v3.datatype BinaryPredicate
+  (:import [tech.v3.datatype BinaryPredicate Buffer
             BinaryPredicates$BooleanBinaryPredicate
             BinaryPredicates$DoubleBinaryPredicate
             BinaryPredicates$LongBinaryPredicate
@@ -65,7 +65,7 @@
 
 
 (defn reader
-  [pred lhs-rdr rhs-rdr]
+  ^Buffer [pred lhs-rdr rhs-rdr]
   (let [pred (->predicate pred)
         lhs-rdr (dtype-base/->reader lhs-rdr)
         rhs-rdr (dtype-base/->reader rhs-rdr)
