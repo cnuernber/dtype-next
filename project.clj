@@ -5,11 +5,11 @@ This library implements a subset of functionality required for 'array' programmi
 index-space algorithms for use with multiple arrays that share an index space.
 
 
-There is a top level implemented in Java named Buffer that implements a generic, typed read and write interface.
+There is a top level interface in Java named Buffer that implements a generic typed read and write interface.
 This interface includes queries as to whether it is capable of reading or writing.
 
 
-There are is an of that interface built on java arrays that is denoted by the keyword :jvm-heap
+There is an of that interface built on java arrays that is denoted by the keyword :jvm-heap
 and there is an implementation of that interface built on native arrays denoted by the keyword :native-heap.
 
 

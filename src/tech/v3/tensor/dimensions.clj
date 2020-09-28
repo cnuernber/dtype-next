@@ -1,12 +1,6 @@
 (ns tech.v3.tensor.dimensions
-  "Compute tensors dimensions control the shape and stride of the tensor along with
-  offsetting into the actual data buffer.  This allows multiple backends to share a
-  single implementation of a system that will allow transpose, reshape, etc. assuming
-  the backend correctly interprets the shape and stride of the dimension objects.
-
-  Shape vectors may have an index buffer in them at a specific dimension instead of a
-  number.  This means that that dimension should be indexed indirectly.  If a shape has
-  any index buffers then it is considered an indirect shape."
+  "Dimensions implement a projection from ND space in the the address space of the
+  buffer along with a reverse projection from the address space back into ND space."
   (:require [tech.v3.datatype :as dtype]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.tensor.dimensions.select :as dims-select]
