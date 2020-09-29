@@ -1,4 +1,4 @@
-(defproject cnuernber/dtype-next "0.4.1-SNAPSHOT"
+(defproject cnuernber/dtype-next "0.4.1"
   :description "A Clojure library designed to aid in the implementation of high performance algorithms and systems.
 
 This library implements a subset of functionality required for 'array' programming as well as several
@@ -35,7 +35,7 @@ a zerocopy pathway from/to neanderthal, numpy, and java's BufferdImage class."
                  [org.xerial.larray/larray-mmap  "0.4.1"]
                  [org.apache.commons/commons-math3 "3.6.1"]
                  [org.roaringbitmap/RoaringBitmap  "0.9.0"]
-                 [techascent/tech.resource       "4.6"]]
+                 [techascent/tech.resource       "4.7"]]
   :java-source-paths ["java"]
   :profiles {:dev
              {:dependencies [[criterium "0.4.5"]

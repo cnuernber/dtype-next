@@ -18,7 +18,7 @@
 (defn const-reader
   "Create a new reader that only returns the item for the provided indexes."
   (^Buffer [item n-elems]
-   (let [item-dtype (dtype-proto/elemwise-datatype item)
+   (let [item-dtype (if item (dtype-proto/elemwise-datatype item) :object)
          n-elems (long n-elems)]
      (cond
        (= :boolean item-dtype)
