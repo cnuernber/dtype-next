@@ -4,7 +4,8 @@
   size."
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.casting :as casting]
-            [tech.v3.datatype.dispatch :as dispatch])
+            [tech.v3.datatype.dispatch :as dispatch]
+            [tech.v3.datatype.errors :as errors])
   (:import  [java.util.concurrent ConcurrentHashMap]
             [tech.v3.datatype ObjectReader LongReader Buffer]))
 
@@ -110,3 +111,21 @@
            (.get pack-table datatype)]
     #(pack-fn (src-fn %))
     src-fn))
+
+(defn buffer-packing-pair
+  "If datatype is a packed datatype, return a pair of functions, unpacking-read and
+  packing-write.
+  unpacking-read reads the appropriate datatype and calls the datatype's unpack fn on it.
+  packing-write packs the input and writes it to the appropriate place.  Note that in
+  this case those functions take the buffer and the index.
+  returns {:unpacking-read :packing-write}"
+  [datatype]
+  (when-let [{:keys [pack-fn unpack-fn primitive-datatype]}
+             (.get unpack-table datatype)]
+    (errors/when-not-errorf
+     (casting/integer-type? primitive-datatype)
+     "Packing to non-integer datatypes is not implemented: %s" primitive-datatype)
+    {:unpacking-read (fn [^Buffer buffer ^long idx]
+                       (unpack-fn (.readLong buffer idx)))
+     :packing-write (fn [^Buffer buffer ^long idx obj]
+                      (.writeLong buffer idx (pack-fn obj)))}))

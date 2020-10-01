@@ -26,6 +26,7 @@
   (:import [tech.v3.datatype.array_buffer ArrayBuffer]
            [tech.v3.datatype ListPersistentVector BooleanReader
             LongReader DoubleReader ObjectReader]
+           [org.roaringbitmap RoaringBitmap]
            [java.util List])
   (:refer-clojure :exclude [cast]))
 
@@ -193,6 +194,11 @@ user> (dtype/make-reader :float32 5 (* idx 2))
   Returns the buffer; uses the copy-raw->item! pathway."
   [buffer raw-data]
   (first (copy-raw->item! raw-data buffer)))
+
+
+(defn as-roaring-bitmap
+  ^RoaringBitmap [item]
+  (dtype-proto/as-roaring-bitmap item))
 
 
 (defn ->vector
