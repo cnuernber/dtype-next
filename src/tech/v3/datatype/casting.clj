@@ -222,6 +222,7 @@
   (cond
     (number? item) item
     (boolean? item) (bool->number item)
+    (char? item) (unchecked-int item)
     :else ;;punt!!
     (double item)))
 

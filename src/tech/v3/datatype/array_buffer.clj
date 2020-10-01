@@ -72,7 +72,10 @@
                              ~datatype ~cast-dtype
                              (aget ~'java-ary (pmath/+ ~offset ~'idx)))))
                  :else (throw (Exception. (format "Macro expansion error-%s"
-                                                  cast-dtype))))]))
+                                                  cast-dtype))))])
+            (when (= :char cast-dtype)
+              [`(readObject [rdr# ~'idx]
+                             (.readChar rdr# ~'idx))]))
            (casting/float-type? cast-dtype)
            [`(readDouble [rdr# ~'idx]
                          (casting/datatype->unchecked-cast-fn
@@ -129,7 +132,11 @@
                                    (casting/datatype->cast-fn
                                     :int32 ~cast-dtype ~'value))))
                  :else (throw (Exception. (format "Macro expansion error-%s"
-                                                  cast-dtype))))]))
+                                                  cast-dtype))))])
+            ;;Overload the writeObject pathway to use writeChar instead of writeLong
+            (when (= :char cast-dtype)
+              [`(writeObject [rdr# ~'idx ~'value]
+                             (.writeChar rdr# ~'idx (char ~'value)))]))
            (casting/float-type? cast-dtype)
            [`(writeDouble [rdr# ~'idx ~'value]
                           (ArrayHelpers/aset ~'java-ary (pmath/+ ~offset ~'idx)

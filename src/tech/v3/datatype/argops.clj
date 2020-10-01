@@ -57,9 +57,19 @@
    (ensure-reader item Long/MAX_VALUE)))
 
 
-(defn- find-operator
+(defn- find-unary-operator
   [op op-map optypename opconversion-fn]
-  (clojure.core/or
+  (or
+   (when (keyword? op)
+     (if-let [retval (get op-map op)]
+       retval
+       (opconversion-fn op)))
+   (opconversion-fn op)))
+
+
+(defn- find-binary-operator
+  [op op-map optypename opconversion-fn]
+  (or
    (when (keyword? op)
      (if-let [retval (get op-map op)]
        retval
@@ -71,28 +81,28 @@
   "Convert a thing to a unary operator. Thing can be a keyword or
   an implementation of IFn or an implementation of a UnaryOperator."
   ^UnaryOperator [op]
-  (find-operator op unary-op/builtin-ops "unary operator" unary-op/->operator))
+  (find-unary-operator op unary-op/builtin-ops "unary operator" unary-op/->operator))
 
 
 (defn ->binary-operator
   "Convert a thing to a binary operator.  Thing can be a keyword or
   an implementation of IFn or an implementation of a BinaryOperator."
   ^BinaryOperator [op]
-  (find-operator op binary-op/builtin-ops "binary operator" binary-op/->operator))
+  (find-binary-operator op binary-op/builtin-ops "binary operator" binary-op/->operator))
 
 
 (defn ->unary-predicate
   "Convert a thing to a unary predicate. Thing can be a keyword or
   an implementation of IFn or an implementation of a UnaryPredicate."
   ^UnaryPredicate [op]
-  (find-operator op unary-pred/builtin-ops "unary predicate" unary-pred/->predicate))
+  (find-unary-operator op unary-pred/builtin-ops "unary predicate" unary-pred/->predicate))
 
 
 (defn ->binary-predicate
   "Convert a thing to a binary predicate.  Thing can be a keyword or
   an implementation of IFn or an implementation of a BinaryPredicate."
   ^BinaryPredicate [op]
-  (find-operator op binary-pred/builtin-ops "binary predicate" binary-pred/->predicate))
+  (find-binary-operator op binary-pred/builtin-ops "binary predicate" binary-pred/->predicate))
 
 
 (defn argmax
@@ -308,6 +318,13 @@
                  :or {parallel? true}}
     values]
    (let [n-elems (dtype-base/ecount values)
+         val-dtype (dtype-base/elemwise-datatype values)
+         comparator (or (if (keyword? comparator)
+                          (binary-pred/builtin-ops comparator)
+                          comparator)
+                        (if (casting/numeric-type? val-dtype)
+                          (binary-pred/builtin-ops :<)
+                          compare))
          comparator (index-comparator values comparator)]
      (cond
        (== n-elems 0)
@@ -325,16 +342,9 @@
            (LongArrays/quickSort idx-ary ^LongComparator comparator))
          idx-ary))))
   ([comparator values]
-   (let [comparator (if (keyword? comparator)
-                      (->binary-predicate comparator)
-                      comparator)]
-     (argsort comparator {} values)))
+   (argsort comparator {} values))
   ([values]
-   (let [val-dtype (dtype-base/elemwise-datatype values)
-         comparator (if (casting/numeric-type? val-dtype)
-                      (binary-pred/builtin-ops :<)
-                      compare)]
-     (argsort comparator {} values))))
+   (argsort nil {} values)))
 
 
 (defn argfilter

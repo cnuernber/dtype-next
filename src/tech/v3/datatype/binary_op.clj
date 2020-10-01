@@ -84,7 +84,7 @@
            lhs rhs)))
 
 (defn- as-number
-  ^Number [x] x)
+  ^Number [x] (casting/->number x))
 
 
 (defmacro make-numeric-object-binary-op

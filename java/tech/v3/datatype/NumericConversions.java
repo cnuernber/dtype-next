@@ -16,7 +16,7 @@ public class NumericConversions
 	return 0;
     }
     else if (arg instanceof Character) {
-      return Character.getNumericValue((Character)arg);
+      return (int) ((char)arg);
     }
     else
       throw new RuntimeException("Invalid argument");
