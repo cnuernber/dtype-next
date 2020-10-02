@@ -95,11 +95,13 @@
 
 
 (defn emap
-  "Elemwise map
+  "Elemwise map:
+
   1. If input are all scalars, results in a scalar.
   2. If any inputs are iterables, results in an iterable.
   3. Either a reader or a tensor is returned.  All input shapes
-  have to match.
+     have to match.
+
   res-dtype is nil it is deduced from unifying the argument datatypes"
   [map-fn res-dtype & args]
   (let [res-dtype (or res-dtype
