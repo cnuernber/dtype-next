@@ -225,11 +225,14 @@ user> (dtype/make-reader :float32 5 (* idx 2))
 
   Buffer descriptors are a ND description of data.  For example, a native
   3x3 tensor has a buffer description like thus:
+
+  ```clojure
   {:ptr 140330005614816
    :datatype :float64
    :endianness :little-endian
    :shape [3 3]
    :strides [24 8]}
+  ```
 
   This design allows zero-copy transfer between neanderthal, numpy, tvm, etc."
   [src-item]
