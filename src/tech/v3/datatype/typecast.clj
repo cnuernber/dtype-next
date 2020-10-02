@@ -1,7 +1,7 @@
 (ns tech.v3.datatype.typecast
   (:require [tech.v3.datatype.casting :as casting])
   (:import [tech.v3.datatype PrimitiveList]
-           [java.util ArrayList List]))
+           [java.util ArrayList List Map]))
 
 
 (defn datatype->array-cls
@@ -105,3 +105,16 @@
 
 
 (defn as-primitive-list ^PrimitiveList [item] item)
+
+
+(defn as-java-map
+  ^Map [item]
+  (when (and item (instance? Map item))
+    item))
+
+
+(defn ->java-map
+  ^Map [item]
+  (if-let [jmap (as-java-map item)]
+    jmap
+    (throw (Exception. "Item is not a map: %s" item))))

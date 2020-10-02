@@ -3,6 +3,7 @@
             [tech.v3.datatype.array-buffer :as array-buffer]
             [tech.v3.datatype.native-buffer :as native-buffer]
             [tech.v3.datatype.dispatch :as dispatch]
+            [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.io-sub-buffer :as io-sub-buf]
             [tech.v3.datatype.casting :as casting]
@@ -303,18 +304,25 @@
 (extend-type Object
   dtype-proto/PElemwiseCast
   (elemwise-cast [item new-dtype]
-    (let [cast-fn #(casting/cast % new-dtype)]
-      (dispatch/vectorized-dispatch-1
-       cast-fn
-       (fn [op-dtype item]
-         (dispatch/typed-map-1 cast-fn new-dtype item))
-       (fn [op-dtype item]
-         (let [src-rdr (->reader item)]
-           (reify ObjectReader
-             (elemwiseDatatype [rdr] new-dtype)
-             (lsize [rdr] (.lsize src-rdr))
-             (readObject [rdr idx] (cast-fn (.readObject src-rdr idx))))))
-       item)))
+    (let [src-dtype (dtype-proto/elemwise-datatype item)]
+      (cond
+        (= new-dtype (packing/pack-datatype src-dtype))
+        (packing/pack item)
+        (= new-dtype (packing/unpack-datatype src-dtype))
+        (packing/unpack item)
+        :else
+        (let [cast-fn #(casting/cast % new-dtype)]
+          (dispatch/vectorized-dispatch-1
+           cast-fn
+           (fn [op-dtype item]
+             (dispatch/typed-map-1 cast-fn new-dtype item))
+           (fn [op-dtype item]
+             (let [src-rdr (->reader item)]
+               (reify ObjectReader
+                 (elemwiseDatatype [rdr] new-dtype)
+                 (lsize [rdr] (.lsize src-rdr))
+                 (readObject [rdr idx] (cast-fn (.readObject src-rdr idx))))))
+           item)))))
   dtype-proto/PECount
   (ecount [item] (count item))
   dtype-proto/PToArrayBuffer
