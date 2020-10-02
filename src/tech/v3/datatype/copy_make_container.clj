@@ -1,6 +1,7 @@
 (ns tech.v3.datatype.copy-make-container
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.copy :as dtype-copy]
+            [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.array-buffer :as array-buffer]
             [tech.v3.datatype.native-buffer :as native-buffer]
@@ -115,8 +116,10 @@
 (defn ->array-buffer
   "Perform a NaN-aware conversion into an array buffer.  Default
   nan-strategy is :remove which forces a pass over float datatypes
-  in order to remove nan data.  Nan strategies can be:
-  [:keep :remove :exception]"
+  in order to remove nan data.
+
+
+  Nan strategies can be: [:keep :remove :exception]"
   (^ArrayBuffer [datatype {:keys [nan-strategy]} item]
    (let [nan-strategy (if (or (= datatype :float32)
                               (= datatype :float64))
@@ -132,7 +135,8 @@
   (^ArrayBuffer [datatype item]
    (->array-buffer datatype nil item))
   (^ArrayBuffer [item]
-   (->array-buffer (dtype-base/elemwise-datatype item) nil item)))
+   (->array-buffer (packing/unpack-datatype (dtype-base/elemwise-datatype item))
+                   nil item)))
 
 
 (defn ->array
@@ -152,25 +156,32 @@
   ([datatype item]
    (->array datatype nil item))
   (^ArrayBuffer [item]
-   (->array (dtype-base/elemwise-datatype item) nil item)))
+   (->array (packing/unpack-datatype (dtype-base/elemwise-datatype item))
+            nil item)))
 
 (defn ->byte-array
-  "Efficiently convert nearly anyting into a byte array."
+  "Efficiently convert nearly anything into a byte array."
   ^bytes [data]
   (->array :int8 nil data))
 
 (defn ->short-array
-  "Efficiently convert nearly anyting into a short array."
+  "Efficiently convert nearly anything into a short array."
   ^shorts [data]
   (->array :int16 nil data))
 
+(defn ->char-array
+  "Efficiently convert nearly anything into a char array."
+  ^chars [data]
+  (->array :char nil data))
+
+
 (defn ->int-array
-  "Efficiently convert nearly anyting into a int array."
+  "Efficiently convert nearly anything into a int array."
   ^ints [data]
   (->array :int32 nil data))
 
 (defn ->long-array
-  "Efficiently convert nearly anyting into a long array."
+  "Efficiently convert nearly anything into a long array."
   ^longs [data]
   (->array :int64 nil data))
 

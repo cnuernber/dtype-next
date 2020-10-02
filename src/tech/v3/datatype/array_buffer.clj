@@ -2,6 +2,7 @@
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.typecast :as typecast]
             [tech.v3.datatype.casting :as casting]
+            [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.pprint :as dtype-pp]
             [primitive-math :as pmath])
   (:import [clojure.lang IObj Counted Indexed IFn]
@@ -14,7 +15,10 @@
 
 (defmacro java-array-buffer->io
   [datatype cast-dtype advertised-datatype buffer java-ary offset n-elems]
-  `(let [~'java-ary (typecast/datatype->array ~datatype ~java-ary)]
+  `(let [~'java-ary (typecast/datatype->array ~datatype ~java-ary)
+         {~'unpacking-read :unpacking-read
+          ~'packing-write :packing-write} (packing/buffer-packing-pair
+                                           ~advertised-datatype)]
      (reify
        dtype-proto/PToArrayBuffer
        (convertible-to-array-buffer? [this#] true)
@@ -73,9 +77,14 @@
                              (aget ~'java-ary (pmath/+ ~offset ~'idx)))))
                  :else (throw (Exception. (format "Macro expansion error-%s"
                                                   cast-dtype))))])
-            (when (= :char cast-dtype)
+            (if (= :char cast-dtype)
               [`(readObject [rdr# ~'idx]
-                             (.readChar rdr# ~'idx))]))
+                            (.readChar rdr# ~'idx))]
+              ;;Integer types may be representing packed objects
+              [`(readObject [~'rdr ~'idx]
+                            (if ~'unpacking-read
+                              (~'unpacking-read ~'rdr ~'idx)
+                              (.readLong ~'rdr ~'idx)))]))
            (casting/float-type? cast-dtype)
            [`(readDouble [rdr# ~'idx]
                          (casting/datatype->unchecked-cast-fn
@@ -134,9 +143,13 @@
                  :else (throw (Exception. (format "Macro expansion error-%s"
                                                   cast-dtype))))])
             ;;Overload the writeObject pathway to use writeChar instead of writeLong
-            (when (= :char cast-dtype)
+            (if (= :char cast-dtype)
               [`(writeObject [rdr# ~'idx ~'value]
-                             (.writeChar rdr# ~'idx (char ~'value)))]))
+                             (.writeChar rdr# ~'idx (char ~'value)))]
+              [`(writeObject [~'rdr ~'idx ~'value]
+                             (if ~'packing-write
+                               (~'packing-write ~'rdr ~'idx ~'value)
+                               (.writeLong ~'rdr ~'idx (long ~'value))))]))
            (casting/float-type? cast-dtype)
            [`(writeDouble [rdr# ~'idx ~'value]
                           (ArrayHelpers/aset ~'java-ary (pmath/+ ~offset ~'idx)

@@ -164,8 +164,10 @@ user> (dtype/make-reader :float32 5 (* idx 2))
                 make-container
                 copy!
                 ->array-buffer
+                ->array
                 ->byte-array
                 ->short-array
+                ->char-array
                 ->int-array
                 ->long-array
                 ->float-array

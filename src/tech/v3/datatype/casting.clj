@@ -145,14 +145,15 @@
 
 (defn numeric-byte-width
   ^long [dtype]
-  (long (cond
-          (int-types dtype)
-          (quot (int-width dtype) 8)
-          (float-types dtype)
-          (quot (float-width dtype) 8)
-          :else
-          (throw (ex-info (format "datatype is not numeric: %s" dtype)
-                          {:datatype dtype})))))
+  (let [dtype (un-alias-datatype dtype)]
+    (long (cond
+            (int-types dtype)
+            (quot (int-width dtype) 8)
+            (float-types dtype)
+            (quot (float-width dtype) 8)
+            :else
+            (throw (ex-info (format "datatype is not numeric: %s" dtype)
+                            {:datatype dtype}))))))
 
 
 (defn numeric-type?

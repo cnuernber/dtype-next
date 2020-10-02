@@ -1,9 +1,7 @@
 (ns tech.v3.datatype.datetime.packing
   (:require [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.datetime.base :as dt-base]
-            [tech.v3.datatype.protocols :as dtype-proto]
-            [primitive-math :as pmath]
-            [tech.v3.datatype.base :as dtype-base])
+            [primitive-math :as pmath])
   (:import  [tech.v3.datatype PackedLocalDate]
             [java.time Instant LocalDate Duration]))
 
@@ -24,7 +22,10 @@
                                  (PackedLocalDate/pack %)
                                  0)
                               (fn [^long value]
-                                (if-not (== 0 value)
+                                ;;The missing value indicator for integers is int/MIN_VALUE
+                                ;;and arrays are initialized to be zero
+                                (if-not (or (== 0 value)
+                                            (== Integer/MIN_VALUE value))
                                   (PackedLocalDate/asLocalDate (pmath/int value))
                                   nil)))
 
