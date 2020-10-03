@@ -19,7 +19,7 @@
 ;;being that ObjectArrayList gives us access to the underlying object array.
 
 
-(defn ensure-capacity
+(defn- ensure-capacity
   ([buffer-data ^long desired-size ^long capacity]
    (if (> capacity desired-size)
      buffer-data
@@ -154,6 +154,8 @@
 
 
 (defn make-list
+  "Make a new primitive list out of a container and a ptr that indicates the
+  current write position."
   (^PrimitiveList [initial-container ^long ptr]
    (let [rw (dtype-base/->reader initial-container)]
      (ListImpl. initial-container (dtype-base/ecount initial-container) ptr rw {})))
@@ -162,11 +164,14 @@
 
 
 (defn wrap-container
+  "In-place wrap an existing container.  Write ptr points to the end
+  of the container so the next add* method will cause an allocation."
   ^List [container]
   (make-list container (dtype-base/ecount container)))
 
 
 (defn empty-list
+  "Make an empty list of a given datatype."
   ^List [datatype]
   (make-list datatype))
 
