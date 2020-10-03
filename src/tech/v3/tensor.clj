@@ -1,11 +1,12 @@
 (ns tech.v3.tensor
   "ND bindings for the tech.v3.datatype system.  A Tensor is conceptually just a tuple
-  of a buffer and an index operator that is capable of converting indexes in ND space into
-  a single long index into the buffer.  Tensors implementent the tech.v3.datatype.NDBuffer
-  interface and outside this file ND objects are expected to simply implement that interface.
+  of a buffer and an index operator that is capable of converting indexes in ND space
+  into a single long index into the buffer.  Tensors implementent the
+  tech.v3.datatype.NDBuffer interface and outside this file ND objects are expected to
+  simply implement that interface.
 
-  This system relies heavily on the tech.v3.tensor.dimensions namespace to provide the optimized
-  indexing operator from ND space to buffer space and back."
+  This system relies heavily on the tech.v3.tensor.dimensions namespace to provide the
+  optimized indexing operator from ND space to buffer space and back."
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.casting :as casting]
