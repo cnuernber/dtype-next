@@ -130,7 +130,7 @@
                              :local-date-time milli-data)
            :local-date (vectorized-dispatch-object-reader
                         #(dt-base/milliseconds-since-epoch->local-date % timezone)
-                        :local-date-time milli-data)
+                        :local-date milli-data)
            :duration (vectorized-dispatch-object-reader
                       dt-base/milliseconds->duration
                       :duration milli-data))]
