@@ -355,8 +355,9 @@
                      (if (:dependencies tower-node)
                        `(defn ~fn-symbol
                           (~(with-meta ['options 'data] {:tag 'double})
-                           (~tower-key (descriptive-statistics #{~tower-key} ~'data
-                                                               ~'options)))
+                           (~tower-key (descriptive-statistics #{~tower-key}
+                                                               ~'options
+                                                               ~'data)))
                           (~(with-meta ['data]
                               {:tag 'double})
                            (~fn-symbol ~'data nil)))
