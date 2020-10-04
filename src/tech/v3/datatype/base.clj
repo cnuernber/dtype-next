@@ -13,8 +13,10 @@
            [tech.v3.datatype.array_buffer ArrayBuffer]
            [tech.v3.datatype.native_buffer NativeBuffer]
            [clojure.lang IPersistentCollection]
-           [java.util RandomAccess List]
-           [java.util.stream Stream]))
+           [java.util RandomAccess List
+            Spliterator Spliterator$OfDouble Spliterator$OfLong
+            Spliterator$OfInt]
+           [java.util.stream Stream DoubleStream LongStream IntStream]))
 
 
 (defn elemwise-datatype
@@ -268,6 +270,45 @@
     (when (instance? IPersistentCollection item)
       (throw (Exception. "Item is a persistent collection and thus not convertible to writer")))
     (random-access->io item)))
+
+
+(extend-protocol dtype-proto/PElemwiseDatatype
+  DoubleStream
+  (elemwise-datatype [item] :float64)
+  Spliterator$OfDouble
+  (elemwise-datatype [item] :float64)
+  LongStream
+  (elemwise-datatype [item] :int64)
+  Spliterator$OfLong
+  (elemwise-datatype [item] :int64)
+  IntStream
+  (elemwise-datatype [item] :int32)
+  Spliterator$OfInt
+  (elemwise-datatype [item] :int32))
+
+
+(extend-protocol dtype-proto/PDatatype
+  Stream
+  (datatype [item] {:container-type :stream
+                    :elemwise-datatype :object})
+  DoubleStream
+  (datatype [item] {:container-type :stream
+                    :elemwise-datatype :float64})
+  Spliterator$OfDouble
+  (datatype [item] {:container-type :spliterator
+                    :elemwise-datatype :float64})
+  LongStream
+  (datatype [item] {:container-type :stream
+                    :elemwise-datatype :int64})
+  Spliterator$OfLong
+  (datatype [item] {:container-type :spliterator
+                    :elemwise-datatype :int64})
+  IntStream
+  (datatype [item] {:container-type :stream
+                    :elemwise-datatype :int32})
+  Spliterator$OfInt
+  (datatype [item] {:container-type :spliterator
+                    :elemwise-datatype :int32}))
 
 
 (defn- inner-buffer-sub-buffer
