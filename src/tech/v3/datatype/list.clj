@@ -76,6 +76,11 @@
   (writeFloat [this idx val] (check-idx idx ptr) (.writeFloat cached-io idx val))
   (writeDouble [this idx val] (check-idx idx ptr) (.writeDouble cached-io idx val))
   (writeObject [this idx val] (check-idx idx ptr) (.writeObject cached-io idx val))
+  dtype-proto/PDatatype
+  (datatype [this]
+    {:container-type :list
+     :elemwise-datatype (.elemwiseDatatype this)
+     :backing-store (dtype-proto/datatype buffer)})
   dtype-proto/PToArrayBuffer
   (convertible-to-array-buffer? [this]
     (dtype-proto/convertible-to-array-buffer? buffer))

@@ -48,6 +48,7 @@
 
 (export-symbols tech.v3.datatype.base
                 elemwise-datatype
+                datatype
                 elemwise-cast
                 ecount
                 shape

@@ -18,9 +18,24 @@
 
 
 (defn elemwise-datatype
-  "Return the datatype of the values in this object."
+  "Return the datatype one would expect when iterating through a container
+  of this type.  For scalars, return your elemental datatype."
   [item]
-  (when-not (nil? item) (dtype-proto/elemwise-datatype item)))
+  (when item (dtype-proto/elemwise-datatype item)))
+
+
+(defn datatype
+  "Return this object's actual datatype.
+  **This is not the same as the DEPRECATED get-datatype.  That is function maps
+  to elemwise-datatype.**
+  This maps to the parameterization of the object, so for instance a list of ints
+  might be:
+```clojure
+  {:container-type :list :elemwise-datatype :int32}
+```
+  Defaults to this object's elemwise-datatype."
+  [item]
+  (when item (dtype-proto/datatype item)))
 
 
 (defn elemwise-cast
@@ -236,6 +251,9 @@
 
 
 (extend-type RandomAccess
+  dtype-proto/PDatatype
+  (datatype [item] {:container-type :random-access
+                    :elemwise-datatype :object})
   dtype-proto/PToBuffer
   (convertible-to-buffer? [item] true)
   (->buffer [item] (random-access->io item))
@@ -260,6 +278,11 @@
 
 
 (extend-type Buffer
+  dtype-proto/PDatatype
+  (datatype [item] {:container-type :buffer
+                    :allows-read? (.allowsRead item)
+                    :allows-write? (.allowsWrite item)
+                    :elemwise-datatype (dtype-proto/elemwise-datatype item)})
   dtype-proto/PToBuffer
   (convertible-to-buffer? [buf] true)
   (->buffer [item] item)
@@ -302,6 +325,12 @@
 
 ;;Datatype library Object defaults.  Here lie dragons.
 (extend-type Object
+  dtype-proto/PDatatype
+  (datatype [item]
+    (if (array? item)
+      {:container-type :jvm-heap
+       :elemwise-datatype (dtype-proto/elemwise-datatype item)}
+      (dtype-proto/elemwise-datatype item)))
   dtype-proto/PElemwiseCast
   (elemwise-cast [item new-dtype]
     (let [src-dtype (dtype-proto/elemwise-datatype item)]
@@ -435,6 +464,12 @@
                      (dtype-proto/shape fitem))
              vec)
         [(.size item)]))))
+
+
+(extend-type Iterable
+  dtype-proto/PDatatype
+  (datatype [item] {:container-type :iterable
+                    :elemwise-datatype :object}))
 
 
 (defn set-constant!
