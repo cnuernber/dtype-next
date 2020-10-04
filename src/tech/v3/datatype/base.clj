@@ -21,7 +21,8 @@
   "Return the datatype one would expect when iterating through a container
   of this type.  For scalars, return your elemental datatype."
   [item]
-  (when item (dtype-proto/elemwise-datatype item)))
+  ;;false has a datatype in this world.
+  (when-not (nil? item) (dtype-proto/elemwise-datatype item)))
 
 
 (defn datatype
@@ -35,7 +36,7 @@
 ```
   Defaults to this object's elemwise-datatype."
   [item]
-  (when item (dtype-proto/datatype item)))
+  (when-not (nil? item) (dtype-proto/datatype item)))
 
 
 (defn elemwise-cast
@@ -327,9 +328,8 @@
 (extend-type Object
   dtype-proto/PDatatype
   (datatype [item]
-    (if (array? item)
-      {:container-type :jvm-heap
-       :elemwise-datatype (dtype-proto/elemwise-datatype item)}
+    (if-let [buffer (as-concrete-buffer item)]
+      (dtype-proto/datatype buffer)
       (dtype-proto/elemwise-datatype item)))
   dtype-proto/PElemwiseCast
   (elemwise-cast [item new-dtype]

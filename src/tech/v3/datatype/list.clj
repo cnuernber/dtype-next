@@ -29,13 +29,14 @@
                                 (max (* 2 desired-size) 10)
                                 (long (* 1.25 desired-size))))]
        (if-let [ary-buf (dtype-base/as-array-buffer buffer-data)]
-         (let [new-buffer (dtype-cmc/make-container :jvm-heap (.datatype ary-buf)
+         (let [new-buffer (dtype-cmc/make-container :jvm-heap
+                                                    (.elemwise-datatype ary-buf)
                                                     new-capacity)]
            (dtype-cmc/copy! buffer-data (dtype-base/sub-buffer new-buffer 0 capacity))
            new-buffer)
          (let [native-buf (dtype-base/->native-buffer buffer-data)
                new-buffer (dtype-cmc/make-container
-                           :native-heap (.datatype native-buf)
+                           :native-heap (.elemwise-datatype native-buf)
                            new-capacity
                            {:endianness (.endianness native-buf)
                             :resource-type (.resource-type native-buf)})]

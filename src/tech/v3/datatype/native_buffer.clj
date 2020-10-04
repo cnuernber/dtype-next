@@ -407,7 +407,7 @@
 
 (defn- native-buffer->buffer
   [^NativeBuffer this]
-  (let [datatype (.datatype this)
+  (let [datatype (.elemwise-datatype this)
         address (.address this)
         n-elems (.n-elems this)
         swap? (not= (.endianness this) (dtype-proto/platform-endianness))]
@@ -492,7 +492,7 @@
       nb
       (chain-native-buffers item
                             (NativeBuffer. (.address nb) (.n-elems nb)
-                                           (.datatype nb) endianness
+                                           (.elemwise-datatype nb) endianness
                                            (.resource-type nb) nil nil)))))
 
 
@@ -500,8 +500,9 @@
   [^NativeBuffer buf]
   {:address (.address buf)
    :length (.n-elems buf)
-   :byte-length (* (.n-elems buf) (casting/numeric-byte-width (.datatype buf)))
-   :datatype (.datatype buf)
+   :byte-length (* (.n-elems buf) (casting/numeric-byte-width
+                                   (.elemwise-datatype buf)))
+   :datatype (.elemwise-datatype buf)
    :resource-type (.resource-type buf)
    :endianness (.endianness buf)
    :metadata (.metadata buf)})

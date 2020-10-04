@@ -527,12 +527,12 @@
 
 (defn nd-buffer-descriptor->tensor
   "Given a buffer descriptor, produce a tensor"
-  [{:keys [ptr datatype shape strides] :as desc}]
+  [{:keys [ptr elemwise-datatype shape strides] :as desc}]
   (when (or (not ptr)
             (= 0 (long ptr)))
     (throw (ex-info "Cannot create tensor from nil pointer."
                     {:ptr ptr})))
-  (let [dtype-size (casting/numeric-byte-width datatype)]
+  (let [dtype-size (casting/numeric-byte-width elemwise-datatype)]
     (when-not (every? #(= 0 (rem (long %)
                                  dtype-size))
                       strides)
@@ -543,7 +543,7 @@
           ;;Move strides into elem-count instead of byte-count
           strides (mapv #(quot (long %) dtype-size)
                         strides)]
-      (-> (native-buffer/wrap-address ptr buffer-len datatype
+      (-> (native-buffer/wrap-address ptr buffer-len elemwise-datatype
                                       (dtype-proto/platform-endianness)
                                       desc)
           (construct-tensor (dims/dimensions shape strides))))))

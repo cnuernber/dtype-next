@@ -25,6 +25,9 @@
                            entry-type)]
         retval
         (throw (Exception. "Unrecognized type.")))))
+  dtype-proto/PDatatype
+  (datatype [this]
+    (dtype-proto/datatype (dtype-proto/as-tensor this)))
   dtype-proto/PECount
   (ecount [this] (:dim (.info this)))
   dtype-proto/PShape
@@ -43,7 +46,9 @@
         (throw (Exception. "Only dense neanderthal matrixes supported")))
       (let [ninfo (dtype-base/->native-buffer item)]
         (-> {:ptr (.address ninfo)
-             :datatype item-dtype
+             :elemwise-datatype item-dtype
+             :datatype {:container-type :tensor
+                        :elemwise-datatype item-dtype}
              :endianness (.endianness ninfo)
              :shape item-shape
              ;;TVM needs the device type
