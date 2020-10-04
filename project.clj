@@ -1,4 +1,4 @@
-(defproject cnuernber/dtype-next "0.4.10"
+(defproject cnuernber/dtype-next "0.4.11-SNAPSHOT"
   :description "A Clojure library designed to aid in the implementation of high performance algorithms and systems.
 
 This library implements a subset of functionality required for 'array' programming as well as several
