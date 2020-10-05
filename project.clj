@@ -9,7 +9,7 @@ There is a top level interface in Java named Buffer that implements a generic ty
 This interface includes queries as to whether it is capable of reading or writing.
 
 
-There is an of that interface built on java arrays that is denoted by the keyword :jvm-heap
+There is an implementation of that interface built on java arrays that is denoted by the keyword :jvm-heap
 and there is an implementation of that interface built on native arrays denoted by the keyword :native-heap.
 
 
@@ -22,7 +22,7 @@ descriptive statistics namespace - tech.v3.datatype.functional.
 
 
 Combining a Buffer with an ND index operator gives us an NDBuffer implemented in tech.v3.tensor.  This has
-a zerocopy pathway from/to neanderthal, numpy, and java's BufferdImage class."
+a zerocopy pathway from/to neanderthal, numpy, Smile's matrix class and java's BufferdImage class."
   :url "http://github.com/cnuernber/dtype-next"
   :license {:name "EPL-2.0"
             :url "https://www.eclipse.org/legal/epl-2.0/"}
