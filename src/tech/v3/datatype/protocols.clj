@@ -26,8 +26,8 @@
   (elemwise-cast [item new-dtype]))
 
 
-(defprotocol PContainerDatatype
-  (container-datatype [item]))
+(defprotocol PDatatype
+  (datatype [item]))
 
 
 (defprotocol PReinterpretElemwiseCast

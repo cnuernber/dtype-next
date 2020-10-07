@@ -28,6 +28,9 @@
        (sub-buffer [this# offset# length#]
          (-> (dtype-proto/sub-buffer ~buffer offset# length#)
              (dtype-proto/->reader)))
+       dtype-proto/PDatatype
+       (datatype [this#]
+         (dtype-proto/datatype ~buffer))
        ~(typecast/datatype->io-type (casting/safe-flatten cast-dtype))
        (elemwiseDatatype [rdr#] ~advertised-datatype)
        (lsize [rdr#] ~n-elems)
@@ -172,6 +175,9 @@
                       ^:volatile-mutable ^Buffer cached-io]
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [item] datatype)
+  dtype-proto/PDatatype
+  (datatype [item] {:container-type :jvm-heap
+                    :elemwise-datatype datatype})
   dtype-proto/PECount
   (ecount [item] n-elems)
   dtype-proto/PEndianness
@@ -333,50 +339,56 @@
 
 (defmacro initial-implement-arrays
   []
-  `(do ~@(->> array-types
-              (map (fn [ary-type]
-                     `(extend-type ~(typecast/datatype->array-cls ary-type)
-                        dtype-proto/PElemwiseDatatype
-                        (elemwise-datatype [~'item]
-                          ~(if (not= ary-type :object)
-                             `~ary-type
-                             `(-> (as-object ~'item)
-                                  (.getClass)
-                                  (.getComponentType)
-                                  (casting/object-class->datatype))))
-                        dtype-proto/PECount
-                        (ecount [item#]
-                          (alength
-                           (typecast/datatype->array ~ary-type item#)))
-                        ;;Java stores array data in memory as big-endian.  Holdover
-                        ;;from Sun Spark architecture.
-                        dtype-proto/PEndianness
-                        (endianness [item#] :big-endian)
-                        dtype-proto/PToArrayBuffer
-                        (convertible-to-array-buffer? [item#] true)
-                        (->array-buffer [item#]
-                          (ArrayBuffer. item# 0
-                                        (alength (typecast/datatype->array ~ary-type
-                                                                           item#))
-                                        (dtype-proto/elemwise-datatype item#)
-                                        {}
-                                        nil))
-                        dtype-proto/PSubBuffer
-                        (sub-buffer [item# off# len#]
-                          (ArrayBuffer. item#
-                                        (int off#)
-                                        (int len#)
-                                        (dtype-proto/elemwise-datatype item#)
-                                        {}
-                                        nil))
-                        dtype-proto/PToReader
-                        (convertible-to-reader? [item#] true)
-                        (->reader [item#]
-                          (dtype-proto/->reader (array-buffer item#)))
-                        dtype-proto/PToWriter
-                        (convertible-to-writer? [item#] true)
-                        (->writer [item#]
-                          (dtype-proto/->writer (array-buffer item#)))))))))
+  `(do
+     ~@(->>
+        array-types
+        (map
+         (fn [ary-type]
+           `(extend-type ~(typecast/datatype->array-cls ary-type)
+              dtype-proto/PElemwiseDatatype
+              (elemwise-datatype [~'item]
+                ~(if (not= ary-type :object)
+                   `~ary-type
+                   `(-> (as-object ~'item)
+                        (.getClass)
+                        (.getComponentType)
+                        (casting/object-class->datatype))))
+              dtype-proto/PDatatype
+              (datatype [item#] {:container-type :jvm-heap
+                                 :elemwise-datatype ~ary-type})
+              dtype-proto/PECount
+              (ecount [item#]
+                (alength
+                 (typecast/datatype->array ~ary-type item#)))
+              ;;Java stores array data in memory as big-endian.  Holdover
+              ;;from Sun Spark architecture.
+              dtype-proto/PEndianness
+              (endianness [item#] :big-endian)
+              dtype-proto/PToArrayBuffer
+              (convertible-to-array-buffer? [item#] true)
+              (->array-buffer [item#]
+                (ArrayBuffer. item# 0
+                              (alength (typecast/datatype->array ~ary-type
+                                                                 item#))
+                              (dtype-proto/elemwise-datatype item#)
+                              {}
+                              nil))
+              dtype-proto/PSubBuffer
+              (sub-buffer [item# off# len#]
+                (ArrayBuffer. item#
+                              (int off#)
+                              (int len#)
+                              (dtype-proto/elemwise-datatype item#)
+                              {}
+                              nil))
+              dtype-proto/PToReader
+              (convertible-to-reader? [item#] true)
+              (->reader [item#]
+                (dtype-proto/->reader (array-buffer item#)))
+              dtype-proto/PToWriter
+              (convertible-to-writer? [item#] true)
+              (->writer [item#]
+                (dtype-proto/->writer (array-buffer item#)))))))))
 
 
 (initial-implement-arrays)

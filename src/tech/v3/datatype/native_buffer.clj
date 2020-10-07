@@ -169,114 +169,117 @@
   [datatype advertised-datatype buffer address n-elems swap?]
   (let [byte-width (casting/numeric-byte-width datatype)]
     `(let [{~'unpacking-read :unpacking-read
-            ~'packing-write :packing-write} (packing/buffer-packing-pair ~advertised-datatype)]
-      (reify
-              dtype-proto/PToNativeBuffer
-              (convertible-to-native-buffer? [this#] true)
-              (->native-buffer [this#] ~buffer)
-              dtype-proto/PEndianness
-              (endianness [item] (dtype-proto/endianness ~buffer))
-              ;;Forward protocol methods that are efficiently implemented by the buffer
-              dtype-proto/PSubBuffer
-              (sub-buffer [this# offset# length#]
-                (-> (dtype-proto/sub-buffer ~buffer offset# length#)
-                    (dtype-proto/->reader)))
-              ~(typecast/datatype->io-type (casting/safe-flatten datatype))
-              (elemwiseDatatype [rdr#] ~advertised-datatype)
-              (lsize [rdr#] ~n-elems)
-              (allowsRead [rdr#] true)
-              (allowsWrite [rdr#] true)
-              ~@(cond
-                  (= datatype :boolean)
-                  [`(readBoolean [rdr# ~'idx]
-                                 (read-value ~address ~swap? ~datatype ~byte-width ~n-elems))]
-                  ;;For integer types, everything implements readlong.
-                  ;;They also implement readX where X maps to exactly the datatype.
-                  ;;For example byte arrays implement readLong and readByte.
-                  (casting/integer-type? datatype)
-                  (concat
-                   [`(readLong [rdr# ~'idx]
-                               (casting/datatype->unchecked-cast-fn
-                                ~datatype :int64
-                                (read-value ~address ~swap? ~datatype ~byte-width ~n-elems)))]
-                   (when-not (= :int64 (casting/safe-flatten datatype))
-                     ;;Exact reader fns for the exact datatype
-                     [(cond
-                        (= datatype :int8)
-                        `(readByte [rdr# ~'idx]
-                                   (read-value ~address ~swap? ~datatype ~byte-width ~n-elems))
-                        (= (casting/safe-flatten datatype) :int16)
-                        `(readShort [rdr# ~'idx]
-                                    (read-value ~address ~swap? ~datatype ~byte-width ~n-elems))
-                        (= datatype :char)
-                        `(readChar [rdr# ~'idx]
-                                   (read-value ~address ~swap? ~datatype ~byte-width ~n-elems))
-                        (= (casting/safe-flatten datatype) :int32)
-                        `(readInt [rdr# ~'idx]
-                                  (read-value ~address ~swap? ~datatype ~byte-width ~n-elems))
-                        :else (throw (Exception. (format "Macro expansion error-%s"
-                                                         datatype))))])
-                   (if (= :char datatype)
-                     [`(readObject [rdr# ~'idx]
-                                   (.readChar rdr# ~'idx))]
-                     ;;Integer types may be representing packed objects
-                     [`(readObject [~'rdr ~'idx]
-                                   (if ~'unpacking-read
-                                     (~'unpacking-read ~'rdr ~'idx)
-                                     (.readLong ~'rdr ~'idx)))]))
-                  (casting/float-type? datatype)
-                  [`(readDouble [rdr# ~'idx]
-                                (casting/datatype->unchecked-cast-fn
-                                 ~datatype :float64
-                                 (read-value ~address ~swap? ~datatype ~byte-width ~n-elems)))
-                   `(readFloat [rdr# ~'idx]
-                               (casting/datatype->unchecked-cast-fn
-                                ~datatype :float32
-                                (read-value ~address ~swap? ~datatype ~byte-width ~n-elems)))]
-                  :else
-                  [`(readObject [rdr# ~'idx]
-                                (read-value ~address ~swap? ~datatype ~byte-width ~n-elems))])
-              ~@(cond
-                  (= :boolean datatype)
-                  [`(writeBoolean [wtr# idx# ~'value]
-                                  (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))]
-                  (casting/integer-type? datatype)
-                  (concat
-                   [`(writeLong [rdr# ~'idx ~'value]
-                                (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))]
-                   (when-not (= :int64 (casting/safe-flatten datatype))
-                     ;;Exact reader fns for the exact datatype
-                     [(cond
-                        (= datatype :int8)
-                        `(writeByte [rdr# ~'idx ~'value]
-                                    (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))
-                        (= (casting/safe-flatten datatype) :int16)
-                        `(writeShort [rdr# ~'idx ~'value]
-                                     (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))
-                        (= datatype :char)
-                        `(writeChar [rdr# ~'idx ~'value]
-                                    (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))
-                        (= (casting/safe-flatten datatype) :int32)
-                        `(writeInt [rdr# ~'idx ~'value]
-                                   (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))
-                        :else (throw (Exception. (format "Macro expansion error-%s"
-                                                         datatype))))])
-                   (if (= :char datatype)
-                     [`(writeObject [rdr# ~'idx ~'value]
-                                    (.writeChar rdr# ~'idx (char ~'value)))]
-                     [`(writeObject [~'rdr ~'idx ~'value]
-                             (if ~'packing-write
-                               (~'packing-write ~'rdr ~'idx ~'value)
-                               (.writeLong ~'rdr ~'idx (long ~'value))))]))
-                  (casting/float-type? datatype)
-                  [`(writeDouble [rdr# ~'idx ~'value]
-                                 (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))
-                   `(writeFloat [rdr# ~'idx ~'value]
-                                (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))]
-                  :else
-                  [`(writeObject [wtr# idx# val#]
-                                 ;;Writing values is always checked, no options.
-                                 (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))])))))
+            ~'packing-write :packing-write}
+           (packing/buffer-packing-pair ~advertised-datatype)]
+       (reify
+         dtype-proto/PToNativeBuffer
+         (convertible-to-native-buffer? [this#] true)
+         (->native-buffer [this#] ~buffer)
+         dtype-proto/PEndianness
+         (endianness [item] (dtype-proto/endianness ~buffer))
+         ;;Forward protocol methods that are efficiently implemented by the buffer
+         dtype-proto/PSubBuffer
+         (sub-buffer [this# offset# length#]
+           (-> (dtype-proto/sub-buffer ~buffer offset# length#)
+               (dtype-proto/->reader)))
+         dtype-proto/PDatatype
+         (datatype [rdr#] (dtype-proto/datatype ~buffer))
+         ~(typecast/datatype->io-type (casting/safe-flatten datatype))
+         (elemwiseDatatype [rdr#] ~advertised-datatype)
+         (lsize [rdr#] ~n-elems)
+         (allowsRead [rdr#] true)
+         (allowsWrite [rdr#] true)
+         ~@(cond
+             (= datatype :boolean)
+             [`(readBoolean [rdr# ~'idx]
+                            (read-value ~address ~swap? ~datatype ~byte-width ~n-elems))]
+             ;;For integer types, everything implements readlong.
+             ;;They also implement readX where X maps to exactly the datatype.
+             ;;For example byte arrays implement readLong and readByte.
+             (casting/integer-type? datatype)
+             (concat
+              [`(readLong [rdr# ~'idx]
+                          (casting/datatype->unchecked-cast-fn
+                           ~datatype :int64
+                           (read-value ~address ~swap? ~datatype ~byte-width ~n-elems)))]
+              (when-not (= :int64 (casting/safe-flatten datatype))
+                ;;Exact reader fns for the exact datatype
+                [(cond
+                   (= datatype :int8)
+                   `(readByte [rdr# ~'idx]
+                              (read-value ~address ~swap? ~datatype ~byte-width ~n-elems))
+                   (= (casting/safe-flatten datatype) :int16)
+                   `(readShort [rdr# ~'idx]
+                               (read-value ~address ~swap? ~datatype ~byte-width ~n-elems))
+                   (= datatype :char)
+                   `(readChar [rdr# ~'idx]
+                              (read-value ~address ~swap? ~datatype ~byte-width ~n-elems))
+                   (= (casting/safe-flatten datatype) :int32)
+                   `(readInt [rdr# ~'idx]
+                             (read-value ~address ~swap? ~datatype ~byte-width ~n-elems))
+                   :else (throw (Exception. (format "Macro expansion error-%s"
+                                                    datatype))))])
+              (if (= :char datatype)
+                [`(readObject [rdr# ~'idx]
+                              (.readChar rdr# ~'idx))]
+                ;;Integer types may be representing packed objects
+                [`(readObject [~'rdr ~'idx]
+                              (if ~'unpacking-read
+                                (~'unpacking-read ~'rdr ~'idx)
+                                (.readLong ~'rdr ~'idx)))]))
+             (casting/float-type? datatype)
+             [`(readDouble [rdr# ~'idx]
+                           (casting/datatype->unchecked-cast-fn
+                            ~datatype :float64
+                            (read-value ~address ~swap? ~datatype ~byte-width ~n-elems)))
+              `(readFloat [rdr# ~'idx]
+                          (casting/datatype->unchecked-cast-fn
+                           ~datatype :float32
+                           (read-value ~address ~swap? ~datatype ~byte-width ~n-elems)))]
+             :else
+             [`(readObject [rdr# ~'idx]
+                           (read-value ~address ~swap? ~datatype ~byte-width ~n-elems))])
+         ~@(cond
+             (= :boolean datatype)
+             [`(writeBoolean [wtr# idx# ~'value]
+                             (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))]
+             (casting/integer-type? datatype)
+             (concat
+              [`(writeLong [rdr# ~'idx ~'value]
+                           (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))]
+              (when-not (= :int64 (casting/safe-flatten datatype))
+                ;;Exact reader fns for the exact datatype
+                [(cond
+                   (= datatype :int8)
+                   `(writeByte [rdr# ~'idx ~'value]
+                               (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))
+                   (= (casting/safe-flatten datatype) :int16)
+                   `(writeShort [rdr# ~'idx ~'value]
+                                (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))
+                   (= datatype :char)
+                   `(writeChar [rdr# ~'idx ~'value]
+                               (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))
+                   (= (casting/safe-flatten datatype) :int32)
+                   `(writeInt [rdr# ~'idx ~'value]
+                              (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))
+                   :else (throw (Exception. (format "Macro expansion error-%s"
+                                                    datatype))))])
+              (if (= :char datatype)
+                [`(writeObject [rdr# ~'idx ~'value]
+                               (.writeChar rdr# ~'idx (char ~'value)))]
+                [`(writeObject [~'rdr ~'idx ~'value]
+                               (if ~'packing-write
+                                 (~'packing-write ~'rdr ~'idx ~'value)
+                                 (.writeLong ~'rdr ~'idx (long ~'value))))]))
+             (casting/float-type? datatype)
+             [`(writeDouble [rdr# ~'idx ~'value]
+                            (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))
+              `(writeFloat [rdr# ~'idx ~'value]
+                           (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))]
+             :else
+             [`(writeObject [wtr# idx# val#]
+                            ;;Writing values is always checked, no options.
+                            (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))])))))
 
 
 (declare native-buffer->buffer)
@@ -293,6 +296,12 @@
   (endianness [item] endianness)
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [this] datatype)
+  dtype-proto/PDatatype
+  (datatype [this]
+    {:container-type :native-heap
+     :elemwise-datatype datatype
+     :endianness endianness
+     :resource-type resource-type})
   dtype-proto/PECount
   (ecount [this] n-elems)
   dtype-proto/PSubBuffer
@@ -398,7 +407,7 @@
 
 (defn- native-buffer->buffer
   [^NativeBuffer this]
-  (let [datatype (.datatype this)
+  (let [datatype (.elemwise-datatype this)
         address (.address this)
         n-elems (.n-elems this)
         swap? (not= (.endianness this) (dtype-proto/platform-endianness))]
@@ -483,7 +492,7 @@
       nb
       (chain-native-buffers item
                             (NativeBuffer. (.address nb) (.n-elems nb)
-                                           (.datatype nb) endianness
+                                           (.elemwise-datatype nb) endianness
                                            (.resource-type nb) nil nil)))))
 
 
@@ -491,8 +500,9 @@
   [^NativeBuffer buf]
   {:address (.address buf)
    :length (.n-elems buf)
-   :byte-length (* (.n-elems buf) (casting/numeric-byte-width (.datatype buf)))
-   :datatype (.datatype buf)
+   :byte-length (* (.n-elems buf) (casting/numeric-byte-width
+                                   (.elemwise-datatype buf)))
+   :datatype (.elemwise-datatype buf)
    :resource-type (.resource-type buf)
    :endianness (.endianness buf)
    :metadata (.metadata buf)})

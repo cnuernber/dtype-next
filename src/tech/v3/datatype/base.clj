@@ -13,14 +13,32 @@
            [tech.v3.datatype.array_buffer ArrayBuffer]
            [tech.v3.datatype.native_buffer NativeBuffer]
            [clojure.lang IPersistentCollection]
-           [java.util RandomAccess List]
-           [java.util.stream Stream]))
+           [java.util RandomAccess List
+            Spliterator Spliterator$OfDouble Spliterator$OfLong
+            Spliterator$OfInt]
+           [java.util.stream Stream DoubleStream LongStream IntStream]))
 
 
 (defn elemwise-datatype
-  "Return the datatype of the values in this object."
+  "Return the datatype one would expect when iterating through a container
+  of this type.  For scalars, return your elemental datatype."
   [item]
+  ;;false has a datatype in this world.
   (when-not (nil? item) (dtype-proto/elemwise-datatype item)))
+
+
+(defn datatype
+  "Return this object's actual datatype.
+  **This is not the same as the DEPRECATED get-datatype.  That is function maps
+  to elemwise-datatype.**
+  This maps to the parameterization of the object, so for instance a list of ints
+  might be:
+```clojure
+  {:container-type :list :elemwise-datatype :int32}
+```
+  Defaults to this object's elemwise-datatype."
+  [item]
+  (when-not (nil? item) (dtype-proto/datatype item)))
 
 
 (defn elemwise-cast
@@ -236,6 +254,9 @@
 
 
 (extend-type RandomAccess
+  dtype-proto/PDatatype
+  (datatype [item] {:container-type :random-access
+                    :elemwise-datatype :object})
   dtype-proto/PToBuffer
   (convertible-to-buffer? [item] true)
   (->buffer [item] (random-access->io item))
@@ -251,6 +272,45 @@
     (random-access->io item)))
 
 
+(extend-protocol dtype-proto/PElemwiseDatatype
+  DoubleStream
+  (elemwise-datatype [item] :float64)
+  Spliterator$OfDouble
+  (elemwise-datatype [item] :float64)
+  LongStream
+  (elemwise-datatype [item] :int64)
+  Spliterator$OfLong
+  (elemwise-datatype [item] :int64)
+  IntStream
+  (elemwise-datatype [item] :int32)
+  Spliterator$OfInt
+  (elemwise-datatype [item] :int32))
+
+
+(extend-protocol dtype-proto/PDatatype
+  Stream
+  (datatype [item] {:container-type :stream
+                    :elemwise-datatype :object})
+  DoubleStream
+  (datatype [item] {:container-type :stream
+                    :elemwise-datatype :float64})
+  Spliterator$OfDouble
+  (datatype [item] {:container-type :spliterator
+                    :elemwise-datatype :float64})
+  LongStream
+  (datatype [item] {:container-type :stream
+                    :elemwise-datatype :int64})
+  Spliterator$OfLong
+  (datatype [item] {:container-type :spliterator
+                    :elemwise-datatype :int64})
+  IntStream
+  (datatype [item] {:container-type :stream
+                    :elemwise-datatype :int32})
+  Spliterator$OfInt
+  (datatype [item] {:container-type :spliterator
+                    :elemwise-datatype :int32}))
+
+
 (defn- inner-buffer-sub-buffer
   [buf ^long offset ^Long len]
   (when-let [data-buf (as-concrete-buffer buf)]
@@ -260,6 +320,11 @@
 
 
 (extend-type Buffer
+  dtype-proto/PDatatype
+  (datatype [item] {:container-type :buffer
+                    :allows-read? (.allowsRead item)
+                    :allows-write? (.allowsWrite item)
+                    :elemwise-datatype (dtype-proto/elemwise-datatype item)})
   dtype-proto/PToBuffer
   (convertible-to-buffer? [buf] true)
   (->buffer [item] item)
@@ -302,6 +367,11 @@
 
 ;;Datatype library Object defaults.  Here lie dragons.
 (extend-type Object
+  dtype-proto/PDatatype
+  (datatype [item]
+    (if-let [buffer (as-concrete-buffer item)]
+      (dtype-proto/datatype buffer)
+      (dtype-proto/elemwise-datatype item)))
   dtype-proto/PElemwiseCast
   (elemwise-cast [item new-dtype]
     (let [src-dtype (dtype-proto/elemwise-datatype item)]
@@ -435,6 +505,12 @@
                      (dtype-proto/shape fitem))
              vec)
         [(.size item)]))))
+
+
+(extend-type Iterable
+  dtype-proto/PDatatype
+  (datatype [item] {:container-type :iterable
+                    :elemwise-datatype :object}))
 
 
 (defn set-constant!

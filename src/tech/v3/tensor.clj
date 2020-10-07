@@ -1,11 +1,12 @@
 (ns tech.v3.tensor
   "ND bindings for the tech.v3.datatype system.  A Tensor is conceptually just a tuple
-  of a buffer and an index operator that is capable of converting indexes in ND space into
-  a single long index into the buffer.  Tensors implementent the tech.v3.datatype.NDBuffer
-  interface and outside this file ND objects are expected to simply implement that interface.
+  of a buffer and an index operator that is capable of converting indexes in ND space
+  into a single long index into the buffer.  Tensors implementent the
+  tech.v3.datatype.NDBuffer interface and outside this file ND objects are expected to
+  simply implement that interface.
 
-  This system relies heavily on the tech.v3.tensor.dimensions namespace to provide the optimized
-  indexing operator from ND space to buffer space and back."
+  This system relies heavily on the tech.v3.tensor.dimensions namespace to provide the
+  optimized indexing operator from ND space to buffer space and back."
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.casting :as casting]
@@ -45,6 +46,11 @@
   (elemwise-cast [t new-dtype]
     (construct-tensor (dtype-proto/elemwise-cast buffer new-dtype)
                       dimensions))
+  dtype-proto/PDatatype
+  (datatype [this]
+    {:container-type :tensor
+     :elemwise-datatype (.elemwiseDatatype this)
+     :buffer (dtype-proto/datatype buffer)})
   dtype-proto/PECount
   (ecount [t] (dims/ecount dimensions))
   dtype-proto/PShape
@@ -65,7 +71,8 @@
     (let [nbuf (dtype-base/->native-buffer buffer)]
       (->
        {:ptr (.address nbuf)
-        :datatype (dtype-base/elemwise-datatype buffer)
+        :datatype (dtype-base/datatype buffer)
+        :elemwise-datatype (dtype-base/elemwise-datatype buffer)
         :endianness (dtype-proto/endianness nbuf)
         :shape (dtype-base/shape item)
         :strides (mapv (partial * (casting/numeric-byte-width
@@ -520,12 +527,12 @@
 
 (defn nd-buffer-descriptor->tensor
   "Given a buffer descriptor, produce a tensor"
-  [{:keys [ptr datatype shape strides] :as desc}]
+  [{:keys [ptr elemwise-datatype shape strides] :as desc}]
   (when (or (not ptr)
             (= 0 (long ptr)))
     (throw (ex-info "Cannot create tensor from nil pointer."
                     {:ptr ptr})))
-  (let [dtype-size (casting/numeric-byte-width datatype)]
+  (let [dtype-size (casting/numeric-byte-width elemwise-datatype)]
     (when-not (every? #(= 0 (rem (long %)
                                  dtype-size))
                       strides)
@@ -536,7 +543,7 @@
           ;;Move strides into elem-count instead of byte-count
           strides (mapv #(quot (long %) dtype-size)
                         strides)]
-      (-> (native-buffer/wrap-address ptr buffer-len datatype
+      (-> (native-buffer/wrap-address ptr buffer-len elemwise-datatype
                                       (dtype-proto/platform-endianness)
                                       desc)
           (construct-tensor (dims/dimensions shape strides))))))

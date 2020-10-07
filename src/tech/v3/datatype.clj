@@ -25,7 +25,7 @@
             [tech.v3.datatype.export-symbols :refer [export-symbols]])
   (:import [tech.v3.datatype.array_buffer ArrayBuffer]
            [tech.v3.datatype ListPersistentVector BooleanReader
-            LongReader DoubleReader ObjectReader]
+            LongReader DoubleReader ObjectReader PrimitiveList]
            [org.roaringbitmap RoaringBitmap]
            [java.util List])
   (:refer-clojure :exclude [cast]))
@@ -48,6 +48,7 @@
 
 (export-symbols tech.v3.datatype.base
                 elemwise-datatype
+                datatype
                 elemwise-cast
                 ecount
                 shape
@@ -172,6 +173,16 @@ user> (dtype/make-reader :float32 5 (* idx 2))
                 ->long-array
                 ->float-array
                 ->double-array)
+
+
+(defn make-list
+  "Make an instance of a tech.v3.datatype.PrimitiveList.  These have typed add*
+  methods, implement tech.v3.datatype.Buffer, and a guaranteed in-place transformation
+  to a concrete buffer (defaults to an array buffer)."
+  (^PrimitiveList [datatype n-elems-or-data]
+   (make-container :list datatype n-elems-or-data))
+  (^PrimitiveList [datatype]
+   (make-list datatype 0)))
 
 
 (defn ->array-copy

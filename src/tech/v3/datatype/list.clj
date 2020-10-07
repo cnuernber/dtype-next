@@ -19,7 +19,7 @@
 ;;being that ObjectArrayList gives us access to the underlying object array.
 
 
-(defn ensure-capacity
+(defn- ensure-capacity
   ([buffer-data ^long desired-size ^long capacity]
    (if (> capacity desired-size)
      buffer-data
@@ -29,13 +29,14 @@
                                 (max (* 2 desired-size) 10)
                                 (long (* 1.25 desired-size))))]
        (if-let [ary-buf (dtype-base/as-array-buffer buffer-data)]
-         (let [new-buffer (dtype-cmc/make-container :jvm-heap (.datatype ary-buf)
+         (let [new-buffer (dtype-cmc/make-container :jvm-heap
+                                                    (.elemwise-datatype ary-buf)
                                                     new-capacity)]
            (dtype-cmc/copy! buffer-data (dtype-base/sub-buffer new-buffer 0 capacity))
            new-buffer)
          (let [native-buf (dtype-base/->native-buffer buffer-data)
                new-buffer (dtype-cmc/make-container
-                           :native-heap (.datatype native-buf)
+                           :native-heap (.elemwise-datatype native-buf)
                            new-capacity
                            {:endianness (.endianness native-buf)
                             :resource-type (.resource-type native-buf)})]
@@ -76,6 +77,11 @@
   (writeFloat [this idx val] (check-idx idx ptr) (.writeFloat cached-io idx val))
   (writeDouble [this idx val] (check-idx idx ptr) (.writeDouble cached-io idx val))
   (writeObject [this idx val] (check-idx idx ptr) (.writeObject cached-io idx val))
+  dtype-proto/PDatatype
+  (datatype [this]
+    {:container-type :list
+     :elemwise-datatype (.elemwiseDatatype this)
+     :backing-store (dtype-proto/datatype buffer)})
   dtype-proto/PToArrayBuffer
   (convertible-to-array-buffer? [this]
     (dtype-proto/convertible-to-array-buffer? buffer))
@@ -154,6 +160,8 @@
 
 
 (defn make-list
+  "Make a new primitive list out of a container and a ptr that indicates the
+  current write position."
   (^PrimitiveList [initial-container ^long ptr]
    (let [rw (dtype-base/->reader initial-container)]
      (ListImpl. initial-container (dtype-base/ecount initial-container) ptr rw {})))
@@ -162,11 +170,14 @@
 
 
 (defn wrap-container
+  "In-place wrap an existing container.  Write ptr points to the end
+  of the container so the next add* method will cause an allocation."
   ^List [container]
   (make-list container (dtype-base/ecount container)))
 
 
 (defn empty-list
+  "Make an empty list of a given datatype."
   ^List [datatype]
   (make-list datatype))
 

@@ -1,4 +1,4 @@
-(defproject cnuernber/dtype-next "0.4.8-SNAPSHOT"
+(defproject cnuernber/dtype-next "0.4.11-SNAPSHOT"
   :description "A Clojure library designed to aid in the implementation of high performance algorithms and systems.
 
 This library implements a subset of functionality required for 'array' programming as well as several
@@ -54,7 +54,9 @@ a zerocopy pathway from/to neanderthal, numpy, Smile's matrix class and java's B
                       :source-uri "https://github.com/cnuernber/dtype-next/blob/master/{filepath}#L{line}"
                       :namespaces [tech.v3.datatype tech.v3.datatype.functional
                                    tech.v3.datatype.errors
-                                   tech.v3.tensor tech.v3.compute tech.v3.datatype.argops
+                                   tech.v3.tensor tech.v3.compute
+                                   tech.v3.datatype.argops
+                                   tech.v3.datatype.list
                                    tech.v3.datatype.bitmap
                                    tech.v3.datatype.datetime
                                    tech.v3.datatype.mmap

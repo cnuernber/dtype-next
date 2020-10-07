@@ -3,7 +3,6 @@
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.argops :as argops]
             [tech.v3.tensor :as dtt]
-            [tech.v3.tensor.tensor-copy :as tc]
             [clojure.test :refer :all])
   (:import [tech.v3.datatype NDBuffer]))
 
@@ -101,8 +100,15 @@
       (is (dfn/equals test-tensor new-tens))
       (let [trans-tens (dtt/transpose new-tens [1 0])
             trans-desc (dtype/as-nd-buffer-descriptor trans-tens)]
-        (is (= {:datatype :float64, :endianness :little-endian
-                :shape [3 3], :strides [8 24]}
+        (is (= {:datatype
+                {:container-type :native-heap,
+                 :elemwise-datatype :float64,
+                 :endianness :little-endian,
+                 :resource-type #{:gc}},
+                :elemwise-datatype :float64,
+                :endianness :little-endian,
+                :shape [3 3],
+                :strides [8 24]}
                (dissoc trans-desc :ptr)))))))
 
 
