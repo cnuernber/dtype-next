@@ -36,6 +36,11 @@ public class DoubleConsumers
       value += data;
       nElems++;
     }
+    public Sum inplaceCombine(Sum other) {
+      value += other.value;
+      nElems += other.nElems;
+      return this;
+    }
     public Consumers.Result result() {
       return new SumResult(value, nElems);
     }
