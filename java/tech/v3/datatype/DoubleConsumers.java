@@ -9,99 +9,76 @@ import java.util.Collections;
 
 public class DoubleConsumers
 {
-  public static class SumResult implements Consumers.Result
+  public static abstract class ScalarReduceBase implements Consumers.StagedConsumer,
+							   DoubleConsumer
   {
-    public final double value;
-    public final long nElems;
-    public SumResult(double _value, long _nElems)
-    {
-      value = _value;
-      nElems = _nElems;
-    }
-    public Consumers.Result combine(Consumers.Result other) {
-      return new SumResult(value + (double)other.value(), nElems + other.nElems());
-    }
-    public Object value() { return value; }
-    public long nElems() { return nElems; }
-  }
-  public static class Sum implements Consumers.StagedConsumer, DoubleConsumer
-  {
+    public static final Keyword valueKwd = Keyword.intern(null, "value");
+    public static final Keyword nElemsKwd = Keyword.intern(null, "n-elems");
     public double value;
     public long nElems;
-    public Sum() {
+    public ScalarReduceBase() {
       value = 0.0;
       nElems = 0;
+    }
+    public static Object valueMap(double value, long nElems ){
+      HashMap hm = new HashMap();
+      hm.put( valueKwd, value );
+      hm.put( nElemsKwd, nElems );
+      return hm;
+    }
+    public Object value() {
+      return valueMap(value,nElems);
+    }
+  }
+  public static class Sum extends ScalarReduceBase
+  {
+    public Sum() {
+      super();
     }
     public void accept(double data) {
       value += data;
       nElems++;
     }
-    public Sum inplaceCombine(Sum other) {
+    public void inplaceCombine(Consumers.StagedConsumer _other) {
+      ScalarReduceBase other = (ScalarReduceBase)_other;
       value += other.value;
       nElems += other.nElems;
-      return this;
-    }
-    public Consumers.Result result() {
-      return new SumResult(value, nElems);
     }
   }
-  public static class UnaryOpSum implements Consumers.StagedConsumer, DoubleConsumer
+  public static class UnaryOpSum extends Sum
   {
     public final UnaryOperator op;
-    public double value;
-    public long nElems;
     public UnaryOpSum(UnaryOperator _op) {
-      value = 0.0;
-      nElems = 0;
+      super();
       op = _op;
     }
     public void accept(double data) {
-      value += op.unaryDouble(data);
-      nElems++;
-    }
-    public Consumers.Result result() {
-      return new SumResult(value, nElems);
+      super.accept(op.unaryDouble(data));
     }
   }
-
-  public static class BinOpResult implements Consumers.Result
+  public static class BinaryOp extends ScalarReduceBase
   {
     public final BinaryOperator op;
-    public double value;
-    public long nElems;
-    public BinOpResult(BinaryOperator _op, double _value, long _nElems) {
-      op = _op;
-      value = _value;
-      nElems = _nElems;
-    }
-    public Object value() { return value; }
-    public long nElems() { return nElems; }
-    public Consumers.Result combine(Consumers.Result other) {
-      return new BinOpResult(op,
-			     op.binaryDouble(value, (double)other.value()),
-			     nElems + other.nElems());
-    }
-  }
-  public static class BinaryOp implements Consumers.StagedConsumer, DoubleConsumer
-  {
-    public final BinaryOperator op;
-    public double value;
-    public long nElems;
     public BinaryOp(BinaryOperator _op, double initValue) {
+      super();
       value = initValue;
-      nElems = 0;
       op = _op;
     }
     public void accept(double data) {
       value = op.binaryDouble(value, data);
       nElems++;
     }
-    public Consumers.Result result() {
-      return new BinOpResult(op, value, nElems);
+    public void inplaceCombine(Consumers.StagedConsumer _other) {
+      BinaryOp other = (BinaryOp)_other;
+      value = op.binaryDouble(value, other.value);
+      nElems += other.nElems;
     }
   }
   public static class MinMaxSum implements Consumers.StagedConsumer, DoubleConsumer
   {
+    public static final Keyword sumKwd = Keyword.intern(null, "sum");
+    public static final Keyword minKwd = Keyword.intern(null, "min");
+    public static final Keyword maxKwd = Keyword.intern(null, "max");
     public double sum;
     public double min;
     public double max;
@@ -118,40 +95,27 @@ public class DoubleConsumers
       max = Math.max(val, max);
       nElems++;
     }
-    public Consumers.Result result() {
-      return new MinMaxSumResult(sum,min,max,nElems);
+    public void inplaceCombine(Consumers.StagedConsumer _other) {
+      MinMaxSum other = (MinMaxSum)_other;
+      sum += other.sum;
+      min = Math.min(min, other.min);
+      max = Math.max(max, other.max);
+      nElems += other.nElems;
     }
-  }
-  public static class MinMaxSumResult implements Consumers.Result
-  {
-    public double sum;
-    public double min;
-    public double max;
-    public long nElems;
-    public MinMaxSumResult(double s, double _min, double _max, long _ne) {
-      sum = s;
-      min = _min;
-      max = _max;
-      nElems = _ne;
-    }
-    public long nElems() { return nElems; }
     public Object value() {
       HashMap retval = new HashMap();
-      retval.put(Keyword.intern(null, "sum"), sum);
-      retval.put(Keyword.intern(null, "min"), min);
-      retval.put(Keyword.intern(null, "max"), max);
+      retval.put(sumKwd, sum);
+      retval.put(minKwd, min);
+      retval.put(maxKwd, max);
+      retval.put(ScalarReduceBase.nElemsKwd, nElems);
       return retval;
-    }
-    public Consumers.Result combine(Consumers.Result _other) {
-      MinMaxSumResult other = (MinMaxSumResult)_other;
-      return new MinMaxSumResult( sum + other.sum,
-				  Math.min(min, other.min),
-				  Math.max(max, other.max),
-				  nElems + other.nElems );
     }
   }
   public static class Moments implements Consumers.StagedConsumer, DoubleConsumer
   {
+    public static final Keyword m2Kwd = Keyword.intern(null, "moment-2");
+    public static final Keyword m3Kwd = Keyword.intern(null, "moment-3");
+    public static final Keyword m4Kwd = Keyword.intern(null, "moment-4");
     public final double mean;
     public double m2;
     public double m3;
@@ -174,42 +138,26 @@ public class DoubleConsumers
       m4 += md4;
       nElems++;
     }
-    public Consumers.Result result() {
-      return new MomentsResult(m2,m3,m4,nElems);
+    public void inplaceCombine(Consumers.StagedConsumer _other) {
+      Moments other = (Moments)_other;
+      m2 += other.m2;
+      m3 += other.m3;
+      m4 += other.m4;
+      nElems += other.nElems;
     }
-  }
-  public static class MomentsResult implements Consumers.Result
-  {
-    public double m2;
-    public double m3;
-    public double m4;
-    public long nElems;
-    public MomentsResult(double _m2, double _m3, double _m4, long _ne) {
-      m2 = _m2;
-      m3 = _m3;
-      m4 = _m4;
-      nElems = _ne;
-    }
-    public long nElems() { return nElems; }
     public Object value() {
       HashMap retval = new HashMap();
-      retval.put(Keyword.intern(null, "moment-2"), m2);
-      retval.put(Keyword.intern(null, "moment-3"), m3);
-      retval.put(Keyword.intern(null, "moment-4"), m4);
+      retval.put(m2Kwd, m2);
+      retval.put(m3Kwd, m3);
+      retval.put(m4Kwd, m4);
+      retval.put(ScalarReduceBase.nElemsKwd, nElems);
       return retval;
     }
-    public Consumers.Result combine(Consumers.Result _other) {
-      MomentsResult other = (MomentsResult)_other;
-      return new MomentsResult( m2 + other.m2,
-				m3 + other.m3,
-				m4 + other.m4,
-				nElems + other.nElems );
-    }
   }
-  //tight loop consume call.
-  public static Consumers.Result consume(long offset, int grouplen, Buffer data,
-					 Consumers.StagedConsumer consumer,
-					 DoublePredicate predicate) {
+  public static Consumers.StagedConsumer
+    consume(long offset, int grouplen, Buffer data,
+	    Consumers.StagedConsumer consumer,
+	    DoublePredicate predicate) {
     final DoubleConsumer dconsumer = (DoubleConsumer)consumer;
     if( predicate == null) {
       for (int idx = 0; idx < grouplen; ++idx) {
@@ -223,6 +171,6 @@ public class DoubleConsumers
 	}
       }
     }
-    return consumer.result();
+    return consumer;
   }
 }

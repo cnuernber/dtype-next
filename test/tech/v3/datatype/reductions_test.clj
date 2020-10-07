@@ -2,59 +2,51 @@
   (:require [tech.v3.datatype.reductions :as reductions]
             [tech.v3.datatype.unary-op :as unop]
             [tech.v3.datatype.binary-op :as binop]
-            [tech.v3.datatype.base :as dtype-base]
-            [tech.v3.parallel.for :as parallel-for]
-            [primitive-math :as pmath]
-            [clojure.test :refer [deftest is]])
-  (:import [tech.v3.datatype DoubleReduction
-            DoubleConsumers$Sum
-            Consumers$Result
-            DoubleConsumers$MinMaxSum
-            DoubleConsumers$Moments]
-           [java.util Spliterator Spliterator$OfDouble]
-           [java.util.function DoubleConsumer]))
+            [clojure.test :refer [deftest is]]))
 
 
 (deftest summation-reductions
   (let [data (double-array (range 100))
         nan-data (double-array (range 100))
-        _ (aset nan-data 50 Double/NaN)
-        answer (double (reduce + data))
-        nan-answer (double (- answer 50))]
-    (is (= {:n-elems 100 :data {:sum answer}}
+        _ (aset nan-data 50 Double/NaN)]
+    (is (= {:n-elems 100, :data {:sum {:n-elems 100, :value 4950.0}}}
            (reductions/double-reductions {:sum :+}
                                          {:nan-strategy :keep}
                                          data)))
-    (is (= {:n-elems 99 :data {:sum nan-answer}}
+    (is (= {:n-elems 99, :data {:sum {:n-elems 99, :value 4900.0}}}
            (reductions/double-reductions {:sum :+} nan-data)))
     (is (thrown? Throwable
                  (reductions/double-reductions
-                  {:sum :+} nan-data
-                  {:nan-strategy :exception})))
-    (is (= {:n-elems 99 :data {:sum nan-answer}}
+                  {:sum :+}
+                  {:nan-strategy :exception}
+                  nan-data)))
+    (is (= {:n-elems 99, :data {:sum {:n-elems 99, :value 4900.0}}}
            (reductions/double-reductions {:sum (:identity unop/builtin-ops)}
                                          nan-data)))
-    (is (= {:n-elems 99 :data {:sum nan-answer}}
+    (is (= {:n-elems 99, :data {:sum {:n-elems 99, :value 4900.0}}}
            (reductions/double-reductions {:sum (:+ binop/builtin-ops)}
                                          nan-data)))
 
-    (is (= {:n-elems 100 :data {:sum1 answer
-                                :sum2 answer
-                                :sum3 answer}}
+    (is (= {:n-elems 100,
+	   :data
+	   {:sum1 {:n-elems 100, :value 4950.0},
+	    :sum2 {:n-elems 100, :value 4950.0},
+	    :sum3 {:n-elems 100, :value 4950.0}}}
            (reductions/double-reductions {:sum1 :+
                                           :sum2 (:identity unop/builtin-ops)
                                           :sum3 (:+ binop/builtin-ops)}
                                          {:nan-strategy :keep}
                                          data)))
-    (is (= {:n-elems 99 :data {:sum1 nan-answer
-                               :sum2 nan-answer
-                               :sum3 nan-answer}}
+    (is (= {:n-elems 99,
+	   :data
+	   {:sum1 {:n-elems 99, :value 4900.0},
+	    :sum2 {:n-elems 99, :value 4900.0},
+	    :sum3 {:n-elems 99, :value 4900.0}}}
            (reductions/double-reductions {:sum1 :+
                                           :sum2 (:identity unop/builtin-ops)
                                           :sum3 (:+ binop/builtin-ops)}
                                          {:nan-strategy :remove}
-                                         nan-data)))
-    ))
+                                         nan-data)))))
 
 (comment
   (do

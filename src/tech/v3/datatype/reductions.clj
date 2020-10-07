@@ -4,18 +4,16 @@
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.casting :as casting]
-            [tech.v3.datatype.errors :as errors]
-            [tech.v3.datatype.protocols :as dtype-proto]
-            [tech.v3.datatype.unary-op :as unop]
-            [primitive-math :as pmath])
+            [tech.v3.datatype.errors :as errors])
   (:import [tech.v3.datatype BinaryOperator IndexReduction DoubleReduction
             Buffer IndexReduction$IndexedBiFunction UnaryOperator
             BufferIterator BufferDoubleSpliterator
-            Consumers$StagedConsumer Consumers$Result
-            DoubleConsumers DoubleConsumers$Sum DoubleConsumers$UnaryOpSum
+            Consumers$StagedConsumer
+            DoubleConsumers
+            DoubleConsumers$Sum
+            DoubleConsumers$UnaryOpSum
             DoubleConsumers$BinaryOp
-            Consumers$MultiStagedConsumer
-            Consumers$MultiStagedResult]
+            Consumers$MultiStagedConsumer]
            [java.util List Map HashMap Map$Entry Spliterator$OfDouble Spliterator]
            [java.util.concurrent ForkJoinPool Callable Future]
            [java.util.stream StreamSupport]
@@ -56,33 +54,11 @@
 
 (defn- reduce-consumer-results
   [consumer-results]
-  (reduce (fn [^Consumers$Result lhs
-               ^Consumers$Result rhs]
-            (.combine lhs rhs))
+  (reduce (fn [^Consumers$StagedConsumer lhs
+               ^Consumers$StagedConsumer rhs]
+            (.inplaceCombine lhs rhs)
+            lhs)
           consumer-results))
-
-
-(defn staged-double-consumer-reduction
-  "Given a function that produces an implementation of
-  tech.v3.datatype.Consumers$StagedConsumer perform a reduction.
-
-  A staged consumer is a consumer can be used in a map-reduce pathway
-  where during the map portion .consume is called and then during produces
-  a 'result' on which .combine is called during the reduce pathway."
-  (^Consumers$Result [staged-consumer-fn {:keys [nan-strategy]} rdr]
-   (let [rdr (dtype-base/->reader rdr)
-         n-elems (.size rdr)
-         predicate (nan-strategy->double-predicate
-                    nan-strategy)]
-     (parallel-for/indexed-map-reduce
-      n-elems
-      (fn [^long start-idx ^long group-len]
-        (DoubleConsumers/consume start-idx (int group-len) rdr
-                                 (staged-consumer-fn) predicate))
-      reduce-consumer-results)))
-  (^Consumers$Result [staged-consumer-fn rdr]
-   (staged-double-consumer-reduction staged-consumer-fn nil rdr)))
-
 
 (defn reducer-value->consumer-fn
   "Produce a consumer from a generic reducer value."
@@ -102,6 +78,36 @@
     (errors/throwf "Connot convert value to double consumer: %s" reducer-value)))
 
 
+(defn staged-double-consumer-reduction
+  "Given a function that produces an implementation of
+  tech.v3.datatype.Consumers$StagedConsumer perform a reduction.
+
+  A staged consumer is a consumer can be used in a map-reduce pathway
+  where during the map portion .consume is called and then during produces
+  a 'result' on which .combine is called during the reduce pathway."
+  ([staged-consumer-fn {:keys [nan-strategy]} rdr]
+   (let [predicate (nan-strategy->double-predicate
+                    nan-strategy)
+         staged-consumer-fn (reducer-value->consumer-fn staged-consumer-fn)]
+     (if-let [rdr (dtype-base/as-reader rdr)]
+       (let [n-elems (.size rdr)
+             ^Consumers$StagedConsumer result
+             (parallel-for/indexed-map-reduce
+              n-elems
+              (fn [^long start-idx ^long group-len]
+                (DoubleConsumers/consume start-idx (int group-len) rdr
+                                         (staged-consumer-fn) predicate))
+              reduce-consumer-results)]
+         (.value result))
+       (let [^DoubleConsumer consumer (staged-consumer-fn)]
+         (parallel-for/consume! (fn [^double val]
+                                  (.accept consumer val))
+                                rdr)
+         (.value ^Consumers$StagedConsumer consumer)))))
+  ([staged-consumer-fn rdr]
+   (staged-double-consumer-reduction staged-consumer-fn nil rdr)))
+
+
 (defn double-reductions
   "Perform a group of reductions on a single double reader."
   ([reducer-map options rdr]
@@ -115,8 +121,8 @@
                  (let [result (staged-double-consumer-reduction
                                (reducer-value->consumer-fn reducer)
                                options rdr)]
-                   (-> (assoc accum :n-elems (.nElems result))
-                       (update :data merge {reducer-name (.value result)}))))
+                   (-> (assoc accum :n-elems (:n-elems result))
+                       (update :data merge {reducer-name result}))))
                {}
                reducer-map)
        :else
@@ -129,12 +135,10 @@
                             (into-array (Class/forName
                                          "tech.v3.datatype.Consumers$StagedConsumer")
                                         (map #(%) consumer-fns))))
-             ^Consumers$MultiStagedResult result
-             (staged-double-consumer-reduction consumer-fn options rdr)
-             result-ary (.results result)]
-         {:n-elems (.nElems ^Consumers$Result (aget result-ary 0))
-          :data (->> (map (fn [n ^Consumers$Result r]
-                            [n (.value r)])
+             ^objects result-ary
+             (staged-double-consumer-reduction consumer-fn options rdr)]
+         {:n-elems (:n-elems (aget result-ary 0))
+          :data (->> (map vector
                           reducer-names result-ary)
                      (into {}))}))))
   ([reducer-map rdr]
@@ -144,11 +148,11 @@
 (defn double-summation
   "As fast as possible, sum a reader into a single double."
   (^double [options rdr]
-   (double (.value (staged-double-consumer-reduction
+   (double (:value (staged-double-consumer-reduction
                     (reducer-value->consumer-fn :+)
                     options
                     rdr))))
-  ([rdr]
+  (^double [rdr]
    (double-summation {} rdr)))
 
 
@@ -156,7 +160,7 @@
   "Perform a double summation using a unary operator to transform the input stream
   into a new double stream."
   (^double [^UnaryOperator op options rdr]
-   (double (.value (staged-double-consumer-reduction
+   (double (:value (staged-double-consumer-reduction
                     (reducer-value->consumer-fn op)
                     options
                     rdr))))
@@ -168,7 +172,7 @@
   "Perform a commutative reduction using a binary operator to perform
   the reduction.  The operator needs to be both commutative and associative."
   (^double [^BinaryOperator op options rdr]
-   (double (.value (staged-double-consumer-reduction
+   (double (:value (staged-double-consumer-reduction
                     (reducer-value->consumer-fn op)
                     options
                     rdr))))
@@ -252,14 +256,21 @@
 (defn unordered-group-by-reduce
   "Perform an unordered group-by operation using reader and placing results
   into the result-map.  Expects that reducer's batch-data method has already been
-  called and Returns the non-finalized result-map.
+  called and returns the non-finalized result-map.
+
+  * batch-data is the *result* of the reducer's prepareBatch function.
+
+
   If a map is passed in then it's compute operator needs to be threadsafe.
   If result-map is nil then one is created.
   This implementation takes advantage of the fact that for java8+ we have essentially a lock
   free concurrent hash map as long as there aren't collisions so it performs surprisingly well
   considering the amount of pressure this can put on the concurrency model.
   Unordered has an advantage with very large datasets in that it does not require a merge step
-  at the end of the parallelized group-by pass."
+  at the end of the parallelized group-by pass.
+
+  Returns the result map.  It is the caller's job to call the reducer's finalize on each
+  map value if necessary."
   (^Map [^IndexReduction reducer batch-data rdr ^Map result-map]
    (let [^Map result-map (or result-map (ConcurrentHashMap.))
          rdr (dtype-base/->reader rdr)

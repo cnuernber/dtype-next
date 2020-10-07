@@ -33,23 +33,8 @@
 (set! *unchecked-math* :warn-on-boxed)
 
 
-(def ^:private sum-double-reduction :+)
-
-
-(defn- univariate-stat->consumer
-  ^DoubleConsumer [^StorelessUnivariateStatistic stat]
-    (reify
-      DoubleConsumer
-      (accept [this data]
-        (.increment stat data))
-      IFn
-      (invoke [this]
-        {:n-elems (.getN stat)
-         :value (.getResult stat)})))
-
-
 (def ^:private stats-tower
-  {:sum {:reduction (constantly sum-double-reduction)}
+  {:sum {:reduction (constantly :+)}
    :min {:reduction (constantly (:min binary-op/builtin-ops))}
    :max {:reduction (constantly (:max binary-op/builtin-ops))}
    :mean {:dependencies [:sum]
@@ -203,19 +188,21 @@
         stats-data (merge stats-data
                           (when (some reductions-set [:min :max :sum])
                             (let [result
-                                  (dtype-reductions/staged-double-consumer-reduction
-                                   #(DoubleConsumers$MinMaxSum.)
-                                   options rdr)]
-                              (merge {:n-values (.nElems result)}
-                                     (into {} (.value result)))))
+                                  (-> (dtype-reductions/staged-double-consumer-reduction
+                                       #(DoubleConsumers$MinMaxSum.)
+                                       options rdr)
+                                      (into {}))]
+                              (merge {:n-values (:n-elems result)}
+                                     result)))
                           (when (some reductions-set [:moment-2 :moment-3 :moment-4])
                             (let [result
-                                  (dtype-reductions/staged-double-consumer-reduction
-                                   #(DoubleConsumers$Moments.
-                                     (double (:mean stats-data)))
-                                   options rdr)]
-                              (merge {:n-values (.nElems result)}
-                                     (into {} (.value result))))))
+                                  (->> (dtype-reductions/staged-double-consumer-reduction
+                                        #(DoubleConsumers$Moments.
+                                          (double (:mean stats-data)))
+                                        options rdr)
+                                       (into {}))]
+                              (merge {:n-values (:n-elems result)}
+                                     result))))
         reductions-set (set/difference reductions-set
                                        #{:min :max :sum :moment-2
                                          :moment-3 :moment-4})]
@@ -349,7 +336,7 @@
 (defmacro define-descriptive-stats
   []
   `(do
-     ~@(->> stats-tower
+     ~@(->> (dissoc stats-tower :mean :min :max :sum)
             (map (fn [[tower-key tower-node]]
                    (let [fn-symbol (symbol (name tower-key))]
                      (if (:dependencies tower-node)
@@ -370,6 +357,43 @@
 
 
 (define-descriptive-stats)
+
+
+;;Hand coded because these should be damn fast.
+(defn sum
+  "double sum of data"
+  (^double [options data]
+   (dtype-reductions/double-summation options data))
+  (^double [data]
+   (sum nil data)))
+
+
+(defn min
+  (^double [options data]
+   (dtype-reductions/commutative-binary-double
+    (:min binary-op/builtin-ops) options data))
+  (^double [data]
+   (min nil data)))
+
+
+(defn max
+  (^double [options data]
+   (dtype-reductions/commutative-binary-double
+    (:max binary-op/builtin-ops) options data))
+  (^double [data]
+   (max nil data)))
+
+
+(defn mean
+  "double mean of data"
+  (^double [options data]
+   (let [{:keys [n-elems value]} (dtype-reductions/staged-double-consumer-reduction
+                                  :+ options data)]
+     (pmath// (double value)
+              (double n-elems))))
+  (^double [data]
+   (mean nil data)))
+
 
 (defn median
   (^double [options data]

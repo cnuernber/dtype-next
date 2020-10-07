@@ -2,7 +2,9 @@
   (:require [tech.v3.datatype :as dtype]
             [tech.v3.datatype.statistics :as stats]
             [tech.v3.datatype.functional :as dfn]
-            [clojure.test :refer [deftest is]]))
+            [clojure.test :refer [deftest is]]
+            [clojure.data :as cdata]
+            [clojure.pprint :as pp]))
 
 
 (deftest descriptive-statistics
@@ -13,7 +15,12 @@
     (is (dfn/equals
          [0.0 99.0 49.0 29.159 5.3027E-4 24.0 75.0]
          (mapv (stats/descriptive-statistics stats-ary test-data)
-               stats-ary)))))
+               stats-ary))
+        (with-out-str
+          (pp/pprint
+           (cdata/diff
+            (stats/descriptive-statistics stats-ary test-data)
+            (zipmap stats-ary [0.0 99.0 49.0 29.159 5.3027E-4 24.0 75.0])))))))
 
 
 (deftest percentiles

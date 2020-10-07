@@ -8,20 +8,19 @@ import java.util.function.DoublePredicate;
 
 
 public class Consumers {
-  public interface Result
-  {
-    public Result combine(Result rhs);
-    public Object value();
-    public long nElems();
-  }
   //Consumers are created per in thread-independent contexts at each stage of
-  //reduction.
+  //the reduction.
   public interface StagedConsumer
   {
-    public Result result();
+    // Combine this with another.  This object is mutated
+    public void inplaceCombine(StagedConsumer other);
+    // Post reduction get the values back.
+    public Object value();
   }
-  public static class MultiStagedConsumer implements StagedConsumer, IntConsumer,
-						     LongConsumer, DoubleConsumer
+  public static class MultiStagedConsumer implements StagedConsumer,
+						     IntConsumer,
+						     LongConsumer,
+						     DoubleConsumer
   {
     public final StagedConsumer[] consumers;
     public MultiStagedConsumer(StagedConsumer[] _consumers) {
@@ -42,38 +41,18 @@ public class Consumers {
 	((DoubleConsumer)consumers[idx]).accept(val);
       }
     }
-    public Result result() {
-      Result[] results = new Result[consumers.length];
+    public void inplaceCombine(StagedConsumer _other) {
+      MultiStagedConsumer other = (MultiStagedConsumer)_other;
       for (int idx = 0; idx < consumers.length; ++idx) {
-	results[idx] = consumers[idx].result();
+	consumers[idx].inplaceCombine(other.consumers[idx]);
       }
-      return new MultiStagedResult(results);
-    }
-  }
-  public static class MultiStagedResult implements Result
-  {
-    public final Result[] results;
-    public MultiStagedResult(Result[] _results) {
-      this.results = _results;
-    }
-    public Result combine(Result _other) {
-      if (! (_other instanceof MultiStagedResult) ) {
-	throw new RuntimeException( "Result is not a multi result");
-      }
-      MultiStagedResult other = (MultiStagedResult)_other;
-      Result[] newResults = new Result[results.length];
-      for (int idx = 0; idx < results.length; ++idx) {
-	newResults[idx] = results[idx].combine(other.results[idx]);
-      }
-      return new MultiStagedResult(newResults);
     }
     public Object value() {
-      Object[] values = new Object[results.length];
-      for (int idx = 0; idx < results.length; ++idx) {
-	values[idx] = results[idx].value();
+      Object[] values = new Object[consumers.length];
+      for (int idx = 0; idx < consumers.length; ++idx) {
+	values[idx] = consumers[idx].value();
       }
       return values;
     }
-    public long nElems() { return results[0].nElems(); }
   }
 }

@@ -178,12 +178,6 @@
    rdr (:min binary-op/builtin-ops)))
 
 
-(defn mean
-  ^double [rdr]
-  (pmath// (double (reduce-+ rdr))
-           (double (dtype-base/ecount rdr))))
-
-
 (defn magnitude-squared
   [item]
   (-> (sq item)
@@ -192,7 +186,9 @@
 
 (defn magnitude
   ^double [item]
-  (Math/sqrt (double (magnitude-squared item))))
+  (-> (sq item)
+      (dtype-reductions/double-summation)
+      (Math/sqrt)))
 
 
 (defn dot-product
@@ -268,6 +264,8 @@
                 standard-deviation
                 median
                 skew
+                mean
+                sum
                 kurtosis
                 quartile-1
                 quartile-3
