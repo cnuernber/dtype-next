@@ -20,7 +20,9 @@
           (pp/pprint
            (cdata/diff
             (stats/descriptive-statistics stats-ary test-data)
-            (zipmap stats-ary [0.0 99.0 49.0 29.159 5.3027E-4 24.0 75.0])))))))
+            (zipmap stats-ary [0.0 99.0 49.0 29.159 5.3027E-4 24.0 75.0])))))
+    (is (dfn/equals [850.252]
+                    [(stats/variance test-data)]))))
 
 
 (deftest percentiles

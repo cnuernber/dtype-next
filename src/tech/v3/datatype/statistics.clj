@@ -347,13 +347,13 @@
                                                                ~'data)))
                           (~(with-meta ['data]
                               {:tag 'double})
-                           (~fn-symbol ~'data nil)))
+                           (~fn-symbol nil ~'data)))
                        `(defn ~fn-symbol
                           (~(with-meta ['options 'data] {:tag 'double})
                            (~tower-key (calculate-descriptive-stat
                                         ~tower-key nil ~'options ~'data)))
                           (~(with-meta ['data] {:tag 'double})
-                           (~fn-symbol ~'data nil))))))))))
+                           (~fn-symbol nil ~'data))))))))))
 
 
 (define-descriptive-stats)

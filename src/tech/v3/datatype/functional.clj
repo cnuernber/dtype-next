@@ -22,7 +22,6 @@
             [tech.v3.datatype.dispatch :refer [vectorized-dispatch-1
                                                vectorized-dispatch-2]
              :as dispatch]
-            [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.rolling]
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.list :as dtype-list]
