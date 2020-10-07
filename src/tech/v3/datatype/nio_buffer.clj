@@ -5,8 +5,9 @@
             [tech.v3.datatype.casting :as casting]
             [tech.resource :as resource])
   (:import [java.nio Buffer ByteBuffer ShortBuffer IntBuffer LongBuffer
-            FloatBuffer DoubleBuffer]
+            FloatBuffer DoubleBuffer ByteOrder]
            [tech.v3.datatype UnsafeUtil]
+           [tech.v3.datatype.native_buffer NativeBuffer]
            [sun.misc Unsafe]))
 
 
@@ -85,3 +86,26 @@
 
 
 (extend-nio-types)
+
+
+(defn native-buf->nio-buf
+  ^java.nio.Buffer [^NativeBuffer buffer]
+  (let [dtype (dtype-proto/elemwise-datatype buffer)
+        byte-width (casting/numeric-byte-width dtype)
+        n-bytes (* (.n-elems buffer) byte-width)
+        ^ByteBuffer byte-buf (UnsafeUtil/constructByteBufferFromAddress
+                              (.address buffer) n-bytes)]
+    (.order byte-buf
+            (case (.endianness buffer)
+              :little-endian ByteOrder/LITTLE_ENDIAN
+              :big-endian ByteOrder/BIG_ENDIAN))
+    (resource/track
+     (case (casting/host-flatten dtype)
+       :int8 byte-buf
+       :int16 (.asShortBuffer byte-buf)
+       :int32 (.asIntBuffer byte-buf)
+       :int64 (.asLongBuffer byte-buf)
+       :float32 (.asFloatBuffer byte-buf)
+       :float64 (.asDoubleBuffer byte-buf))
+     ;;Link the two of them via the GC.
+     #(constantly buffer) :gc)))

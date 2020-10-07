@@ -599,11 +599,17 @@
 
 
 (defn wrap-address
-  ^NativeBuffer [address n-bytes datatype endianness gc-obj]
-  (let [byte-width (casting/numeric-byte-width datatype)
-        retval (NativeBuffer. address (quot (long n-bytes) byte-width)
-                              datatype endianness #{:gc} nil nil)]
-    ;;when we have to chain this to the gc objects
-    (when gc-obj
-      (resource/track retval (constantly gc-obj) :gc))
-    retval))
+  "Wrap a long interger address with a native buffer.  gc-obj, if provided
+  will be linked to the native buffer such that gc-obj will not be garbage
+  collected before native buffer is garbage collected."
+  (^NativeBuffer [address n-bytes datatype endianness gc-obj]
+   (let [byte-width (casting/numeric-byte-width datatype)
+         retval (NativeBuffer. address (quot (long n-bytes) byte-width)
+                               datatype endianness #{:gc} nil nil)]
+     ;;when we have to chain this to the gc objects
+     (when gc-obj
+       (resource/track retval (constantly gc-obj) :gc))
+     retval))
+  (^NativeBuffer [address n-bytes gc-obj]
+   (wrap-address address n-bytes :int8 (dtype-proto/platform-endianness)
+                 gc-obj)))
