@@ -47,10 +47,7 @@
     (construct-tensor (dtype-proto/elemwise-cast buffer new-dtype)
                       dimensions))
   dtype-proto/PDatatype
-  (datatype [this]
-    {:container-type :tensor
-     :elemwise-datatype (.elemwiseDatatype this)
-     :buffer (dtype-proto/datatype buffer)})
+  (datatype [this] :tensor)
   dtype-proto/PECount
   (ecount [t] (dims/ecount dimensions))
   dtype-proto/PShape
@@ -71,7 +68,7 @@
     (let [nbuf (dtype-base/->native-buffer buffer)]
       (->
        {:ptr (.address nbuf)
-        :datatype (dtype-base/datatype buffer)
+        :datatype :tensor
         :elemwise-datatype (dtype-base/elemwise-datatype buffer)
         :endianness (dtype-proto/endianness nbuf)
         :shape (dtype-base/shape item)
@@ -268,6 +265,9 @@
 
 
 (dtype-pp/implement-tostring-print Tensor)
+
+
+(casting/add-object-datatype! :tensor NDBuffer false)
 
 
 (defn construct-tensor

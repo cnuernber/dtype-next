@@ -176,8 +176,7 @@
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [item] datatype)
   dtype-proto/PDatatype
-  (datatype [item] {:container-type :jvm-heap
-                    :elemwise-datatype datatype})
+  (datatype [item] :array-buffer)
   dtype-proto/PECount
   (ecount [item] n-elems)
   dtype-proto/PEndianness
@@ -268,6 +267,9 @@
 (dtype-pp/implement-tostring-print ArrayBuffer)
 
 
+(casting/add-object-datatype! :array-buffer ArrayBuffer false)
+
+
 (defn- array-buffer->io
   [ary-data datatype ^ArrayBuffer item offset n-elems]
   (let [offset (long offset)
@@ -354,8 +356,7 @@
                         (.getComponentType)
                         (casting/object-class->datatype))))
               dtype-proto/PDatatype
-              (datatype [item#] {:container-type :jvm-heap
-                                 :elemwise-datatype ~ary-type})
+              (datatype [item#] :array-buffer)
               dtype-proto/PECount
               (ecount [item#]
                 (alength

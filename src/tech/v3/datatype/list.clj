@@ -1,5 +1,6 @@
 (ns tech.v3.datatype.list
   (:require [tech.v3.datatype.base :as dtype-base]
+            [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.errors :refer [check-idx] :as errors]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
@@ -78,10 +79,7 @@
   (writeDouble [this idx val] (check-idx idx ptr) (.writeDouble cached-io idx val))
   (writeObject [this idx val] (check-idx idx ptr) (.writeObject cached-io idx val))
   dtype-proto/PDatatype
-  (datatype [this]
-    {:container-type :list
-     :elemwise-datatype (.elemwiseDatatype this)
-     :backing-store (dtype-proto/datatype buffer)})
+  (datatype [this] :list)
   dtype-proto/PToArrayBuffer
   (convertible-to-array-buffer? [this]
     (dtype-proto/convertible-to-array-buffer? buffer))
@@ -157,6 +155,9 @@
 
 
 (dtype-pp/implement-tostring-print ListImpl)
+
+
+(casting/add-object-datatype! :list PrimitiveList false)
 
 
 (defn make-list

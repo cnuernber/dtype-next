@@ -1,4 +1,4 @@
-(defproject cnuernber/dtype-next "0.4.15-SNAPSHOT"
+(defproject cnuernber/dtype-next "0.4.15"
   :description "A Clojure library designed to aid in the implementation of high performance algorithms and systems.
 
 This library implements a subset of functionality required for 'array' programming as well as several
@@ -40,6 +40,7 @@ a zerocopy pathway from/to neanderthal, numpy, Smile's matrix class and java's B
   :profiles {:dev
              {:dependencies [[criterium "0.4.5"]
                              [uncomplicate/neanderthal "0.35.0"]
+                             [com.taoensso/nippy "3.0.0"]
                              [ch.qos.logback/logback-classic "1.1.3"]]
               :test-paths ["neanderthal" "test"]}
              :codox
@@ -60,6 +61,7 @@ a zerocopy pathway from/to neanderthal, numpy, Smile's matrix class and java's B
                                    tech.v3.datatype.bitmap
                                    tech.v3.datatype.datetime
                                    tech.v3.datatype.mmap
+                                   tech.v3.datatype.nippy
                                    tech.v3.tensor.dimensions
                                    tech.v3.tensor.color-gradients
                                    tech.v3.datatype.reductions

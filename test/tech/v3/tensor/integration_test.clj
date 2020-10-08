@@ -100,11 +100,7 @@
       (is (dfn/equals test-tensor new-tens))
       (let [trans-tens (dtt/transpose new-tens [1 0])
             trans-desc (dtype/as-nd-buffer-descriptor trans-tens)]
-        (is (= {:datatype
-                {:container-type :native-heap,
-                 :elemwise-datatype :float64,
-                 :endianness :little-endian,
-                 :resource-type #{:gc}},
+        (is (= {:datatype :tensor,
                 :elemwise-datatype :float64,
                 :endianness :little-endian,
                 :shape [3 3],

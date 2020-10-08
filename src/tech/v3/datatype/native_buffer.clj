@@ -7,6 +7,7 @@
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.pprint :as dtype-pp]
             [tech.v3.parallel.for :as parallel-for]
+            [clojure.pprint :as pp]
             [primitive-math :as pmath])
   (:import [xerial.larray.buffer UnsafeUtil]
            [sun.misc Unsafe]
@@ -282,7 +283,7 @@
                             (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))])))))
 
 
-(declare native-buffer->buffer)
+(declare native-buffer->buffer native-buffer->map)
 
 
 ;;Size is in elements, not in bytes
@@ -297,11 +298,7 @@
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [this] datatype)
   dtype-proto/PDatatype
-  (datatype [this]
-    {:container-type :native-heap
-     :elemwise-datatype datatype
-     :endianness endianness
-     :resource-type resource-type})
+  (datatype [this] :native-buffer)
   dtype-proto/PECount
   (ecount [this] n-elems)
   dtype-proto/PSubBuffer
@@ -398,11 +395,17 @@
     (.toArray cached-io))
   Object
   (toString [buffer]
-    (dtype-pp/buffer->string buffer (format "native-buffer@0x%016X"
-                                            (.address buffer)))))
+    (if-not (:record-print? metadata)
+      (dtype-pp/buffer->string buffer (format "native-buffer@0x%016X"
+                                              (.address buffer)))
+      (with-out-str
+        (pp/pprint (native-buffer->map buffer))))))
 
 
 (dtype-pp/implement-tostring-print NativeBuffer)
+
+
+(casting/add-object-datatype! :native-buffer NativeBuffer false)
 
 
 (defn- native-buffer->buffer

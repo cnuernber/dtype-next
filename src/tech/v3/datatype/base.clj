@@ -289,26 +289,19 @@
 
 (extend-protocol dtype-proto/PDatatype
   Stream
-  (datatype [item] {:container-type :stream
-                    :elemwise-datatype :object})
+  (datatype [item] :stream)
   DoubleStream
-  (datatype [item] {:container-type :stream
-                    :elemwise-datatype :float64})
+  (datatype [item] :stream)
   Spliterator$OfDouble
-  (datatype [item] {:container-type :spliterator
-                    :elemwise-datatype :float64})
+  (datatype [item] :spliterator)
   LongStream
-  (datatype [item] {:container-type :stream
-                    :elemwise-datatype :int64})
+  (datatype [item] :stream)
   Spliterator$OfLong
-  (datatype [item] {:container-type :spliterator
-                    :elemwise-datatype :int64})
+  (datatype [item] :spliterator)
   IntStream
-  (datatype [item] {:container-type :stream
-                    :elemwise-datatype :int32})
+  (datatype [item] :stream)
   Spliterator$OfInt
-  (datatype [item] {:container-type :spliterator
-                    :elemwise-datatype :int32}))
+  (datatype [item] :spliterator))
 
 
 (defn- inner-buffer-sub-buffer
@@ -321,10 +314,7 @@
 
 (extend-type Buffer
   dtype-proto/PDatatype
-  (datatype [item] {:container-type :buffer
-                    :allows-read? (.allowsRead item)
-                    :allows-write? (.allowsWrite item)
-                    :elemwise-datatype (dtype-proto/elemwise-datatype item)})
+  (datatype [item] :buffer)
   dtype-proto/PToBuffer
   (convertible-to-buffer? [buf] true)
   (->buffer [item] item)
@@ -509,8 +499,7 @@
 
 (extend-type Iterable
   dtype-proto/PDatatype
-  (datatype [item] {:container-type :iterable
-                    :elemwise-datatype :object}))
+  (datatype [item] :iterable))
 
 
 (defn set-constant!

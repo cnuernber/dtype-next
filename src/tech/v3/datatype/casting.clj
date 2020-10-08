@@ -37,13 +37,17 @@
 
 (defn add-object-datatype!
   ;;Add an object datatype.
-  [datatype klass]
-  (.put datatype->class-map datatype klass)
-  (.put class->datatype-map klass datatype)
-  (rebuild-valid-datatypes!)
-  (clojure.core/extend klass
-    dtype-proto/PElemwiseDatatype
-    {:elemwise-datatype (constantly datatype)}))
+  ([datatype klass & [implement-protocols?]]
+   (.put datatype->class-map datatype klass)
+   (.put class->datatype-map klass datatype)
+   (rebuild-valid-datatypes!)
+   (when implement-protocols?
+     (clojure.core/extend klass
+       dtype-proto/PElemwiseDatatype
+       {:elemwise-datatype (constantly datatype)}
+       dtype-proto/PDatatype
+       {:datatype (constantly datatype)}))
+   :ok))
 
 
 (defn object-class->datatype

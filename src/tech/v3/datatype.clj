@@ -249,3 +249,18 @@ user> (dtype/make-reader :float32 5 (* idx 2))
   [src-item]
   (when (dtype-proto/convertible-to-nd-buffer-desc? src-item)
     (dtype-proto/->nd-buffer-descriptor src-item)))
+
+
+(defn ensure-serializeable
+  "Ensure this is an efficiently serializeable datatype object.
+  For nippy support across buffers and tensors require `tech.v3.datatype.nippy`."
+  [item]
+  (when item
+    (case (arg-type item)
+      :scalar item
+      :iterable (->array-buffer item)
+      :reader (->array-buffer item)
+      :tensor (if-let [retval (dtype-proto/as-tensor item)]
+                retval
+                (errors/throwf "Unable create create tensor for nd object type: %s"
+                               (type item))))))
