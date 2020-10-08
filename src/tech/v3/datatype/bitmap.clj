@@ -5,6 +5,8 @@
   storage-space efficient."
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.base :as dtype-base]
+            [tech.v3.datatype.casting :as casting]
+            [tech.v3.datatype.pprint :as dtype-pp]
             [tech.v3.datatype.clj-range :as clj-range]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.parallel.for :as parallel-for]
@@ -53,6 +55,8 @@
 (extend-type RoaringBitmap
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [bitmap] :uint32)
+  dtype-proto/PDatatype
+  (datatype [bitmap] :datatype)
   dtype-proto/PECount
   (ecount [bitmap] (.getLongCardinality bitmap))
   dtype-proto/PToReader
@@ -102,17 +106,16 @@
     bitmap))
 
 
+(dtype-pp/implement-tostring-print RoaringBitmap)
+
+
+(casting/add-object-datatype! :bitmap RoaringBitmap false)
+
+
 (extend-type BitmapMap
   dtype-proto/PToBitmap
   (convertible-to-bitmap? [item] true)
   (as-roaring-bitmap [item] (.-slots item)))
-
-
-(defmethod print-method RoaringBitmap
-  [buf w]
-  (let [^java.io.Writer w w]
-    (.write w "#")
-    (.write w (.toString ^Object buf))))
 
 
 (defn bitmap->array-buffer
