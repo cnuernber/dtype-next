@@ -339,9 +339,10 @@
       this))
   dtype-proto/PClone
   (clone [this]
-    (dtype-proto/make-container :native-heap datatype this
+    (dtype-proto/make-container :native-heap datatype
                                 {:endianness endianness
-                                 :resource-type resource-type}))
+                                 :resource-type resource-type}
+                                this))
   dtype-proto/PToBuffer
   (convertible-to-buffer? [this] true)
   (->buffer [this]

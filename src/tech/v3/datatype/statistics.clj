@@ -246,7 +246,9 @@
     [:keep :remove :exception]. The fastest option is :keep but this
     may result in your results having NaN's in them.  You can also pass
   in a double predicate to filter custom double values."
-  ([stats-names stats-data options rdr]
+  ([stats-names stats-data {:keys [nan-strategy]
+                            :or {nan-strategy :remove}
+                            :as options} rdr]
    (if (== 0 (dtype-base/ecount rdr))
      (->> stats-names
           (map (fn [sname]
@@ -263,7 +265,8 @@
          stats-set (set/difference stats-set percentile-set)
          ^Buffer rdr (if (or median? percentile?)
                             (let [darray (dtype-cmc/->array-buffer
-                                          :float64 options rdr)]
+                                          :float64 (assoc options :nan-strategy
+                                                          nan-strategy) rdr)]
                               ;;arrays/sort is blindingly fast.
                               (when median?
                                 (Arrays/sort ^doubles (.ary-data darray)
