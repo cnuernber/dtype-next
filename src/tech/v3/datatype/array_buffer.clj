@@ -31,6 +31,8 @@
        dtype-proto/PDatatype
        (datatype [this#]
          (dtype-proto/datatype ~buffer))
+       dtype-proto/PElemwiseReaderCast
+       (elemwise-reader-cast [this# new-dtype#] this#)
        ~(typecast/datatype->io-type (casting/safe-flatten cast-dtype))
        (elemwiseDatatype [rdr#] ~advertised-datatype)
        (lsize [rdr#] ~n-elems)
@@ -180,7 +182,9 @@
   dtype-proto/PECount
   (ecount [item] n-elems)
   dtype-proto/PEndianness
-  (endianness [item#] :little-endian)
+  (endianness [item] :little-endian)
+  dtype-proto/PElemwiseReaderCast
+  (elemwise-reader-cast [item new-dtype] cached-io)
   dtype-proto/PToArrayBuffer
   (convertible-to-array-buffer? [item] true)
   (->array-buffer [item] item)

@@ -11,6 +11,8 @@
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
 
+(declare concat-buffers)
+
 (defmacro ^:private dual-read-macro
   [idx n-elems n-lhs-elems read-method lhs rhs]
   `(do
@@ -59,7 +61,11 @@
       (writeLong [this idx val] (dual-write-macro idx n-elems lhs-n-elems .writeLong lhs rhs val))
       (writeFloat [this idx val] (dual-write-macro idx n-elems lhs-n-elems .writeFloat lhs rhs val))
       (writeDouble [this idx val] (dual-write-macro idx n-elems lhs-n-elems .writeDouble lhs rhs val))
-      (writeObject [this idx val] (dual-write-macro idx n-elems lhs-n-elems .writeObject lhs rhs val)))))
+      (writeObject [this idx val] (dual-write-macro idx n-elems lhs-n-elems .writeObject lhs rhs val))
+      dtype-proto/PElemwiseReaderCast
+      (elemwise-reader-cast [this new-dtype]
+        (concat-buffers (map #(dtype-proto/elemwise-reader-cast % new-dtype) [lhs rhs])))
+      )))
 
 (defn- as-prim-io ^Buffer [item] item)
 
@@ -110,7 +116,11 @@
       (writeLong [this idx val] (same-len-write-macro idx n-elems buf-len .writeLong buffers val))
       (writeFloat [this idx val] (same-len-write-macro idx n-elems buf-len .writeFloat buffers val))
       (writeDouble [this idx val] (same-len-write-macro idx n-elems buf-len .writeDouble buffers val))
-      (writeObject [this idx val] (same-len-write-macro idx n-elems buf-len .writeObject buffers val)))))
+      (writeObject [this idx val] (same-len-write-macro idx n-elems buf-len .writeObject buffers val))
+      dtype-proto/PElemwiseReaderCast
+      (elemwise-reader-cast [this new-dtype]
+        (concat-buffers (map #(dtype-proto/elemwise-reader-cast % new-dtype) buffers)))
+      )))
 
 
 (defmacro ^:private gen-read-macro
@@ -168,7 +178,10 @@
       (writeLong [this idx val] (gen-write-macro idx n-elems .writeLong n-buffers buffers val))
       (writeFloat [this idx val] (gen-write-macro idx n-elems .writeFloat n-buffers buffers val))
       (writeDouble [this idx val] (gen-write-macro idx n-elems .writeDouble n-buffers buffers val))
-      (writeObject [this idx val] (gen-write-macro idx n-elems .writeObject n-buffers buffers val)))))
+      (writeObject [this idx val] (gen-write-macro idx n-elems .writeObject n-buffers buffers val))
+      dtype-proto/PElemwiseReaderCast
+      (elemwise-reader-cast [this new-dtype]
+        (concat-buffers (map #(dtype-proto/elemwise-reader-cast % new-dtype) buffers))))))
 
 
 

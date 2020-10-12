@@ -41,7 +41,9 @@
 
        (allowsRead [this] (.allowsRead item))
        (allowsWrite [this] (.allowsWrite item))
-
+       dtype-proto/PElemwiseReaderCast
+       (elemwise-reader-cast [this new-dtype]
+         (indexed-buffer indexes (dtype-proto/elemwise-reader-cast item new-dtype)))
        dtype-proto/PConstantTimeMinMax
        (has-constant-time-min-max? [this]
          (dtype-proto/has-constant-time-min-max? item))

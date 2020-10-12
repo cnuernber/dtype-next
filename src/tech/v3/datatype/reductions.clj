@@ -89,7 +89,7 @@
    (let [predicate (nan-strategy->double-predicate
                     nan-strategy)
          staged-consumer-fn (reducer-value->consumer-fn staged-consumer-fn)]
-     (if-let [rdr (dtype-base/as-reader rdr)]
+     (if-let [rdr (dtype-base/as-reader rdr :float64)]
        (let [n-elems (.size rdr)
              ^Consumers$StagedConsumer result
              (parallel-for/indexed-map-reduce

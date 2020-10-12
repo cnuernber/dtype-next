@@ -125,19 +125,21 @@
      dtype-proto/POperator
      (op-name [this] :not))
    :nan?
-   (reify
-     UnaryPredicates$DoubleUnaryPredicate
-     (unaryDouble [this arg]
-       (Double/isNaN arg))
-     dtype-proto/POperator
-     (op-name [this] :nan?))
+   (vary-meta (reify
+                UnaryPredicates$DoubleUnaryPredicate
+                (unaryDouble [this arg]
+                  (Double/isNaN arg))
+                dtype-proto/POperator
+                (op-name [this] :nan?))
+              assoc :operation-space :float32)
    :finite?
-   (reify
-     UnaryPredicates$DoubleUnaryPredicate
-     (unaryDouble [this arg]
-       (Double/isFinite arg))
-     dtype-proto/POperator
-     (op-name [this] :finite?))
+   (vary-meta (reify
+                UnaryPredicates$DoubleUnaryPredicate
+                (unaryDouble [this arg]
+                  (Double/isFinite arg))
+                dtype-proto/POperator
+                (op-name [this] :finite?))
+              assoc :operation-space :float32)
    :infinite?
    (reify
      UnaryPredicates$DoubleUnaryPredicate

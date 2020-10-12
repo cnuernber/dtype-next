@@ -18,14 +18,15 @@
   [src dst]
   (let [src-dtype (dtype-base/elemwise-datatype src)
         dst-dtype (dtype-base/elemwise-datatype dst)
-        src (dtype-base/->reader src)
+        op-space (casting/simple-operation-space dst-dtype)
+        src (dtype-base/->reader src dst-dtype)
         dst (dtype-base/->writer dst)
         n-elems (.lsize src)]
     (when-not (== n-elems (.lsize dst))
       (throw (Exception. (format "src,dst ecount mismatch: %d-%d"
                                  n-elems (.lsize dst)))))
 
-    (case (casting/simple-operation-space dst-dtype)
+    (case op-space
       :boolean
       (parallel-for/parallel-for
        idx

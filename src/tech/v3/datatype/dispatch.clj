@@ -56,7 +56,7 @@
            (if iterable-fn
              (iterable-fn res-dtype arg1)
              (typed-map-1 scalar-fn res-dtype arg1))
-           (cond-> (reader-fn res-dtype arg1)
+           (cond-> (reader-fn res-dtype (dtype-proto/elemwise-reader-cast arg1 res-dtype))
              (= arg1-type :tensor)
              (dtype-proto/reshape (dtype-proto/shape arg1))))))))
   ([scalar-fn iterable-fn reader-fn arg1]

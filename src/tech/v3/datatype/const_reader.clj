@@ -27,6 +27,8 @@
            (elemwiseDatatype [rdr] item-dtype)
            (lsize [rdr] n-elems)
            (readBoolean [rdr idx] item)
+           dtype-proto/PElemwiseReaderCast
+           (elemwise-reader-cast [rdr new-dtype] rdr)
            dtype-proto/PConstantTimeMinMax
            (has-constant-time-min-max? [this] true)
            (constant-time-min [this] item)
@@ -43,6 +45,8 @@
            (elemwiseDatatype [rdr] item-dtype)
            (lsize [rdr] n-elems)
            (readLong [rdr idx] item)
+           dtype-proto/PElemwiseReaderCast
+           (elemwise-reader-cast [rdr new-dtype] rdr)
            dtype-proto/PConstantTimeMinMax
            (has-constant-time-min-max? [this] true)
            (constant-time-min [this] item)
@@ -59,6 +63,8 @@
            (elemwiseDatatype [rdr] item-dtype)
            (lsize [rdr] n-elems)
            (readDouble [rdr idx] item)
+           dtype-proto/PElemwiseReaderCast
+           (elemwise-reader-cast [rdr new-dtype] rdr)
            dtype-proto/PConstantTimeMinMax
            (has-constant-time-min-max? [this] true)
            (constant-time-min [this] item)
@@ -74,6 +80,8 @@
          (elemwiseDatatype [rdr] item-dtype)
          (lsize [rdr] n-elems)
          (readObject [rdr _idx] item)
+         dtype-proto/PElemwiseReaderCast
+         (elemwise-reader-cast [rdr new-dtype] rdr)
          dtype-proto/PConstantTimeMinMax
          (has-constant-time-min-max? [this] true)
          (constant-time-min [this] item)

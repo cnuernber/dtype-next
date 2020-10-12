@@ -130,7 +130,10 @@
                 (dtype-base/as-array-buffer item))
          (dtype-base/as-array-buffer item)
          (make-container datatype item))
-       (->> (reductions/reader->double-spliterator item nan-strategy)
+       (->> (reductions/reader->double-spliterator (dtype-base/->reader
+                                                    item
+                                                    :float64)
+                                                   nan-strategy)
             (make-container datatype)))))
   (^ArrayBuffer [datatype item]
    (->array-buffer datatype nil item))

@@ -80,6 +80,8 @@
   (writeObject [this idx val] (check-idx idx ptr) (.writeObject cached-io idx val))
   dtype-proto/PDatatype
   (datatype [this] :list)
+  dtype-proto/PElemwiseReaderCast
+  (elemwise-reader-cast [item new-dtype] item)
   dtype-proto/PToArrayBuffer
   (convertible-to-array-buffer? [this]
     (dtype-proto/convertible-to-array-buffer? buffer))

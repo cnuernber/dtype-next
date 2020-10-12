@@ -26,6 +26,16 @@
   (elemwise-cast [item new-dtype]))
 
 
+(defprotocol PElemwiseReaderCast
+  "Return a reader that correctly reads values of this new datatype.
+  Note the returned reader need not report the new datatype.
+  Defaults to:
+```clojure
+  (as-reader (elemwise-cast item new-dtype))
+```"
+  (^Buffer elemwise-reader-cast [item new-dtype]))
+
+
 (defprotocol PDatatype
   (datatype [item]))
 

@@ -47,9 +47,13 @@
 
 (defn elemwise-cast
   "Create a new thing by doing a checked cast from the old values
-  to the new values upon at read time."
+  to the new values upon at read time.  Return value will report
+  new-dtype as it's elemwise-datatype."
   [item new-dtype]
-  (when-not (nil? item) (dtype-proto/elemwise-cast item new-dtype)))
+  (when-not (nil? item)
+    (if-not (= new-dtype (dtype-proto/elemwise-datatype new-dtype))
+      (dtype-proto/elemwise-cast item new-dtype)
+      item)))
 
 
 (defn ecount
@@ -93,25 +97,37 @@
 (defn as-reader
   "If this object has a read-only or read-write conversion to a primitive
   io object return the buffer object."
-  ^Buffer [item]
-  (cond
-    (nil? item) item
-    (and (instance? Buffer item)
-         (.allowsRead ^Buffer item))
-    item
-    :else
-    (when (dtype-proto/convertible-to-reader? item)
-      (dtype-proto/->reader item))))
+  (^Buffer [item]
+   (cond
+     (nil? item) item
+     (and (instance? Buffer item)
+          (.allowsRead ^Buffer item))
+     item
+     :else
+     (when (dtype-proto/convertible-to-reader? item)
+       (dtype-proto/->reader item))))
+  (^Buffer [item new-dtype]
+   (cond
+     (nil? item) item
+     (= new-dtype (dtype-proto/elemwise-datatype item))
+     (as-reader item)
+     :else
+     (dtype-proto/elemwise-reader-cast item new-dtype))))
 
 
 (defn ->reader
   "If this object has a read-only or read-write conversion to a buffer
   object return the buffer object.  Else throw an exception."
-  ^Buffer [item]
-  (if-let [io (as-reader item)]
-    io
-    (errors/throwf "Item type %s is not convertible to primitive reader"
-                   (type item))))
+  (^Buffer [item]
+   (if-let [io (as-reader item)]
+     io
+     (errors/throwf "Item type %s is not convertible to primitive reader"
+                    (type item))))
+  (^Buffer [item new-dtype]
+   (if-let [io (as-reader item new-dtype)]
+     io
+     (errors/throwf "Item type %s is not convertible to primitive reader"
+                    (type item)))))
 
 
 (defn reader?
@@ -387,6 +403,9 @@
                  (lsize [rdr] (.lsize src-rdr))
                  (readObject [rdr idx] (cast-fn (.readObject src-rdr idx))))))
            item)))))
+  dtype-proto/PElemwiseReaderCast
+  (elemwise-reader-cast [item new-dtype]
+    (as-reader (elemwise-cast item new-dtype)))
   dtype-proto/PECount
   (ecount [item] (count item))
   dtype-proto/PToArrayBuffer

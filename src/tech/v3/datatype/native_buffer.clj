@@ -185,6 +185,8 @@
                (dtype-proto/->reader)))
          dtype-proto/PDatatype
          (datatype [rdr#] (dtype-proto/datatype ~buffer))
+         dtype-proto/PElemwiseReaderCast
+         (elemwise-reader-cast [item# new-dtype#] item#)
          ~(typecast/datatype->io-type (casting/safe-flatten datatype))
          (elemwiseDatatype [rdr#] ~advertised-datatype)
          (lsize [rdr#] ~n-elems)
@@ -297,6 +299,8 @@
   (endianness [item] endianness)
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [this] datatype)
+  dtype-proto/PElemwiseReaderCast
+  (elemwise-reader-cast [item new-dtype] cached-io)
   dtype-proto/PDatatype
   (datatype [this] :native-buffer)
   dtype-proto/PECount

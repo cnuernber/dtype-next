@@ -65,17 +65,19 @@
                                      merge op-meta)]
                `(defn ~(with-meta op-sym
                          {:unary-operator opname})
-                  [~'x]
-                  (vectorized-dispatch-1
-                   (unary-op/builtin-ops ~opname)
-                   ;;the default iterable application is fine.
-                   nil
-                   #(unary-op/reader
-                     (unary-op/builtin-ops ~opname)
-                     %1
-                     %2)
-                   ~op-meta
-                   ~'x))))))
+                  ([~'x ~'options]
+                   (vectorized-dispatch-1
+                    (unary-op/builtin-ops ~opname)
+                    ;;the default iterable application is fine.
+                    nil
+                    #(unary-op/reader
+                      (unary-op/builtin-ops ~opname)
+                      %1
+                      %2)
+                    (merge ~op-meta ~'options)
+                    ~'x))
+                  ([~'x]
+                   (~op-sym ~'x  nil)))))))
        ~@(->>
           binary-ops
           (map
@@ -133,20 +135,23 @@
   ^long [^double arg]
   (Math/round arg))
 
+
 (defn round
   "Vectorized implementation of Math/round.  Operates in double space
   but returns a long or long reader."
-  [arg]
-  (vectorized-dispatch-1
-   round-scalar
-   (fn [dtype arg] (dispatch/typed-map-1 round-scalar :int64 arg))
-   (fn [op-dtype rdr]
-     (let [src-rdr (dtype-base/->reader rdr)]
-       (reify LongReader
-         (lsize [rdr] (.lsize src-rdr))
-         (readLong [rdr idx]
-           (Math/round (.readDouble src-rdr idx))))))
-   arg))
+  ([arg options]
+   (vectorized-dispatch-1
+    round-scalar
+    (fn [dtype arg] (dispatch/typed-map-1 round-scalar :int64 arg))
+    (fn [op-dtype ^Buffer src-rdr]
+      (reify LongReader
+        (lsize [rdr] (.lsize src-rdr))
+        (readLong [rdr idx]
+          (Math/round (.readDouble src-rdr idx)))))
+    (merge {:operation-space :float64} options)
+    arg))
+  ([arg]
+   (round arg nil)))
 
 ;;Implement only reductions that we know we will use.
 (defn reduce-+
@@ -184,10 +189,13 @@
 
 
 (defn magnitude
-  ^double [item]
-  (-> (sq item)
-      (dtype-reductions/double-summation)
-      (Math/sqrt)))
+  (^double [item options]
+   (->> (sq item {:operation-space :float64})
+        ;;nan-aware and parallelized
+        (dtype-reductions/double-summation options)
+        (Math/sqrt)))
+  (^double [item]
+   (magnitude item nil)))
 
 
 (defn dot-product
@@ -200,7 +208,7 @@
   (magnitude-squared (- lhs rhs)))
 
 (defn distance
-  [lhs rhs]
+  ^double [lhs rhs]
   (magnitude (- lhs rhs)))
 
 
@@ -219,12 +227,15 @@
                      `(let [v# (unary-pred/builtin-ops ~k)]
                         (defn ~(with-meta fn-symbol
                                  {:unary-predicate k})
-                          [~'arg]
-                          (vectorized-dispatch-1
-                           v#
-                           (fn [dtype# item#] (unary-pred/iterable v# item#))
-                           (fn [dtype# item#] (unary-pred/reader v# item#))
-                           ~'arg)))))))))
+                          ([~'arg ~'options]
+                           (vectorized-dispatch-1
+                            v#
+                            (fn [dtype# item#] (unary-pred/iterable v# item#))
+                            (fn [dtype# item#] (unary-pred/reader v# item#))
+                            (merge (meta v#) ~'options)
+                            ~'arg))
+                          ([~'arg]
+                           (~fn-symbol ~'arg nil))))))))))
 
 
 (implement-unary-predicates)
@@ -239,15 +250,17 @@
                      `(let [v# (binary-pred/builtin-ops ~k)]
                         (defn ~(with-meta fn-symbol
                                  {:binary-predicate k})
-                          [~'lhs ~'rhs]
-                          (vectorized-dispatch-2
-                           v#
-                           (fn [op-dtype# lhs# rhs#]
-                             (binary-pred/iterable v# lhs# rhs#))
-                           (fn [op-dtype# lhs-rdr# rhs-rdr#]
-                             (binary-pred/reader v# lhs-rdr# rhs-rdr#))
-                           nil
-                           ~'lhs ~'rhs)))))))))
+                          ([~'lhs ~'rhs ~'options]
+                           (vectorized-dispatch-2
+                            v#
+                            (fn [op-dtype# lhs# rhs#]
+                              (binary-pred/iterable v# lhs# rhs#))
+                            (fn [op-dtype# lhs-rdr# rhs-rdr#]
+                              (binary-pred/reader v# lhs-rdr# rhs-rdr#))
+                            (merge (meta v#) ~'options)
+                            ~'lhs ~'rhs))
+                          ([~'lhs ~'rhs]
+                           (~fn-symbol ~'lhs ~'rhs nil))))))))))
 
 
 (implement-binary-predicates)
@@ -288,7 +301,7 @@
   Returns
   {:result :missing}"
   [numeric-data max-span]
-  (let [num-reader (dtype-base/->reader numeric-data)
+  (let [num-reader (dtype-base/->reader numeric-data :float64)
         max-span (double max-span)
         n-elems (.lsize num-reader)
         n-spans (dec n-elems)

@@ -256,7 +256,7 @@
                           0
                           Double/NaN)]))
           (into {})))
-   (let [rdr (dtype-base/->reader rdr)
+   (let [rdr (dtype-base/->reader rdr :float64)
          stats-set (set stats-names)
          median? (stats-set :median)
          percentile-set #{:quartile-1 :quartile-3}
@@ -344,19 +344,19 @@
                    (let [fn-symbol (symbol (name tower-key))]
                      (if (:dependencies tower-node)
                        `(defn ~fn-symbol
-                          (~(with-meta ['options 'data] {:tag 'double})
+                          (~(with-meta ['data 'options] {:tag 'double})
                            (~tower-key (descriptive-statistics #{~tower-key}
                                                                ~'options
                                                                ~'data)))
                           (~(with-meta ['data]
                               {:tag 'double})
-                           (~fn-symbol nil ~'data)))
+                           (~fn-symbol ~'data nil)))
                        `(defn ~fn-symbol
-                          (~(with-meta ['options 'data] {:tag 'double})
+                          (~(with-meta ['data 'options] {:tag 'double})
                            (~tower-key (calculate-descriptive-stat
                                         ~tower-key nil ~'options ~'data)))
                           (~(with-meta ['data] {:tag 'double})
-                           (~fn-symbol nil ~'data))))))))))
+                           (~fn-symbol ~'data nil))))))))))
 
 
 (define-descriptive-stats)
@@ -365,55 +365,55 @@
 ;;Hand coded because these should be damn fast.
 (defn sum
   "double sum of data"
-  (^double [options data]
+  (^double [data options]
    (dtype-reductions/double-summation options data))
   (^double [data]
-   (sum nil data)))
+   (sum data nil)))
 
 
 (defn min
-  (^double [options data]
+  (^double [data options]
    (dtype-reductions/commutative-binary-double
     (:min binary-op/builtin-ops) options data))
   (^double [data]
-   (min nil data)))
+   (min data nil)))
 
 
 (defn max
-  (^double [options data]
+  (^double [data options]
    (dtype-reductions/commutative-binary-double
     (:max binary-op/builtin-ops) options data))
   (^double [data]
-   (max nil data)))
+   (max data nil)))
 
 
 (defn mean
   "double mean of data"
-  (^double [options data]
+  (^double [data options]
    (let [{:keys [n-elems value]} (dtype-reductions/staged-double-consumer-reduction
                                   :+ options data)]
      (pmath// (double value)
               (double n-elems))))
   (^double [data]
-   (mean nil data)))
+   (mean data nil)))
 
 
 (defn median
-  (^double [options data]
+  (^double [data options]
    (:median (descriptive-statistics [:median] options data)))
   (^double [data]
    (:median (descriptive-statistics [:median] data))))
 
 
 (defn quartile-1
-  (^double[options data]
+  (^double[data options]
    (:quartile-1 (descriptive-statistics [:quartile-1] options data)))
   (^double [data]
    (:quartile-1 (descriptive-statistics [:quartile-1] data))))
 
 
 (defn quartile-3
-  (^double [options data]
+  (^double [data options]
    (:quartile-3 (descriptive-statistics [:quartile-3] options data)))
   (^double [data]
    (:quartile-3 (descriptive-statistics [:quartile-3] data))))
@@ -469,9 +469,9 @@
 
   nan-strategy can be one of [:keep :remove :exception] and defaults to :exception."
   (^Buffer [percentages options data]
-   (let [ary-buf (dtype-cmc/->array-buffer :float64 {:nan-strategy :keep} data)
+   (let [ary-buf (dtype-cmc/->array-buffer :float64 options data)
          p (doto (Percentile.)
-             (.withNaNStrategy (options->apache-nan-strategy options))
+             (.withNaNStrategy (options->apache-nan-strategy {:nan-strategy :keep}))
              (.withEstimationType (options->percentile-estimation-strategy options))
              (.setData ^doubles (.ary-data ary-buf) (.offset ary-buf)
                        (.n-elems ary-buf)))]
