@@ -300,7 +300,8 @@
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [this] datatype)
   dtype-proto/PElemwiseReaderCast
-  (elemwise-reader-cast [item new-dtype] cached-io)
+  (elemwise-reader-cast [item new-dtype]
+    (or cached-io (dtype-proto/->reader item)))
   dtype-proto/PDatatype
   (datatype [this] :native-buffer)
   dtype-proto/PECount

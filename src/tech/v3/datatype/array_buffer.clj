@@ -184,7 +184,8 @@
   dtype-proto/PEndianness
   (endianness [item] :little-endian)
   dtype-proto/PElemwiseReaderCast
-  (elemwise-reader-cast [item new-dtype] cached-io)
+  (elemwise-reader-cast [item new-dtype]
+    (or cached-io (dtype-proto/->reader item)))
   dtype-proto/PToArrayBuffer
   (convertible-to-array-buffer? [item] true)
   (->array-buffer [item] item)
