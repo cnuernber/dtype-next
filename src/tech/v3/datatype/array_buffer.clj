@@ -212,7 +212,7 @@
         (Arrays/fill ^"[Ljava.lang.Object;" ary-data  offset end-offset value))))
   dtype-proto/PClone
   (clone [this]
-    (dtype-proto/make-container :jvm-heap datatype this {}))
+    (dtype-proto/make-container :jvm-heap datatype {} this))
   dtype-proto/PToBuffer
   (convertible-to-buffer? [item] true)
   (->buffer [item]

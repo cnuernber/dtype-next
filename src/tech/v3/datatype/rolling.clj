@@ -111,11 +111,13 @@
   If input is an iterator, output is an lazy sequence.  If input is a reader,
   output is a reader."
   [item window-size window-fn]
-  (vectorized-dispatch-1 item
-                         (fn [_] (throw (ex-info "Rolling windows aren't defined on scalars" {})))
-                         (fn [item]
-                           (->> (pad-sequence (quot (long window-size) 2) item)
-                                (fixed-window-sequence window-size 1)
-                                (map window-fn)))
-                         (fn [item _result-dtype]
-                           (windowed-reader window-size window-fn item))))
+  (vectorized-dispatch-1
+   (fn [_] (throw (ex-info "Rolling windows aren't defined on scalars" {})))
+   (fn [_res-dtype item]
+     (->> (pad-sequence (quot (long window-size) 2) item)
+          (fixed-window-sequence window-size 1)
+          (map window-fn)))
+   (fn [_result-dtype item]
+     (windowed-reader window-size window-fn item))
+   nil
+   item))

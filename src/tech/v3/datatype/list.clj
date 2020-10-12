@@ -90,6 +90,11 @@
     (dtype-proto/convertible-to-native-buffer? buffer))
   (->native-buffer [this]
     (dtype-proto/->native-buffer (dtype-base/sub-buffer buffer 0 ptr)))
+  dtype-proto/PClone
+  (clone [this]
+    (let [new-buf (dtype-proto/clone (dtype-base/sub-buffer buffer 0 ptr))]
+      (ListImpl. new-buf ptr ptr
+                 (dtype-proto/->buffer new-buf) metadata)))
   PrimitiveList
   (ensureCapacity [item new-size]
     (let [new-buf (ensure-capacity buffer new-size capacity)]

@@ -24,7 +24,9 @@
   of this type.  For scalars, return your elemental datatype."
   [item]
   ;;false has a datatype in this world.
-  (when-not (nil? item) (dtype-proto/elemwise-datatype item)))
+  (if-not (nil? item)
+    (dtype-proto/elemwise-datatype item)
+    :object))
 
 
 (defn datatype
@@ -38,7 +40,9 @@
 ```
   Defaults to this object's elemwise-datatype."
   [item]
-  (when-not (nil? item) (dtype-proto/datatype item)))
+  (if-not (nil? item)
+    (dtype-proto/datatype item)
+    :object))
 
 
 (defn elemwise-cast

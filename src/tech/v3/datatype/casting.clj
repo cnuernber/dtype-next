@@ -37,7 +37,7 @@
 
 (defn add-object-datatype!
   ;;Add an object datatype.
-  ([datatype klass & [implement-protocols?]]
+  ([datatype klass implement-protocols?]
    (.put datatype->class-map datatype klass)
    (.put class->datatype-map klass datatype)
    (rebuild-valid-datatypes!)
@@ -47,7 +47,9 @@
        {:elemwise-datatype (constantly datatype)}
        dtype-proto/PDatatype
        {:datatype (constantly datatype)}))
-   :ok))
+   :ok)
+  ([datatype klass]
+   (add-object-datatype! datatype klass true)))
 
 
 (defn object-class->datatype
@@ -581,6 +583,9 @@
   "Flatten datatypes down into long, double, or object."
   ([lhs-dtype rhs-dtype]
    (cond
+     (or (nil? lhs-dtype)
+         (nil? rhs-dtype))
+     :object
      (and (= :boolean lhs-dtype)
           (= :boolean rhs-dtype))
      :boolean
