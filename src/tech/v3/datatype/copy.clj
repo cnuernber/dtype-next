@@ -129,21 +129,27 @@
          (= (dtype-proto/endianness src-buf)
             (dtype-proto/endianness dst-buf))
          (let [[src src-off] (unpack-copy-item src-buf)
-               [dst dst-off] (unpack-copy-item dst-buf)]
+               [dst dst-off] (unpack-copy-item dst-buf)
+               byte-width (casting/numeric-byte-width
+                           (casting/un-alias-datatype src-dt))]
            (if (< n-elems 1024)
              (.copyMemory (native-buffer/unsafe)
                           src (long src-off)
                           dst (long dst-off)
-                          (* n-elems (casting/numeric-byte-width
-                                      (casting/un-alias-datatype src-dt))))
+                          (* n-elems byte-width))
              (parallel-for/indexed-map-reduce
               n-elems
               (fn [^long start-idx ^long group-len]
-                (.copyMemory (native-buffer/unsafe)
-                             src (+ (long src-off) start-idx)
-                             dst (+ (long dst-off) start-idx)
-                             (* group-len (casting/numeric-byte-width
-                                           (casting/un-alias-datatype src-dt))))))))
+                (let [[src src-off] (unpack-copy-item
+                                     (dtype-base/sub-buffer src-buf
+                                                            start-idx group-len))
+                      [dst dst-off] (unpack-copy-item
+                                     (dtype-base/sub-buffer dst-buf
+                                                            start-idx group-len))]
+                  (.copyMemory (native-buffer/unsafe)
+                               src (long src-off)
+                               dst (long dst-off)
+                               (* group-len byte-width)))))))
          :else
          (generic-copy! src dst))
        dst)))

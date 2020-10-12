@@ -115,12 +115,12 @@
 
 (defn ->array-buffer
   "Perform a NaN-aware conversion into an array buffer.  Default
-  nan-strategy is :remove which forces a pass over float datatypes
-  in order to remove nan data.
+  nan-strategy is :keep.
 
 
   Nan strategies can be: [:keep :remove :exception]"
-  (^ArrayBuffer [datatype {:keys [nan-strategy]} item]
+  (^ArrayBuffer [datatype {:keys [nan-strategy]
+                           :or {nan-strategy :keep}} item]
    (let [nan-strategy (if (or (= datatype :float32)
                               (= datatype :float64))
                         nan-strategy
