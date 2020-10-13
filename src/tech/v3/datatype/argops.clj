@@ -81,135 +81,151 @@
   "Convert a thing to a unary operator. Thing can be a keyword or
   an implementation of IFn or an implementation of a UnaryOperator."
   ^UnaryOperator [op]
-  (find-unary-operator op unary-op/builtin-ops "unary operator" unary-op/->operator))
+  (find-unary-operator op unary-op/builtin-ops
+                       "unary operator" unary-op/->operator))
 
 
 (defn ->binary-operator
   "Convert a thing to a binary operator.  Thing can be a keyword or
   an implementation of IFn or an implementation of a BinaryOperator."
   ^BinaryOperator [op]
-  (find-binary-operator op binary-op/builtin-ops "binary operator" binary-op/->operator))
+  (find-binary-operator op binary-op/builtin-ops
+                        "binary operator" binary-op/->operator))
 
 
 (defn ->unary-predicate
   "Convert a thing to a unary predicate. Thing can be a keyword or
   an implementation of IFn or an implementation of a UnaryPredicate."
   ^UnaryPredicate [op]
-  (find-unary-operator op unary-pred/builtin-ops "unary predicate" unary-pred/->predicate))
+  (find-unary-operator op unary-pred/builtin-ops
+                       "unary predicate" unary-pred/->predicate))
 
 
 (defn ->binary-predicate
   "Convert a thing to a binary predicate.  Thing can be a keyword or
   an implementation of IFn or an implementation of a BinaryPredicate."
   ^BinaryPredicate [op]
-  (find-binary-operator op binary-pred/builtin-ops "binary predicate" binary-pred/->predicate))
+  (find-binary-operator op binary-pred/builtin-ops
+                        "binary predicate" binary-pred/->predicate))
+
+
+(def ^:private compare-compile-time-family
+  {:int64 {:min-value 'Long/MIN_VALUE :max-value 'Long/MAX_VALUE
+           :compare 'Long/compare :read-fn '.readLong :pred-fn '.binaryLong}
+   :float64 {:min-value 'Double/MIN_VALUE :max-value 'Double/MAX_VALUE
+             :compare 'Double/compare :read-fn '.readDouble :pred-fn '.binaryDouble}
+   :object {:min-value 'nil :max-value 'nil
+            :compare 'compare :read-fn '.readObject :pred-fn '.binaryObject}})
+
+
+(defmacro ^:private impl-arglast-every-loop
+  [datatype init-value n-elems rdr pred]
+  (let [{:keys [read-fn pred-fn]} (compare-compile-time-family datatype)]
+    (when-not (and read-fn pred-fn)
+      (throw (Exception. (format "Compile failure: %s, :read-fn %s, :pred-fn %s"
+                                 datatype read-fn pred-fn))))
+    `(loop [idx# 0
+            max-idx# 0
+            max-value# (casting/datatype->cast-fn
+                        :unknown ~datatype ~init-value)]
+       (if (== ~n-elems idx#)
+         max-idx#
+         (let [cur-val# (~read-fn ~rdr idx#)
+               found?# (~pred-fn ~pred cur-val# max-value#)]
+           (recur (unchecked-inc idx#)
+                  (if found?# idx# max-idx#)
+                  (if found?# cur-val# max-value#)))))))
+
+
+
+(defn arglast-every
+  "Return the last index where (pred (rdr idx) (rdr (dec idx))) was true by
+  comparing every value and keeping track of the last index where pred was true."
+  [rdr pred-op init-val-map]
+  (let [pred (->binary-predicate pred-op)
+        op-space (casting/simple-operation-space
+                  (dtype-base/elemwise-datatype rdr))
+        rdr (dtype-base/->reader rdr op-space)
+        n-elems (.lsize rdr)]
+    (case op-space
+      :int64 (impl-arglast-every-loop :int64 (init-val-map :int64)
+                                      n-elems rdr pred)
+      :float64 (impl-arglast-every-loop :float64 (init-val-map :float64)
+                                        n-elems rdr pred)
+      (impl-arglast-every-loop :object (init-val-map :object)
+                               n-elems rdr pred))))
 
 
 (defn argmax
   "Return the index of the max item in the reader."
   ^long [rdr]
-  (let [rdr (dtype-base/->reader rdr)
-        n-elems (.lsize rdr)]
-    (cond
-      (casting/integer-type? (.elemwiseDatatype rdr))
-      (loop [idx 0
-             max-idx 0
-             max-val Long/MIN_VALUE]
-        (if (< idx n-elems)
-          (let [new-val (.readLong rdr idx)
-                new-max? (pmath/> new-val max-val)]
-            (recur (unchecked-inc idx)
-                   (if new-max? idx max-idx)
-                   (if new-max? new-val max-val)))
-          max-idx))
-      (casting/float-type? (.elemwiseDatatype rdr))
-      (loop [idx 0
-             max-idx 0
-             max-val (- Double/MAX_VALUE)]
-        (if (< idx n-elems)
-          (let [new-val (.readDouble rdr idx)
-                new-max? (pmath/> new-val max-val)]
-            (recur (unchecked-inc idx)
-                   (if new-max? idx max-idx)
-                   (if new-max? new-val max-val)))
-          max-idx))
-      :else
-      (loop [idx 0
-             max-idx 0
-             max-val (- Double/MAX_VALUE)]
-        (if (< idx n-elems)
-          (let [new-val (.readDouble rdr idx)
-                new-max? (> new-val max-val)]
-            (recur (unchecked-inc idx)
-                   (if new-max? idx max-idx)
-                   (if new-max? new-val max-val)))
-          max-idx)))))
+  (arglast-every rdr :>
+                 {:int64 Long/MIN_VALUE
+                  :float64 (- Double/MAX_VALUE)
+                  :object nil}))
 
 
 (defn argmin
   "Return the index of the min item in the reader."
   ^long [rdr]
-  (let [rdr (dtype-base/->reader rdr)
-        n-elems (.lsize rdr)]
-    (cond
-      (casting/integer-type? (.elemwiseDatatype rdr))
-      (loop [idx 0
-             min-idx 0
-             min-val Long/MAX_VALUE]
-        (if (< idx n-elems)
-          (let [new-val (.readLong rdr idx)
-                new-min? (pmath/< new-val min-val)]
-            (recur (unchecked-inc idx)
-                   (if new-min? idx min-idx)
-                   (if new-min? new-val min-val)))
-          min-idx))
-      (casting/float-type? (.elemwiseDatatype rdr))
-      (loop [idx 0
-             min-idx 0
-             min-val Double/MAX_VALUE]
-        (if (< idx n-elems)
-          (let [new-val (.readDouble rdr idx)
-                new-min? (pmath/< new-val min-val)]
-            (recur (unchecked-inc idx)
-                   (if new-min? idx min-idx)
-                   (if new-min? new-val min-val)))
-          min-idx))
-      :else
-      (loop [idx 0
-             min-idx 0
-             min-val (- Double/MIN_VALUE)]
-        (if (< idx n-elems)
-          (let [new-val (.readDouble rdr idx)
-                new-min? (< new-val min-val)]
-            (recur (unchecked-inc idx)
-                   (if new-min? idx min-idx)
-                   (if new-min? new-val min-val)))
-          min-idx)))))
+    (arglast-every rdr :<
+                 {:int64 Long/MAX_VALUE
+                  :float64 Double/MAX_VALUE
+                  :object nil}))
+
+(defmacro impl-index-of
+  [datatype comp-value n-elems pred rdr]
+  (let [{:keys [read-fn pred-fn]} (compare-compile-time-family datatype)]
+    `(let [comp-value# (casting/datatype->cast-fn :unknown ~datatype ~comp-value)]
+       (loop [idx# 0]
+         (if (or (== idx# ~n-elems)
+                 (~pred-fn ~pred (~read-fn ~rdr idx#) comp-value#))
+           idx#
+           (recur (unchecked-inc idx#)))))))
 
 
 (defn index-of
-  ^long [value rdr]
-  (let [rdr (ensure-reader rdr)
-        n-elems (.lsize rdr)]
-    (loop [idx 0]
-      (if (< idx n-elems)
-        (if (= (rdr idx) value)
-          idx
-          (recur (unchecked-inc idx)))
-        -1))))
+  "Return the first time pred is true given a comparison value."
+  (^long [rdr pred value]
+   (let [pred (->binary-predicate pred)
+         op-space (casting/simple-operation-space
+                   (dtype-base/elemwise-datatype rdr))
+         rdr (dtype-base/->reader rdr op-space)
+         n-elems (.lsize rdr)]
+     (case op-space
+       :int64 (impl-index-of :int64 value n-elems pred rdr)
+       :float64 (impl-index-of :float64 value n-elems pred rdr)
+       (impl-index-of :object value n-elems pred rdr))))
+  (^long [rdr value]
+   (index-of rdr :eq value)))
+
+(defmacro ^:private impl-last-idx-of
+  [datatype comp-value n-elems pred rdr]
+  (let [{:keys [read-fn pred-fn]} (compare-compile-time-family datatype)]
+    `(let [comp-value# (casting/datatype->cast-fn :unknown ~datatype ~comp-value)
+           n-elems-dec# (dec ~n-elems)]
+       (loop [idx# 0]
+         (if (or (== idx# ~n-elems)
+                 (~pred-fn ~pred (~read-fn ~rdr (- n-elems-dec# idx#)) comp-value#))
+           (- n-elems-dec# idx#)
+           (recur (unchecked-inc idx#)))))))
 
 
 (defn last-index-of
-  ^long [value rdr]
-  (let [rdr (ensure-reader (ensure-reader rdr))
-        n-elems (.lsize rdr)
-        n-elems-dec (dec n-elems)]
-    (loop [idx 0]
-      (if (< idx n-elems)
-        (if (= (rdr (pmath/- n-elems-dec idx)) value)
-          (pmath/- n-elems-dec idx)
-          (recur (unchecked-inc idx)))
-        -1))))
+  "Return the last index of the last time time pred, which defaults to :eq, is
+  true."
+  (^long [rdr pred value]
+   (let [op-space (casting/simple-operation-space
+                   (dtype-base/elemwise-datatype rdr))
+         rdr (dtype-base/->reader rdr op-space)
+         n-elems (.lsize rdr)
+         pred (->binary-predicate pred)]
+     (case op-space
+       :int64 (impl-last-idx-of :int64 value n-elems pred rdr)
+       :float64 (impl-last-idx-of :float64 value n-elems pred rdr)
+       (impl-last-idx-of :object value n-elems pred rdr))))
+  (^long [rdr value]
+   (last-index-of rdr :eq value)))
 
 
 (defn ->long-comparator
@@ -314,9 +330,9 @@
 
 (defn argsort
   "Sort values in index space.  By default uses a parallelized quicksort algorithm."
-  ([comparator {:keys [parallel?]
-                 :or {parallel? true}}
-    values]
+  ([values {:keys [parallel?]
+           :or {parallel? true}}
+    comparator]
    (let [n-elems (dtype-base/ecount values)
          val-dtype (dtype-base/elemwise-datatype values)
          comparator (or (if (keyword? comparator)
@@ -341,16 +357,16 @@
            (LongArrays/parallelQuickSort idx-ary ^LongComparator comparator)
            (LongArrays/quickSort idx-ary ^LongComparator comparator))
          idx-ary))))
-  ([comparator values]
-   (argsort comparator {} values))
+  ([values comparator]
+   (argsort values {}  comparator))
   ([values]
-   (argsort nil {} values)))
+   (argsort values {} nil)))
 
 
 (defn argfilter
   "Filter out values returning either an iterable of indexes or a reader
   of indexes."
-  ([pred options rdr]
+  ([rdr options pred]
    (if-let [rdr (dtype-base/as-reader rdr)]
      (unary-pred/bool-reader->indexes options
                                       (unary-pred/reader (->unary-predicate pred) rdr))
@@ -359,14 +375,14 @@
             (map-indexed (fn [idx data]
                            (when (.unaryObject pred data) idx)))
             (remove nil?)))))
-  ([pred rdr]
-   (argfilter pred nil rdr)))
+  ([rdr pred]
+   (argfilter rdr nil pred)))
 
 
 (defn binary-argfilter
   "Filter out values using a binary predicate.  Returns either an iterable of indexes
   or a reader of indexes."
-  ([pred options lhs rhs]
+  ([lhs rhs options pred]
    (let [lhs (dtype-base/as-reader lhs)
          rhs (dtype-base/as-reader rhs)]
      (if (and lhs rhs)
@@ -378,8 +394,8 @@
                 (when (.binaryObject pred lhs rhs) idx))
               (range) lhs rhs)
          (remove nil?)))))
-  ([pred lhs rhs]
-   (binary-argfilter pred nil lhs rhs)))
+  ([lhs rhs pred]
+   (binary-argfilter lhs rhs nil pred)))
 
 
 (defn index-reducer
@@ -412,14 +428,16 @@
 
 (defn arggroup
   "Group by elemens in the reader returning a map of value->list of indexes.
-  options:
-    - storage-datatype - :int32, :int64, or :bitmap, defaults to whatever will fit based on
-      the element count of the reader.
-    - unordered? - defaults to true, if true uses a slower algorithm that guarantees the
-      resulting index lists will be ordered.  In the case where storage is bitmap, unordered
-      reductions are used as the bitmap forces the end results to be ordered"
-  (^Map [{:keys [storage-datatype unordered?]}
-         rdr]
+
+  Options:
+
+  - storage-datatype - :int32, :int64, or :bitmap, defaults to whatever will fit
+    based on the element count of the reader.
+  - unordered? - defaults to true, if true uses a slower algorithm that guarantees
+    the resulting index lists will be ordered.  In the case where storage is
+    bitmap, unordered reductions are used as the bitmap forces the end results to be
+    ordered"
+  (^Map [rdr {:keys [storage-datatype unordered?]}]
    (when-not (dtype-base/reader? rdr)
      (errors/throwf "Input must be convertible to a reader"))
    (let [storage-datatype (or storage-datatype (unary-pred/reader-index-space rdr))
@@ -431,47 +449,48 @@
        (reductions/ordered-group-by-reduce reducer rdr)
        (reductions/unordered-group-by-reduce reducer rdr))))
   (^Map [rdr]
-   (arggroup nil rdr)))
+   (arggroup rdr nil)))
 
 
 (defn arggroup-by
   "Group by elemens in the reader returning a map of value->list of indexes. Indexes
   may not be ordered.  :storage-datatype may be specific in the options to set
-  the datatype of the indexes else the system will decide based on reader length."
-  (^Map [partition-fn options rdr]
+  the datatype of the indexes else the system will decide based on reader length.
+  See arggroup for Options."
+  (^Map [rdr options partition-fn]
    (if (= identity partition-fn)
      (arggroup options rdr)
      (arggroup options (unary-op/reader (->unary-operator partition-fn) rdr))))
-  (^Map [partition-fn rdr]
+  (^Map [rdr partition-fn]
    (arggroup-by partition-fn nil rdr)))
 
 
 (defn- do-argpartition-by
-  [^long start-idx ^Iterator item-iterable first-item]
+  [^long start-idx ^Iterator item-iterable first-item ^BinaryPredicate pred]
   (let [[end-idx next-item]
         (loop [cur-idx start-idx]
           (let [has-next? (.hasNext item-iterable)
                 next-item (when has-next? (.next item-iterable))]
-            (if (and has-next? (= first-item next-item))
+            (if (and has-next? (pred first-item next-item))
               (recur (inc cur-idx))
               [cur-idx next-item])))
         end-idx (inc (long end-idx))]
     (cons [first-item (range (long start-idx) end-idx)]
           (when (.hasNext item-iterable)
-            (lazy-seq (do-argpartition-by end-idx item-iterable next-item))))))
+            (lazy-seq (do-argpartition-by end-idx item-iterable next-item pred))))))
 
 
 (defn argpartition
   "Returns a sequence of [partition-key index-reader].  Index generation is not
   parallelized.  This design allows group-by and partition-by to be used
-  interchangeably as they both result in a sequence of [partition-key idx-reader].
-  This design is lazy."
-  (^Iterable [options item-iterable]
+  interchangeably (if pred is :eq) as they both result in a sequence of
+  [partition-key idx-reader]. This design is lazy."
+  (^Iterable [item-iterable pred]
    (let [iterator (.iterator ^Iterable (dtype-base/ensure-iterable item-iterable))]
      (when (.hasNext iterator)
-       (do-argpartition-by 0 iterator (.next iterator)))))
+       (do-argpartition-by 0 iterator (.next iterator) (->binary-predicate pred)))))
   (^Iterable [item-iterable]
-   (argpartition nil item-iterable)))
+   (argpartition item-iterable :eq)))
 
 
 (defn argpartition-by
@@ -479,11 +498,12 @@
   parallelized.  This design allows group-by and partition-by to be used
   interchangeably as they both result in a sequence of [partition-key idx-reader].
   This design is lazy."
-  (^Iterable [unary-op options item-iterable]
+  (^Iterable [item-iterable unary-op partition-pred]
    (let [iterator (->> (dtype-base/ensure-iterable item-iterable)
-                       (unary-op/iterable unary-op)
+                       (unary-op/iterable (->unary-operator unary-op))
                        (.iterator))]
      (when (.hasNext iterator)
-       (do-argpartition-by 0 iterator (.next iterator)))))
-  (^Iterable [unary-op item-iterable]
-   (argpartition-by unary-op nil item-iterable)))
+       (do-argpartition-by 0 iterator (.next iterator)
+                           (->binary-predicate partition-pred)))))
+  (^Iterable [item-iterable unary-op]
+   (argpartition-by item-iterable unary-op :eq)))

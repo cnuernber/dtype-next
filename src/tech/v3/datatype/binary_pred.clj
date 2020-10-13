@@ -15,7 +15,7 @@
            [clojure.lang Numbers]
            [org.apache.commons.math3.util Precision]
            [java.time Instant LocalDate ZonedDateTime]
-           [java.util Date]))
+           [java.util Date Comparator]))
 
 (set! *warn-on-reflection* true)
 
@@ -52,15 +52,15 @@
   (^BinaryPredicate [item opname]
    (cond
      (instance? BinaryPredicate item) item
-     (instance? IFn item) (ifn->binary-predicate item opname)
-     (instance? BinaryPredicate item)
-     (let [^BinaryPredicate item item]
+     (instance? Comparator item)
+     (let [^Comparator item item]
        (reify
          BinaryPredicates$ObjectBinaryPredicate
          (binaryObject [this lhs rhs]
-           (.test item lhs rhs))
+           (== 0 (.compare item lhs rhs)))
          dtype-proto/POperator
-         (op-name [this] opname)))))
+         (op-name [this] opname)))
+     (instance? IFn item) (ifn->binary-predicate item opname)))
   (^BinaryPredicate [item] (->predicate item :_unnamed)))
 
 
@@ -156,7 +156,10 @@
      (binaryLong [this lhs rhs] (== lhs rhs))
      (binaryFloat [this lhs rhs] (Precision/equalsIncludingNaN lhs rhs))
      (binaryDouble [this lhs rhs] (Precision/equalsIncludingNaN lhs rhs))
-     (binaryObject [this lhs rhs] (= lhs rhs))
+     (binaryObject [this lhs rhs]
+       (if lhs
+         (.equals ^Object lhs rhs)
+         (= lhs rhs)))
      dtype-proto/POperator
      (op-name [this] :eq))
    :not-eq
@@ -170,7 +173,10 @@
      (binaryLong [this lhs rhs] (not= lhs rhs))
      (binaryFloat [this lhs rhs] (not (Precision/equalsIncludingNaN lhs rhs)))
      (binaryDouble [this lhs rhs] (not (Precision/equalsIncludingNaN lhs rhs)))
-     (binaryObject [this lhs rhs] (not= lhs rhs))
+     (binaryObject [this lhs rhs]
+       (if lhs
+         (not (.equals ^Object lhs rhs))
+         (= lhs rhs)))
      dtype-proto/POperator
      (op-name [this] :eq))
 

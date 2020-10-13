@@ -106,13 +106,13 @@
      :else
      (when (dtype-proto/convertible-to-reader? item)
        (dtype-proto/->reader item))))
-  (^Buffer [item new-dtype]
+  (^Buffer [item read-datatype]
    (cond
      (nil? item) item
-     (= new-dtype (dtype-proto/elemwise-datatype item))
+     (= read-datatype (dtype-proto/elemwise-datatype item))
      (as-reader item)
      :else
-     (dtype-proto/elemwise-reader-cast item new-dtype))))
+     (dtype-proto/elemwise-reader-cast item read-datatype))))
 
 
 (defn ->reader
@@ -123,8 +123,8 @@
      io
      (errors/throwf "Item type %s is not convertible to primitive reader"
                     (type item))))
-  (^Buffer [item new-dtype]
-   (if-let [io (as-reader item new-dtype)]
+  (^Buffer [item read-datatype]
+   (if-let [io (as-reader item read-datatype)]
      io
      (errors/throwf "Item type %s is not convertible to primitive reader"
                     (type item)))))
