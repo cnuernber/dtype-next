@@ -120,7 +120,7 @@
          retval
          (case datatype
            :instant (vectorized-dispatch-object-reader
-                     dt-base/microseconds-since-epoch->instant
+                     dt-base/milliseconds-since-epoch->instant
                      :instant milli-data)
            :zoned-date-time (vectorized-dispatch-object-reader
                              dt-base/milliseconds-since-epoch->zoned-date-time

@@ -12,7 +12,7 @@
             ObjectBuffer ElemwiseDatatype ObjectReader NDBuffer]
            [tech.v3.datatype.array_buffer ArrayBuffer]
            [tech.v3.datatype.native_buffer NativeBuffer]
-           [clojure.lang IPersistentCollection]
+           [clojure.lang IPersistentCollection APersistentMap APersistentVector APersistentSet]
            [java.util RandomAccess List
             Spliterator Spliterator$OfDouble Spliterator$OfLong
             Spliterator$OfInt]
@@ -275,8 +275,7 @@
 
 (extend-type RandomAccess
   dtype-proto/PDatatype
-  (datatype [item] {:container-type :random-access
-                    :elemwise-datatype :object})
+  (datatype [item] :random-access-list)
   dtype-proto/PToBuffer
   (convertible-to-buffer? [item] true)
   (->buffer [item] (random-access->io item))
@@ -530,6 +529,25 @@
 (extend-type Iterable
   dtype-proto/PDatatype
   (datatype [item] :iterable))
+
+
+(extend-type APersistentMap
+  dtype-proto/PDatatype
+  (datatype [item] :persistent-map))
+
+(casting/add-object-datatype! :persistent-map APersistentMap false)
+
+(extend-type APersistentVector
+  dtype-proto/PDatatype
+  (datatype [item] :persistent-vector))
+
+(casting/add-object-datatype! :persistent-vector APersistentVector false)
+
+(extend-type APersistentSet
+  dtype-proto/PDatatype
+  (datatype [item] :persistent-set))
+
+(casting/add-object-datatype! :persistent-set APersistentSet false)
 
 
 (defn set-constant!
