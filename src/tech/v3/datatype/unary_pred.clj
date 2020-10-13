@@ -76,25 +76,25 @@
 (defn reader
   ^Buffer [pred src-rdr]
   (let [pred (->predicate pred)
-        src-rdr (dtype-base/->reader src-rdr)
-        src-dtype (dtype-base/elemwise-datatype src-rdr)]
-    (cond
-      (= :boolean src-dtype)
+        op-space (casting/simple-operation-space
+                  (dtype-base/elemwise-datatype src-rdr))
+        src-rdr (dtype-base/->reader src-rdr op-space)]
+    (case op-space
+      :boolean
       (reify BooleanReader
         (lsize [rdr] (.lsize src-rdr))
         (readBoolean [rdr idx]
           (.unaryBoolean pred (.readBoolean src-rdr idx))))
-      (casting/integer-type? src-dtype)
+      :int64
       (reify BooleanReader
         (lsize [rdr] (.lsize src-rdr))
         (readBoolean [rdr idx]
           (.unaryLong pred (.readLong src-rdr idx))))
-      (casting/float-type? src-dtype)
+      :float64
       (reify BooleanReader
         (lsize [rdr] (.lsize src-rdr))
         (readBoolean [rdr idx]
           (.unaryDouble pred (.readDouble src-rdr idx))))
-      :else
       (reify BooleanReader
         (lsize [rdr] (.lsize src-rdr))
         (readBoolean [rdr idx]

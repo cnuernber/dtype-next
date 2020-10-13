@@ -60,6 +60,14 @@
            (== 0 (.compare item lhs rhs)))
          dtype-proto/POperator
          (op-name [this] opname)))
+     (instance? java.util.function.BiPredicate item)
+     (let [^java.util.function.BiPredicate item item]
+       (reify
+         BinaryPredicates$ObjectBinaryPredicate
+         (binaryObject [this lhs rhs]
+           (.test item lhs rhs))
+         dtype-proto/POperator
+         (op-name [this] opname)))
      (instance? IFn item) (ifn->binary-predicate item opname)))
   (^BinaryPredicate [item] (->predicate item :_unnamed)))
 
@@ -67,38 +75,38 @@
 (defn reader
   ^Buffer [pred lhs-rdr rhs-rdr]
   (let [pred (->predicate pred)
-        lhs-rdr (dtype-base/->reader lhs-rdr)
-        rhs-rdr (dtype-base/->reader rhs-rdr)
-        op-dtype (casting/widest-datatype (.elemwiseDatatype lhs-rdr)
-                                          (.elemwiseDatatype rhs-rdr))]
+        op-dtype (casting/simple-operation-space
+                  (dtype-base/elemwise-datatype lhs-rdr)
+                  (dtype-base/elemwise-datatype rhs-rdr))
+        lhs-rdr (dtype-base/->reader lhs-rdr op-dtype)
+        rhs-rdr (dtype-base/->reader rhs-rdr op-dtype)]
     (when-not (== (.lsize lhs-rdr)
                   (.lsize rhs-rdr))
       (errors/throwf "lhs size (%d), rhs size (%d) mismatch"
                      (.lsize lhs-rdr)
                      (.lsize rhs-rdr)))
-    (cond
-      (= :boolean op-dtype)
+    (case op-dtype
+      :boolean
       (reify BooleanReader
         (lsize [rdr] (.lsize lhs-rdr))
         (readBoolean [rdr idx]
           (.binaryBoolean pred
                           (.readBoolean lhs-rdr idx)
                           (.readBoolean rhs-rdr idx))))
-      (casting/integer-type? op-dtype)
+      :int64
       (reify BooleanReader
         (lsize [rdr] (.lsize lhs-rdr))
         (readBoolean [rdr idx]
           (.binaryLong pred
                        (.readLong lhs-rdr idx)
                        (.readLong rhs-rdr idx))))
-      (casting/float-type? op-dtype)
+      :float64
       (reify BooleanReader
         (lsize [rdr] (.lsize lhs-rdr))
         (readBoolean [rdr idx]
           (.binaryDouble pred
                        (.readDouble lhs-rdr idx)
                        (.readDouble rhs-rdr idx))))
-      :else
       (reify ObjectReader
         (lsize [rdr] (.lsize lhs-rdr))
         (readObject [rdr idx]
@@ -180,57 +188,27 @@
      dtype-proto/POperator
      (op-name [this] :eq))
 
-   :> (make-numeric-binary-predicate :> (pmath/> x y)
-                                     (cond
-                                       (and (instance? Instant x)
-                                            (instance? Instant y))
-                                       (.isAfter ^Instant x ^Instant y)
-                                       (and (instance? LocalDate x)
-                                            (instance? LocalDate y))
-                                       (.isAfter ^LocalDate x ^LocalDate y)
-                                       (and (instance? ZonedDateTime x)
-                                            (instance? ZonedDateTime y))
-                                       (.isAfter ^ZonedDateTime x ^ZonedDateTime y)
-                                       :else
-                                       (Numbers/gt x y)))
-   :>= (make-numeric-binary-predicate :>= (pmath/>= x y)
-                                      (or (.equals ^Object x y)
-                                          (cond
-                                            (and (instance? Instant x)
-                                                 (instance? Instant y))
-                                            (.isAfter ^Instant x ^Instant y)
-                                            (and (instance? LocalDate x)
-                                                 (instance? LocalDate y))
-                                            (.isAfter ^LocalDate x ^LocalDate y)
-                                            (and (instance? ZonedDateTime x)
-                                                 (instance? ZonedDateTime y))
-                                            (.isAfter ^ZonedDateTime x ^ZonedDateTime y)
-                                            :else
-                                            (Numbers/gt x y))))
-   :< (make-numeric-binary-predicate :< (pmath/< x y)
-                                     (cond
-                                       (and (instance? Instant x)
-                                            (instance? Instant y))
-                                       (.isBefore ^Instant x ^Instant y)
-                                       (and (instance? LocalDate x)
-                                            (instance? LocalDate y))
-                                       (.isBefore ^LocalDate x ^LocalDate y)
-                                       (and (instance? ZonedDateTime x)
-                                            (instance? ZonedDateTime y))
-                                       (.isBefore ^ZonedDateTime x ^ZonedDateTime y)
-                                       :else
-                                       (Numbers/lt x y)))
-   :<= (make-numeric-binary-predicate :<= (pmath/<= x y)
-                                      (or (.equals ^Object x y)
-                                          (cond
-                                            (and (instance? Instant x)
-                                                 (instance? Instant y))
-                                            (.isBefore ^Instant x ^Instant y)
-                                            (and (instance? LocalDate x)
-                                                 (instance? LocalDate y))
-                                            (.isBefore ^LocalDate x ^LocalDate y)
-                                            (and (instance? ZonedDateTime x)
-                                                 (instance? ZonedDateTime y))
-                                            (.isBefore ^ZonedDateTime x ^ZonedDateTime y)
-                                            :else
-                                            (Numbers/lte x y))))})
+   :> (make-numeric-binary-predicate
+       :> (pmath/> x y)
+       (let [comp-val (long (if (instance? Comparable x)
+                              (.compareTo ^Comparable x y)
+                              (compare x y)))]
+          (pmath/> comp-val 0)))
+   :>= (make-numeric-binary-predicate
+        :>= (pmath/>= x y)
+        (let [comp-val (long (if (instance? Comparable x)
+                               (.compareTo ^Comparable x y)
+                               (compare x y)))]
+          (pmath/>= comp-val 0)))
+   :< (make-numeric-binary-predicate
+       :< (pmath/< x y)
+       (let [comp-val (long (if (instance? Comparable x)
+                              (.compareTo ^Comparable x y)
+                              (compare x y)))]
+         (pmath/< comp-val 0)))
+   :<= (make-numeric-binary-predicate
+        :<= (pmath/<= x y)
+        (let [comp-val (long (if (instance? Comparable x)
+                              (.compareTo ^Comparable x y)
+                              (compare x y)))]
+         (pmath/<= comp-val 0)))})

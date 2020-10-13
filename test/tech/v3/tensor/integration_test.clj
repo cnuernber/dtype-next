@@ -120,8 +120,8 @@
     (dotimes [iter (count test-indexes)]
       (.ndWriteLong writer iter 3 255))
     (is (dfn/equals (sort test-indexes)
-                    (argops/argfilter #(not= 0 %)
-                                      (dtt/select test-tens :all :all 3))))))
+                    (argops/argfilter (dtt/select test-tens :all :all 3)
+                                      #(not= 0 %))))))
 
 
 (deftest normal-tensor-select

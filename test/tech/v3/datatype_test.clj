@@ -239,7 +239,7 @@
   (let [test-floats (float-array [0 ##NaN 2 4 ##NaN])
         nan-floats (float-array (repeat 5 ##NaN))]
     (is (= [1 4]
-           (-> (argops/argfilter #(= 0 (Float/compare % Float/NaN)) test-floats)
+           (-> (argops/argfilter test-floats #(= 0 (Float/compare % Float/NaN)))
                vec)))
     (is (= [false true false false true]
            (dfn/nan? test-floats)))
@@ -248,9 +248,9 @@
            (dfn/eq test-floats Float/NaN)))
 
     (is (= [1 4]
-           (->> (dfn/eq test-floats nan-floats)
-                (argops/argfilter identity)
-                vec)))))
+           (-> (dfn/eq test-floats nan-floats)
+               (argops/argfilter identity)
+               vec)))))
 
 
 (deftest round-and-friends
@@ -331,7 +331,7 @@
   ;;if it operates as :object datatype.  This is the default.
   (let [{truevals true
          falsevals false}
-        (argops/arggroup-by even? (range 20))]
+        (argops/arggroup-by (range 20) even?)]
     (is (= (set truevals)
            (set (filter even? (range 20)))))
     (is (= (set falsevals)
@@ -342,7 +342,7 @@
   ;;operates and returns values in long space.
   (let [{truevals true
          falsevals false}
-        (argops/arggroup-by even? {:storage-datatype :int64} (range 20))]
+        (argops/arggroup-by (range 20) {:storage-datatype :int64} even?)]
     (is (= (set truevals)
            (set (filter even? (range 20)))))
     (is (= (set falsevals)
@@ -354,7 +354,7 @@
   ;;if it operates as :object datatype.  This is the default.
   (let [{truevals true
          falsevals false}
-        (argops/arggroup-by even? {:storage-datatype :int32} (range 20))]
+        (argops/arggroup-by (range 20) {:storage-datatype :int32} even?)]
     ;;Default group by is ordered
     (is (= truevals
            (filter even? (range 20))))
@@ -364,7 +364,7 @@
 
   (let [{truevals true
          falsevals false}
-        (argops/arggroup-by even? {:storage-datatype :int64} (range 20))]
+        (argops/arggroup-by (range 20) {:storage-datatype :int64} even?)]
     (is (= truevals
            (filter even? (range 20))))
     (is (= falsevals
@@ -376,7 +376,7 @@
   ;;if it operates as :object datatype.  This is the default.
   (let [{truevals true
          falsevals false}
-        (argops/arggroup-by even? {:storage-datatype :bitmap} (range 20))]
+        (argops/arggroup-by (range 20) {:storage-datatype :bitmap}  even?)]
     (is (= (vec truevals)
            (vec (filter even? (range 20)))))
     (is (= (vec falsevals)
@@ -390,7 +390,7 @@
           [1 (range 5 10)]
           [2 (range 10 15)]
           [3 (range 15 20)]]
-         (vec (argops/argpartition-by #(quot (long %) 5) (range 20))))))
+         (vec (argops/argpartition-by (range 20) #(quot (long %) 5))))))
 
 
 (deftest typed-buffer-destructure
@@ -463,7 +463,7 @@
 (deftest argsort-generic
   (let [data (dtype/make-container :java-array :int16 (shuffle
                                                        (range 10)))
-        indexes (argops/argsort > data)
+        indexes (argops/argsort data >)
         new-data (dtype/indexed-buffer indexes data)]
     (is (= (vec (reverse (range 10)))
            (vec new-data)))))

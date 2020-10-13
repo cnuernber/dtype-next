@@ -119,15 +119,14 @@
 
 
 (defmacro ^:private impl-arglast-every-loop
-  [datatype init-value n-elems rdr pred]
+  [datatype n-elems rdr pred]
   (let [{:keys [read-fn pred-fn]} (compare-compile-time-family datatype)]
     (when-not (and read-fn pred-fn)
       (throw (Exception. (format "Compile failure: %s, :read-fn %s, :pred-fn %s"
                                  datatype read-fn pred-fn))))
-    `(loop [idx# 0
+    `(loop [idx# 1
             max-idx# 0
-            max-value# (casting/datatype->cast-fn
-                        :unknown ~datatype ~init-value)]
+            max-value# (~read-fn ~rdr 0)]
        (if (== ~n-elems idx#)
          max-idx#
          (let [cur-val# (~read-fn ~rdr idx#)
@@ -141,37 +140,28 @@
 (defn arglast-every
   "Return the last index where (pred (rdr idx) (rdr (dec idx))) was true by
   comparing every value and keeping track of the last index where pred was true."
-  [rdr pred-op init-val-map]
+  [rdr pred-op]
   (let [pred (->binary-predicate pred-op)
         op-space (casting/simple-operation-space
                   (dtype-base/elemwise-datatype rdr))
         rdr (dtype-base/->reader rdr op-space)
         n-elems (.lsize rdr)]
     (case op-space
-      :int64 (impl-arglast-every-loop :int64 (init-val-map :int64)
-                                      n-elems rdr pred)
-      :float64 (impl-arglast-every-loop :float64 (init-val-map :float64)
-                                        n-elems rdr pred)
-      (impl-arglast-every-loop :object (init-val-map :object)
-                               n-elems rdr pred))))
+      :int64 (impl-arglast-every-loop :int64 n-elems rdr pred)
+      :float64 (impl-arglast-every-loop :float64 n-elems rdr pred)
+      (impl-arglast-every-loop :object n-elems rdr pred))))
 
 
 (defn argmax
   "Return the index of the max item in the reader."
   ^long [rdr]
-  (arglast-every rdr :>
-                 {:int64 Long/MIN_VALUE
-                  :float64 (- Double/MAX_VALUE)
-                  :object nil}))
+  (arglast-every rdr :>))
 
 
 (defn argmin
   "Return the index of the min item in the reader."
   ^long [rdr]
-    (arglast-every rdr :<
-                 {:int64 Long/MAX_VALUE
-                  :float64 Double/MAX_VALUE
-                  :object nil}))
+    (arglast-every rdr :<))
 
 (defmacro impl-index-of
   [datatype comp-value n-elems pred rdr]
@@ -459,10 +449,10 @@
   See arggroup for Options."
   (^Map [rdr options partition-fn]
    (if (= identity partition-fn)
-     (arggroup options rdr)
-     (arggroup options (unary-op/reader (->unary-operator partition-fn) rdr))))
+     (arggroup rdr options)
+     (arggroup (unary-op/reader (->unary-operator partition-fn) rdr) options)))
   (^Map [rdr partition-fn]
-   (arggroup-by partition-fn nil rdr)))
+   (arggroup-by rdr nil partition-fn)))
 
 
 (defn- do-argpartition-by
