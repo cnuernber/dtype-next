@@ -34,6 +34,12 @@
   [scalar-fn res-dtype lhs rhs]
   (typed-map scalar-fn res-dtype lhs rhs))
 
+(defn- checked-elemwise-reader-cast
+  [item new-dtype]
+  (if (= new-dtype (dtype-proto/elemwise-datatype item))
+    (dtype-proto/->reader item)
+    (dtype-proto/elemwise-reader-cast item new-dtype)))
+
 
 (defn vectorized-dispatch-1
   "Perform a vectorized dispatch meaning return a different object depending on the
@@ -56,7 +62,7 @@
            (if iterable-fn
              (iterable-fn res-dtype arg1)
              (typed-map-1 scalar-fn res-dtype arg1))
-           (cond-> (reader-fn res-dtype (dtype-proto/elemwise-reader-cast arg1 res-dtype))
+           (cond-> (reader-fn res-dtype (checked-elemwise-reader-cast arg1 res-dtype))
              (= arg1-type :tensor)
              (dtype-proto/reshape (dtype-proto/shape arg1))))))))
   ([scalar-fn iterable-fn reader-fn arg1]

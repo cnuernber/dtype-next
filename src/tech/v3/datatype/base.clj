@@ -335,6 +335,11 @@
 (extend-type Buffer
   dtype-proto/PDatatype
   (datatype [item] :buffer)
+  dtype-proto/PElemwiseReaderCast
+  (elemwise-reader-cast [item new-dtype]
+    ;;The buffer implementations themselves have casting in their
+    ;;type specific get methods so this cast cannot possibly do anything.
+    item)
   dtype-proto/PToBuffer
   (convertible-to-buffer? [buf] true)
   (->buffer [item] item)
@@ -405,7 +410,9 @@
            item)))))
   dtype-proto/PElemwiseReaderCast
   (elemwise-reader-cast [item new-dtype]
-    (as-reader (elemwise-cast item new-dtype)))
+    (if (array? item)
+      (->reader item)
+      (as-reader (elemwise-cast item new-dtype))))
   dtype-proto/PECount
   (ecount [item] (count item))
   dtype-proto/PToArrayBuffer
