@@ -61,7 +61,21 @@
          (unaryObject [this arg]
            (.test item arg))
          dtype-proto/POperator
-         (op-name [this] opname)))))
+         (op-name [this] opname)))
+     (instance? Comparable item)
+     (reify
+       UnaryPredicates$ObjectUnaryPredicate
+       (unaryObject [this arg]
+         (== 0 (.compareTo ^Comparable item arg)))
+       dtype-proto/POperator
+       (op-name [this] opname))
+     :else
+     (reify
+       UnaryPredicates$ObjectUnaryPredicate
+       (unaryObject [this arg]
+         (boolean (= item arg)))
+       dtype-proto/POperator
+       (op-name [this] opname))))
   (^UnaryPredicate [item]
    (->predicate item :_unnamed)))
 

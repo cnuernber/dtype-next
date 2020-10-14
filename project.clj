@@ -1,12 +1,12 @@
-(defproject cnuernber/dtype-next "0.4.22-SNAPSHOT"
+(defproject cnuernber/dtype-next "0.4.23-SNAPSHOT"
   :description "A Clojure library designed to aid in the implementation of high performance algorithms and systems.
 
 This library implements a subset of functionality required for 'array' programming as well as several
 index-space algorithms for use with multiple arrays that share an index space.
 
 
-There is a top level interface in Java named Buffer that implements a generic typed read and write interface.
-This interface includes queries as to whether it is capable of reading or writing.
+There is a top level interface defined in Java named Buffer that implements a generic typed read and write
+interface. This interface includes queries as to whether it is capable of reading or writing.
 
 
 There is an implementation of that interface built on java arrays that is denoted by the keyword :jvm-heap
