@@ -57,7 +57,8 @@
                 as-reader
                 ->reader
                 reader?
-                ensure-iterable
+                ->iterable
+                iterable?
                 as-writer
                 ->writer
                 writer?

@@ -39,7 +39,7 @@
                                                   (dtype-proto/has-constant-time-min-max? shape-entry)
                                                   (inc (long (dtype-proto/constant-time-max shape-entry)))
                                                   :else
-                                                  (+ 1 (apply max (dtype/ensure-iterable shape-entry)))))
+                                                  (+ 1 (apply max (dtype/->iterable shape-entry)))))
                                               shape))
          n-src-buffer-elems
          (* (.readLong strides max-stride-idx)
@@ -60,7 +60,7 @@
                         [global-address
                          local-address
                          (.ndReadLongIter forward
-                                          (dtype/ensure-iterable global-shape))
+                                          (dtype/->iterable global-shape))
                          (when (= 2 (count shape))
                            (.ndReadLong forward
                                         (first global-shape)

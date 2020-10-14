@@ -34,7 +34,7 @@
 
 
 (def ^:private stats-tower
-  {:sum {:reduction (constantly :+)}
+  {:sum {:reduction (constantly :tech.numerics/+)}
    :min {:reduction (constantly (:min binary-op/builtin-ops))}
    :max {:reduction (constantly (:max binary-op/builtin-ops))}
    :mean {:dependencies [:sum]
@@ -391,7 +391,7 @@
   "double mean of data"
   (^double [data options]
    (let [{:keys [n-elems value]} (dtype-reductions/staged-double-consumer-reduction
-                                  :+ options data)]
+                                  :tech.numerics/+ options data)]
      (pmath// (double value)
               (double n-elems))))
   (^double [data]

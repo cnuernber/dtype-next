@@ -118,8 +118,8 @@
 (defn iterable
   [pred lhs rhs]
   (let [pred (->predicate pred)
-        lhs (dtype-base/ensure-iterable lhs)
-        rhs (dtype-base/ensure-iterable rhs)]
+        lhs (dtype-base/->iterable lhs)
+        rhs (dtype-base/->iterable rhs)]
     (dispatch/typed-map-2 pred :boolean lhs rhs)))
 
 
@@ -151,9 +151,9 @@
 
 
 (def builtin-ops
-  {:and (make-boolean-predicate :boolean (boolean (and x y)))
-   :or (make-boolean-predicate :boolean (boolean (or x y)))
-   :eq
+  {:tech.numerics/and (make-boolean-predicate :boolean (boolean (and x y)))
+   :tech.numerics/or (make-boolean-predicate :boolean (boolean (or x y)))
+   :tech.numerics/eq
    (reify
      BinaryPredicates$ObjectBinaryPredicate
      (binaryBoolean [this lhs rhs] (= lhs rhs))
@@ -170,7 +170,7 @@
          (= lhs rhs)))
      dtype-proto/POperator
      (op-name [this] :eq))
-   :not-eq
+   :tech.numerics/not-eq
    (reify
      BinaryPredicates$ObjectBinaryPredicate
      (binaryBoolean [this lhs rhs] (not= lhs rhs))
@@ -188,25 +188,25 @@
      dtype-proto/POperator
      (op-name [this] :eq))
 
-   :> (make-numeric-binary-predicate
+   :tech.numerics/> (make-numeric-binary-predicate
        :> (pmath/> x y)
        (let [comp-val (long (if (instance? Comparable x)
                               (.compareTo ^Comparable x y)
                               (compare x y)))]
           (pmath/> comp-val 0)))
-   :>= (make-numeric-binary-predicate
+   :tech.numerics/>= (make-numeric-binary-predicate
         :>= (pmath/>= x y)
         (let [comp-val (long (if (instance? Comparable x)
                                (.compareTo ^Comparable x y)
                                (compare x y)))]
           (pmath/>= comp-val 0)))
-   :< (make-numeric-binary-predicate
+   :tech.numerics/< (make-numeric-binary-predicate
        :< (pmath/< x y)
        (let [comp-val (long (if (instance? Comparable x)
                               (.compareTo ^Comparable x y)
                               (compare x y)))]
          (pmath/< comp-val 0)))
-   :<= (make-numeric-binary-predicate
+   :tech.numerics/<= (make-numeric-binary-predicate
         :<= (pmath/<= x y)
         (let [comp-val (long (if (instance? Comparable x)
                               (.compareTo ^Comparable x y)

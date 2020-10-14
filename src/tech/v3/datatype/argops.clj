@@ -57,24 +57,31 @@
    (ensure-reader item Long/MAX_VALUE)))
 
 
+(defn tech-numerics-kwd?
+  [kwd]
+  (and (keyword? kwd)
+       (= (namespace kwd) "tech.numerics")))
+
+
 (defn- find-unary-operator
   [op op-map optypename opconversion-fn]
   (or
-   (when (keyword? op)
+   (when (tech-numerics-kwd? op)
      (if-let [retval (get op-map op)]
        retval
-       (opconversion-fn op)))
+       (errors/throwf "Failed to find %s %s" optypename op)))
    (opconversion-fn op)))
 
 
 (defn- find-binary-operator
   [op op-map optypename opconversion-fn]
   (or
-   (when (keyword? op)
+   (when (tech-numerics-kwd? op)
      (if-let [retval (get op-map op)]
        retval
        (errors/throwf "Failed to find %s %s" optypename op)))
    (opconversion-fn op)))
+
 
 
 (defn ->unary-operator
@@ -155,13 +162,13 @@
 (defn argmax
   "Return the index of the max item in the reader."
   ^long [rdr]
-  (arglast-every rdr :>))
+  (arglast-every rdr :tech.numerics/>))
 
 
 (defn argmin
   "Return the index of the min item in the reader."
   ^long [rdr]
-    (arglast-every rdr :<))
+    (arglast-every rdr :tech.numerics/<))
 
 (defmacro impl-index-of
   [datatype comp-value n-elems pred rdr]
@@ -187,7 +194,7 @@
        :float64 (impl-index-of :float64 value n-elems pred rdr)
        (impl-index-of :object value n-elems pred rdr))))
   (^long [rdr value]
-   (index-of rdr :eq value)))
+   (index-of rdr :tech.numerics/eq value)))
 
 (defmacro ^:private impl-last-idx-of
   [datatype comp-value n-elems pred rdr]
@@ -202,7 +209,7 @@
 
 
 (defn last-index-of
-  "Return the last index of the last time time pred, which defaults to :eq, is
+  "Return the last index of the last time time pred, which defaults to :tech.numerics/eq, is
   true."
   (^long [rdr pred value]
    (let [op-space (casting/simple-operation-space
@@ -215,7 +222,7 @@
        :float64 (impl-last-idx-of :float64 value n-elems pred rdr)
        (impl-last-idx-of :object value n-elems pred rdr))))
   (^long [rdr value]
-   (last-index-of rdr :eq value)))
+   (last-index-of rdr :tech.numerics/eq value)))
 
 
 (defn ->long-comparator
@@ -320,16 +327,16 @@
 
 (defn argsort
   "Sort values in index space.  By default uses a parallelized quicksort algorithm."
-  ([values {:keys [parallel?]
+  ([comparator {:keys [parallel?]
            :or {parallel? true}}
-    comparator]
+    values]
    (let [n-elems (dtype-base/ecount values)
          val-dtype (dtype-base/elemwise-datatype values)
          comparator (or (if (keyword? comparator)
                           (binary-pred/builtin-ops comparator)
                           comparator)
                         (if (casting/numeric-type? val-dtype)
-                          (binary-pred/builtin-ops :<)
+                          (binary-pred/builtin-ops :tech.numerics/<)
                           compare))
          comparator (index-comparator values comparator)]
      (cond
@@ -347,16 +354,16 @@
            (LongArrays/parallelQuickSort idx-ary ^LongComparator comparator)
            (LongArrays/quickSort idx-ary ^LongComparator comparator))
          idx-ary))))
-  ([values comparator]
-   (argsort values {}  comparator))
+  ([comparator values]
+   (argsort comparator {} values))
   ([values]
-   (argsort values {} nil)))
+   (argsort nil {} values)))
 
 
 (defn argfilter
   "Filter out values returning either an iterable of indexes or a reader
   of indexes."
-  ([rdr options pred]
+  ([pred options rdr]
    (if-let [rdr (dtype-base/as-reader rdr)]
      (unary-pred/bool-reader->indexes options
                                       (unary-pred/reader (->unary-predicate pred) rdr))
@@ -365,27 +372,28 @@
             (map-indexed (fn [idx data]
                            (when (.unaryObject pred data) idx)))
             (remove nil?)))))
-  ([rdr pred]
-   (argfilter rdr nil pred)))
+  ([pred rdr]
+   (argfilter pred nil rdr)))
 
 
 (defn binary-argfilter
   "Filter out values using a binary predicate.  Returns either an iterable of indexes
   or a reader of indexes."
-  ([lhs rhs options pred]
-   (let [lhs (dtype-base/as-reader lhs)
-         rhs (dtype-base/as-reader rhs)]
-     (if (and lhs rhs)
-       (unary-pred/bool-reader->indexes options (binary-pred/reader
-                                                 (->binary-predicate pred)
-                                                 lhs rhs))
-       (let [pred (binary-pred/->predicate pred)]
-         (map (fn [idx lhs rhs]
-                (when (.binaryObject pred lhs rhs) idx))
-              (range) lhs rhs)
-         (remove nil?)))))
-  ([lhs rhs pred]
-   (binary-argfilter lhs rhs nil pred)))
+  ([pred options lhs rhs]
+   (if (and (dtype-base/reader? lhs)
+            (dtype-base/reader? rhs))
+     (unary-pred/bool-reader->indexes options (binary-pred/reader
+                                               (->binary-predicate pred)
+                                               lhs rhs))
+     (let [pred (->binary-predicate pred)]
+       (map (fn [idx lhs rhs]
+              (when (.binaryObject pred lhs rhs) idx))
+            (range)
+            (dtype-base/->iterable lhs)
+            (dtype-base/->iterable rhs))
+       (remove nil?))))
+  ([pred lhs rhs]
+   (binary-argfilter pred nil lhs rhs)))
 
 
 (defn index-reducer
@@ -427,7 +435,7 @@
     the resulting index lists will be ordered.  In the case where storage is
     bitmap, unordered reductions are used as the bitmap forces the end results to be
     ordered"
-  (^Map [rdr {:keys [storage-datatype unordered?]}]
+  (^Map [{:keys [storage-datatype unordered?]} rdr]
    (when-not (dtype-base/reader? rdr)
      (errors/throwf "Input must be convertible to a reader"))
    (let [storage-datatype (or storage-datatype (unary-pred/reader-index-space rdr))
@@ -439,7 +447,7 @@
        (reductions/ordered-group-by-reduce reducer rdr)
        (reductions/unordered-group-by-reduce reducer rdr))))
   (^Map [rdr]
-   (arggroup rdr nil)))
+   (arggroup nil rdr)))
 
 
 (defn arggroup-by
@@ -447,12 +455,12 @@
   may not be ordered.  :storage-datatype may be specific in the options to set
   the datatype of the indexes else the system will decide based on reader length.
   See arggroup for Options."
-  (^Map [rdr options partition-fn]
+  (^Map [partition-fn options rdr]
    (if (= identity partition-fn)
-     (arggroup rdr options)
-     (arggroup (unary-op/reader (->unary-operator partition-fn) rdr) options)))
-  (^Map [rdr partition-fn]
-   (arggroup-by rdr nil partition-fn)))
+     (arggroup options rdr)
+     (arggroup options (unary-op/reader (->unary-operator partition-fn) rdr))))
+  (^Map [partition-fn rdr]
+   (arggroup-by partition-fn nil rdr)))
 
 
 (defn- do-argpartition-by
@@ -473,14 +481,14 @@
 (defn argpartition
   "Returns a sequence of [partition-key index-reader].  Index generation is not
   parallelized.  This design allows group-by and partition-by to be used
-  interchangeably (if pred is :eq) as they both result in a sequence of
+  interchangeably (if pred is :tech.numerics/eq) as they both result in a sequence of
   [partition-key idx-reader]. This design is lazy."
-  (^Iterable [item-iterable pred]
-   (let [iterator (.iterator ^Iterable (dtype-base/ensure-iterable item-iterable))]
+  (^Iterable [pred item-iterable]
+   (let [iterator (.iterator ^Iterable (dtype-base/->iterable item-iterable))]
      (when (.hasNext iterator)
        (do-argpartition-by 0 iterator (.next iterator) (->binary-predicate pred)))))
   (^Iterable [item-iterable]
-   (argpartition item-iterable :eq)))
+   (argpartition :tech.numerics/eq item-iterable)))
 
 
 (defn argpartition-by
@@ -488,12 +496,12 @@
   parallelized.  This design allows group-by and partition-by to be used
   interchangeably as they both result in a sequence of [partition-key idx-reader].
   This design is lazy."
-  (^Iterable [item-iterable unary-op partition-pred]
-   (let [iterator (->> (dtype-base/ensure-iterable item-iterable)
+  (^Iterable [unary-op partition-pred item-iterable]
+   (let [iterator (->> (dtype-base/->iterable item-iterable)
                        (unary-op/iterable (->unary-operator unary-op))
                        (.iterator))]
      (when (.hasNext iterator)
        (do-argpartition-by 0 iterator (.next iterator)
                            (->binary-predicate partition-pred)))))
-  (^Iterable [item-iterable unary-op]
-   (argpartition-by item-iterable unary-op :eq)))
+  (^Iterable [unary-op item-iterable]
+   (argpartition-by unary-op :tech.numerics/eq item-iterable)))

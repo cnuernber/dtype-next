@@ -69,7 +69,7 @@
 (defn iterable
   [pred src]
   (let [pred (->predicate pred)
-        src (dtype-base/ensure-iterable src)]
+        src (dtype-base/->iterable src)]
     (dispatch/typed-map-1 pred :boolean src)))
 
 
@@ -117,14 +117,14 @@
 
 
 (def builtin-ops
-  {:not
+  {:tech.numerics/not
    (reify
      UnaryPredicates$BooleanUnaryPredicate
      (unaryBoolean [this arg]
        (if arg false true))
      dtype-proto/POperator
      (op-name [this] :not))
-   :nan?
+   :tech.numerics/nan?
    (vary-meta (reify
                 UnaryPredicates$DoubleUnaryPredicate
                 (unaryDouble [this arg]
@@ -132,7 +132,7 @@
                 dtype-proto/POperator
                 (op-name [this] :nan?))
               assoc :operation-space :float32)
-   :finite?
+   :tech.numerics/finite?
    (vary-meta (reify
                 UnaryPredicates$DoubleUnaryPredicate
                 (unaryDouble [this arg]
@@ -140,21 +140,23 @@
                 dtype-proto/POperator
                 (op-name [this] :finite?))
               assoc :operation-space :float32)
-   :infinite?
-   (reify
-     UnaryPredicates$DoubleUnaryPredicate
-     (unaryDouble [this arg]
-       (Double/isInfinite arg))
-     dtype-proto/POperator
-     (op-name [this] :infinite?))
-   :mathematical-integer?
-   (reify
-     UnaryPredicates$DoubleUnaryPredicate
-     (unaryDouble [this arg]
-       (double-ops/is-mathematical-integer? arg))
-     dtype-proto/POperator
-     (op-name [this] :mathematical-integer?))
-   :pos?
+   :tech.numerics/infinite?
+   (vary-meta (reify
+                UnaryPredicates$DoubleUnaryPredicate
+                (unaryDouble [this arg]
+                  (Double/isInfinite arg))
+                dtype-proto/POperator
+                (op-name [this] :infinite?))
+              assoc :operation-space :float32)
+   :tech.numerics/mathematical-integer?
+   (vary-meta (reify
+                UnaryPredicates$DoubleUnaryPredicate
+                (unaryDouble [this arg]
+                  (double-ops/is-mathematical-integer? arg))
+                dtype-proto/POperator
+                (op-name [this] :mathematical-integer?))
+              assoc :operation-space :float32)
+   :tech.numerics/pos?
    (reify
      UnaryPredicates$ObjectUnaryPredicate
      (unaryLong [this arg]
@@ -165,7 +167,7 @@
        (pos? (double arg)))
      dtype-proto/POperator
      (op-name [this] :pos?))
-   :neg?
+   :tech.numerics/neg?
    (reify
      UnaryPredicates$ObjectUnaryPredicate
      (unaryLong [this arg]
@@ -176,9 +178,9 @@
        (neg? (double arg)))
      dtype-proto/POperator
      (op-name [this] :neg?))
-   :even? (ifn->long-unary-predicate even? :even?)
-   :odd? (ifn->long-unary-predicate even? :odd?)
-   :zero?
+   :tech.numerics/even? (ifn->long-unary-predicate even? :even?)
+   :tech.numerics/odd? (ifn->long-unary-predicate even? :odd?)
+   :tech.numerics/zero?
    (reify
      UnaryPredicates$ObjectUnaryPredicate
      (unaryLong [this arg]

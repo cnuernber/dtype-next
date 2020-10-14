@@ -10,21 +10,21 @@
         nan-data (double-array (range 100))
         _ (aset nan-data 50 Double/NaN)]
     (is (= {:n-elems 100, :data {:sum {:n-elems 100, :value 4950.0}}}
-           (reductions/double-reductions {:sum :+}
+           (reductions/double-reductions {:sum :tech.numerics/+}
                                          {:nan-strategy :keep}
                                          data)))
     (is (= {:n-elems 99, :data {:sum {:n-elems 99, :value 4900.0}}}
-           (reductions/double-reductions {:sum :+} nan-data)))
+           (reductions/double-reductions {:sum :tech.numerics/+} nan-data)))
     (is (thrown? Throwable
                  (reductions/double-reductions
                   {:sum :+}
                   {:nan-strategy :exception}
                   nan-data)))
     (is (= {:n-elems 99, :data {:sum {:n-elems 99, :value 4900.0}}}
-           (reductions/double-reductions {:sum (:identity unop/builtin-ops)}
+           (reductions/double-reductions {:sum (:tech.numerics/identity unop/builtin-ops)}
                                          nan-data)))
     (is (= {:n-elems 99, :data {:sum {:n-elems 99, :value 4900.0}}}
-           (reductions/double-reductions {:sum (:+ binop/builtin-ops)}
+           (reductions/double-reductions {:sum (:tech.numerics/+ binop/builtin-ops)}
                                          nan-data)))
 
     (is (= {:n-elems 100,
@@ -32,9 +32,9 @@
 	   {:sum1 {:n-elems 100, :value 4950.0},
 	    :sum2 {:n-elems 100, :value 4950.0},
 	    :sum3 {:n-elems 100, :value 4950.0}}}
-           (reductions/double-reductions {:sum1 :+
-                                          :sum2 (:identity unop/builtin-ops)
-                                          :sum3 (:+ binop/builtin-ops)}
+           (reductions/double-reductions {:sum1 :tech.numerics/+
+                                          :sum2 (:tech.numerics/identity unop/builtin-ops)
+                                          :sum3 (:tech.numerics/+ binop/builtin-ops)}
                                          {:nan-strategy :keep}
                                          data)))
     (is (= {:n-elems 99,
@@ -42,9 +42,9 @@
 	   {:sum1 {:n-elems 99, :value 4900.0},
 	    :sum2 {:n-elems 99, :value 4900.0},
 	    :sum3 {:n-elems 99, :value 4900.0}}}
-           (reductions/double-reductions {:sum1 :+
-                                          :sum2 (:identity unop/builtin-ops)
-                                          :sum3 (:+ binop/builtin-ops)}
+           (reductions/double-reductions {:sum1 :tech.numerics/+
+                                          :sum2 (:tech.numerics/identity unop/builtin-ops)
+                                          :sum3 (:tech.numerics/+ binop/builtin-ops)}
                                          {:nan-strategy :remove}
                                          nan-data)))))
 

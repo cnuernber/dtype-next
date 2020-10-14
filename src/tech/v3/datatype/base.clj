@@ -94,6 +94,8 @@
                    (type item))))
 
 
+
+
 (defn as-reader
   "If this object has a read-only or read-write conversion to a primitive
   io object return the buffer object."
@@ -137,7 +139,8 @@
   (when item (dtype-proto/convertible-to-reader? item)))
 
 
-(defn ensure-iterable
+
+(defn ->iterable
   "Ensure this object is iterable.  If item is iterable, return the item.
   If the item is convertible to a buffer object , convert to it and
   return the object.  Else if the item is a scalar constant, return
@@ -167,7 +170,8 @@
   java.util.streams.Stream."
   [item]
   (or (instance? Iterable item)
-      (instance? Stream item)))
+      (instance? Stream item)
+      (reader? item)))
 
 
 (defn writer?

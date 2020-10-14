@@ -67,7 +67,7 @@
     ;;Hopefully this returns what we think it should...
     (fn? reducer-value)
     reducer-value
-    (= :+ reducer-value)
+    (= :tech.numerics/+ reducer-value)
     #(DoubleConsumers$Sum.)
     (instance? UnaryOperator reducer-value)
     #(DoubleConsumers$UnaryOpSum. reducer-value)
@@ -149,7 +149,7 @@
   "As fast as possible, sum a reader into a single double."
   (^double [options rdr]
    (double (:value (staged-double-consumer-reduction
-                    (reducer-value->consumer-fn :+)
+                    (reducer-value->consumer-fn :tech.numerics/+)
                     options
                     rdr))))
   (^double [rdr]

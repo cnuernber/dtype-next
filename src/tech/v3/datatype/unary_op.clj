@@ -43,7 +43,7 @@
 (defn iterable
   (^Iterable [unary-op res-dtype lhs]
    (let [unary-op (->operator unary-op)
-         lhs (dtype-base/ensure-iterable lhs)]
+         lhs (dtype-base/->iterable lhs)]
      (cond
        (casting/integer-type? res-dtype)
        (dispatch/typed-map-1 (fn [^long arg]
@@ -62,20 +62,20 @@
 (defn reader
   (^Buffer [unary-op res-dtype lhs]
    (let [unary-op (->operator unary-op)
-         lhs (dtype-base/->reader lhs)
+         op-space (casting/simple-operation-space res-dtype)
+         lhs (dtype-base/->reader lhs op-space)
          n-elems (.lsize lhs)]
-     (cond
-       (casting/integer-type? res-dtype)
+     (case op-space
+       :int64
        (reify LongReader
          (elemwiseDatatype [rdr] res-dtype)
          (lsize [rdr] n-elems)
          (readLong [rdr idx] (.unaryLong unary-op (.readLong lhs idx))))
-       (casting/float-type? res-dtype)
+       :float64
        (reify DoubleReader
          (elemwiseDatatype [rdr] res-dtype)
          (lsize [rdr] n-elems)
          (readDouble [rdr idx] (.unaryDouble unary-op (.readDouble lhs idx))))
-       :else
        (reify ObjectReader
          (elemwiseDatatype [rdr] res-dtype)
          (lsize [rdr] n-elems)
@@ -209,42 +209,42 @@
 
 
 (def builtin-ops
-  (->> [(make-double-unary-op :floor (Math/floor x))
-        (make-double-unary-op :ceil (Math/ceil x))
-        (make-double-unary-op :round (unchecked-double (Math/round (double x))))
-        (make-double-unary-op :rint (Math/rint x))
-        (make-double-unary-op :get-significand (unchecked-double (get-significand x)))
+  (->> [(make-double-unary-op :tech.numerics/floor (Math/floor x))
+        (make-double-unary-op :tech.numerics/ceil (Math/ceil x))
+        (make-double-unary-op :tech.numerics/round (unchecked-double (Math/round (double x))))
+        (make-double-unary-op :tech.numerics/rint (Math/rint x))
+        (make-double-unary-op :tech.numerics/get-significand (unchecked-double (get-significand x)))
         (make-numeric-object-unary-op :- (- x))
-        (make-float-double-unary-op :logistic
+        (make-float-double-unary-op :tech.numerics/logistic
                                     (/ 1.0
                                        (+ 1.0 (Math/exp (- x)))))
-        (make-float-double-unary-op :exp (Math/exp x))
-        (make-float-double-unary-op :expm1 (Math/expm1 x))
-        (make-float-double-unary-op :log (Math/log x))
-        (make-float-double-unary-op :log10 (Math/log10 x))
-        (make-float-double-unary-op :log1p (Math/log1p x))
-        (make-float-double-unary-op :signum (Math/signum x))
-        (make-float-double-unary-op :sqrt (Math/sqrt x))
-        (make-float-double-unary-op :cbrt (Math/cbrt x))
-        (make-float-double-unary-op :abs (Math/abs x))
-        (make-numeric-unary-op :sq (unchecked-multiply x x))
-        (make-float-double-unary-op :sin (Math/sin x))
-        (make-float-double-unary-op :sinh (Math/sinh x))
-        (make-float-double-unary-op :cos (Math/cos x))
-        (make-float-double-unary-op :cosh (Math/cosh x))
-        (make-float-double-unary-op :tan (Math/tan x))
-        (make-float-double-unary-op :tanh (Math/tanh x))
-        (make-float-double-unary-op :acos (Math/acos x))
-        (make-float-double-unary-op :asin (Math/asin x))
-        (make-float-double-unary-op :atan (Math/atan x))
-        (make-float-double-unary-op :to-degrees (Math/toDegrees x))
-        (make-float-double-unary-op :to-radians (Math/toRadians x))
-        (make-float-double-unary-op :next-up (Math/nextUp x))
-        (make-float-double-unary-op :next-down (Math/nextDown x))
-        (make-float-double-unary-op :ulp (Math/ulp x))
-        (make-long-unary-op :bit-not (bit-not x))
-        (make-numeric-unary-op :/ (/ x))
-        (make-all-datatype-unary-op :identity x)
-        (make-all-datatype-unary-op :+ x)]
+        (make-float-double-unary-op :tech.numerics/exp (Math/exp x))
+        (make-float-double-unary-op :tech.numerics/expm1 (Math/expm1 x))
+        (make-float-double-unary-op :tech.numerics/log (Math/log x))
+        (make-float-double-unary-op :tech.numerics/log10 (Math/log10 x))
+        (make-float-double-unary-op :tech.numerics/log1p (Math/log1p x))
+        (make-float-double-unary-op :tech.numerics/signum (Math/signum x))
+        (make-float-double-unary-op :tech.numerics/sqrt (Math/sqrt x))
+        (make-float-double-unary-op :tech.numerics/cbrt (Math/cbrt x))
+        (make-float-double-unary-op :tech.numerics/abs (Math/abs x))
+        (make-numeric-unary-op :tech.numerics/sq (unchecked-multiply x x))
+        (make-float-double-unary-op :tech.numerics/sin (Math/sin x))
+        (make-float-double-unary-op :tech.numerics/sinh (Math/sinh x))
+        (make-float-double-unary-op :tech.numerics/cos (Math/cos x))
+        (make-float-double-unary-op :tech.numerics/cosh (Math/cosh x))
+        (make-float-double-unary-op :tech.numerics/tan (Math/tan x))
+        (make-float-double-unary-op :tech.numerics/tanh (Math/tanh x))
+        (make-float-double-unary-op :tech.numerics/acos (Math/acos x))
+        (make-float-double-unary-op :tech.numerics/asin (Math/asin x))
+        (make-float-double-unary-op :tech.numerics/atan (Math/atan x))
+        (make-float-double-unary-op :tech.numerics/to-degrees (Math/toDegrees x))
+        (make-float-double-unary-op :tech.numerics/to-radians (Math/toRadians x))
+        (make-float-double-unary-op :tech.numerics/next-up (Math/nextUp x))
+        (make-float-double-unary-op :tech.numerics/next-down (Math/nextDown x))
+        (make-float-double-unary-op :tech.numerics/ulp (Math/ulp x))
+        (make-long-unary-op :tech.numerics/bit-not (bit-not x))
+        (make-numeric-unary-op :tech.numerics// (/ x))
+        (make-all-datatype-unary-op :tech.numerics/identity x)
+        (make-all-datatype-unary-op :tech.numerics/+ x)]
        (map #(vector (dtype-proto/op-name %) %))
        (into {})))

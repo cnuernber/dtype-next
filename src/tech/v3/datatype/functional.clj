@@ -158,7 +158,7 @@
   [rdr]
   ;;There is a fast path specifically for summations
   (dtype-reductions/commutative-binary-reduce
-   (:+ binary-op/builtin-ops) rdr))
+   (:tech.numerics/+ binary-op/builtin-ops) rdr))
 
 
 (defn sum [rdr] (reduce-+ rdr))
@@ -167,19 +167,19 @@
 (defn reduce-*
   [rdr]
   (dtype-reductions/commutative-binary-reduce
-   rdr (:* binary-op/builtin-ops)))
+   rdr (:tech.numerics/* binary-op/builtin-ops)))
 
 
 (defn reduce-max
   [rdr]
   (dtype-reductions/commutative-binary-reduce
-   rdr (:max binary-op/builtin-ops)))
+   rdr (:tech.numerics/max binary-op/builtin-ops)))
 
 
 (defn reduce-min
   [rdr]
   (dtype-reductions/commutative-binary-reduce
-   rdr (:min binary-op/builtin-ops)))
+   rdr (:tech.numerics/min binary-op/builtin-ops)))
 
 
 (defn magnitude-squared

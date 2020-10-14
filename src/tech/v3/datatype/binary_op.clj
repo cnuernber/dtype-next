@@ -36,7 +36,7 @@
 (defn iterable
   (^Iterable [binary-op res-dtype lhs rhs]
    (let [binary-op (->operator binary-op)
-         lhs (dtype-base/ensure-iterable lhs)]
+         lhs (dtype-base/->iterable lhs)]
      (cond
        (casting/integer-type? res-dtype)
        (dispatch/typed-map-2 (fn [^long lhs ^long rhs]
@@ -53,24 +53,26 @@
 
 (defn reader
   (^Buffer [^BinaryOperator binop res-dtype lhs rhs]
-   (let [lhs (dtype-base/->reader lhs)
-         rhs (dtype-base/->reader rhs)
+   (let [op-space (casting/simple-operation-space res-dtype)
+         lhs (dtype-base/->reader lhs op-space)
+         rhs (dtype-base/->reader rhs op-space)
          n-elems (.lsize lhs)
          binop (->operator binop)]
-     (cond
-       (casting/integer-type? res-dtype)
+     (case op-space
+       :int64
        (reify LongReader
+         (elemwiseDatatype [rdr] res-dtype)
          (lsize [rdr] n-elems)
          (readLong [rdr idx] (.binaryLong binop
                                           (.readLong lhs idx)
                                           (.readLong rhs idx))))
-       (casting/float-type? res-dtype)
+       :float64
        (reify DoubleReader
+         (elemwiseDatatype [rdr] res-dtype)
          (lsize [rdr] n-elems)
          (readDouble [rdr idx] (.binaryDouble binop
                                               (.readDouble lhs idx)
                                               (.readDouble rhs idx))))
-       :else
        (reify ObjectReader
          (elemwiseDatatype [rdr] res-dtype)
          (lsize [rdr] n-elems)
@@ -185,31 +187,31 @@
 
 
 (def builtin-ops
-  (->> [(make-numeric-object-binary-op :+ (pmath/+ x y) (+ x y) 0)
-        (make-numeric-object-binary-op :- (pmath/- x y) (- x y) 0)
-        (make-numeric-object-binary-op :/ (pmath// x y) (/ x y) 1)
-        (make-numeric-object-binary-op :* (pmath/* x y) (* x y) 1)
-        (make-numeric-object-binary-op :rem (rem x y) (rem x y) 1)
-        (make-numeric-object-binary-op :quot (quot x y) (quot x y) 1)
-        (make-float-double-binary-op :pow (Math/pow x y) 1)
-        (make-numeric-object-binary-op :max (if (pmath/> x y) x y) (if (> x y) x y)
+  (->> [(make-numeric-object-binary-op :tech.numerics/+ (pmath/+ x y) (+ x y) 0)
+        (make-numeric-object-binary-op :tech.numerics/- (pmath/- x y) (- x y) 0)
+        (make-numeric-object-binary-op :tech.numerics// (pmath// x y) (/ x y) 1)
+        (make-numeric-object-binary-op :tech.numerics/* (pmath/* x y) (* x y) 1)
+        (make-numeric-object-binary-op :tech.numerics/rem (rem x y) (rem x y) 1)
+        (make-numeric-object-binary-op :tech.numerics/quot (quot x y) (quot x y) 1)
+        (make-float-double-binary-op :tech.numerics/pow (Math/pow x y) 1)
+        (make-numeric-object-binary-op :tech.numerics/max (if (pmath/> x y) x y) (if (> x y) x y)
                                        (- Double/MAX_VALUE))
-        (make-numeric-object-binary-op :min (if (pmath/> x y) y x) (if (> x y) y x)
+        (make-numeric-object-binary-op :tech.numerics/min (if (pmath/> x y) y x) (if (> x y) y x)
                                        Double/MAX_VALUE)
-        (make-int-long-binary-op :bit-and (pmath/bit-and x y))
-        (make-int-long-binary-op :bit-and-not (bit-and-not x y))
-        (make-int-long-binary-op :bit-or (pmath/bit-or x y))
-        (make-int-long-binary-op :bit-xor (pmath/bit-xor x y))
-        (make-int-long-binary-op :bit-clear (bit-clear x y))
-        (make-int-long-binary-op :bit-flip (bit-flip x y))
-        (make-int-long-binary-op :bit-test (bit-test x y))
-        (make-int-long-binary-op :bit-set (bit-set x y))
-        (make-int-long-binary-op :bit-shift-left (pmath/bit-shift-left x y))
-        (make-int-long-binary-op :bit-shift-right (pmath/bit-shift-right x y))
-        (make-int-long-binary-op :unsigned-bit-shift-right
+        (make-int-long-binary-op :tech.numerics/bit-and (pmath/bit-and x y))
+        (make-int-long-binary-op :tech.numerics/bit-and-not (bit-and-not x y))
+        (make-int-long-binary-op :tech.numerics/bit-or (pmath/bit-or x y))
+        (make-int-long-binary-op :tech.numerics/bit-xor (pmath/bit-xor x y))
+        (make-int-long-binary-op :tech.numerics/bit-clear (bit-clear x y))
+        (make-int-long-binary-op :tech.numerics/bit-flip (bit-flip x y))
+        (make-int-long-binary-op :tech.numerics/bit-test (bit-test x y))
+        (make-int-long-binary-op :tech.numerics/bit-set (bit-set x y))
+        (make-int-long-binary-op :tech.numerics/bit-shift-left (pmath/bit-shift-left x y))
+        (make-int-long-binary-op :tech.numerics/bit-shift-right (pmath/bit-shift-right x y))
+        (make-int-long-binary-op :tech.numerics/unsigned-bit-shift-right
                                  (unsigned-bit-shift-right x y))
-        (make-float-double-binary-op :atan2 (Math/atan2 x y))
-        (make-float-double-binary-op :hypot (Math/hypot x y))
-        (make-float-double-binary-op :ieee-remainder (Math/IEEEremainder x y))]
+        (make-float-double-binary-op :tech.numerics/atan2 (Math/atan2 x y))
+        (make-float-double-binary-op :tech.numerics/hypot (Math/hypot x y))
+        (make-float-double-binary-op :tech.numerics/ieee-remainder (Math/IEEEremainder x y))]
        (map #(vector (dtype-proto/op-name %) %))
        (into {})))
