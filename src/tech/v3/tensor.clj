@@ -46,6 +46,11 @@
   (elemwise-cast [t new-dtype]
     (construct-tensor (dtype-proto/elemwise-cast buffer new-dtype)
                       dimensions))
+  dtype-proto/PElemwiseReaderCast
+  (elemwise-reader-cast [t new-dtype]
+    (-> (construct-tensor (dtype-proto/elemwise-reader-cast buffer new-dtype)
+                          dimensions)
+        (dtype-base/->reader)))
   dtype-proto/PDatatype
   (datatype [this] :tensor)
   dtype-proto/PECount

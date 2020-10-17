@@ -338,6 +338,8 @@
 (extend-type Buffer
   dtype-proto/PDatatype
   (datatype [item] :buffer)
+  dtype-proto/PShape
+  (shape [item] [(.lsize item)])
   dtype-proto/PElemwiseReaderCast
   (elemwise-reader-cast [item new-dtype]
     ;;The buffer implementations themselves have casting in their
