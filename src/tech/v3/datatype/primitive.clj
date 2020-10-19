@@ -13,11 +13,15 @@
      {:elemwise-datatype (fn [item#] ~datatype)}
      dtype-proto/PECount
      {:ecount (fn [item#] 1)}
+     dtype-proto/PConstantTimeMinMax
+     {:has-constant-time-min-max? (constantly true)
+      :constant-time-min identity
+      :constant-time-max identity}
      dtype-proto/PToReader
      ;;Reader conversion of primitives is inefficient so we allow it
      ;;but do not advertise it
      {:convertible-to-reader? (constantly false)
-      :->reader (fn [item# options#]
+      :->reader (fn [item#]
                   (const-reader item# 1))}))
 
 

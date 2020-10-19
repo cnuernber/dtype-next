@@ -1,6 +1,7 @@
 (ns tech.v3.datatype-test
   (:require [clojure.test :refer [deftest is testing]]
             [tech.v3.datatype :as dtype]
+            [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.functional :as dfn]
@@ -554,3 +555,13 @@
                               (flatten)
                               vec)
           {:keys [result missing]} (dfn/fill-range long-test-data 3)])))
+
+
+(deftest ctime-min-max
+  (is (dtype-proto/has-constant-time-min-max? 4))
+  (is (= 4 (dtype-proto/constant-time-min 4)))
+  (is (= 4 (dtype-proto/constant-time-max 4)))
+  (is (dtype-proto/has-constant-time-min-max? (range 4)))
+  (is (= 0 (dtype-proto/constant-time-min (range 4))))
+  (is (= 3 (dtype-proto/constant-time-max (range 4))))
+  )

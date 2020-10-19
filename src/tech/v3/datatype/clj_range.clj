@@ -12,8 +12,8 @@
 (set! *warn-on-reflection* true)
 
 
-(def lr-step-field (doto (.getDeclaredField ^Class LongRange "step")
-                  (.setAccessible true)))
+(def ^Field lr-step-field (doto (.getDeclaredField ^Class LongRange "step")
+                            (.setAccessible true)))
 
 
 (extend-type LongRange
@@ -27,6 +27,18 @@
   (convertible-to-buffer? [rng] true)
   (->buffer [rng]
     (dtype-proto/->reader rng))
+  dtype-proto/PConstantTimeMinMax
+  (has-constant-time-min-max? [rng] true)
+  (constant-time-min [rng] (let [start (long (first rng))
+                                 step (long (.get lr-step-field rng))
+                                 n-elems (.count rng)
+                                 last-val (+ start (* step (dec n-elems)))]
+                             (min start last-val)))
+  (constant-time-max [rng] (let [start (long (first rng))
+                                 step (long (.get lr-step-field rng))
+                                 n-elems (.count rng)
+                                 last-val (+ start (* step (dec n-elems)))]
+                             (max start last-val)))
   dtype-proto/PToReader
   (convertible-to-reader? [rng] true)
   (->reader [rng]
@@ -80,6 +92,18 @@
   (convertible-to-buffer? [rng] true)
   (->buffer [rng]
     (dtype-proto/->reader rng))
+  dtype-proto/PConstantTimeMinMax
+  (has-constant-time-min-max? [rng] true)
+  (constant-time-min [rng] (let [start (long (first rng))
+                                 step (long (.get lr-step-field rng))
+                                 n-elems (.count rng)
+                                 last-val (+ start (* step (dec n-elems)))]
+                             (min start last-val)))
+  (constant-time-max [rng] (let [start (first rng)
+                                 step (.get lr-step-field rng)
+                                 n-elems (.count rng)
+                                 last-val (+ start (* step (dec n-elems)))]
+                             (max start last-val)))
   dtype-proto/PToReader
   (convertible-to-reader? [rng] (contains?
                                  #{:int8 :int16 :int32 :int64
