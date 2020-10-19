@@ -14,7 +14,7 @@
 
 (defn- emap-reader
   [map-fn res-dtype cast-fn shapes args]
-  (let [n-elems (long (apply * (first shapes)))
+  (let [n-elems (long (dtype-base/ecount (first args)))
         ^List args (mapv #(argops/ensure-reader % n-elems) args)
         argcount (.size args)]
     (if (= res-dtype :boolean)
