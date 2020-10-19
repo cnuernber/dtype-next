@@ -30,8 +30,9 @@
   "Check that an index is less than n-elems.  Throw an index-out-of-bounds
   exception if that isn't the case."
   [idx n-elems]
-  `(when-not (< ~idx ~n-elems)
-     (throw-index-out-of-boundsf "idx (%s) >= n-elems (%s)" ~idx ~n-elems)))
+  `(do (when-not (< ~idx ~n-elems)
+         (throw-index-out-of-boundsf "idx (%s) >= n-elems (%s)" ~idx ~n-elems))
+       ~idx))
 
 (defmacro when-not-error
   "Throw an error in the case where expr isn't true."

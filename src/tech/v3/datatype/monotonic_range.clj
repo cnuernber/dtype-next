@@ -4,7 +4,8 @@
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.casting :as casting]
             ;;Complete clojure range support
-            [tech.v3.datatype.clj-range :as clj-range])
+            [tech.v3.datatype.clj-range :as clj-range]
+            [tech.v3.datatype.errors :as errors])
   (:import [tech.v3.datatype LongReader]
            [clojure.lang LongRange IObj IPersistentMap Range MapEntry]
            [java.lang.reflect Field]
@@ -25,6 +26,7 @@
   LongReader
   (lsize [item] n-elems)
   (readLong [item idx]
+    (errors/check-idx idx n-elems)
     (+ start (* increment idx)))
   dtype-proto/PSubBuffer
   (sub-buffer [item offset len]

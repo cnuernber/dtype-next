@@ -2,7 +2,8 @@
   "Datatype bindings for clojure ranges."
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.typecast :as typecast]
-            [tech.v3.datatype.casting :as casting])
+            [tech.v3.datatype.casting :as casting]
+            [tech.v3.datatype.errors :as errors])
   (:import [clojure.lang LongRange Range]
            [tech.v3.datatype LongReader DoubleReader]
            [java.lang.reflect Field]))
@@ -36,6 +37,7 @@
         LongReader
         (lsize [rdr] n-elems)
         (readLong [rdr idx]
+          (errors/check-idx idx n-elems)
           (-> (* step idx)
               (+ start)))
         dtype-proto/PRangeConvertible
@@ -61,6 +63,7 @@
       (reify ~(typecast/datatype->reader-type datatype)
         (lsize [rdr#] n-elems#)
         (read [rdr# idx#]
+          (errors/check-idx idx# n-elems#)
           (casting/datatype->cast-fn :unknown ~datatype
                                      (-> (* step# idx#)
                                          (+ start#)))))))
@@ -93,6 +96,7 @@
           (reify LongReader
             (lsize [rdr] n-elems)
             (readLong [rdr idx]
+              (errors/check-idx idx n-elems)
               (-> (* step idx)
                   (+ start)))
             (elemwiseDatatype [rdr] dtype)
@@ -111,6 +115,7 @@
           (reify DoubleReader
             (lsize [rdr] n-elems)
             (readDouble [rdr idx]
+              (errors/check-idx idx n-elems)
               (-> (* step idx)
                   (+ start)))
             dtype-proto/PRangeConvertible
