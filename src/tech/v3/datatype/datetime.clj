@@ -82,4 +82,5 @@
                 minus-temporal-amount
                 datetime->milliseconds
                 milliseconds->datetime
-                millisecond-descriptive-statistics)
+                millisecond-descriptive-statistics
+                between)

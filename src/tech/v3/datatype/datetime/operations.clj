@@ -315,3 +315,40 @@
         convert-fn (fn [^Temporal arg ^long amt]
                      (.minus arg amt tf))]
     (temporal-dispatch convert-fn datetime-data long-data)))
+
+
+(defn between
+  "Find the time unit between two datetime objects.  Must have the same datatype.  Units
+  may be a chronounit or one of `#{:milliseconds :seconds :minutes :hours :days :weeks
+  :months :years}` Returns longs or long readers.  Note that support for the various
+  units across java.time the datatypes partial."
+  [lhs rhs units]
+  (let [lhs-dtype (packing/unpack-datatype (dtype-base/elemwise-datatype lhs))
+        rhs-dtype (packing/unpack-datatype (dtype-base/elemwise-datatype rhs))
+        _ (errors/when-not-errorf
+           (and (or (= :object lhs-dtype) (datetime-datatype? lhs-dtype))
+                (or (= :object rhs-dtype) (datetime-datatype? rhs-dtype)))
+           "Datatype (%s) are not datetime datatypes"
+           lhs-dtype)
+        ^ChronoUnit chrono-unit (if (instance? ChronoUnit units)
+                                  units
+                                  (get keyword->chrono-unit units))
+        _ (errors/when-not-errorf
+           chrono-unit
+           "Unrecognized chrono unit %s" units)
+        convert-fn (fn ^long [^Temporal lhs ^Temporal rhs]
+                    (.between chrono-unit lhs rhs))]
+    (dispatch/vectorized-dispatch-2
+     convert-fn
+     #(dispatch/typed-map-2 convert-fn :int64 %2 %3)
+     (fn [_ lhs rhs]
+       (let [^Buffer lhs (argops/ensure-reader lhs)
+             ^Buffer rhs (argops/ensure-reader rhs)]
+         (reify LongReader
+           (lsize [rdr] (dtype-base/ecount lhs))
+           (readObject [rdr idx]
+             (convert-fn (.readObject lhs idx)
+                         (.readObject rhs idx))))))
+     nil
+     lhs
+     rhs)))
