@@ -69,7 +69,7 @@
         (lsize [rdr] n-elems)
         (readLong [rdr idx] (Integer/toUnsignedLong (.select bitmap (int idx))))
         dtype-proto/PConstantTimeMinMax
-        (has-constant-time-min-max? [rdr] true)
+        (has-constant-time-min-max? [rdr] (not (.isEmpty bitmap)))
         (constant-time-min [rdr] (.first bitmap))
         (constant-time-max [rdr] (.last bitmap))
         dtype-proto/PToBitmap
@@ -78,7 +78,7 @@
         Iterable
         (iterator [rdr] (LongBitmapIter. (.getIntIterator bitmap))))))
   dtype-proto/PConstantTimeMinMax
-  (has-constant-time-min-max? [bitmap] true)
+  (has-constant-time-min-max? [bitmap] (not (.isEmpty bitmap)))
   (constant-time-min [bitmap] (.first bitmap))
   (constant-time-max [bitmap] (.last bitmap))
   dtype-proto/PClone
