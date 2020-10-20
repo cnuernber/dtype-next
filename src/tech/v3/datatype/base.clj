@@ -19,6 +19,9 @@
            [java.util.stream Stream DoubleStream LongStream IntStream]))
 
 
+(set! *warn-on-reflection* true)
+
+
 (defn elemwise-datatype
   "Return the datatype one would expect when iterating through a container
   of this type.  For scalars, return your elemental datatype."
@@ -188,7 +191,7 @@
   ^Buffer [item]
   (when-not item (throw (Exception. "Cannot convert nil to writer")))
   (if (and (instance? Buffer item)
-           (.allowsWrite item))
+           (.allowsWrite ^Buffer item))
     item
     (when (dtype-proto/convertible-to-writer? item)
       (dtype-proto/->writer item))))
