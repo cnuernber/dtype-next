@@ -224,37 +224,6 @@
   (^long [rdr value]
    (last-index-of rdr :tech.numerics/eq value)))
 
-
-(defn ->long-comparator
-  "Convert a thing to a it.unimi.dsi.fastutil.longs.LongComparator."
-  ^LongComparator [src-comparator]
-  (cond
-    (instance? LongComparator src-comparator)
-    src-comparator
-    (instance? BinaryPredicate src-comparator)
-    (.asLongComparator ^BinaryPredicate src-comparator)
-    :else
-    (let [^Comparator comp (comparator src-comparator)]
-      (reify Comparators$LongComp
-        (compareLongs [this lhs rhs]
-          (.compare comp lhs rhs))))))
-
-
-(defn ->double-comparator
-  "Convert a thing to a it.unimi.dsi.fastutil.longs.DoubleComparator."
-  ^DoubleComparator [src-comparator]
-  (cond
-    (instance? DoubleComparator src-comparator)
-    src-comparator
-    (instance? BinaryPredicate src-comparator)
-    (.asDoubleComparator ^BinaryPredicate src-comparator)
-    :else
-    (let [^Comparator comp (comparator src-comparator)]
-      (reify Comparators$DoubleComp
-        (compareDoubles [this lhs rhs]
-          (.compare comp lhs rhs))))))
-
-
 (defn ->comparator
   "Convert a thing to a java.util.Comparator."
   ^Comparator [src-comparator]
@@ -265,6 +234,36 @@
     (.asComparator ^BinaryPredicate src-comparator)
     :else
     (comparator src-comparator)))
+
+
+(defn ->long-comparator
+  "Convert a thing to a it.unimi.dsi.fastutil.longs.LongComparator."
+  ^LongComparator [src-comparator]
+  (cond
+    (instance? LongComparator src-comparator)
+    src-comparator
+    (instance? BinaryPredicate src-comparator)
+    (.asLongComparator ^BinaryPredicate src-comparator)
+    :else
+    (let [^Comparator src-comparator (->comparator src-comparator)]
+      (reify Comparators$LongComp
+        (compareLongs [this lhs rhs]
+          (.compare src-comparator lhs rhs))))))
+
+
+(defn ->double-comparator
+  "Convert a thing to a it.unimi.dsi.fastutil.doubles.DoubleComparator."
+  ^DoubleComparator [src-comparator]
+  (cond
+    (instance? DoubleComparator src-comparator)
+    src-comparator
+    (instance? BinaryPredicate src-comparator)
+    (.asDoubleComparator ^BinaryPredicate src-comparator)
+    :else
+    (let [^Comparator src-comparator (->comparator src-comparator)]
+      (reify Comparators$DoubleComp
+        (compareDoubles [this lhs rhs]
+          (.compare src-comparator lhs rhs))))))
 
 
 (defn index-comparator
