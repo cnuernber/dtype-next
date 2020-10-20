@@ -1,6 +1,24 @@
 (ns tech.v3.datatype.datetime
   "Thorough bindings to java.time.datetime.  Includes packed datatypes and
-  lifting various datetime datatypes into the datatype system."
+lifting various datetime datatypes into the datatype system.
+
+
+A general outline is:
+
+  * There are a set of type-hinted constants you can use in your code however you like.
+      - milliseconds-in-day, nanoseconds-in-second, etc.
+
+  * There are type-hinted constructors for the types and ways to take a type and convert it to another type.
+     - local-date, instant, zoned-date-time, etc.
+     - local-date->instant, instant->zoned-date-time, etc.
+
+
+  * There are a few generalized functions to create new datetime types or to convert a datetime type
+    into milliseconds-since-epoch and back and to add/subtract integer amounts of different chronographic
+    units:
+     - datetime->milliseconds, milliseconds->datetime
+     - plus-temporal-amount, minus-temporal-amount, long-temporal-amount
+     - between"
   (:require [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.datetime.constants]
             [tech.v3.datatype.datetime.operations]
