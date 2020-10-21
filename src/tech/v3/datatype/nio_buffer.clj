@@ -3,11 +3,14 @@
             [tech.v3.datatype.native-buffer :as native-buffer]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.casting :as casting]
+            [tech.v3.datatype.base :as dtype-base]
+            [tech.v3.datatype.errors :as errors]
             [tech.resource :as resource])
   (:import [java.nio Buffer ByteBuffer ShortBuffer IntBuffer LongBuffer
             FloatBuffer DoubleBuffer ByteOrder]
            [tech.v3.datatype UnsafeUtil]
            [tech.v3.datatype.native_buffer NativeBuffer]
+           [tech.v3.datatype.array_buffer ArrayBuffer]
            [sun.misc Unsafe]))
 
 
@@ -109,3 +112,42 @@
        :float64 (.asDoubleBuffer byte-buf))
      ;;Link the two of them via the GC.
      #(constantly buffer) :gc)))
+
+
+(defn as-nio-buffer
+  "Convert to a nio buffer returning nil if not possible."
+  ^Buffer [item]
+  (when-let [cbuf (dtype-base/as-concrete-buffer item)]
+    (when (nio-datatypes (casting/host-flatten (dtype-base/elemwise-datatype cbuf)))
+      (if (instance? NativeBuffer cbuf)
+        (native-buf->nio-buf cbuf)
+        (let [^ArrayBuffer ary-buf cbuf
+              pos (.offset ary-buf)
+              limit (+ pos (.n-elems ary-buf))]
+          (case (casting/host-flatten (dtype-base/elemwise-datatype cbuf))
+            :int8 (doto (ByteBuffer/wrap (.ary-data ary-buf))
+                    (.position pos)
+                    (.limit limit))
+            :int16 (doto (ShortBuffer/wrap (.ary-data ary-buf))
+                    (.position pos)
+                    (.limit limit))
+            :int32 (doto (IntBuffer/wrap (.ary-data ary-buf))
+                    (.position pos)
+                    (.limit limit))
+            :int64 (doto (LongBuffer/wrap (.ary-data ary-buf))
+                     (.position pos)
+                     (.limit limit))
+            :float32 (doto (FloatBuffer/wrap (.ary-data ary-buf))
+                       (.position pos)
+                       (.limit limit))
+            :float64 (doto (DoubleBuffer/wrap (.ary-data ary-buf))
+                       (.position pos)
+                       (.limit limit))))))))
+
+
+(defn ->nio-buffer
+  "Convert to nio buffer throwing exception if not possible."
+  ^Buffer [item]
+  (if-let [retval (as-nio-buffer item)]
+    retval
+    (errors/throwf "Failed to convert item to nio buffer: %s" item)))

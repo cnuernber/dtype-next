@@ -155,8 +155,10 @@ user> (dtype/make-reader :float32 5 (* idx 2))
 (export-symbols tech.v3.datatype.io-indexed-buffer
                 indexed-buffer)
 
+
 (export-symbols tech.v3.datatype.const-reader
                 const-reader)
+
 
 (export-symbols tech.v3.datatype.io-concat-buffer
                 concat-buffers)
@@ -174,6 +176,11 @@ user> (dtype/make-reader :float32 5 (* idx 2))
                 ->long-array
                 ->float-array
                 ->double-array)
+
+
+(export-symbols tech.v3.datatype.nio-buffer
+                as-nio-buffer
+                ->nio-buffer)
 
 
 (defn make-list

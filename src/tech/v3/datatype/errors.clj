@@ -37,12 +37,14 @@
 (defmacro when-not-error
   "Throw an error in the case where expr isn't true."
   [expr error-msg]
+  {:style/indent 1}
   `(when-not ~expr
      (throw (Exception. ~error-msg))))
 
 (defmacro when-not-errorf
   "Throw an exception with formatting in the case where expr isn't true."
   [expr error-msg & args]
+  {:style/indent 1}
   `(when-not ~expr
      (throwf ~error-msg ~@args)))
 
