@@ -7,23 +7,37 @@ Next generation high performance Clojure toolkit.
 
 [![Build Status](https://travis-ci.com/cnuernber/dtype-next.svg?branch=master)](https://travis-ci.com/cnuernber/dtype-next)
 
-tech.datatype has been a great library for TechAscent and has allowed us to produce
-quite a lot of high performance software.  We were able to push the Clojure
-compile time system to its limits and are generally happy with the architecture
-and the results in terms of flexibility without compromising any performance.
 
-I, however, need a space to produce v3 of the library and various components ideally
-with less runtime code generation and supporting graal native out of the box.
+`dtype-next` provides a unified pathway for dealing with contiguous containers of primitive datatypes such as 
+ints and floats.  In addition it defines the basis for `array` programming as found in APL or numpy and
+a deep Java interface hierarchy with default methods to allow implementing new `array`s painless.  This 
+interface hierarchy integrates with Java Streams, Spliterators, and various members of the java.util.function
+package.  In addition it extends these concepts to native-heap based containers.
 
-Some expected items:
 
-*  Smaller runtime footprint.  This is harder than it looks but the main thing is that
-   the system needs to produce the right answers with less type specific code.
+There are namespaces to allow elementwise operations across scalars and arrays, highly optimized reductions
+across index spaces, and algorithms that operate in index space for use when multiple buffers share
+an index space.
+
+
+This library forms the numeric basis that underlies the ['tech.ml.dataset'](https://github.com/techascent/tech.ml.dataset)
+system.  It also defines a language independent ABI which allows zerocopy to C-based systems
+such as numpy, OpenCV, and TVM.
+
+
+Targets of this library are:
+
+
+*  Small runtime footprint.  This is harder than it looks but the main thing is that
+   the system needs to produce the right answers with as little type specific code as
+   necessary.
 *  Full native memory support.  Malloc, free, memset, memcpy.  Just the basics but
    guaranteed to be available.
+*  Graal Native support.
 
 
-Checkout the [api documentation](https://cnuernber.github.io/dtype-next/)
+Checkout the [API Documentation](https://cnuernber.github.io/dtype-next/)
+
 
 ## Native Test
 
