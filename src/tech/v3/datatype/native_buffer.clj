@@ -612,6 +612,9 @@
   will be linked to the native buffer such that gc-obj will not be garbage
   collected before native buffer is garbage collected."
   (^NativeBuffer [address n-bytes datatype endianness gc-obj]
+   (errors/when-not-error
+    (not= 0 (long address))
+    "Attempt to wrap 0 as an address for a native buffer")
    (let [byte-width (casting/numeric-byte-width datatype)
          retval (NativeBuffer. address (quot (long n-bytes) byte-width)
                                datatype endianness #{:gc} nil nil)]

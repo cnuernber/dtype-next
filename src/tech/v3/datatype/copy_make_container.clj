@@ -1,6 +1,7 @@
 (ns tech.v3.datatype.copy-make-container
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.copy :as dtype-copy]
+            [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.array-buffer :as array-buffer]
@@ -23,6 +24,9 @@
 
 (defmethod dtype-proto/make-container :jvm-heap
   [container-type datatype options elem-seq-or-count]
+  (errors/when-not-error
+   elem-seq-or-count
+   "nil elem-seq-or-count passed into make-container")
   (if (or (number? elem-seq-or-count)
           (dtype-base/as-reader elem-seq-or-count))
     (let [n-elems (long (if (number? elem-seq-or-count)
@@ -149,6 +153,9 @@
   ([datatype {:keys [nan-strategy]
               :or {nan-strategy :keep} :as options}
     item]
+   (errors/when-not-error
+    item
+    "nil value passed into ->array")
    (let [options (assoc options :nan-strategy nan-strategy)
          array-buffer (->array-buffer datatype options item)]
      (if (and (== (.offset array-buffer) 0)
