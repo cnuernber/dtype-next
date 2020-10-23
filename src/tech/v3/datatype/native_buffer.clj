@@ -6,8 +6,8 @@
             [tech.v3.datatype.typecast :as typecast]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.pprint :as dtype-pp]
+            [tech.v3.datatype.graal-native :as graal-native]
             [tech.v3.parallel.for :as parallel-for]
-            [clojure.pprint :as pp]
             [primitive-math :as pmath])
   (:import [xerial.larray.buffer UnsafeUtil]
            [sun.misc Unsafe]
@@ -16,6 +16,10 @@
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
+
+
+(graal-native/when-not-defined-graal-native
+ (require '[clojure.pprint :as pp]))
 
 
 (defn unsafe
@@ -405,7 +409,9 @@
       (dtype-pp/buffer->string buffer (format "native-buffer@0x%016X"
                                               (.address buffer)))
       (with-out-str
-        (pp/pprint (native-buffer->map buffer))))))
+        (graal-native/if-defined-graal-native
+         (println (native-buffer->map buffer))
+         (pp/pprint (native-buffer->map buffer)))))))
 
 
 (dtype-pp/implement-tostring-print NativeBuffer)

@@ -53,7 +53,7 @@
              :uberjar
              {:aot [tech.v3.datatype.main]
               :source-paths ["src" "native_test"]
-              :jvm-opts ["-Dclojure.compiler.direct-linking=true"]
+              :jvm-opts ["-Dclojure.compiler.direct-linking=true" "-Dtech.v3.datatype.graal-native=true"]
               :uberjar-name "dtype-next.jar"
               :main tech.v3.datatype.main}}
   :aliases {"codox" ["with-profile" "codox,dev" "codox"]})
