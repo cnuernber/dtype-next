@@ -453,9 +453,7 @@
   ;;If the resource type is GC, we have to associate the new buf with the old buf
   ;;such that the old buffer can't get cleaned up while the new buffer is still
   ;;referencable via the gc.
-  (when ((.resource-type old-buf) :gc)
-    (resource/chain-gc-resources old-buf new-buf))
-  new-buf)
+  (resource/chain-gc-resources old-buf new-buf))
 
 
 (defn- validate-endianness
