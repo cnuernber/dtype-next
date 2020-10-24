@@ -1,7 +1,7 @@
 (ns tech.v3.datatype.mmap
   "Bindings to an mmap pathway (provided by xerial.larray.mmap)."
   (:require [clojure.java.io :as io]
-            [tech.resource :as resource]
+            [tech.v3.resource :as resource]
             [clojure.tools.logging :as log]
             [tech.v3.datatype.native-buffer :as native-buffer]
             [tech.v3.datatype.protocols :as dtype-proto])
@@ -22,10 +22,8 @@
      * `:gc` - default - The mmaped file will be cleaned up when the garbage collection system
          decides to collect the returned native buffer.
      * `:stack` mmap-file call must be wrapped in a call to
-        tech.resource/stack-resource-context and will be cleaned up when control leaves
+        tech.v3.resource/stack-resource-context and will be cleaned up when control leaves
         the form.
-
-     * `nil` - The mmaped file will never be cleaned up.
 
   * :mmap-mode
     * :read-only - default - map the data as shared read-only.
@@ -44,10 +42,10 @@
                                      :private MMapMode/PRIVATE))
          endianness (or endianness (dtype-proto/platform-endianness))]
      ;;the mmap library has it's own gc-based cleanup system that works fine.
-     (when-not (= resource-type :gc)
+     (when (= resource-type :stack)
        (resource/track map-buf
-                       #(do (log/debugf "closing %s" fpath) (.close map-buf))
-                       resource-type))
+                       {:dispose-fn #(do (log/debugf "closing %s" fpath) (.close map-buf))
+                        :track-type :stack}))
      (native-buffer/wrap-address (.address map-buf) (.size map-buf) :int8
                                  endianness map-buf)))
   ([fpath]
