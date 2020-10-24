@@ -5,10 +5,12 @@
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.casting :as casting]
-            [tech.v3.datatype.nio-buffer]
             [tech.v3.tensor :as dtt]
             [tech.v3.datatype.native-buffer :as native-buffer]
-            [tech.resource :as resource]
+            [tech.v3.resource :as resource]
+            ;;binds nio buffers to datatype system
+            [tech.v3.datatype.nio-buffer]
+            ;;required so the import statements below work.
             [uncomplicate.commons.core])
   (:import [uncomplicate.neanderthal.internal.api Block]
            [uncomplicate.commons.core Info]))
@@ -64,7 +66,7 @@
                                   (reverse item-strides)
                                   item-strides))
                               [(:stride item-info)]))}
-            (resource/track (constantly item))))))
+            (resource/chain-resources item)))))
 
   dtype-proto/PToBuffer
   (convertible-to-buffer? [item] (= :cpu (:device (.info item))))
@@ -85,4 +87,4 @@
                        (dtype-base/elemwise-datatype
                         item)))]
       (-> (dtype-base/sub-buffer ptr-val item-offset)
-          (resource/track (constantly item) :gc)))))
+          (resource/chain-resources item)))))

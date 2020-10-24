@@ -12,7 +12,7 @@
                  [org.xerial.larray/larray-mmap  "0.4.1"]
                  [org.apache.commons/commons-math3 "3.6.1"]
                  [org.roaringbitmap/RoaringBitmap  "0.9.0"]
-                 [techascent/tech.resource       "4.8"]]
+                 [techascent/tech.resource       "5.00"]]
   :java-source-paths ["java"]
   :profiles {:dev
              {:dependencies [[criterium "0.4.5"]
@@ -53,7 +53,7 @@
              :uberjar
              {:aot [tech.v3.datatype.main]
               :source-paths ["src" "native_test"]
-              :jvm-opts ["-Dclojure.compiler.direct-linking=true"]
+              :jvm-opts ["-Dclojure.compiler.direct-linking=true" "-Dtech.v3.datatype.graal-native=true"]
               :uberjar-name "dtype-next.jar"
               :main tech.v3.datatype.main}}
   :aliases {"codox" ["with-profile" "codox,dev" "codox"]})

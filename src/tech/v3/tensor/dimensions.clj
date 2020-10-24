@@ -1,8 +1,7 @@
 (ns tech.v3.tensor.dimensions
   "Dimensions implement a projection from ND space in the the address space of the
   buffer along with a reverse projection from the address space back into ND space."
-  (:require [tech.v3.datatype :as dtype]
-            [tech.v3.datatype.protocols :as dtype-proto]
+  (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.tensor.dimensions.select :as dims-select]
             [tech.v3.tensor.dimensions.analytics :as dims-analytics]
             [tech.v3.tensor.dimensions.shape :as shape]
@@ -10,6 +9,7 @@
             [tech.v3.datatype.argops :as argops]
             [tech.v3.datatype.index-algebra :as idx-alg]
             [tech.v3.datatype.base :as dtype-base]
+            [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.errors
              :refer [when-not-error]
              :as errors])
@@ -244,7 +244,7 @@
         offsets (dtype-base/->reader offsets)
         addr (int addr)
         n-elems (.lsize strides)
-        ^PrimitiveList retval (dtype/make-container :list :int32 0)]
+        ^PrimitiveList retval (dtype-cmc/make-container :list :int32 0)]
     (loop [idx 0
            addr addr]
       (if (< idx n-elems)
@@ -441,7 +441,7 @@ https://cloojure.github.io/doc/core.matrix/clojure.core.matrix.html#var-select"
       ;;base case where there is only one dimension.  This really means just turn
       ;;the tensor into a reader.
       {:dimensions original-dims
-       :offsets (dtype/->reader (long-array [0]))}
+       :offsets (dtype-base/->reader (long-array [0]))}
       (let [offset-dims (dimensions (vec (take-last n-elems shape))
                                     (vec (take-last n-elems strides)))
             n-sub-dims (- n-shape n-elems)

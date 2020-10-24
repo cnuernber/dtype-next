@@ -3,8 +3,8 @@
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.protocols :as dtype-proto]
             [clojure.core.async :as async]
-            [tech.resource :as resource]
-            [tech.resource.stack :as stack]
+            [tech.v3.resource :as resource]
+            [tech.v3.resource.stack :as stack]
             [tech.v3.compute :as compute]
             [tech.v3.compute.registry :as registry]))
 
@@ -68,7 +68,8 @@
 (defn cpu-stream
   ([device error-atom]
    (let [^CPUStream retval (->CPUStream (constantly device) (async/chan 16)
-                                        (async/chan) error-atom)]
+                                        (async/chan) error-atom)
+         input-chan (.input-chan retval)]
      (async/thread
        (loop [next-val (async/<!! (:input-chan retval))]
          (when next-val
@@ -78,7 +79,8 @@
                (reset! error-atom e)))
            (recur (async/<!! (:input-chan retval)))))
        (async/close! (:exit-chan retval)))
-     (resource/track retval)))
+     (resource/track retval {:track-type :stack
+                             :dispose-fn (async/close! input-chan)})))
   ([device] (cpu-stream device (atom nil))))
 
 (declare driver)

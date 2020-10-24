@@ -14,7 +14,6 @@
             [tech.v3.datatype.copy-raw-to-item]
             [tech.v3.datatype.primitive]
             [tech.v3.datatype.argtypes :as argtypes]
-            [tech.v3.datatype.nio-buffer]
             [tech.v3.datatype.io-indexed-buffer :as io-idx-buf]
             [tech.v3.datatype.io-concat-buffer]
             [tech.v3.datatype.unary-op :as unary-op]
@@ -176,11 +175,6 @@ user> (dtype/make-reader :float32 5 (* idx 2))
                 ->long-array
                 ->float-array
                 ->double-array)
-
-
-(export-symbols tech.v3.datatype.nio-buffer
-                as-nio-buffer
-                ->nio-buffer)
 
 
 (defn make-list

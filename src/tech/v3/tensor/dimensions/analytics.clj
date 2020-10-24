@@ -1,5 +1,5 @@
 (ns tech.v3.tensor.dimensions.analytics
-  (:require [tech.v3.datatype :as dtype]
+  (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.index-algebra :as idx-alg]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.list :as dtype-list]
@@ -94,7 +94,7 @@
   (let [item (idx-alg/get-reader item)]
     (if (number? item)
       item
-      (dtype/->reader item))))
+      (dtype-base/->reader item))))
 
 
 (defn reduce-dimensionality

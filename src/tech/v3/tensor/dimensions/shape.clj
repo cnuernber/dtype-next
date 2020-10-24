@@ -3,7 +3,7 @@
   with handling them and abstract that handling so new things have a clear
   path."
   (:require [tech.v3.datatype.errors :refer [when-not-error]]
-            [tech.v3.datatype :as dtype]
+            [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.index-algebra :as idx-alg])
   (:import [tech.v3.datatype Buffer]
            [java.util Map]
@@ -19,7 +19,7 @@
   ^long [shape-entry]
   (if (number? shape-entry)
     (long shape-entry)
-    (dtype/ecount shape-entry)))
+    (dtype-base/ecount shape-entry)))
 
 
 (defn shape->count-vec

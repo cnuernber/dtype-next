@@ -1,5 +1,5 @@
 (ns tech.v3.compute.verify.utils
-  (:require [tech.resource :as resource]
+  (:require [tech.v3.resource :as resource]
             [clojure.test :refer :all]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.compute :as compute]
