@@ -4,7 +4,7 @@
             [tech.v3.datatype :as dtype]
             [tech.v3.tensor :as dtt]
             [tech.v3.compute.tensor :as ct]
-            [tech.resource :as resource]
+            [tech.v3.resource :as resource]
             [clojure.test :refer :all]))
 
 

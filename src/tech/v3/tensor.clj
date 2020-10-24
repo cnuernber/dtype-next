@@ -23,7 +23,7 @@
             [tech.v3.tensor.dimensions.shape :as dims-shape]
             [tech.v3.tensor.tensor-copy :as tens-cpy]
             [tech.v3.datatype.export-symbols :as export-symbols]
-            [tech.resource :as resource])
+            [tech.v3.resource :as resource])
   (:import [tech.v3.datatype LongNDReader Buffer NDBuffer
             ObjectReader]
            [tech.v3.datatype.native_buffer NativeBuffer]
@@ -81,7 +81,7 @@
                                    (dtype-base/elemwise-datatype buffer)))
                        (:strides dimensions))}
        ;;Link the descriptor itself to the native buffer in the gc
-       (resource/track (constantly nbuf) :gc))))
+       (resource/chain-resources nbuf))))
   dtype-proto/PToBuffer
   (convertible-to-buffer? [t] true)
   (->buffer [t]

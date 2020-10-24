@@ -5,7 +5,7 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.errors :as errors]
-            [tech.resource :as resource])
+            [tech.v3.resource :as resource])
   (:import [java.nio Buffer ByteBuffer ShortBuffer IntBuffer LongBuffer
             FloatBuffer DoubleBuffer ByteOrder]
            [tech.v3.datatype UnsafeUtil]
@@ -102,7 +102,7 @@
             (case (.endianness buffer)
               :little-endian ByteOrder/LITTLE_ENDIAN
               :big-endian ByteOrder/BIG_ENDIAN))
-    (resource/track
+    (resource/chain-resources
      (case (casting/host-flatten dtype)
        :int8 byte-buf
        :int16 (.asShortBuffer byte-buf)
@@ -110,8 +110,7 @@
        :int64 (.asLongBuffer byte-buf)
        :float32 (.asFloatBuffer byte-buf)
        :float64 (.asDoubleBuffer byte-buf))
-     ;;Link the two of them via the GC.
-     #(constantly buffer) :gc)))
+     buffer)))
 
 
 (defn as-nio-buffer

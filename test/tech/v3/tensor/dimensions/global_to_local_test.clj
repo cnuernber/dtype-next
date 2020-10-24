@@ -1,6 +1,7 @@
 (ns tech.v3.tensor.dimensions.global-to-local-test
   (:require [tech.v3.tensor.dimensions :as dims]
             [tech.v3.tensor.dimensions.global-to-local :as gtol]
+            [tech.v3.tensor.dimensions.gtol-insn :as gtol-insn]
             [tech.v3.tensor.dimensions.analytics :as dims-analytics]
             [tech.v3.datatype.functional :as dtype-fn]
             [clojure.test :refer [deftest is]]
@@ -16,7 +17,7 @@
   (let [reduced-dims (dims-analytics/reduce-dimensionality base-dims)
         default-reader (gtol/elem-idx->addr-fn reduced-dims)
         ast-reader (gtol/get-or-create-reader reduced-dims)
-        reduced-dims-ast (gtol/signature->ast
+        reduced-dims-ast (gtol-insn/signature->ast
                           (gtol/reduced-dims->signature reduced-dims))]
     (is (= expected-reduced-shape
            (->> reduced-dims

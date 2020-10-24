@@ -1,5 +1,5 @@
 (ns tech.v3.datatype.native-buffer
-  (:require [tech.resource :as resource]
+  (:require [tech.v3.resource :as resource]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.packing :as packing]
@@ -459,7 +459,7 @@
   ;;If the resource type is GC, we have to associate the new buf with the old buf
   ;;such that the old buffer can't get cleaned up while the new buffer is still
   ;;referencable via the gc.
-  (resource/chain-gc-resources old-buf new-buf))
+  (resource/chain-resources new-buf old-buf))
 
 
 (defn- validate-endianness
@@ -605,7 +605,8 @@
      (when-not uninitialized?
        (.setMemory (unsafe) addr n-bytes 0))
      (when resource-type
-       (resource/track retval #(free addr) resource-type))
+       (resource/track retval {:dispose-fn #(free addr)
+                               :track-type resource-type}))
      retval))
   (^NativeBuffer [^long n-bytes]
    (malloc n-bytes {})))
@@ -623,9 +624,9 @@
          retval (NativeBuffer. address (quot (long n-bytes) byte-width)
                                datatype endianness #{:gc} nil nil)]
      ;;when we have to chain this to the gc objects
-     (when gc-obj
-       (resource/track retval (constantly gc-obj) :gc))
-     retval))
+     (if gc-obj
+       (resource/chain-resources retval gc-obj)
+       retval)))
   (^NativeBuffer [address n-bytes gc-obj]
    (wrap-address address n-bytes :int8 (dtype-proto/platform-endianness)
                  gc-obj)))
