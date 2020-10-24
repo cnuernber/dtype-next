@@ -99,7 +99,7 @@
    (constantly elem-idx->addr-fn)
    (try
      (let [insn-fn
-           (requiring-resolve 'tech.v3.tensor.dimension.gtol-insn/generate-constructor)]
+           (requiring-resolve 'tech.v3.tensor.dimensions.gtol-insn/generate-constructor)]
        (fn [signature]
          (try
            (insn-fn signature)
