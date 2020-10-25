@@ -239,4 +239,4 @@
                         (.addAll lhs rhs)
                         lhs)))))
   (^PrimitiveList [bool-item]
-   (bool-reader->indexes bool-item)))
+   (bool-reader->indexes nil bool-item)))
