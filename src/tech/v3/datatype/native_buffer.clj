@@ -1,4 +1,6 @@
 (ns tech.v3.datatype.native-buffer
+  "Support for malloc/free and generalized support for reading/writing typed data
+  to a long integer address of memory."
   (:require [tech.v3.resource :as resource]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.casting :as casting]
@@ -8,6 +10,7 @@
             [tech.v3.datatype.pprint :as dtype-pp]
             [tech.v3.datatype.graal-native :as graal-native]
             [tech.v3.parallel.for :as parallel-for]
+            [clojure.tools.logging :as log]
             [primitive-math :as pmath])
   (:import [xerial.larray.buffer UnsafeUtil]
            [sun.misc Unsafe]
@@ -23,6 +26,7 @@
 
 
 (defn unsafe
+  "Get access to an instance of sun.misc.Unsafe."
   ^Unsafe []
   UnsafeUtil/unsafe)
 
@@ -36,9 +40,7 @@
       (set track-type))))
 
 
-(declare chain-native-buffers)
-
-(defmacro read-value
+(defmacro ^:private read-value
   [address swap? datatype byte-width n-elems]
   `(do
      (errors/check-idx ~'idx ~n-elems)
@@ -104,7 +106,7 @@
                        (Long/reverseBytes)
                        (Double/longBitsToDouble))))))
 
-(defmacro write-value
+(defmacro ^:private write-value
   [address swap? datatype byte-width n-elems]
   `(do
      (errors/check-idx ~'idx ~n-elems)
@@ -170,7 +172,7 @@
                                  (Long/reverseBytes)))))))
 
 
-(defmacro native-buffer->buffer-macro
+(defmacro ^:private native-buffer->buffer-macro
   [datatype advertised-datatype buffer address n-elems swap?]
   (let [byte-width (casting/numeric-byte-width datatype)]
     `(let [{~'unpacking-read :unpacking-read
@@ -295,7 +297,8 @@
 ;;Size is in elements, not in bytes
 (deftype NativeBuffer [^long address ^long n-elems datatype endianness
                        resource-type metadata
-                       ^:volatile-mutable ^Buffer cached-io]
+                       ^:volatile-mutable ^Buffer cached-io
+                       parent]
   dtype-proto/PToNativeBuffer
   (convertible-to-native-buffer? [this] true)
   (->native-buffer [this] this)
@@ -319,10 +322,10 @@
         (throw (Exception.
                 (format "Offset+length (%s) > n-elems (%s)"
                         (+ offset length) n-elems))))
-      (chain-native-buffers this
-                            (NativeBuffer. (+ address (* offset byte-width))
-                                           length datatype endianness
-                                           resource-type metadata nil))))
+      (NativeBuffer. (+ address (* offset byte-width))
+                     length datatype endianness
+                     resource-type metadata nil
+                     this)))
   dtype-proto/PSetConstant
   (set-constant! [this offset element-count value]
     (let [offset (long offset)
@@ -373,7 +376,8 @@
   (withMeta [item metadata]
     (NativeBuffer. address n-elems datatype endianness resource-type
                    metadata
-                   cached-io))
+                   cached-io
+                   parent))
   Counted
   (count [item] (int (dtype-proto/ecount item)))
   Indexed
@@ -454,14 +458,6 @@
                                               address n-elems false)))))
 
 
-(defn- chain-native-buffers
-  [^NativeBuffer old-buf ^NativeBuffer new-buf]
-  ;;If the resource type is GC, we have to associate the new buf with the old buf
-  ;;such that the old buffer can't get cleaned up while the new buffer is still
-  ;;referencable via the gc.
-  (resource/chain-resources new-buf old-buf))
-
-
 (defn- validate-endianness
   [endianness]
   (when-not (#{:little-endian :big-endian} endianness)
@@ -470,12 +466,16 @@
 
 
 (defn as-native-buffer
+  "Convert a thing to a native buffer if possible.  Calls
+  tech.v3.datatype.protocols/->native-buffer if object indicates it is convertible
+  to a native buffer."
   ^NativeBuffer [item]
   (when (dtype-proto/convertible-to-native-buffer? item)
     (dtype-proto/->native-buffer item)))
 
 
 (defn native-buffer-byte-len
+  "Get the length, in bytes, of a native buffer."
   ^long [^NativeBuffer nb]
   (let [original-size (.n-elems nb)]
     (* original-size (casting/numeric-byte-width
@@ -483,6 +483,7 @@
 
 
 (defn set-native-datatype
+  "Set the datatype of a native buffer.  n-elems will be recalculated."
   ^NativeBuffer [item datatype]
   (let [nb (as-native-buffer item)
         original-size (.n-elems nb)
@@ -490,26 +491,25 @@
                                   (dtype-proto/elemwise-datatype item)))
         new-byte-width (casting/numeric-byte-width
                         (casting/un-alias-datatype datatype))]
-    (chain-native-buffers
-     item
-     (NativeBuffer. (.address nb) (quot n-bytes new-byte-width)
-                    datatype (.endianness nb)
-                    (.resource-type nb) nil nil))))
+    (NativeBuffer. (.address nb) (quot n-bytes new-byte-width)
+                   datatype (.endianness nb)
+                   (.resource-type nb) (meta nb) nil item)))
 
 
 (defn set-endianness
+  "Convert a native buffer to simple hashmap for printing or logging purposes."
   ^NativeBuffer [item endianness]
   (let [nb (as-native-buffer item)]
     (validate-endianness endianness)
     (if (= endianness (.endianness nb))
       nb
-      (chain-native-buffers item
-                            (NativeBuffer. (.address nb) (.n-elems nb)
-                                           (.elemwise-datatype nb) endianness
-                                           (.resource-type nb) nil nil)))))
+      (NativeBuffer. (.address nb) (.n-elems nb)
+                     (.elemwise-datatype nb) endianness
+                     (.resource-type nb) (meta nb) nil item))))
 
 
 (defn native-buffer->map
+  "Convert a native buffer to simple hashmap for printing or logging purposes."
   [^NativeBuffer buf]
   {:address (.address buf)
    :length (.n-elems buf)
@@ -523,6 +523,7 @@
 
 ;;One off data reading
 (defn read-double
+  "Ad-hoc read a double at a given offset from a native buffer.  This method is not endian-aware."
   (^double [^NativeBuffer native-buffer ^long offset]
    (assert (>= (- (native-buffer-byte-len native-buffer) offset 8) 0))
    (.getDouble (unsafe) (+ (.address native-buffer) offset)))
@@ -532,6 +533,7 @@
 
 
 (defn read-float
+  "Ad-hoc read a float at a given offset from a native buffer.  This method is not endian-aware."
   (^double [^NativeBuffer native-buffer ^long offset]
    (assert (>= (- (native-buffer-byte-len native-buffer) offset 4) 0))
    (.getFloat (unsafe) (+ (.address native-buffer) offset)))
@@ -541,6 +543,7 @@
 
 
 (defn read-long
+  "Ad-hoc read a long at a given offset from a native buffer.  This method is not endian-aware."
   (^long [^NativeBuffer native-buffer ^long offset]
    (assert (>= (- (native-buffer-byte-len native-buffer) offset 8) 0))
    (.getLong (unsafe) (+ (.address native-buffer) offset)))
@@ -550,6 +553,7 @@
 
 
 (defn read-int
+  "Ad-hoc read an integer at a given offset from a native buffer.  This method is not endian-aware."
   (^long [^NativeBuffer native-buffer ^long offset]
    (assert (>= (- (native-buffer-byte-len native-buffer) offset 4) 0))
    (.getInt (unsafe) (+ (.address native-buffer) offset)))
@@ -559,6 +563,7 @@
 
 
 (defn read-short
+  "Ad-hoc read a short at a given offset from a native buffer.  This method is not endian-aware."
   (^long [^NativeBuffer native-buffer ^long offset]
    (assert (>= (- (native-buffer-byte-len native-buffer) offset 2) 0))
    (unchecked-long
@@ -570,6 +575,7 @@
 
 
 (defn read-byte
+  "Ad-hoc read a byte at a given offset from a native buffer."
   (^long [^NativeBuffer native-buffer ^long offset]
    (assert (>= (- (native-buffer-byte-len native-buffer) offset 1) 0))
    (unchecked-long
@@ -581,6 +587,7 @@
 
 
 (defn free
+  "Free a long ptr.  Malloc will do this for you.  Calling this is probably a mistake."
   [data]
   (let [addr (long (if (instance? NativeBuffer data)
                      (.address ^NativeBuffer data)
@@ -590,8 +597,17 @@
 
 
 (defn malloc
+  "Malloc memory.  If a desired buffer type is needed follow up with set-native-datatype.
+
+  Options:
+
+  * `:resource-type` - defaults to :gc - could be either or both of :gc :stack.
+  * `:uninitialized?` - do not initialize to zero.  Use for perf in very very rare cases.
+  * `:endianness` - Either `:little-endian` or `:big-endian` - defaults to platform.
+  * `:log-level` - one of :debug :trace :info :warn :error :fatal or nil if no logging
+     is desired."
   (^NativeBuffer [^long n-bytes {:keys [resource-type uninitialized?
-                                        endianness]
+                                        endianness log-level]
                                  :or {resource-type :gc}}]
    (let [resource-type (normalize-track-type resource-type)
          endianness (-> (or endianness (dtype-proto/platform-endianness))
@@ -600,12 +616,19 @@
                                n-bytes
                                :int8
                                endianness
-                               resource-type nil nil)
+                               resource-type nil nil nil)
          addr (.address retval)]
+     (when log-level
+       (log/logf log-level "Malloc - 0x%016X - %016d bytes" (.address retval) n-bytes))
      (when-not uninitialized?
        (.setMemory (unsafe) addr n-bytes 0))
      (when resource-type
-       (resource/track retval {:dispose-fn #(free addr)
+       (resource/track retval {:dispose-fn #(do
+                                              (when log-level
+                                                (log/logf log-level
+                                                          "Free   - 0x%016X - %016d bytes"
+                                                          addr n-bytes))
+                                              (free addr))
                                :track-type resource-type}))
      retval))
   (^NativeBuffer [^long n-bytes]
@@ -620,13 +643,9 @@
    (errors/when-not-error
     (not= 0 (long address))
     "Attempt to wrap 0 as an address for a native buffer")
-   (let [byte-width (casting/numeric-byte-width datatype)
-         retval (NativeBuffer. address (quot (long n-bytes) byte-width)
-                               datatype endianness #{:gc} nil nil)]
-     ;;when we have to chain this to the gc objects
-     (if gc-obj
-       (resource/chain-resources retval gc-obj)
-       retval)))
+   (let [byte-width (casting/numeric-byte-width datatype)]
+     (NativeBuffer. address (quot (long n-bytes) byte-width)
+                    datatype endianness #{:gc} nil nil gc-obj)))
   (^NativeBuffer [address n-bytes gc-obj]
    (wrap-address address n-bytes :int8 (dtype-proto/platform-endianness)
                  gc-obj)))

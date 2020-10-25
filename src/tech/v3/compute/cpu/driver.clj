@@ -4,7 +4,6 @@
             [tech.v3.datatype.protocols :as dtype-proto]
             [clojure.core.async :as async]
             [tech.v3.resource :as resource]
-            [tech.v3.resource.stack :as stack]
             [tech.v3.compute :as compute]
             [tech.v3.compute.registry :as registry]))
 
@@ -50,13 +49,6 @@
 (extend-protocol drv/PStreamProvider
   CPUStream
   (get-stream [stream] stream))
-
-
-(extend-type CPUStream
-  stack/PResource
-  (release-resource [impl]
-    (when (.input-chan impl)
-      (async/close! (.input-chan impl)))))
 
 
 (defn get-memory-info
