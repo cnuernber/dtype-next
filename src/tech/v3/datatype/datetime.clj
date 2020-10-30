@@ -80,6 +80,8 @@ A general outline is:
                 local-date
                 local-date-time->local-date
                 local-date->local-date-time
+                local-date->days-since-epoch
+                days-since-epoch->local-date
                 local-date->instant
                 local-date->zoned-date-time
                 local-date->milliseconds-since-epoch
@@ -101,4 +103,6 @@ A general outline is:
                 datetime->milliseconds
                 milliseconds->datetime
                 millisecond-descriptive-statistics
+                datetime->epoch
+                epoch->datetime
                 between)

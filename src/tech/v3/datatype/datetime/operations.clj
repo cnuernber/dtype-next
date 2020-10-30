@@ -31,7 +31,7 @@
   (boolean (millisecond-datatypes dtype)))
 
 
-(defn millisecond-reader
+(defn- millisecond-reader
   ^LongReader [convert-fn datatype data]
   (let [data (dtype-base/->reader data)]
     (reify LongReader
@@ -41,13 +41,124 @@
         (unchecked-long (convert-fn (.readObject data idx)))))))
 
 
-(defn vectorized-dispatch-millisecond-reader
+(defn- vectorized-dispatch-millisecond-reader
   [convert-fn datatype data]
   (dispatch/vectorized-dispatch-1
    convert-fn nil
    (fn [_dtype data]
      (millisecond-reader convert-fn datatype data))
    data))
+
+
+(defn- object-reader
+  ^ObjectReader [convert-fn datatype data]
+  (let [data (dtype-base/->reader data)]
+    (reify ObjectReader
+      (elemwiseDatatype [rdr] datatype)
+      (lsize [rdr] (.lsize data))
+      (readObject [rdr idx]
+        (convert-fn (.readLong data idx))))))
+
+
+(defn- vectorized-dispatch-object-reader
+  [convert-fn datatype data]
+  (dispatch/vectorized-dispatch-1
+   convert-fn nil
+   (fn [_dtype data]
+     (object-reader convert-fn datatype data))
+   data))
+
+
+(def ^:private epoch-conversion-table
+  {:epoch-milliseconds {:instant {:->epoch dt-base/instant->milliseconds-since-epoch
+                                  :epoch-> dt-base/milliseconds-since-epoch->instant}
+                        :zoned-date-time {:->epoch dt-base/zoned-date-time->milliseconds-since-epoch
+                                          :epoch-> dt-base/milliseconds-since-epoch->zoned-date-time}
+                        :local-date-time {:->epoch dt-base/local-date-time->milliseconds-since-epoch
+                                          :epoch-> dt-base/milliseconds-since-epoch->local-date-time}
+                        :local-date {:->epoch dt-base/local-date->milliseconds-since-epoch
+                                     :epoch-> dt-base/milliseconds-since-epoch->local-date}}
+   :epoch-microseconds {:instant {:->epoch dt-base/instant->microseconds-since-epoch
+                                  :epoch-> dt-base/microseconds-since-epoch->instant}}
+   :epoch-seconds {:instant {:->epoch dt-base/instant->seconds-since-epoch
+                             :epoch-> dt-base/seconds-since-epoch->instant}}
+   :epoch-days {:instant {:->epoch dt-base/instant->days-since-epoch
+                          :epoch-> dt-base/days-since-epoch->instant}
+                :local-date {:->epoch dt-base/local-date->days-since-epoch
+                             :epoch-> dt-base/days-since-epoch->local-date}}
+   :instant {:zoned-date-time {:->epoch dt-base/zoned-date-time->instant
+                               :epoch-> dt-base/instant->zoned-date-time}
+             :local-date-time {:->epoch dt-base/local-date-time->instant
+                               :epoch-> dt-base/instant->local-date-time}
+             :local-date {:->epoch dt-base/local-date->instant
+                          :epoch-> dt-base/instant->local-date}}})
+
+
+(defn datetime->epoch
+  "Convert datetime data to one of the epoch timestamps.  If timezone is passed in it is used
+  else UTC is used.
+
+
+  * `timezone` a java.time.ZoneId or nil.
+  * `epoch-datatype` - one of `#{:epoch-microseconds :epoch-milliseconds :epoch-seconds :epoch-days}`
+  * `data` - datetime scalar or vector data."
+  ([timezone epoch-datatype data]
+   (let [dtype (packing/unpack-datatype (dtype-base/elemwise-datatype data))
+         ->epoch-fn (or (get-in epoch-conversion-table [epoch-datatype dtype :->epoch])
+                        (when-let [->instant (get-in epoch-conversion-table [:instant dtype :->epoch])]
+                          (comp (get-in epoch-conversion-table [epoch-datatype :instant :->epoch])
+                                ->instant)))
+         _ (errors/when-not-errorf
+            ->epoch-fn
+            "Failed to find conversion of datatype %s to epoch-datatype %s"
+            dtype epoch-datatype)
+         ->epoch-fn (if timezone
+                      #(->epoch-fn % timezone)
+                      ->epoch-fn)]
+     (vectorized-dispatch-millisecond-reader ->epoch-fn epoch-datatype data)))
+  ([epoch-datatype data]
+   (datetime->epoch nil epoch-datatype data))
+  ([data]
+   (datetime->epoch nil :epoch-milliseconds data)))
+
+
+(def ^:private epoch-datatype-set (set (keys epoch-conversion-table)))
+
+
+(defn epoch->datetime
+  "Convert data in long or integer epoch data to a datetime datatype.
+
+  * `timezone` - `java.time.ZoneId` or nil.
+  * `epoch-datatype` - one of `#{:epoch-microseconds :epoch-milliseconds :epoch-seconds :epoch-days}`.
+    In the case where it is not provided the elemwise-datatype of data must one of that set.
+  * `datetime-datatype` - The target datatype.
+  * `data` - data in integer or long format."
+  ([timezone epoch-datatype datetime-datatype data]
+   (errors/when-not-errorf
+    (epoch-datatype-set epoch-datatype)
+    "Epoch datatype (%s) is not an epoch datatype - %s"
+    epoch-datatype epoch-datatype-set)
+   (let [dtype (packing/unpack-datatype datetime-datatype)
+         packed? (not= dtype datetime-datatype)
+         epoch->fn (or (get-in epoch-conversion-table [epoch-datatype dtype :epoch->])
+                       (when-let [instant-> (get-in epoch-conversion-table [:instant dtype :epoch->])]
+                         (let [instant-> (if timezone
+                                           #(instant-> % timezone)
+                                           instant->)]
+                           (comp instant->
+                                 (get-in epoch-conversion-table [epoch-datatype :instant :epoch->])))))
+         _ (errors/when-not-errorf
+            epoch->fn
+            "Failed to find conversion of epoch-datatype %s to datatype %s"
+            datetime-datatype epoch-datatype)
+         result (vectorized-dispatch-object-reader epoch->fn dtype data)]
+     (if packed?
+       (packing/pack result)
+       result)))
+  ([timezone datetime-datatype data]
+   (epoch->datetime timezone (dtype-base/elemwise-datatype data) datetime-datatype data))
+  ([datetime-datatype data]
+   (epoch->datetime nil (dtype-base/elemwise-datatype data) datetime-datatype data)))
 
 
 (defn datetime->milliseconds
@@ -62,7 +173,7 @@
      (case datatype
        :instant
        (vectorized-dispatch-millisecond-reader
-        dt-base/instant->microseconds-since-epoch
+        dt-base/instant->milliseconds-since-epoch
         :epoch-milliseconds data)
 
        :zoned-date-time
@@ -86,25 +197,6 @@
         :milliseconds data))))
   ([data]
    (datetime->milliseconds (dt-base/utc-zone-id) data)))
-
-
-(defn object-reader
-  ^ObjectReader [convert-fn datatype data]
-  (let [data (dtype-base/->reader data)]
-    (reify ObjectReader
-      (elemwiseDatatype [rdr] datatype)
-      (lsize [rdr] (.lsize data))
-      (readObject [rdr idx]
-        (convert-fn (.readLong data idx))))))
-
-
-(defn vectorized-dispatch-object-reader
-  [convert-fn datatype data]
-  (dispatch/vectorized-dispatch-1
-   convert-fn nil
-   (fn [_dtype data]
-     (object-reader convert-fn datatype data))
-   data))
 
 
 (defn milliseconds->datetime

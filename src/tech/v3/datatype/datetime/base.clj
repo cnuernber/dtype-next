@@ -1,6 +1,7 @@
 (ns tech.v3.datatype.datetime.base
   (:require [tech.v3.datatype.casting :as casting]
-            [tech.v3.datatype.datetime.constants :refer [nanoseconds-in-millisecond]])
+            [tech.v3.datatype.datetime.constants :refer [nanoseconds-in-millisecond]
+             :as constants])
   (:import [java.time LocalDate LocalDateTime
             ZonedDateTime Instant ZoneId Duration ZoneOffset
             OffsetDateTime LocalTime]
@@ -44,9 +45,21 @@
   (Instant/ofEpochMilli arg))
 
 
+(defn microseconds-since-epoch->instant
+  ^Instant [^long microseconds-since-epoch]
+  (Instant/ofEpochSecond (quot microseconds-since-epoch 1000000)
+                         (* (rem microseconds-since-epoch 1000000)
+                            1000)))
+
+
 (defn seconds-since-epoch->instant
   ^Instant [seconds]
   (milliseconds-since-epoch->instant (* (long seconds) 1000)))
+
+
+(defn days-since-epoch->instant
+  ^Instant [days]
+  (milliseconds-since-epoch->instant (* (long days) constants/milliseconds-in-day)))
 
 
 (defn instant
@@ -63,12 +76,6 @@
   (.toEpochMilli instant))
 
 
-(defn instant->seconds-since-epoch
-  ^long [^Instant instant]
-  (quot (.toEpochMilli instant)
-        1000))
-
-
 (defn instant->microseconds-since-epoch
   ^long [^Instant instant]
   (long (+ (* (.getEpochSecond instant)
@@ -77,11 +84,18 @@
                  1000))))
 
 
-(defn microseconds-since-epoch->instant
-  ^Instant [^long microseconds-since-epoch]
-  (Instant/ofEpochSecond (quot microseconds-since-epoch 1000000)
-                         (* (rem microseconds-since-epoch 1000000)
-                            1000)))
+(defn instant->seconds-since-epoch
+  ^long [^Instant instant]
+  (quot (.toEpochMilli instant)
+        1000))
+
+
+(defn instant->days-since-epoch
+  ^long [^Instant instant]
+  (quot (.toEpochMilli instant)
+        constants/milliseconds-in-day))
+
+
 
 
 (defn local-date-time->local-time
@@ -141,14 +155,20 @@
 
 
 (defn zoned-date-time->instant
-  ^Instant [^ZonedDateTime zid]
-  (.toInstant zid))
+  (^Instant [^ZonedDateTime zid]
+   (.toInstant zid))
+  (^Instant [^ZonedDateTime zdt ^ZoneId tz]
+   (-> (.withZoneSameInstant zdt tz)
+       (zoned-date-time->instant))))
 
 
 (defn zoned-date-time->milliseconds-since-epoch
-  ^long [^ZonedDateTime zid]
-  (-> (zoned-date-time->instant zid)
-      (instant->milliseconds-since-epoch)))
+  (^long [^ZonedDateTime zid]
+   (-> (zoned-date-time->instant zid)
+       (instant->milliseconds-since-epoch)))
+  (^long [^ZonedDateTime zdt, ^ZoneId zid]
+   (-> (.withZoneSameLocal zdt zid)
+       (zoned-date-time->milliseconds-since-epoch))))
 
 
 (defn instant->zoned-date-time
@@ -221,7 +241,7 @@
    (-> (local-date-time->instant ldt timezone)
        (instant->milliseconds-since-epoch)))
   (^long [ldt]
-   (local-date-time->milliseconds-since-epoch (utc-zone-id))))
+   (local-date-time->milliseconds-since-epoch ldt (utc-zone-id))))
 
 
 (defn local-date
@@ -248,8 +268,8 @@
   (^Instant [^LocalDate ld ^LocalTime lt zoneid-or-offset]
    (-> (local-date->local-date-time ld lt)
        (local-date-time->instant zoneid-or-offset)))
-  (^Instant [^LocalDate ld ^LocalTime lt]
-   (local-date->instant ld lt (utc-zone-id)))
+  (^Instant [^LocalDate ld zone-id]
+   (local-date->instant ld 0 zone-id))
   (^Instant [^LocalDate ld]
    (local-date->instant ld 0 (utc-zone-id))))
 
@@ -258,8 +278,8 @@
   (^Instant [^LocalDate ld lt zoneid]
    (-> (local-date->local-date-time ld lt)
        (local-date-time->zoned-date-time zoneid)))
-  (^Instant [^LocalDate ld lt]
-   (local-date->instant ld lt (utc-zone-id)))
+  (^Instant [^LocalDate ld zone-id]
+   (local-date->instant ld 0 zone-id))
   (^Instant [^LocalDate ld]
    (local-date->zoned-date-time ld 0 (utc-zone-id))))
 
@@ -268,8 +288,20 @@
   (^long [^LocalDate ld ^LocalTime lt zoneid]
    (-> (local-date->local-date-time ld lt)
        (local-date-time->milliseconds-since-epoch zoneid)))
+  (^long [^LocalDate ld zoneid]
+   (local-date->milliseconds-since-epoch ld 0 zoneid))
   (^long [^LocalDate ld]
    (local-date->milliseconds-since-epoch ld 0 (utc-zone-id))))
+
+
+(defn local-date->days-since-epoch
+  (^long [ld local-time zoneid]
+   (-> (local-date->milliseconds-since-epoch ld local-time zoneid)
+       (quot constants/milliseconds-in-day)))
+  (^long [ld zoneid]
+   (local-date->days-since-epoch ld 0 zoneid))
+  (^long [ld]
+   (local-date->days-since-epoch ld 0 (utc-zone-id))))
 
 
 (defn local-time->local-date-time
@@ -285,6 +317,23 @@
   (^LocalDate [millis zone-id]
    (-> (milliseconds-since-epoch->local-date-time millis zone-id)
        (.toLocalDate))))
+
+(defn days-since-epoch->local-date
+  (^LocalDate [days zone-id]
+   (milliseconds-since-epoch->local-date
+    (* (long days) constants/milliseconds-in-day)
+    zone-id))
+  (^LocalDate [days]
+   (days-since-epoch->local-date days (utc-zone-id))))
+
+
+(defn instant->local-date
+  (^LocalDate [instant zone-id]
+   (-> (instant->local-date-time instant zone-id)
+       (local-date-time->local-date)))
+  (^LocalDate [instant]
+   (instant->local-date instant (utc-zone-id))))
+
 
 (defn duration
   ([]
@@ -322,9 +371,11 @@
 (casting/add-object-datatype! :local-date-time LocalDateTime)
 (casting/add-object-datatype! :duration Duration)
 (casting/alias-datatype! :epoch-milliseconds :int64)
+(casting/alias-datatype! :epoch-microseconds :int64)
+(casting/alias-datatype! :epoch-seconds :int64)
+(casting/alias-datatype! :epoch-days :int32)
 (casting/alias-datatype! :milliseconds :int64)
 (casting/alias-datatype! :microseconds :int64)
 (casting/alias-datatype! :nanoseconds :int64)
-(casting/alias-datatype! :epoch-microseconds :int64)
 
 (def datatypes #{:instant :zoned-date-time :local-date :local-date-time :duration})
