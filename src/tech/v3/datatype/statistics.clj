@@ -390,9 +390,9 @@
 (defn mean
   "double mean of data"
   (^double [data options]
-   (let [{:keys [n-elems value]} (dtype-reductions/staged-double-consumer-reduction
-                                  :tech.numerics/+ options data)]
-     (pmath// (double value)
+   (let [{:keys [n-elems sum]} (dtype-reductions/staged-double-consumer-reduction
+                                :tech.numerics/+ options data)]
+     (pmath// (double sum)
               (double n-elems))))
   (^double [data]
    (mean data nil)))

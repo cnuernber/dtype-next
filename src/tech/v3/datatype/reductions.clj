@@ -4,6 +4,7 @@
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.casting :as casting]
+            [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.errors :as errors])
   (:import [tech.v3.datatype BinaryOperator IndexReduction DoubleReduction
             Buffer IndexReduction$IndexedBiFunction UnaryOperator
@@ -148,10 +149,10 @@
 (defn double-summation
   "As fast as possible, sum a reader into a single double."
   (^double [options rdr]
-   (double (:value (staged-double-consumer-reduction
-                    (reducer-value->consumer-fn :tech.numerics/+)
-                    options
-                    rdr))))
+   (double (:sum (staged-double-consumer-reduction
+                  (reducer-value->consumer-fn :tech.numerics/+)
+                  options
+                  rdr))))
   (^double [rdr]
    (double-summation {} rdr)))
 

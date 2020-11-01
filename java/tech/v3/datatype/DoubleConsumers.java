@@ -12,7 +12,6 @@ public class DoubleConsumers
   public static abstract class ScalarReduceBase implements Consumers.StagedConsumer,
 							   DoubleConsumer
   {
-    public static final Keyword valueKwd = Keyword.intern(null, "value");
     public static final Keyword nElemsKwd = Keyword.intern(null, "n-elems");
     public double value;
     public long nElems;
@@ -20,18 +19,16 @@ public class DoubleConsumers
       value = 0.0;
       nElems = 0;
     }
-    public static Object valueMap(double value, long nElems ){
+    public static Object valueMap(Keyword valueKwd, double value, long nElems ){
       HashMap hm = new HashMap();
       hm.put( valueKwd, value );
       hm.put( nElemsKwd, nElems );
       return hm;
     }
-    public Object value() {
-      return valueMap(value,nElems);
-    }
   }
   public static class Sum extends ScalarReduceBase
   {
+    public static final Keyword valueKwd = Keyword.intern(null, "sum");
     public Sum() {
       super();
     }
@@ -44,6 +41,9 @@ public class DoubleConsumers
       value += other.value;
       nElems += other.nElems;
     }
+    public Object value() {
+      return valueMap(valueKwd,value,nElems);
+    }
   }
   public static class UnaryOpSum extends Sum
   {
@@ -55,14 +55,27 @@ public class DoubleConsumers
     public void accept(double data) {
       super.accept(op.unaryDouble(data));
     }
+    public Object value() {
+      return valueMap(Sum.valueKwd,value,nElems);
+    }
   }
   public static class BinaryOp extends ScalarReduceBase
   {
+    public static final Keyword defaultValueKwd = Keyword.intern(null, "value");
     public final BinaryOperator op;
-    public BinaryOp(BinaryOperator _op, double initValue) {
+    public final Keyword valueKwd;
+    public BinaryOp(BinaryOperator _op, double initValue, Keyword _valueKwd) {
       super();
       value = initValue;
       op = _op;
+      if (_valueKwd == null) {
+	valueKwd = defaultValueKwd;
+      } else {
+	valueKwd = _valueKwd;
+      }
+    }
+    public BinaryOp(BinaryOperator _op, double initValue) {
+      this(_op, initValue, null);
     }
     public void accept(double data) {
       value = op.binaryDouble(value, data);
@@ -72,6 +85,9 @@ public class DoubleConsumers
       BinaryOp other = (BinaryOp)_other;
       value = op.binaryDouble(value, other.value);
       nElems += other.nElems;
+    }
+    public Object value() {
+      return valueMap(valueKwd,value,nElems);
     }
   }
   public static class MinMaxSum implements Consumers.StagedConsumer, DoubleConsumer
