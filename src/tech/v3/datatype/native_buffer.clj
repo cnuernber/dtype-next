@@ -31,15 +31,6 @@
   UnsafeUtil/unsafe)
 
 
-(defn- normalize-track-type
-  [track-type]
-  ;;default track type is gc for native buffers
-  (let [track-type (or track-type :gc)]
-    (if (keyword? track-type)
-      #{track-type}
-      (set track-type))))
-
-
 (defmacro ^:private read-value
   [address swap? datatype byte-width n-elems]
   `(do
@@ -601,16 +592,18 @@
 
   Options:
 
-  * `:resource-type` - defaults to :gc - could be either or both of :gc :stack.
+  * `:resource-type` - defaults to `:gc` - maps to `:track-type` in `tech.v3.resource`
+     but can also be set to nil in which case the data is not tracked this library will
+     not clean it up.
   * `:uninitialized?` - do not initialize to zero.  Use for perf in very very rare cases.
   * `:endianness` - Either `:little-endian` or `:big-endian` - defaults to platform.
-  * `:log-level` - one of :debug :trace :info :warn :error :fatal or nil if no logging
-     is desired."
+  * `:log-level` - one of `#{:debug :trace :info :warn :error :fatal}` or nil if no logging
+     is desired.  When enabled allocations and frees will be logged in the same manner as
+     `tech.jna`."
   (^NativeBuffer [^long n-bytes {:keys [resource-type uninitialized?
                                         endianness log-level]
                                  :or {resource-type :gc}}]
-   (let [resource-type (normalize-track-type resource-type)
-         endianness (-> (or endianness (dtype-proto/platform-endianness))
+   (let [endianness (-> (or endianness (dtype-proto/platform-endianness))
                         (validate-endianness))
          retval (NativeBuffer. (.allocateMemory (unsafe) n-bytes)
                                n-bytes

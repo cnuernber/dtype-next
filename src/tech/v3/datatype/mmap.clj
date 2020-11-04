@@ -17,14 +17,7 @@
   "Memory map a file returning a native buffer.  fpath must resolve to a valid
    java.io.File.
   Options
-  * :resource-type - Chose the type of resource management to use with the returned
-     value:
-     * `:gc` - default - The mmaped file will be cleaned up when the garbage collection system
-         decides to collect the returned native buffer.
-     * `:stack` mmap-file call must be wrapped in a call to
-        tech.v3.resource/stack-resource-context and will be cleaned up when control leaves
-        the form.
-
+  * :resource-type - maps to tech.v3.resource `:track-type`.
   * :mmap-mode
     * :read-only - default - map the data as shared read-only.
     * :read-write - map the data as shared read-write.
@@ -35,6 +28,7 @@
    (let [file (io/file fpath)
          _ (when-not (.exists file)
              (throw (Exception. (format "%s not found" fpath))))
+         resource-type (resource/normalize-track-type resource-type)
          ;;Mapping to read-only means pages can be shared between processes
          map-buf (MMapBuffer. file (case mmap-mode
                                      :read-only MMapMode/READ_ONLY
@@ -42,7 +36,7 @@
                                      :private MMapMode/PRIVATE))
          endianness (or endianness (dtype-proto/platform-endianness))]
      ;;the mmap library has it's own gc-based cleanup system that works fine.
-     (when (= resource-type :stack)
+     (when (resource-type :stack)
        (resource/track map-buf
                        {:dispose-fn #(do (log/debugf "closing %s" fpath) (.close map-buf))
                         :track-type :stack}))
