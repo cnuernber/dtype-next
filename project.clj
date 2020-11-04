@@ -1,4 +1,4 @@
-(defproject cnuernber/dtype-next "6.00-alpha-16-SNAPSHOT"
+(defproject cnuernber/dtype-next "6.00-alpha-16"
   :description "A Clojure library designed to aid in the implementation of high performance algorithms and systems."
   :url "http://github.com/cnuernber/dtype-next"
   :license {:name "EPL-2.0"
@@ -6,13 +6,14 @@
   :dependencies [[org.clojure/clojure            "1.10.2-alpha1"]
                  [org.ow2.asm/asm                "7.1"]
                  [insn                           "0.4.0"]
-                 [camel-snake-kebab              "0.4.0"]
+                 [camel-snake-kebab              "0.4.2"]
                  [primitive-math                 "0.1.6"]
                  [it.unimi.dsi/fastutil          "8.2.1"]
                  [org.xerial.larray/larray-mmap  "0.4.1"]
                  [org.apache.commons/commons-math3 "3.6.1"]
                  [org.roaringbitmap/RoaringBitmap  "0.9.0"]
-                 [techascent/tech.resource       "5.01"]]
+                 [techascent/tech.resource       "5.01"]
+                 [techascent/tech.jna "4.04" :scope "provided"]]
   :java-source-paths ["java"]
   :profiles {:dev
              {:dependencies [[criterium "0.4.5"]
@@ -40,6 +41,7 @@
                                    tech.v3.datatype.mmap
                                    tech.v3.datatype.native-buffer
                                    tech.v3.datatype.nippy
+                                   tech.v3.datatype.jna
                                    tech.v3.tensor.dimensions
                                    tech.v3.tensor.color-gradients
                                    tech.v3.datatype.reductions
