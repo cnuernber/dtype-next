@@ -32,7 +32,7 @@
             Buffer
             UnaryOperator BinaryOperator
             UnaryPredicate BinaryPredicate]
-           [java.util Comparator Arrays List Map Iterator]
+           [java.util Comparator Arrays List Map Iterator Collections Random]
            [org.roaringbitmap RoaringBitmap]))
 
 
@@ -504,3 +504,24 @@
                            (->binary-predicate partition-pred)))))
   (^Iterable [unary-op item-iterable]
    (argpartition-by unary-op :tech.numerics/eq item-iterable)))
+
+
+(defn argshuffle
+  "Serially shuffle N indexes into a an array of data.
+  Returns an array of indexes."
+  ([^long n-indexes {:keys [seed container-type]
+                     :or {container-type :jvm-heap}}]
+   (let [data (if (< n-indexes (long Integer/MAX_VALUE))
+                (dtype-cmc/make-container container-type :int32 (range n-indexes))
+                (dtype-cmc/make-container container-type :int64 (range n-indexes)))
+         ^Random rgen (when seed
+                        (if (number? seed)
+                          (java.util.Random. (int seed))
+                          seed))
+         data-buf (dtype-base/->buffer data)]
+     (if rgen
+       (Collections/shuffle data-buf rgen)
+       (Collections/shuffle data-buf))
+     data))
+  ([n-indexes]
+   (argshuffle n-indexes nil)))

@@ -46,8 +46,9 @@ public interface Buffer extends DatatypeBase, Iterable, IFn,
   default int size() { return RT.intCast(lsize()); }
   default Object get(int idx) { return readObject(idx); }
   default Object set(int idx, Object val) {
+    Object current = get(idx);
     writeObject(idx, val);
-    return null;
+    return current;
   }
   default boolean isEmpty() { return lsize() == 0; }
   default Object[] toArray() {

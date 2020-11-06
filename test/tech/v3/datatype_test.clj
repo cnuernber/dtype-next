@@ -557,6 +557,15 @@
           {:keys [result missing]} (dfn/fill-range long-test-data 3)])))
 
 
+(deftest argshuffle-test
+  (let [test-data (dtype/make-container :float32 (range 20))
+        buf (dtype/->buffer test-data)]
+    (is (= (vec (argops/argshuffle 20 {:seed 20}))
+           (vec (argops/argshuffle 20 {:seed 20}))))
+    (is (not= (vec (argops/argshuffle 20))
+              (vec (argops/argshuffle 20))))))
+
+
 (deftest ctime-min-max
   (is (dtype-proto/has-constant-time-min-max? 4))
   (is (= 4 (dtype-proto/constant-time-min 4)))
