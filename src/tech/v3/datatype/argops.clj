@@ -508,7 +508,14 @@
 
 (defn argshuffle
   "Serially shuffle N indexes into a an array of data.
-  Returns an array of indexes."
+  Returns an array of indexes.
+
+  Options:
+
+  * `:seed` - Either nil, an integer, or an implementation of `java.util.Random`.
+    This seeds the random generator if provided or a new one is created if not.
+  * `:container-type` - The container type of the data, defaults to `:jvm-heap`.
+    See documentation for `make-container`."
   ([^long n-indexes {:keys [seed container-type]
                      :or {container-type :jvm-heap}}]
    (let [data (if (< n-indexes (long Integer/MAX_VALUE))
