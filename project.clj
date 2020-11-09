@@ -33,7 +33,7 @@
                       :source-uri "https://github.com/cnuernber/dtype-next/blob/master/{filepath}#L{line}"
                       :namespaces [tech.v3.datatype tech.v3.datatype.functional
                                    tech.v3.datatype.errors
-                                   tech.v3.tensor tech.v3.compute
+                                   tech.v3.tensor
                                    tech.v3.datatype.argops
                                    tech.v3.datatype.list
                                    tech.v3.datatype.bitmap
