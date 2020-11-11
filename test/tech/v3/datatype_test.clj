@@ -566,6 +566,12 @@
               (vec (argops/argshuffle 20))))))
 
 
+(deftest plist-addall
+  (let [test-list (dtype/make-list :int64)]
+    (java.util.Collections/addAll test-list (into-array (range 10)))
+    (is (= (vec (range 10)) (vec test-list)))))
+
+
 (deftest ctime-min-max
   (is (dtype-proto/has-constant-time-min-max? 4))
   (is (= 4 (dtype-proto/constant-time-min 4)))
