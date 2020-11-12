@@ -3,7 +3,8 @@
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.argops :as argops]
             [tech.v3.tensor :as dtt]
-            [clojure.test :refer :all])
+            [primitive-math :as pmath]
+            [clojure.test :refer [deftest is]])
   (:import [tech.v3.datatype NDBuffer]))
 
 
@@ -44,6 +45,22 @@
             [0 1 2 3 4]]
            (dtt/->jvm tensor)))))
 
+(defn- compute-tens-time
+  []
+  (let [source-image (dtt/new-tensor [512 288 3] :datatype :uint8)]
+    (dotimes [iter 1000]
+      (-> (dtt/compute-tensor
+           (dtype/shape source-image)
+           (reify NDBuffer
+             (ndReadObject [this y x c]
+               (let [c (- 2 c)
+                     src-val (.ndReadLong source-image y x c)]
+                 (-> src-val
+                     (pmath/+ 50)
+                     (pmath/min 255)))))
+           :uint8)
+          (dtype/copy! (dtt/new-tensor [512 288 3] :datatype :uint8))))))
+
 
 (deftest modify-time-test
   (let [source-image (dtt/new-tensor [512 288 3] :datatype :uint8)
@@ -75,7 +92,20 @@
                      (dtype/copy! dest-image
                                   ;;Note from-prototype fails for reader chains.
                                   ;;So you have to copy or use an actual image.
-                                  (dtt/new-tensor [512 288 3] :datatype :uint8)))]
+                                  (dtt/new-tensor [512 288 3] :datatype :uint8)))
+        compute-tensor #(-> (dtt/compute-tensor
+                             (dtype/shape source-image)
+                             ;;Small optimization to avoid boxing y,x, and c on
+                             ;;every read call
+                             (reify NDBuffer
+                               (ndReadObject [this y x c]
+                                 (let [c (- 2 c)
+                                     src-val (.ndReadLong source-image y x c)]
+                                 (-> src-val
+                                     (pmath/+ 50)
+                                     (pmath/min 255)))))
+                             :uint8)
+                            (dtype/copy! (dtt/new-tensor [512 288 3] :datatype :uint8)))]
     ;;warm up and actually check that tostring works as expected
     (is (string? (.toString ^Object (reader-composition))))
     (is (string? (.toString ^Object (inline-fn))))
@@ -83,7 +113,9 @@
      {:reader-composition (with-out-str (time (dotimes [iter 10]
                                                 (reader-composition))))
       :inline-fn (with-out-str (time (dotimes [iter 10]
-                                       (inline-fn))))})))
+                                       (inline-fn))))
+      :compute-tensor (with-out-str (time (dotimes [iter 10]
+                                            (compute-tensor))))})))
 
 
 (deftest nd-buffer-descriptor

@@ -23,9 +23,10 @@
             [tech.v3.tensor.dimensions.shape :as dims-shape]
             [tech.v3.tensor.tensor-copy :as tens-cpy]
             [tech.v3.datatype.export-symbols :as export-symbols]
+            [primitive-math :as pmath]
             [tech.v3.resource :as resource])
   (:import [tech.v3.datatype LongNDReader Buffer NDBuffer
-            ObjectReader]
+            ObjectReader LongReader]
            [tech.v3.datatype.native_buffer NativeBuffer]
            [java.util List]))
 
@@ -184,7 +185,6 @@
   (dimensions [t] dimensions)
   (indexSystem [t] index-system)
   (bufferIO [t] cached-io)
-
   (ndReadBoolean [t idx]
     (.readBoolean cached-io (.ndReadLong index-system idx)))
   (ndReadBoolean [t row col]
@@ -356,7 +356,7 @@
   "Create a new tensor with a given shape, datatype and container type.  Datatype
   defaults to :float64 if not passed in while container-type defaults to
   java-heap."
-  [shape & {:keys [datatype container-type]
+  ^NDBuffer [shape & {:keys [datatype container-type]
             :as options}]
   (let [datatype (or datatype :float64)
         container-type (or container-type :jvm-heap)
@@ -368,7 +368,7 @@
 
 (defn const-tensor
   "Construct a tensor from a value and a shape.  Data is represented efficiently via a const-reader."
-  [value shape]
+  ^NDBuffer [value shape]
   (let [dims (dims/dimensions shape)
         n-elems (dims/ecount dims)]
     (construct-tensor (const-reader value n-elems) dims)))
@@ -564,3 +564,90 @@
                                slice-right
                                mget
                                mset!)
+
+
+(defn- shape-stride-reader
+  [^longs shape ^Buffer strides ^long global-idx]
+  (let [n-dims (alength shape)]
+    (reify LongReader
+      (lsize [rdr] n-dims)
+      (readLong [rdr idx]
+        (-> (quot global-idx (.readLong strides idx))
+            (rem (aget shape idx)))))))
+
+
+
+(defmacro ^:private make-compute-tensor
+  [datatype n-dims n-elems per-pixel-op
+   output-shape shape-x shape-chan strides]
+  `(reify ObjectReader
+     (elemwiseDatatype [rdr#] ~datatype)
+     (lsize [rdr#] ~n-elems)
+     (readObject [rdr# ~'idx]
+       ~(case (long n-dims)
+          1 `(.ndReadObject ~per-pixel-op ~'idx)
+          2 `(.ndReadObject ~per-pixel-op (pmath// ~'idx ~shape-chan)
+              (rem ~'idx ~shape-chan))
+          3 `(let [c# (pmath/rem ~'idx ~shape-chan)
+                   xy# (pmath// ~'idx ~shape-chan)
+                   x# (pmath/rem xy# ~shape-x)
+                   y# (pmath// xy# ~shape-x)]
+               (.ndReadObject ~per-pixel-op y# x# c#))
+          `(.ndReadObjectIter ~per-pixel-op (shape-stride-reader ~output-shape ~strides ~'idx))))))
+
+
+(defn compute-tensor
+  "Create a new tensor which calls into op for every operation.
+  Op will receive n-dimensional long arguments and the result will be
+  `:unchecked-cast`ed to whatever datatype the tensor is reporting.
+
+Example:
+
+```clojure
+user> (require '[tech.v3.tensor :as dtt])
+nil
+user> (dtt/compute-tensor [2 2] (fn [& args] (vec args)) :object)
+#tech.v3.tensor<object>[2 2]
+[[[0 0] [0 1]]
+ [[1 0] [1 1]]]
+user> (dtt/compute-tensor [2 2 2] (fn [& args] (vec args)) :object)
+#tech.v3.tensor<object>[2 2 2]
+[[[[0 0 0] [0 0 1]]
+  [[0 1 0] [0 1 1]]]
+ [[[1 0 0] [1 0 1]]
+  [[1 1 0] [1 1 1]]]]
+```"
+  ([output-shape per-pixel-op datatype]
+   (let [output-shape (long-array output-shape)
+         n-dims (count output-shape)
+         n-elems (long (apply * output-shape))
+         shape-chan (aget output-shape (dec n-dims))
+         shape-x (long (if (> n-dims 1)
+                         (aget output-shape (dec (dec n-dims)))
+                         0))
+         dims (dims/dimensions output-shape)
+         strides (dtype-base/->buffer (:strides dims))
+         ^NDBuffer per-pixel-op (if (fn? per-pixel-op)
+                                  (reify NDBuffer
+                                    (ndReadObject [op idx]
+                                      (per-pixel-op idx))
+                                    (ndReadObject [op y x]
+                                      (per-pixel-op y x))
+                                    (ndReadObject [op y x c]
+                                      (per-pixel-op y x c))
+                                    (ndReadObjectIter [op args]
+                                      (apply per-pixel-op args)))
+                                  per-pixel-op)]
+     (construct-tensor
+      (case n-dims
+        1 (make-compute-tensor datatype 1 n-elems per-pixel-op
+                               output-shape shape-x shape-chan strides)
+        2 (make-compute-tensor datatype 2 n-elems per-pixel-op
+                               output-shape shape-x shape-chan strides)
+        3 (make-compute-tensor datatype 3 n-elems per-pixel-op
+                               output-shape shape-x shape-chan strides)
+        (make-compute-tensor datatype 4 n-elems per-pixel-op
+                             output-shape shape-x shape-chan strides))
+      dims)))
+  ([output-shape per-pixel-op]
+   (compute-tensor output-shape per-pixel-op nil)))

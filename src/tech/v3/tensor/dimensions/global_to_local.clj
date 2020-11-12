@@ -189,7 +189,7 @@
       (ndReadLong[this row col]
         (when-not (== n-dims 2)
           (errors/throw-index-out-of-boundsf "Dimension error. Tensor is %d dimensional" n-dims))
-        (when (or (pmath/>= col max-col)
+        #_(when (or (pmath/>= col max-col)
                   (pmath/>= row max-row))
           (errors/throw-index-out-of-boundsf "read2d - One of arguments %s out of ranged %s"
                                              [row col]
@@ -201,7 +201,7 @@
       (ndReadLong [this height width chan]
         (when-not (== n-dims 3)
           (errors/throw-index-out-of-boundsf "Dimension error. Tensor is %d dimensional" n-dims))
-        (when (or (pmath/>= chan max-col)
+        #_(when (or (pmath/>= chan max-col)
                   (pmath/>= width max-row)
                   (pmath/>= height max-height))
           (errors/throw-index-out-of-boundsf "read3d - Arguments out of range - %s > %s"

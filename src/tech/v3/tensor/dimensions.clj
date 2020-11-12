@@ -14,7 +14,7 @@
              :refer [when-not-error]
              :as errors])
   (:import [tech.v3.datatype Buffer PrimitiveList ObjectReader
-            LongReader LongNDReader]
+            LongReader LongNDReader ListPersistentVector]
            [java.util List Map]
            [clojure.lang IDeref]))
 
@@ -119,7 +119,11 @@
      (dimensions shape strides shape-ecounts shape-ecount-strides)))
   ([shape]
    (let [n-dims (count shape)
-         ^List shape shape
+         ;;shapes are used for equality a lot so they have to have a standard
+         ;;representation.
+         ^List shape (if-let [shape-buf (dtype-base/as-buffer shape)]
+                       (ListPersistentVector. shape-buf)
+                       (vec shape))
          strides (dims-analytics/shape-ary->strides shape)
          shape-ecounts shape
          shape-ecount-strides strides

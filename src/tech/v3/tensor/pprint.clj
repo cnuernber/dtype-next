@@ -5,7 +5,9 @@
             [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.pprint :as dtype-pprint]
-            [tech.v3.datatype.emap :as dtype-emap])
+            [tech.v3.datatype.emap :as dtype-emap]
+            ;;Base dtype implementation
+            [tech.v3.datatype])
   (:import [java.lang StringBuilder]
            [java.io Writer]
            [tech.v3.datatype NDBuffer]))
@@ -155,5 +157,5 @@
   ^String [tens]
   (format "#tech.v3.tensor<%s>%s\n%s"
           (name (dtype-base/elemwise-datatype tens))
-          (dtype-base/shape tens)
+          (vec (dtype-base/shape tens))
           (base-tensor->string tens)))

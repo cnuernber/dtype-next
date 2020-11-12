@@ -20,8 +20,9 @@
 
 (defn shape-ary->strides
   "Strides assuming everything is increasing and packed."
-  ^PrimitiveList [^List shape-vec]
+  ^List [shape-vec]
   (let [retval (long-array (count shape-vec))
+        shape-vec (dtype-base/->buffer shape-vec)
         n-elems (alength retval)
         n-elems-dec (dec n-elems)]
     (loop [idx n-elems-dec
@@ -30,10 +31,10 @@
         (let [next-stride (* last-stride
                              (if (== idx n-elems-dec)
                                1
-                               (long (.get shape-vec (inc idx)))))]
+                               (.readLong shape-vec (inc idx))))]
           (aset retval idx next-stride)
           (recur (dec idx) next-stride))
-        (dtype-list/wrap-container retval)))))
+        (dtype-base/->buffer retval)))))
 
 
 (defn find-breaks
