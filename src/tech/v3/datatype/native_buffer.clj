@@ -634,7 +634,8 @@
   collected before native buffer is garbage collected."
   (^NativeBuffer [address n-bytes datatype endianness gc-obj]
    (errors/when-not-error
-    (not= 0 (long address))
+    (or (not= 0 (long address))
+        (== 0 (long n-bytes)))
     "Attempt to wrap 0 as an address for a native buffer")
    (let [byte-width (casting/numeric-byte-width datatype)]
      (NativeBuffer. address (quot (long n-bytes) byte-width)
