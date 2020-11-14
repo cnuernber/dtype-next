@@ -24,4 +24,27 @@ public interface LongTensorReader extends NDBuffer {
   default double ndReadDouble(long height, long width, long chan) {
     return (double)ndReadLong(height,width,chan);
   }
+
+  //These overloads are dangerous as the ndReadObject methods are
+  //expected to return slices if the tensor is of greater rank
+  //than the nd method implies.  This is why NDBuffers aren't
+  //Buffers.
+  default Object ndReadObject(long idx) {
+    if (1 != rank()) {
+      throw new RuntimeException("Tensor is not rank 1");
+    }
+    return ndReadLong(idx);
+  }
+  default Object ndReadObject(long y, long x) {
+    if (2 != rank()) {
+      throw new RuntimeException("Tensor is not rank 2");
+    }
+    return ndReadLong(y,x);
+  }
+  default Object ndReadObject(long y, long x, long c) {
+    if (3 != rank()) {
+      throw new RuntimeException("Tensor is not rank 3");
+    }
+    return ndReadLong(y,x,c);
+  }
 }

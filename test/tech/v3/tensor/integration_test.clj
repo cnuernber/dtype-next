@@ -93,18 +93,13 @@
                                   ;;Note from-prototype fails for reader chains.
                                   ;;So you have to copy or use an actual image.
                                   (dtt/new-tensor [512 288 3] :datatype :uint8)))
-        compute-tensor #(-> (dtt/compute-tensor
-                             (dtype/shape source-image)
-                             ;;Small optimization to avoid boxing y,x, and c on
-                             ;;every read call
-                             (reify NDBuffer
-                               (ndReadObject [this y x c]
-                                 (let [c (- 2 c)
-                                     src-val (.ndReadLong source-image y x c)]
-                                 (-> src-val
-                                     (pmath/+ 50)
-                                     (pmath/min 255)))))
-                             :uint8)
+        compute-tensor #(-> (dtt/typed-compute-tensor
+                             :uint8 3 (dtype/shape source-image)
+                             (let [c (- 2 c)
+                                   src-val (.ndReadLong source-image y x c)]
+                               (-> src-val
+                                   (pmath/+ 50)
+                                   (pmath/min 255))))
                             (dtype/copy! (dtt/new-tensor [512 288 3] :datatype :uint8)))]
     ;;warm up and actually check that tostring works as expected
     (is (string? (.toString ^Object (reader-composition))))

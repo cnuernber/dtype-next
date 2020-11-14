@@ -24,4 +24,22 @@ public interface DoubleTensorReader extends NDBuffer {
   default long ndReadLong(long height, long width, long chan) {
     return (long)ndReadDouble(height,width,chan);
   }
+  default Object ndReadObject(long c) {
+    if (1 != rank()) {
+      throw new RuntimeException("Tensor is not rank 1");
+    }
+    return ndReadDouble(c);
+  }
+  default Object ndReadObject(long y, long x) {
+    if (2 != rank()) {
+      throw new RuntimeException("Tensor is not rank 2");
+    }
+    return ndReadDouble(y,x);
+  }
+  default Object ndReadObject(long y, long x, long c) {
+    if (3 != rank()) {
+      throw new RuntimeException("Tensor is not rank 3");
+    }
+    return ndReadDouble(y,x,c);
+  }
 }
