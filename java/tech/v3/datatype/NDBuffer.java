@@ -39,12 +39,12 @@ public interface NDBuffer extends DatatypeBase, Iterable, IFn,
   void ndWriteLong(long idx, long value);
   void ndWriteLong(long row, long col, long value);
   void ndWriteLong(long height, long width, long chan, long value);
-  double ndReadDouble(double idx);
-  double ndReadDouble(double row, double col);
-  double ndReadDouble(double height, double width, double chan);
-  void ndWriteDouble(double idx, double value);
-  void ndWriteDouble(double row, double col, double value);
-  void ndWriteDouble(double height, double width, double chan, double value);
+  double ndReadDouble(long idx);
+  double ndReadDouble(long row, long col);
+  double ndReadDouble(long height, long width, long chan);
+  void ndWriteDouble(long idx, double value);
+  void ndWriteDouble(long row, long col, double value);
+  void ndWriteDouble(long height, long width, long chan, double value);
 
   // Object read methods can return slices or values.
   Object ndReadObject(long idx);

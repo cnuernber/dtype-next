@@ -175,60 +175,67 @@
         shape-ecount-strides-dec-2 (aget shape-ecount-strides n-dims-dec-2)
         rank n-dims
         outermostDim (long (first shape-ecounts))]
-    (reify LongNDReader
-      (shape [rdr] (:shape-ecounts dims))
-      (lsize [rdr] n-elems)
-      (rank [rdr] rank)
-      (outermostDim [rdr] outermostDim)
-      (readLong [rdr idx]
-        (.readLong elemwise-reader idx))
-      (ndReadLong [rdr idx]
-        (when-not (== n-dims 1)
-          (errors/throw-index-out-of-boundsf "Dimension error. Tensor is %d dimensional" n-dims))
-        (.readLong elemwise-reader idx))
-      (ndReadLong[this row col]
-        (when-not (== n-dims 2)
-          (errors/throw-index-out-of-boundsf "Dimension error. Tensor is %d dimensional" n-dims))
-        #_(when (or (pmath/>= col max-col)
-                  (pmath/>= row max-row))
-          (errors/throw-index-out-of-boundsf "read2d - One of arguments %s out of ranged %s"
-                                             [row col]
-                                             [max-row max-col]))
-
-        (.readLong elemwise-reader
-                   (pmath/+ (pmath/* row shape-ecount-strides-dec-1)
-                            col)))
-      (ndReadLong [this height width chan]
-        (when-not (== n-dims 3)
-          (errors/throw-index-out-of-boundsf "Dimension error. Tensor is %d dimensional" n-dims))
-        #_(when (or (pmath/>= chan max-col)
-                  (pmath/>= width max-row)
-                  (pmath/>= height max-height))
-          (errors/throw-index-out-of-boundsf "read3d - Arguments out of range - %s > %s"
-                                             [max-height max-row max-col]
-                                             [height width chan]))
-        (.readLong elemwise-reader
-                   (pmath/+
-                    (pmath/* height shape-ecount-strides-dec-2)
-                    (pmath/* width shape-ecount-strides-dec-1)
-                    chan)))
-      (ndReadLongIter [this dims]
-        (let [iter (.iterator dims)]
+    ;;Important common case optimization, native dimensions do not need
+    ;;index translations.
+    (if (:native? dims)
+      (reify LongNDReader
+        (shape [rdr] (:shape-ecounts dims))
+        (lsize [rdr] n-elems)
+        (rank [rdr] rank)
+        (outermostDim [rdr] outermostDim)
+        (readLong [rdr idx] idx)
+        (ndReadLong [rdr idx] idx)
+        (ndReadLong[this row col]
+          (pmath/+ (pmath/* row shape-ecount-strides-dec-1) col))
+        (ndReadLong [this height width chan]
+          (pmath/+
+           (pmath/* height shape-ecount-strides-dec-2)
+           (pmath/* width shape-ecount-strides-dec-1)
+           chan))
+        (ndReadLongIter [this dims]
+          (let [iter (.iterator dims)]
+            (loop [continue? (.hasNext iter)
+                   val 0
+                   idx 0]
+              (if continue?
+                (let [next-val (long (.next iter))]
+                  (recur (.hasNext iter)
+                         (-> (* next-val (aget shape-ecount-strides idx))
+                             (pmath/+ val))
+                         (pmath/inc idx)))
+                val)))))
+      (reify LongNDReader
+        (shape [rdr] (:shape-ecounts dims))
+        (lsize [rdr] n-elems)
+        (rank [rdr] rank)
+        (outermostDim [rdr] outermostDim)
+        (readLong [rdr idx]
+          (.readLong elemwise-reader idx))
+        (ndReadLong [rdr idx]
+          (.readLong elemwise-reader idx))
+        (ndReadLong[this row col]
           (.readLong elemwise-reader
-                     (loop [continue? (.hasNext iter)
-                            val 0
-                            idx 0]
-                       (if continue?
-                         (do
-                           (when-not (< idx rank)
-                             (errors/throw-index-out-of-boundsf "Dimension error. Tensor is %d dimensional"
-                                                                n-dims))
+                     (pmath/+ (pmath/* row shape-ecount-strides-dec-1)
+                              col)))
+        (ndReadLong [this height width chan]
+          (.readLong elemwise-reader
+                     (pmath/+
+                      (pmath/* height shape-ecount-strides-dec-2)
+                      (pmath/* width shape-ecount-strides-dec-1)
+                      chan)))
+        (ndReadLongIter [this dims]
+          (let [iter (.iterator dims)]
+            (.readLong elemwise-reader
+                       (loop [continue? (.hasNext iter)
+                              val 0
+                              idx 0]
+                         (if continue?
                            (let [next-val (long (.next iter))]
                              (recur (.hasNext iter)
                                     (-> (* next-val (aget shape-ecount-strides idx))
                                         (pmath/+ val))
-                                    (pmath/inc idx))))
-                         val))))))))
+                                    (pmath/inc idx)))
+                           val)))))))))
 
 (def builtin-signatures
   [{:n-dims 3,
