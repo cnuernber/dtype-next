@@ -13,90 +13,40 @@
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
-(defn- as-nd-buffer ^NDBuffer [item] item)
-(defmacro ^:private tens-copy-nd
-  [datatype ndims src dst]
-  `(let [~'src (as-nd-buffer ~src)
-         ~'dst (as-nd-buffer ~dst)
-         ~'src-shape (dtype-base/shape ~'src)
-         ~'ny ~(if (= 3 (long ndims))
-                 `(long (first ~'src-shape))
-                 0)
-         ~'nx ~(if (>= (long ndims) 2)
-                 `(long (nth ~'src-shape ~(- (long ndims) 2)))
-                 0)
-         ~'nc (long (last ~'src-shape))]
-     ~(case (long ndims)
-        2 `(parallel-for/parallel-for
-            ~'x
-            ~'nx
-            (dotimes [~'c ~'nc]
-              ~(case datatype
-                 :int64 `(.ndWriteLong ~'dst ~'x ~'c (.ndReadLong ~'src ~'x ~'c))
-                 :float64 `(.ndWriteDouble ~'dst ~'x ~'c (.ndReadDouble ~'src ~'x ~'c))
-                 :object `(.ndWriteObject ~'dst ~'x ~'c (.ndReadObject ~'src ~'x ~'c)))))
-        3 `(parallel-for/parallel-for
-            ~'y
-            ~'ny
-            (dotimes [~'x ~'nx]
-              (dotimes [~'c ~'nc]
-                ~(case datatype
-                   :int64 `(.ndWriteLong ~'dst ~'y ~'x ~'c (.ndReadLong ~'src ~'y ~'x ~'c))
-                   :float64 `(.ndWriteDouble ~'dst ~'y ~'x ~'c (.ndReadDouble ~'src ~'y ~'x ~'c))
-                   :object `(.ndWriteObject ~'dst ~'y ~'x ~'c (.ndReadObject ~'src ~'y ~'x ~'c)))))))))
 
 
 (defn generic-copy!
   [src dst]
   (let [dst-dtype (dtype-base/elemwise-datatype dst)
-        op-space (casting/simple-operation-space dst-dtype)]
-
-    (if (and (instance? NDBuffer src)
-             (instance? NDBuffer dst)
-             (< (.rank ^NDBuffer src) 4)
-             (> (.rank ^NDBuffer src) 1)
-             (== (.rank ^NDBuffer src)
-                 (.rank ^NDBuffer dst))
-             (#{:int64 :float64 :object} op-space))
-      (case (.rank ^NDBuffer src)
-        2 (case op-space
-            :int64 (tens-copy-nd :int64 2 src dst)
-            :float64 (tens-copy-nd :float64 2 src dst)
-            :object (tens-copy-nd :object 2 src dst))
-        3 (case op-space
-            :int64 (tens-copy-nd :int64 3 src dst)
-            :float64 (tens-copy-nd :float64 3 src dst)
-            :object (tens-copy-nd :object 3 src dst)))
-
-      (let [src (dtype-base/->reader src dst-dtype)
-            dst (dtype-base/->writer dst)
-            n-elems (.lsize src)]
-        (when-not (== n-elems (.lsize dst))
-          (throw (Exception. (format "src,dst ecount mismatch: %d-%d"
-                                     n-elems (.lsize dst)))))
-
-        (case op-space
-          :boolean
-          (parallel-for/parallel-for
-           idx
-           n-elems
-           (.writeBoolean dst idx (.readBoolean src idx)))
-          :int64
-          (parallel-for/parallel-for
-           idx
-           n-elems
-           (.writeLong dst idx (.readLong src idx)))
-          :float64
-          (parallel-for/parallel-for
-           idx
-           n-elems
-           (.writeDouble dst idx (.readDouble src idx)))
-          :object
-          (parallel-for/parallel-for
-           idx
-           n-elems
-           (.writeObject dst idx (.readObject src idx))))
-        dst))))
+        op-space (casting/simple-operation-space dst-dtype)
+        src (dtype-base/->reader src dst-dtype)
+        dst (dtype-base/->writer dst)
+        n-elems (.lsize src)]
+    (when-not (== n-elems (.lsize dst))
+      (throw (Exception. (format "src,dst ecount mismatch: %d-%d"
+                                 n-elems (.lsize dst)))))
+    (case op-space
+      :boolean
+      (parallel-for/parallel-for
+       idx
+       n-elems
+       (.writeBoolean dst idx (.readBoolean src idx)))
+      :int64
+      (parallel-for/parallel-for
+       idx
+       n-elems
+       (.writeLong dst idx (.readLong src idx)))
+      :float64
+      (parallel-for/parallel-for
+       idx
+       n-elems
+       (.writeDouble dst idx (.readDouble src idx)))
+      :object
+      (parallel-for/parallel-for
+       idx
+       n-elems
+       (.writeObject dst idx (.readObject src idx))))
+    dst))
 
 
 (defn- array-base-offset

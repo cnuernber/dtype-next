@@ -45,22 +45,6 @@
             [0 1 2 3 4]]
            (dtt/->jvm tensor)))))
 
-(defn- compute-tens-time
-  []
-  (let [source-image (dtt/new-tensor [512 288 3] :datatype :uint8)]
-    (dotimes [iter 1000]
-      (-> (dtt/compute-tensor
-           (dtype/shape source-image)
-           (reify NDBuffer
-             (ndReadObject [this y x c]
-               (let [c (- 2 c)
-                     src-val (.ndReadLong source-image y x c)]
-                 (-> src-val
-                     (pmath/+ 50)
-                     (pmath/min 255)))))
-           :uint8)
-          (dtype/copy! (dtt/new-tensor [512 288 3] :datatype :uint8))))))
-
 
 (deftest modify-time-test
   (let [source-image (dtt/new-tensor [512 288 3] :datatype :uint8)
@@ -89,18 +73,19 @@
                                        (min 255)))
                                  :int16
                                  dest-image)
-                     (dtype/copy! dest-image
-                                  ;;Note from-prototype fails for reader chains.
-                                  ;;So you have to copy or use an actual image.
-                                  (dtt/new-tensor [512 288 3] :datatype :uint8)))
+                     (dtt/nd-copy! dest-image
+                                    ;;Note from-prototype fails for reader chains.
+                                    ;;So you have to copy or use an actual image.
+                                    (dtt/new-tensor [512 288 3] :datatype :uint8)))
         compute-tensor #(-> (dtt/typed-compute-tensor
-                             :uint8 3 (dtype/shape source-image)
+                             :int64 :uint8 3 (dtype/shape source-image)
+                             [y x c]
                              (let [c (- 2 c)
                                    src-val (.ndReadLong source-image y x c)]
                                (-> src-val
                                    (pmath/+ 50)
                                    (pmath/min 255))))
-                            (dtype/copy! (dtt/new-tensor [512 288 3] :datatype :uint8)))]
+                            (dtt/nd-copy! (dtt/new-tensor [512 288 3] :datatype :uint8)))]
     ;;warm up and actually check that tostring works as expected
     (is (string? (.toString ^Object (reader-composition))))
     (is (string? (.toString ^Object (inline-fn))))

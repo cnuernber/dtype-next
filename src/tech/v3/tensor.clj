@@ -24,6 +24,7 @@
             [tech.v3.tensor.dimensions.shape :as dims-shape]
             [tech.v3.tensor.tensor-copy :as tens-cpy]
             [tech.v3.datatype.export-symbols :as export-symbols]
+            [tech.v3.parallel.for :as parallel-for]
             [primitive-math :as pmath]
             [tech.v3.resource :as resource])
   (:import [tech.v3.datatype LongNDReader Buffer NDBuffer
@@ -882,3 +883,69 @@ user> (dtt/compute-tensor [2 2 2] (fn [& args] (vec args)) :object)
   ([output-shape per-pixel-op]
    (compute-tensor output-shape per-pixel-op
                    (dtype-base/elemwise-datatype per-pixel-op))))
+
+
+(defn- as-nd-buffer ^NDBuffer [item] item)
+(defmacro ^:private tens-copy-nd
+  [datatype ndims src dst]
+  `(let [~'src (as-nd-buffer ~src)
+         ~'dst (as-nd-buffer ~dst)
+         ~'src-shape (dtype-base/shape ~'src)
+         ~'ny ~(if (= 3 (long ndims))
+                 `(long (first ~'src-shape))
+                 0)
+         ~'nx ~(if (>= (long ndims) 2)
+                 `(long (nth ~'src-shape ~(- (long ndims) 2)))
+                 0)
+         ~'nc (long (last ~'src-shape))]
+     ~(case (long ndims)
+        2 `(parallel-for/parallel-for
+            ~'x
+            ~'nx
+            (dotimes [~'c ~'nc]
+              ~(case datatype
+                 :int64 `(.ndWriteLong ~'dst ~'x ~'c (.ndReadLong ~'src ~'x ~'c))
+                 :float64 `(.ndWriteDouble ~'dst ~'x ~'c (.ndReadDouble ~'src ~'x ~'c))
+                 :object `(.ndWriteObject ~'dst ~'x ~'c (.ndReadObject ~'src ~'x ~'c)))))
+        3 `(parallel-for/parallel-for
+            ~'y
+            ~'ny
+            (dotimes [~'x ~'nx]
+              (dotimes [~'c ~'nc]
+                ~(case datatype
+                   :int64 `(.ndWriteLong ~'dst ~'y ~'x ~'c (.ndReadLong ~'src ~'y ~'x ~'c))
+                   :float64 `(.ndWriteDouble ~'dst ~'y ~'x ~'c (.ndReadDouble ~'src ~'y ~'x ~'c))
+                   :object `(.ndWriteObject ~'dst ~'y ~'x ~'c (.ndReadObject ~'src ~'y ~'x ~'c)))))))
+     ~dst))
+
+
+(defn nd-copy!
+  "similar to tech.v3.datatype/copy! except this copy is ND aware and
+  parallelizes over the outermost dimension."
+  [src dst]
+  (errors/when-not-error (and (instance? NDBuffer src)
+                              (instance? NDBuffer dst))
+    "Both arguments must be tensors.")
+  (errors/when-not-errorf (= (dtype-base/shape src) (dtype-base/shape dst))
+    "Source (%s) and destination (%s) shapes do not match."
+    (dtype-base/shape src) (dtype-base/shape))
+  (let [^NDBuffer src src
+        ^NDBuffer dst dst
+        src-rank (.rank src)
+        op-space (casting/simple-operation-space
+                  (dtype-base/elemwise-datatype src)
+                  (dtype-base/elemwise-datatype dst))]
+    (if (and (or (== src-rank 2)
+                 (== src-rank 3))
+             (#{:int64 :float64 :object} op-space))
+      ;;Cases where ND-copy is actually defined.
+      (case src-rank
+        2 (case op-space
+            :int64 (tens-copy-nd :int64 2 src dst)
+            :float64 (tens-copy-nd :float64 2 src dst)
+            :object (tens-copy-nd :object 2 src dst))
+        3 (case op-space
+            :int64 (tens-copy-nd :int64 3 src dst)
+            :float64 (tens-copy-nd :float64 3 src dst)
+            :object (tens-copy-nd :object 3 src dst)))
+      (dtype-cmc/copy! src dst))))
