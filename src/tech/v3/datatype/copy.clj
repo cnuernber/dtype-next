@@ -7,7 +7,8 @@
             [tech.v3.datatype.protocols :as dtype-proto])
   (:import [sun.misc Unsafe]
            [tech.v3.datatype.native_buffer NativeBuffer]
-           [tech.v3.datatype.array_buffer ArrayBuffer]))
+           [tech.v3.datatype.array_buffer ArrayBuffer]
+           [tech.v3.datatype NDBuffer]))
 
 
 (set! *warn-on-reflection* true)
@@ -16,8 +17,7 @@
 
 (defn generic-copy!
   [src dst]
-  (let [src-dtype (dtype-base/elemwise-datatype src)
-        dst-dtype (dtype-base/elemwise-datatype dst)
+  (let [dst-dtype (dtype-base/elemwise-datatype dst)
         op-space (casting/simple-operation-space dst-dtype)
         src (dtype-base/->reader src dst-dtype)
         dst (dtype-base/->writer dst)
@@ -25,7 +25,6 @@
     (when-not (== n-elems (.lsize dst))
       (throw (Exception. (format "src,dst ecount mismatch: %d-%d"
                                  n-elems (.lsize dst)))))
-
     (case op-space
       :boolean
       (parallel-for/parallel-for

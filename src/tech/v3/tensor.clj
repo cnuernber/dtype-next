@@ -20,13 +20,16 @@
             [tech.v3.datatype.argtypes :refer [arg-type]]
             [tech.v3.tensor.pprint :as tens-pp]
             [tech.v3.tensor.dimensions :as dims]
+            [tech.v3.tensor.dimensions.analytics :as dims-analytics]
             [tech.v3.tensor.dimensions.shape :as dims-shape]
             [tech.v3.tensor.tensor-copy :as tens-cpy]
             [tech.v3.datatype.export-symbols :as export-symbols]
+            [tech.v3.parallel.for :as parallel-for]
             [primitive-math :as pmath]
             [tech.v3.resource :as resource])
   (:import [tech.v3.datatype LongNDReader Buffer NDBuffer
-            ObjectReader LongReader]
+            ObjectReader LongReader DoubleReader
+            LongTensorReader DoubleTensorReader ObjectTensorReader]
            [tech.v3.datatype.native_buffer NativeBuffer]
            [java.util List]))
 
@@ -184,7 +187,6 @@
   (buffer [t] buffer)
   (dimensions [t] dimensions)
   (indexSystem [t] index-system)
-  (bufferIO [t] cached-io)
   (ndReadBoolean [t idx]
     (.readBoolean cached-io (.ndReadLong index-system idx)))
   (ndReadBoolean [t row col]
@@ -576,24 +578,238 @@
             (rem (aget shape idx)))))))
 
 
-
-(defmacro ^:private make-compute-tensor
-  [datatype n-dims n-elems per-pixel-op
+(defmacro ^:private make-tensor-reader
+  [datatype advertised-datatype n-dims n-elems per-pixel-op
    output-shape shape-x shape-chan strides]
-  `(reify ObjectReader
-     (elemwiseDatatype [rdr#] ~datatype)
-     (lsize [rdr#] ~n-elems)
-     (readObject [rdr# ~'idx]
-       ~(case (long n-dims)
-          1 `(.ndReadObject ~per-pixel-op ~'idx)
-          2 `(.ndReadObject ~per-pixel-op (pmath// ~'idx ~shape-chan)
-              (rem ~'idx ~shape-chan))
-          3 `(let [c# (pmath/rem ~'idx ~shape-chan)
-                   xy# (pmath// ~'idx ~shape-chan)
-                   x# (pmath/rem xy# ~shape-x)
-                   y# (pmath// xy# ~shape-x)]
-               (.ndReadObject ~per-pixel-op y# x# c#))
-          `(.ndReadObjectIter ~per-pixel-op (shape-stride-reader ~output-shape ~strides ~'idx))))))
+  (let [{:keys [read-fn nd-read-fn read-type cast-fn]}
+        (case datatype
+          :int64 {:read-fn 'readLong
+                  :nd-read-fn '.ndReadLong
+                  :read-type 'tech.v3.datatype.LongReader
+                  :cast-fn 'long}
+          :float64 {:read-fn 'readDouble
+                    :nd-read-fn '.ndReadDouble
+                    :read-type 'tech.v3.datatype.DoubleReader
+                    :cast-fn 'double}
+          {:read-fn 'readObject
+           :nd-read-fn '.ndReadObject
+           :read-type 'tech.v3.datatype.ObjectReader
+           :cast-fn 'identity})]
+    `(reify ~read-type
+       (elemwiseDatatype [rdr#] ~advertised-datatype)
+       (lsize [rdr#] ~n-elems)
+       (~read-fn [rdr# ~'idx]
+         ~(case (long n-dims)
+            1 `(~nd-read-fn ~per-pixel-op ~'idx)
+            2 `(~nd-read-fn ~per-pixel-op
+                (pmath// ~'idx ~shape-chan)
+                (rem ~'idx ~shape-chan))
+            3 `(let [c# (pmath/rem ~'idx ~shape-chan)
+                     xy# (pmath// ~'idx ~shape-chan)
+                     x# (pmath/rem xy# ~shape-x)
+                     y# (pmath// xy# ~shape-x)]
+                 (~nd-read-fn ~per-pixel-op y# x# c#))
+            `(~cast-fn (.ndReadObjectIter ~per-pixel-op (shape-stride-reader
+                                                         ~output-shape ~strides ~'idx))))))))
+
+
+
+(extend-type NDBuffer
+  dtype-proto/PToBuffer
+  (convertible-to-buffer? [b] true)
+  (->buffer [b]
+    (let [b-dtype (dtype-base/elemwise-datatype b)
+          b-shape (.shape b)
+          n-elems (long (apply * (.shape b)))
+          shape-chan (long (last b-shape))
+          shape-x (long (or (last (butlast b-shape))
+                            0))
+          strides (dims-analytics/shape-ary->strides b-shape)]
+      (case (.rank b)
+        1 (case (casting/simple-operation-space (dtype-base/elemwise-datatype b))
+            :int64 (make-tensor-reader :int64 b-dtype 1 n-elems b b-shape shape-x shape-chan strides)
+            :float64 (make-tensor-reader :float64 b-dtype 1 n-elems b b-shape shape-x shape-chan strides)
+            (make-tensor-reader :object b-dtype 1 n-elems b b-shape shape-x shape-chan strides))
+        2 (case (casting/simple-operation-space (dtype-base/elemwise-datatype b))
+            :int64 (make-tensor-reader :int64 b-dtype 2 n-elems b b-shape shape-x shape-chan strides)
+            :float64 (make-tensor-reader :float64 b-dtype 2 n-elems b b-shape shape-x shape-chan strides)
+            (make-tensor-reader :object b-dtype 2 n-elems b b-shape shape-x shape-chan strides))
+        3 (case (casting/simple-operation-space (dtype-base/elemwise-datatype b))
+            :int64 (make-tensor-reader :int64 b-dtype 3 n-elems b b-shape shape-x shape-chan strides)
+            :float64 (make-tensor-reader :float64 b-dtype 3 n-elems b b-shape shape-x shape-chan strides)
+            (make-tensor-reader :object b-dtype 3 n-elems b b-shape shape-x shape-chan strides))
+        (case (casting/simple-operation-space (dtype-base/elemwise-datatype b))
+            :int64 (make-tensor-reader :int64 b-dtype 4 n-elems b b-shape shape-x shape-chan strides)
+            :float64 (make-tensor-reader :float64 b-dtype 4 n-elems b b-shape shape-x shape-chan strides)
+            (make-tensor-reader :object b-dtype 4 n-elems b b-shape shape-x shape-chan strides)))))
+  dtype-proto/PToReader
+  (convertible-to-reader? [b] true)
+  (->reader [b] (dtype-proto/->buffer b))
+  dtype-proto/PToTensor
+  (as-tensor [tr] tr)
+  dtype-proto/PClone
+  (clone [tr]
+    (dtype-proto/clone (construct-tensor
+                        (dtype-proto/->reader tr)
+                        (dims/dimensions (.shape tr)))))
+  dtype-proto/PShape
+  (shape [tr] (.shape tr))
+  dtype-proto/PSubBuffer
+  (sub-buffer [tr off len]
+    (dtype-proto/sub-buffer (dtype-proto/->buffer tr) off len))
+  dtype-proto/PECount
+  (ecount [tr] (long (apply * (.shape tr))))
+  dtype-proto/PTensor
+  (reshape [t new-shape]
+    (dtype-proto/reshape (construct-tensor
+                          (dtype-proto/->reader t)
+                          (dims/dimensions (.shape t)))
+                         new-shape))
+  (select [t select-args]
+    (dtype-proto/select (construct-tensor
+                         (dtype-proto/->reader t)
+                         (dims/dimensions (.shape t)))
+                        select-args))
+  (transpose [t reorder-vec]
+    (dtype-proto/transpose (construct-tensor
+                            (dtype-proto/->reader t)
+                            (dims/dimensions (.shape t)))
+                           reorder-vec))
+  (broadcast [t new-shape]
+    (dtype-proto/transpose (construct-tensor
+                            (dtype-proto/->reader t)
+                            (dims/dimensions (.shape t)))
+                           new-shape))
+  (rotate [t offset-vec]
+    (dtype-proto/rotate (construct-tensor
+                         (dtype-proto/->reader t)
+                         (dims/dimensions (.shape t)))
+                        offset-vec))
+  (slice [t n-dims right?]
+    (dtype-proto/slice
+     (construct-tensor
+      (dtype-proto/->reader t)
+      (dims/dimensions (.shape t)))
+     n-dims right?))
+  (mget [t idx-seq]
+    (.ndReadObjectIter t idx-seq))
+  (mset! [t idx-seq val]
+    (errors/throwf "Tensor is not writable")))
+
+
+(dtype-pp/implement-tostring-print NDBuffer)
+
+
+(defmacro typed-compute-tensor
+  "Fastest possible inline compute tensor.  The code to generate the next
+  element is output inline into the tensor definition.
+
+
+  For the 4 argument version to work, shape must be compile
+  time introspectable object with count so for instance `[a b c]` will work
+  but item-shape will throw an exception.
+
+
+  * `:datatype` - One of #{:int64 :float64} or :object is assumed.  This indicates
+    the tensor interface definition and read operations that will be implemented.
+    See 'java/tech/v3/datatype/[Long|Double|Object]TensorReader.java.
+  * `:advertised-datatype` - Datatype you will tell the world.
+  * `:rank` - compile time introspectable rank.  Indicates which ndReadX overloads
+     will be implemented.
+  * `:shape` - Shape of the output tensor.
+  * `:op-code-args` - Op code arguments.  Expected to be a vector of argument
+     names such as `[y x c].  Let destructuring is *NOT* supported beyond 3
+     variables at this time.!!!`.
+  * `:op-code` - Code which executes the read operation.
+
+  Results in an implementation of NDBuffer which efficiently performs a 1,2 or 3 dimension
+  ND read operation."
+  ([datatype advertised-datatype rank shape op-code-args op-code]
+   (let [{:keys [nd-read-fn read-type cast-fn]}
+         (case datatype
+           :int64 {:nd-read-fn 'ndReadLong
+                   :read-type 'tech.v3.datatype.LongTensorReader
+                   :cast-fn 'long}
+           :float64 {:read-fn 'readDouble
+                     :nd-read-fn 'ndReadDouble
+                     :read-type 'tech.v3.datatype.DoubleTensorReader
+                     :cast-fn 'double}
+           {:nd-read-fn 'ndReadObject
+            :read-type 'tech.v3.datatype.ObjectTensorReader
+            :cast-fn 'identity})
+
+         rev-args (if (sequential? op-code-args)
+                    (reverse op-code-args)
+                    [])
+         c (first rev-args)
+         x (second rev-args)
+         y (last rev-args)]
+     `(let [shape# (vec ~shape)
+            rank# (long ~rank)
+            n-elems# (long (apply * shape#))
+            dims# (dims/dimensions shape#)]
+        (reify ~read-type
+          (elemwiseDatatype [tr#] ~advertised-datatype)
+          (shape [tr#] shape#)
+          (dimensions [tr#] dims#)
+          (indexSystem [tr#] (dims/->global->local dims#))
+          (rank [tr#] rank#)
+          (buffer [tr#] nil)
+          ;;Implement typed read access
+          ~@(case (long rank)
+              1 [`(~nd-read-fn [tr# ~c] ~op-code)
+                 `(ndReadObjectIter
+                   [tr# idx-seq#]
+                   (if (== 1 (count idx-seq#))
+                     (.ndReadObject tr# (first idx-seq#))
+                     (errors/throwf "n-dims is 1, %d passed in" (count idx-seq#))))]
+              2 [`(~nd-read-fn [tr# ~x ~c] ~op-code)
+                 `(ndReadObject [tr# c#]
+                                (dtype-proto/select tr# c#))
+                 `(ndReadObjectIter
+                   [tr# idx-seq#]
+                   (case (count idx-seq#)
+                     1 (.ndReadObject tr# (first idx-seq#))
+                     2 (.ndReadObject tr# (first idx-seq#) (second idx-seq#))
+                     (errors/throwf "n-dims is 2, %d passed in" (count idx-seq#))))]
+              3 [`(~nd-read-fn [tr# ~y ~x ~c] ~op-code)
+                 `(ndReadObject [tr# c#]
+                                (dtype-proto/select tr# [c#]))
+                 `(ndReadObject [tr# x# c#]
+                                (dtype-proto/select tr# [x# c#]))
+                 `(ndReadObjectIter
+                   [tr# idx-seq#]
+                   (case (count idx-seq#)
+                     1 (.ndReadObject tr# (first idx-seq#))
+                     2 (.ndReadObject tr# (first idx-seq#) (second idx-seq#))
+                     3 (.ndReadObject tr# (first idx-seq#) (second idx-seq#) (last idx-seq#))
+                     (errors/throwf "n-dims is 3, %d passed in" (count idx-seq#))))]
+              [`(ndReadObjectIter [tr# indexes#]
+                                  (if (== (count indexes#) ~rank)
+                                    (let [~op-code-args indexes#]
+                                      ~op-code)
+                                    (dtype-proto/select tr# indexes#)))
+               `(ndReadObject [tr# c#]
+                              (dtype-proto/select tr# [c#]))
+               `(ndReadObject [tr# x# c#]
+                              (dtype-proto/select tr# [x# c#]))
+               `(ndReadObject [tr# y# x# c#]
+                              (dtype-proto/select tr# [y# x# c#]))])
+          (iterator [tr#]
+            (.iterator ^java.util.List (dtype-proto/slice tr# 1 false)))
+          Object
+          (toString [tr#] (tens-pp/tensor->string tr#))))))
+  ([advertised-datatype rank shape op-code-args op-code]
+   (case (casting/simple-operation-space advertised-datatype)
+     :int64 `(typed-compute-tensor :int64 ~advertised-datatype ~rank ~shape ~op-code-args ~op-code)
+     :float64 `(typed-compute-tensor :float64 ~advertised-datatype ~rank ~shape ~op-code-args ~op-code)
+     `(typed-compute-tensor :object ~advertised-datatype ~rank ~shape ~op-code-args ~op-code)))
+  ([advertised-datatype shape op-code-args op-code]
+   (case (count shape)
+     1 `(typed-compute-tensor ~advertised-datatype 1 ~shape ~op-code-args ~op-code)
+     2 `(typed-compute-tensor ~advertised-datatype 2 ~shape ~op-code-args ~op-code)
+     3 `(typed-compute-tensor ~advertised-datatype 3 ~shape ~op-code-args ~op-code)
+     `(typed-compute-tensor ~advertised-datatype 4 ~shape ~op-code-args ~op-code))))
 
 
 (defn compute-tensor
@@ -617,37 +833,119 @@ user> (dtt/compute-tensor [2 2 2] (fn [& args] (vec args)) :object)
  [[[1 0 0] [1 0 1]]
   [[1 1 0] [1 1 1]]]]
 ```"
-  ([output-shape per-pixel-op datatype]
-   (let [output-shape (long-array output-shape)
-         n-dims (count output-shape)
-         n-elems (long (apply * output-shape))
-         shape-chan (aget output-shape (dec n-dims))
-         shape-x (long (if (> n-dims 1)
-                         (aget output-shape (dec (dec n-dims)))
-                         0))
-         dims (dims/dimensions output-shape)
-         strides (dtype-base/->buffer (:strides dims))
-         ^NDBuffer per-pixel-op (if (fn? per-pixel-op)
-                                  (reify NDBuffer
-                                    (ndReadObject [op idx]
-                                      (per-pixel-op idx))
-                                    (ndReadObject [op y x]
-                                      (per-pixel-op y x))
-                                    (ndReadObject [op y x c]
-                                      (per-pixel-op y x c))
-                                    (ndReadObjectIter [op args]
-                                      (apply per-pixel-op args)))
-                                  per-pixel-op)]
-     (construct-tensor
-      (case n-dims
-        1 (make-compute-tensor datatype 1 n-elems per-pixel-op
-                               output-shape shape-x shape-chan strides)
-        2 (make-compute-tensor datatype 2 n-elems per-pixel-op
-                               output-shape shape-x shape-chan strides)
-        3 (make-compute-tensor datatype 3 n-elems per-pixel-op
-                               output-shape shape-x shape-chan strides)
-        (make-compute-tensor datatype 4 n-elems per-pixel-op
-                             output-shape shape-x shape-chan strides))
-      dims)))
+  ([shape per-pixel-op datatype]
+   (let [shape (vec shape)
+         op-space (casting/simple-operation-space datatype)
+         n-dims (count shape)]
+     (case op-space
+       :int64
+       (case n-dims
+         1 (typed-compute-tensor :int64 datatype 1 shape
+                                 [c]
+                                 (unchecked-long (per-pixel-op c)))
+         2 (typed-compute-tensor :int64 datatype 2 shape
+                                 [x c]
+                                 (unchecked-long (per-pixel-op x c)))
+         3 (typed-compute-tensor :int64 datatype 3 shape
+                                 [y x c]
+                                 (unchecked-long (per-pixel-op y x c)))
+         (typed-compute-tensor :int64 datatype 4 shape
+                               indexes
+                               (unchecked-long (apply per-pixel-op indexes))))
+       :float64
+       (case n-dims
+         1 (typed-compute-tensor :float64 datatype 1 shape
+                                 [c]
+                                 (unchecked-double (per-pixel-op c)))
+         2 (typed-compute-tensor :float64 datatype 2 shape
+                                 [x c]
+                                 (unchecked-double (per-pixel-op x c)))
+         3 (typed-compute-tensor :float64 datatype 3 shape
+                                 [y x c]
+                                 (unchecked-double (per-pixel-op y x c)))
+         (typed-compute-tensor :float64 datatype 4 shape
+                               indexes
+                               (unchecked-double (apply per-pixel-op indexes))))
+       ;;fallback to object
+       (case n-dims
+         1 (typed-compute-tensor :object datatype 1 shape
+                                 [c]
+                                 (per-pixel-op c))
+         2 (typed-compute-tensor :object datatype 2 shape
+                                 [x c]
+                                 (per-pixel-op x c))
+         3 (typed-compute-tensor :object datatype 3 shape
+                                 [y x c]
+                                 (per-pixel-op y x c))
+         (typed-compute-tensor :object datatype 4 shape
+                               indexes
+                               (apply per-pixel-op indexes))))))
   ([output-shape per-pixel-op]
-   (compute-tensor output-shape per-pixel-op nil)))
+   (compute-tensor output-shape per-pixel-op
+                   (dtype-base/elemwise-datatype per-pixel-op))))
+
+
+(defn- as-nd-buffer ^NDBuffer [item] item)
+(defmacro ^:private tens-copy-nd
+  [datatype ndims src dst]
+  `(let [~'src (as-nd-buffer ~src)
+         ~'dst (as-nd-buffer ~dst)
+         ~'src-shape (dtype-base/shape ~'src)
+         ~'ny ~(if (= 3 (long ndims))
+                 `(long (first ~'src-shape))
+                 0)
+         ~'nx ~(if (>= (long ndims) 2)
+                 `(long (nth ~'src-shape ~(- (long ndims) 2)))
+                 0)
+         ~'nc (long (last ~'src-shape))]
+     ~(case (long ndims)
+        2 `(parallel-for/parallel-for
+            ~'x
+            ~'nx
+            (dotimes [~'c ~'nc]
+              ~(case datatype
+                 :int64 `(.ndWriteLong ~'dst ~'x ~'c (.ndReadLong ~'src ~'x ~'c))
+                 :float64 `(.ndWriteDouble ~'dst ~'x ~'c (.ndReadDouble ~'src ~'x ~'c))
+                 :object `(.ndWriteObject ~'dst ~'x ~'c (.ndReadObject ~'src ~'x ~'c)))))
+        3 `(parallel-for/parallel-for
+            ~'y
+            ~'ny
+            (dotimes [~'x ~'nx]
+              (dotimes [~'c ~'nc]
+                ~(case datatype
+                   :int64 `(.ndWriteLong ~'dst ~'y ~'x ~'c (.ndReadLong ~'src ~'y ~'x ~'c))
+                   :float64 `(.ndWriteDouble ~'dst ~'y ~'x ~'c (.ndReadDouble ~'src ~'y ~'x ~'c))
+                   :object `(.ndWriteObject ~'dst ~'y ~'x ~'c (.ndReadObject ~'src ~'y ~'x ~'c)))))))
+     ~dst))
+
+
+(defn nd-copy!
+  "similar to tech.v3.datatype/copy! except this copy is ND aware and
+  parallelizes over the outermost dimension."
+  [src dst]
+  (errors/when-not-error (and (instance? NDBuffer src)
+                              (instance? NDBuffer dst))
+    "Both arguments must be tensors.")
+  (errors/when-not-errorf (= (dtype-base/shape src) (dtype-base/shape dst))
+    "Source (%s) and destination (%s) shapes do not match."
+    (dtype-base/shape src) (dtype-base/shape))
+  (let [^NDBuffer src src
+        ^NDBuffer dst dst
+        src-rank (.rank src)
+        op-space (casting/simple-operation-space
+                  (dtype-base/elemwise-datatype src)
+                  (dtype-base/elemwise-datatype dst))]
+    (if (and (or (== src-rank 2)
+                 (== src-rank 3))
+             (#{:int64 :float64 :object} op-space))
+      ;;Cases where ND-copy is actually defined.
+      (case src-rank
+        2 (case op-space
+            :int64 (tens-copy-nd :int64 2 src dst)
+            :float64 (tens-copy-nd :float64 2 src dst)
+            :object (tens-copy-nd :object 2 src dst))
+        3 (case op-space
+            :int64 (tens-copy-nd :int64 3 src dst)
+            :float64 (tens-copy-nd :float64 3 src dst)
+            :object (tens-copy-nd :object 3 src dst)))
+      (dtype-cmc/copy! src dst))))
