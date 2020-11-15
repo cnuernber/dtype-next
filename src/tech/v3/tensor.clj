@@ -122,7 +122,9 @@
           new-buffer (if-not (and (== buf-offset 0)
                                   (or (not buf-len)
                                       (== (dtype-base/ecount buffer) (long buf-len))))
-                       (dtype-base/sub-buffer buffer buf-offset buf-len)
+                       (if buf-len
+                         (dtype-base/sub-buffer buffer buf-offset buf-len)
+                         (dtype-base/sub-buffer buffer buf-offset))
                        buffer)]
     (construct-tensor new-buffer new-dims)))
   (transpose [t transpose-vec]

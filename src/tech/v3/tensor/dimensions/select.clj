@@ -1,6 +1,7 @@
 (ns tech.v3.tensor.dimensions.select
   "Selecting subsets from a larger set of dimensions leads to its own algebra."
   (:require [tech.v3.datatype.index-algebra :as idx-alg]
+            [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.list :as dtype-list])
   (:import [tech.v3.datatype Buffer]
@@ -49,10 +50,12 @@ the selection applied."
               ;;by 1, however, this leads to a native mapping to underlying buffers.
               [cmin new-shape-val]
               (if (and (not (number? new-shape-val))
-                       (dtype-proto/convertible-to-range? new-shape-val))
+                       (dtype-proto/has-constant-time-min-max? new-shape-val))
                 (let [cmin (long (dtype-proto/constant-time-min new-shape-val))]
-                  [cmin (-> (dtype-proto/range-offset new-shape-val (- cmin))
-                            (idx-alg/simplify-range->direct))])
+                  [cmin (if (dtype-proto/convertible-to-range? new-shape-val)
+                          (-> (dtype-proto/range-offset new-shape-val (- cmin))
+                              (idx-alg/simplify-range->direct))
+                          (dfn/- new-shape-val cmin))])
                 [nil new-shape-val])
               buffer-offset (long (if cmin
                                     (+ buffer-offset

@@ -168,3 +168,12 @@
                                       [0.0 0.2 0.4 0.6 0.8 1.0]])
                   (dtt/->tensor [[0.0 0.2 0.4 0.6 0.8 1.0]
                                  [0.0 0.2 0.4 0.6 0.8 1.0]]))))
+
+
+(deftest select-failure
+  (let [src-tens (dtt/->tensor (partition 3 (range 60)))
+        selected-rows (->> (dtt/select src-tens [12 16 19] :all)
+                           (dtt/rows)
+                           (mapv vec))]
+    (is (= [[36 37 38] [48 49 50] [57 58 59]]
+           selected-rows))))

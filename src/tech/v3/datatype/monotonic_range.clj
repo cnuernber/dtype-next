@@ -53,12 +53,16 @@
     (let [r-start (long (dtype-proto/range-start rhs))
           r-n-elems (long (dtype-proto/ecount rhs))
           r-inc (long (dtype-proto/range-increment rhs))
-          r-stop (+ r-start (* r-n-elems r-inc))
+          ;;As start is included in n-elems, (* inc (dec n-elems))
+          ;;is stop.
+          r-stop (+ r-start (* (dec r-n-elems) r-inc))
           new-start (+ start (* r-start increment))
           new-inc (* r-inc increment)]
       (when (or (> r-stop n-elems)
                 (>= r-start n-elems))
-        (throw (Exception. "select-ranges - righthand side out of range")))
+        (throw (Exception. (format "select-ranges - %s %s - righthand side out of range"
+                                   [start increment n-elems]
+                                   [r-start r-inc r-n-elems]))))
       (Int64Range. new-start new-inc r-n-elems {})))
   (range-start [item] start)
   (range-increment [item] increment)
