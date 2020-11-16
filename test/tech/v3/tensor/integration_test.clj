@@ -117,7 +117,7 @@
                 :endianness :little-endian,
                 :shape [3 3],
                 :strides [8 24]}
-               (dissoc trans-desc :ptr)))))))
+               (dissoc trans-desc :ptr :native-buffer)))))))
 
 
 (deftest tensor-writers

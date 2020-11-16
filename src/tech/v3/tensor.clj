@@ -6,7 +6,17 @@
   simply implement that interface.
 
   This system relies heavily on the tech.v3.tensor.dimensions namespace to provide the
-  optimized indexing operator from ND space to buffer space and back."
+  optimized indexing operator from ND space to buffer space and back.
+
+  There is an ABI in the form of nd-buffer-descriptors that is a map containing:
+
+  * `:ptr` - long value
+  * `:elemwise-datatype` - primitive datatype of the buffer.
+  * `:shape` - buffer of `:int64` dimensions.
+  * `:strides` - buffer of `:int64` byte stride counts.
+
+  Optionally more keys and the source agrees not to release the source data until
+  this map goes out of scope."
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.casting :as casting]
@@ -75,17 +85,16 @@
          (dims/direct? dimensions)))
   (->nd-buffer-descriptor [item]
     (let [nbuf (dtype-base/->native-buffer buffer)]
-      (->
-       {:ptr (.address nbuf)
-        :datatype :tensor
-        :elemwise-datatype (dtype-base/elemwise-datatype buffer)
-        :endianness (dtype-proto/endianness nbuf)
-        :shape (dtype-base/shape item)
-        :strides (mapv (partial * (casting/numeric-byte-width
-                                   (dtype-base/elemwise-datatype buffer)))
-                       (:strides dimensions))}
-       ;;Link the descriptor itself to the native buffer in the gc
-       (resource/chain-resources nbuf))))
+      {:ptr (.address nbuf)
+       :datatype :tensor
+       :elemwise-datatype (dtype-base/elemwise-datatype buffer)
+       :endianness (dtype-proto/endianness nbuf)
+       :shape (dtype-base/shape item)
+       :strides (mapv (partial * (casting/numeric-byte-width
+                                  (dtype-base/elemwise-datatype buffer)))
+                      (:strides dimensions))
+       ;;Include the native buffer so gc references are kept.
+       :native-buffer nbuf}))
   dtype-proto/PToBuffer
   (convertible-to-buffer? [t] true)
   (->buffer [t]
@@ -331,7 +340,15 @@
 (defn ->tensor
   "Convert some data into a tensor via copying the data.  The datatype and container
   type can be specified.  The datatype defaults to the datatype of the input data and container
-  type defaults to jvm-heap."
+  type defaults to jvm-heap.
+
+  Options:
+
+  * `:datatype` - Data of the storage.  Defaults to the datatype of the passed-in data.
+  * `:container-type` - Specify the container type of the new tensor.  Defaults to
+    `:jvm-heap`.
+  * `:resource-type` - One of `tech.v3.resource/track` `:track-type` options.  If allocating
+     native tensors, `nil` corresponds to `:gc:`."
   ^Tensor [data & {:keys [datatype container-type]
                    :as options}]
   (let [data-shape (dtype-base/shape data)
@@ -342,7 +359,9 @@
      (first
       (dtype-proto/copy-raw->item!
        data
-       (dtype-cmc/make-container container-type datatype options n-elems)
+       (dtype-cmc/make-container container-type datatype
+                                 (assoc options :uninitialized? true)
+                                 n-elems)
        0 options))
      (dims/dimensions data-shape))))
 
@@ -357,9 +376,15 @@
 
 
 (defn new-tensor
-  "Create a new tensor with a given shape, datatype and container type.  Datatype
-  defaults to :float64 if not passed in while container-type defaults to
-  java-heap."
+  "Create a new tensor with a given shape.
+
+  Options:
+
+  * `:datatype` - Data of the storage.  Defaults to `:float64`.
+  * `:container-type` - Specify the container type of the new tensor.  Defaults to
+    `:jvm-heap`.
+  * `:resource-type` - One of `tech.v3.resource/track` `:track-type` options.  If allocating
+     native tensors, `nil` corresponds to `:gc:`."
   ^NDBuffer [shape & {:keys [datatype container-type]
             :as options}]
   (let [datatype (or datatype :float64)
@@ -478,17 +503,14 @@
   * `:datatype` - Specify a new datatype to copy data into.
   * `:container-type` - Specify the container type of the new tensor.
      Defaults to `:jvm-heap`.
-  * `:resource-type` - One of `tech.v3.resource/track` `:track-type` options.
-
-  Other options are passed through to new-tensor."
+    * `:resource-type` - One of `tech.v3.resource/track` `:track-type` options.  If allocating
+     native tensors, `nil` corresponds to `:gc:`."
   [tens & {:keys [datatype
                   container-type]
            :as options}]
-  (let [datatype (or datatype (dtype-base/elemwise-datatype tens))
-        container-type (or container-type :jvm-heap)]
-    (dtype-cmc/copy! tens (apply new-tensor (dtype-base/shape tens)
-                                 (->> (seq options)
-                                      (apply concat))))))
+  (dtype-cmc/copy! tens (apply new-tensor (dtype-base/shape tens)
+                               (->> (seq options)
+                                    (apply concat)))))
 
 
 (defn ->jvm
@@ -933,7 +955,8 @@ user> (dtt/compute-tensor [2 2 2] (fn [& args] (vec args)) :object)
 
 (defn nd-copy!
   "similar to tech.v3.datatype/copy! except this copy is ND aware and
-  parallelizes over the outermost dimension."
+  parallelizes over the outermost dimension.  This useful for compute tensors.
+  If you have tensors such as images, see `tensor-copy!`."
   [src dst]
   (errors/when-not-error (and (instance? NDBuffer src)
                               (instance? NDBuffer dst))
