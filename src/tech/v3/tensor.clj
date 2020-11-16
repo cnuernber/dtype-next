@@ -471,14 +471,24 @@
 
 (defn clone
   "Clone a tensor via copying the tensor into a new container.  Datatype defaults
-  to the datatype of the tensor and container-type defaults to :java-heap."
+  to the datatype of the tensor and container-type defaults to `:java-heap`.
+
+  Options:
+
+  * `:datatype` - Specify a new datatype to copy data into.
+  * `:container-type` - Specify the container type of the new tensor.
+     Defaults to `:jvm-heap`.
+  * `:resource-type` - One of `tech.v3.resource/track` `:track-type` options.
+
+  Other options are passed through to new-tensor."
   [tens & {:keys [datatype
-                  container-type]}]
+                  container-type]
+           :as options}]
   (let [datatype (or datatype (dtype-base/elemwise-datatype tens))
         container-type (or container-type :jvm-heap)]
-    (dtype-cmc/copy! tens (new-tensor (dtype-base/shape tens)
-                                      :datatype datatype
-                                      :container-type container-type))))
+    (dtype-cmc/copy! tens (apply new-tensor (dtype-base/shape tens)
+                                 (->> (seq options)
+                                      (apply concat))))))
 
 
 (defn ->jvm
