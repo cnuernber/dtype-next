@@ -163,6 +163,73 @@
                                  (Long/reverseBytes)))))))
 
 
+(defmacro ^:private accum-value
+  [address swap? datatype byte-width n-elems]
+  (let [host-dtype (casting/host-flatten datatype)
+        [write-fn read-fn] (case host-dtype
+                             :int8 ['.putByte '.getByte]
+                             :int16 ['.putShort '.getShort]
+                             :char ['.putShort '.getShort]
+                             :int32 ['.putInt '.getInt]
+                             :int64 ['.putLong '.getLong]
+                             :float32 ['.putFloat '.getFloat]
+                             :float64 ['.putDouble '.getDouble])
+        accum-type (if (casting/integer-type? datatype)
+                     :int64
+                     :float64)]
+    `(do
+       ;;we have to check here
+       (errors/check-idx ~'idx ~n-elems)
+       (let [~'addr (pmath/+ ~address (pmath/* ~'idx ~byte-width))
+             ~'unsafe (unsafe)]
+         ~(if (not swap?)
+            `(~write-fn ~'unsafe ~'addr
+              (->> (pmath/+ ~'value (casting/datatype->cast-fn
+                                     ~datatype ~accum-type
+                                     (~read-fn ~'unsafe ~'addr)))
+                   (casting/datatype->cast-fn ~accum-type ~datatype)
+                   (casting/datatype->cast-fn ~datatype ~host-dtype)))
+            (let [read-swap (case host-dtype
+                              :int8 `(.getByte ~'unsafe ~'addr)
+                              :int16 `(-> (.getShort ~'unsafe ~'addr)
+                                          (Short/reverseBytes))
+                              :char `(-> (.getShort ~'unsafe ~'addr)
+                                         (Short/reverseBytes))
+                              :int32 `(-> (.getInt ~'unsafe ~'addr)
+                                          (Integer/reverseBytes))
+                              :int64 `(-> (.getLong ~'unsafe ~'addr)
+                                          (Long/reverseBytes))
+                              :float32 `(-> (.getInt ~'unsafe ~'addr)
+                                            (Integer/reverseBytes)
+                                            (Float/intBitsToFloat))
+                              :float64 `(-> (.getLong ~'unsafe ~'addr)
+                                            (Long/reverseBytes)
+                                            (Double/longBitsToDouble)))
+                  write-swap (case host-dtype
+                               :int8 `(.putByte ~'unsafe ~'addr ~'value)
+                               :int16 `(->> (Short/reverseBytes ~'value)
+                                            (.putShort ~'unsafe ~'addr))
+                               :char `(->> (Short/reverseBytes ~'value)
+                                           (.putShort ~'unsafe ~'addr))
+                               :int32 `(->>  (Integer/reverseBytes ~'value)
+                                             (.putInt ~'unsafe ~'addr))
+                               :int64 `(->> (Long/reverseBytes ~'value)
+                                            (.putLong ~'unsafe ~'addr))
+                               :float32 `(->> (Float/floatToIntBits ~'value)
+                                              (Integer/reverseBytes)
+                                              (.putInt ~'unsafe ~'addr))
+                               :float64 `(->> (Double/doubleToLongBits ~'value)
+                                              (Long/reverseBytes)
+                                              (.putLong ~'unsafe ~'addr)))]
+              `(let [~'value (->> (pmath/+ ~'value
+                                           (casting/datatype->unchecked-cast-fn
+                                            ~datatype ~accum-type
+                                            ~read-swap))
+                                  (casting/datatype->cast-fn ~accum-type ~datatype)
+                                  (casting/datatype->cast-fn ~datatype ~host-dtype))]
+                 ~write-swap)))))))
+
+
 (defmacro ^:private native-buffer->buffer-macro
   [datatype advertised-datatype buffer address n-elems swap?]
   (let [byte-width (casting/numeric-byte-width datatype)]
@@ -201,7 +268,10 @@
               [`(readLong [rdr# ~'idx]
                           (casting/datatype->unchecked-cast-fn
                            ~datatype :int64
-                           (read-value ~address ~swap? ~datatype ~byte-width ~n-elems)))]
+                           (read-value ~address ~swap? ~datatype ~byte-width ~n-elems)))
+               `(accumPlusLong
+                 [rdr# ~'idx ~'value]
+                 (accum-value ~address ~swap? ~datatype ~byte-width ~n-elems))]
               (when-not (= :int64 (casting/safe-flatten datatype))
                 ;;Exact reader fns for the exact datatype
                 [(cond
@@ -235,7 +305,10 @@
               `(readFloat [rdr# ~'idx]
                           (casting/datatype->unchecked-cast-fn
                            ~datatype :float32
-                           (read-value ~address ~swap? ~datatype ~byte-width ~n-elems)))]
+                           (read-value ~address ~swap? ~datatype ~byte-width ~n-elems)))
+              `(accumPlusDouble
+                 [rdr# ~'idx ~'value]
+                 (accum-value ~address ~swap? ~datatype ~byte-width ~n-elems))]
              :else
              [`(readObject [rdr# ~'idx]
                            (read-value ~address ~swap? ~datatype ~byte-width ~n-elems))])

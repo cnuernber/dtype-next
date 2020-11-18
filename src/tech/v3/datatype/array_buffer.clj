@@ -52,7 +52,15 @@
                          ~cast-dtype :int64
                          (casting/datatype->unchecked-cast-fn
                           ~datatype ~cast-dtype
-                          (aget ~'java-ary (pmath/+ ~offset ~'idx)))))]
+                          (aget ~'java-ary (pmath/+ ~offset ~'idx)))))
+             `(accumPlusLong
+               [rdr# idx# value#]
+               (ArrayHelpers/accumPlus ~'java-ary (pmath/+ ~offset idx#)
+                                       (->> value#
+                                            (casting/datatype->unchecked-cast-fn
+                                             :int64 ~cast-dtype)
+                                            (casting/datatype->unchecked-cast-fn
+                                             ~cast-dtype ~datatype))))]
             (when-not (or (= :int64 cast-dtype)
                           (= :uint32 cast-dtype)
                           (= :uint64 cast-dtype))
@@ -98,7 +106,12 @@
             `(readFloat [rdr# ~'idx]
                         (casting/datatype->unchecked-cast-fn
                          ~datatype :float32
-                         (aget ~'java-ary (pmath/+ ~offset ~'idx))))]
+                         (aget ~'java-ary (pmath/+ ~offset ~'idx))))
+            `(accumPlusDouble
+              [rdr# idx# value#]
+              (ArrayHelpers/accumPlus ~'java-ary (pmath/+ idx# ~offset)
+                                      (casting/datatype->unchecked-cast-fn
+                                       ~datatype ~cast-dtype value#)))]
            :else
            [`(readObject [rdr# ~'idx]
                          (casting/datatype->unchecked-cast-fn

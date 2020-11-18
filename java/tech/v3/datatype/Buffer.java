@@ -40,6 +40,14 @@ public interface Buffer extends DatatypeBase, Iterable, IFn,
   void writeDouble(long idx, double val);
   void writeObject(long idx, Object val);
 
+
+  default void accumPlusLong(long idx, long val) {
+    writeLong( idx, readLong(idx) + val );
+  }
+  default void accumPlusDouble(long idx, double val) {
+    writeDouble( idx, readDouble(idx) + val );
+  }
+
   default boolean allowsRead() { return true; }
   default boolean allowsWrite() { return false; }
   default Object elemwiseDatatype () { return Keyword.intern(null, "object"); }

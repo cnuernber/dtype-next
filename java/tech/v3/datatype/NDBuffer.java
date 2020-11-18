@@ -56,6 +56,29 @@ public interface NDBuffer extends DatatypeBase, Iterable, IFn,
   void ndWriteObject(long height, long width, long chan, Object value);
   Object ndWriteObjectIter(Iterable dims, Object value);
 
+
+  default void ndAccumPlusLong(long idx, long value) {
+    ndWriteLong(idx, ndReadLong(idx) + value);
+  }
+  default void ndAccumPlusLong(long row, long col, long value) {
+    ndWriteLong(row, col, ndReadLong(row, col) + value);
+  }
+  default void ndAccumPlusLong(long height, long width, long chan, long value) {
+    ndWriteLong(height, width, chan, ndReadLong(height, width, chan) + value);
+  }
+
+
+  default void ndAccumPlusDouble(long idx, double value) {
+    ndWriteDouble(idx, ndReadDouble(idx) + value );
+  }
+  default void ndAccumPlusDouble(long row, long col, double value) {
+    ndWriteDouble(row, col, ndReadDouble(row, col) + value);
+  }
+  default void ndAccumPlusDouble(long height, long width, long chan, double value) {
+    ndWriteDouble(height, width, chan, ndReadDouble(height, width, chan) + value);
+  }
+
+
   default boolean allowsRead() { return true; }
   default boolean allowsWrite() { return false; }
   default Object elemwiseDatatype () { return Keyword.intern(null, "object"); }

@@ -274,6 +274,20 @@
       (.writeObject cached-io (.ndReadLongIter index-system indexes) value)
       (tensor-copy! value (dtype-proto/select t indexes))))
 
+   (ndAccumPlusLong [t c value]
+     (.accumPlusLong cached-io (.ndReadLong index-system c) value))
+   (ndAccumPlusLong [t x c value]
+     (.accumPlusLong cached-io (.ndReadLong index-system x c) value))
+   (ndAccumPlusLong [t y x c value]
+     (.accumPlusLong cached-io (.ndReadLong index-system y x c) value))
+
+   (ndAccumPlusDouble [t c value]
+     (.accumPlusDouble cached-io (.ndReadLong index-system c) value))
+   (ndAccumPlusDouble [t x c value]
+     (.accumPlusDouble cached-io (.ndReadLong index-system x c) value))
+   (ndAccumPlusDouble [t y x c value]
+     (.accumPlusDouble cached-io (.ndReadLong index-system y x c) value))
+
   (allowsRead [t] (.allowsRead cached-io))
   (allowsWrite [t] (.allowsWrite cached-io))
   (iterator [t]
