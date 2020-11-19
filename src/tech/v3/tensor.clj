@@ -518,12 +518,13 @@
   * `:container-type` - Specify the container type of the new tensor.
      Defaults to `:jvm-heap`.
     * `:resource-type` - One of `tech.v3.resource/track` `:track-type` options.  If allocating
-     native tensors, `nil` corresponds to `:gc:`."
-  [tens & {:keys [datatype
-                  container-type]
-           :as options}]
+     native tensors, `nil` corresponds to `gc:`."
+  ^NDBuffer [tens & {:keys [datatype]
+                     :or {datatype (dtype-base/elemwise-datatype tens)}
+                     :as options}]
   (dtype-cmc/copy! tens (apply new-tensor (dtype-base/shape tens)
-                               (->> (seq options)
+                               (->> (assoc options :datatype datatype)
+                                    (seq)
                                     (apply concat)))))
 
 
