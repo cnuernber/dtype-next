@@ -37,7 +37,8 @@
             [tech.v3.parallel.for :as parallel-for]
             [primitive-math :as pmath]
             [tech.v3.resource :as resource])
-  (:import [tech.v3.datatype LongNDReader Buffer NDBuffer
+  (:import [clojure.lang IObj]
+           [tech.v3.datatype LongNDReader Buffer NDBuffer
             ObjectReader LongReader DoubleReader
             LongTensorReader DoubleTensorReader ObjectTensorReader]
            [tech.v3.datatype.native_buffer NativeBuffer]
@@ -53,13 +54,15 @@
 (deftype Tensor [buffer dimensions
                  ^long rank
                  ^LongNDReader index-system
-                 ^Buffer cached-io]
+                 ^Buffer cached-io
+                 metadata]
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [t] (dtype-proto/elemwise-datatype buffer))
   dtype-proto/PElemwiseCast
   (elemwise-cast [t new-dtype]
     (construct-tensor (dtype-proto/elemwise-cast buffer new-dtype)
-                      dimensions))
+                      dimensions
+                      metadata))
   dtype-proto/PElemwiseReaderCast
   (elemwise-reader-cast [t new-dtype]
     (-> (construct-tensor (dtype-proto/elemwise-reader-cast buffer new-dtype)
@@ -77,8 +80,8 @@
                   (construct-tensor
                    (dtype-cmc/make-container (dtype-proto/elemwise-datatype t)
                                              (dtype-base/ecount t))
-                   (dims/dimensions (dtype-proto/shape t)))))
-
+                   (dims/dimensions (dtype-proto/shape t))
+                   metadata)))
   dtype-proto/PToNDBufferDesc
   (convertible-to-nd-buffer-desc? [item]
     (and (dtype-proto/convertible-to-native-buffer? buffer)
@@ -292,6 +295,10 @@
   (allowsWrite [t] (.allowsWrite cached-io))
   (iterator [t]
     (.iterator (dtype-proto/slice t 1 false)))
+  IObj
+  (meta [item] metadata)
+  (withMeta [item metadata]
+    (Tensor. buffer dimensions rank index-system cached-io metadata))
   Object
   (toString [t] (tens-pp/tensor->string t)))
 
@@ -305,14 +312,15 @@
 (defn construct-tensor
   "Construct an implementation of tech.v3.datatype.NDBuffer from a buffer and
   a dimensions object.  See dimensions/dimensions."
-  ^Tensor [buffer dimensions]
+  ^Tensor [buffer dimensions & [metadata]]
   (let [nd-desc (dims/->global->local dimensions)]
     (Tensor. buffer dimensions
              (.rank nd-desc)
              nd-desc
              (if (dtype-proto/convertible-to-buffer? buffer)
                (dtype-proto/->buffer buffer)
-               (dtype-base/->reader buffer)))))
+               (dtype-base/->reader buffer))
+             metadata)))
 
 
 (defn tensor?
@@ -700,7 +708,8 @@
   (clone [tr]
     (dtype-proto/clone (construct-tensor
                         (dtype-proto/->reader tr)
-                        (dims/dimensions (.shape tr)))))
+                        (dims/dimensions (.shape tr))
+                        (meta tr))))
   dtype-proto/PShape
   (shape [tr] (.shape tr))
   dtype-proto/PSubBuffer
