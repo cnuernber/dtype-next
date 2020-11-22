@@ -52,7 +52,8 @@
               :clean-targets [:target-path "docs"]}
              :travis
              {:test-paths ["test"]
-              :dependencies [[org.clojure/core.async "1.3.610"]]}
+              :dependencies [[org.clojure/core.async "1.3.610"]
+                             [com.taoensso/nippy "3.1.0-RC1"]]}
              :uberjar
              {:aot [tech.v3.datatype.main]
               :source-paths ["src" "native_test"]
