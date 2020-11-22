@@ -135,6 +135,10 @@
                item-shape (->> (dtype-base/shape tens)
                                (remove #{1})
                                (vec))
+               ;;Account for shape of [1]
+               item-shape (if (empty? item-shape)
+                            [(dtype-base/ecount tens)]
+                            item-shape)
                tens (dtype-base/reshape tens item-shape)
                elipsis-vec (shape->elipsis-vec item-shape)
                tens (->> (map (fn [dim elipsis?]

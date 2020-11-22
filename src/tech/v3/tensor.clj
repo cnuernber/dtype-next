@@ -1008,3 +1008,46 @@ user> (dtt/compute-tensor [2 2 2] (fn [& args] (vec args)) :object)
             :float64 (tens-copy-nd :float64 3 src dst)
             :object (tens-copy-nd :object 3 src dst)))
       (dtype-cmc/copy! src dst))))
+
+
+(defn ensure-native
+  "Ensure this tensor is native backed and packed.
+  Item is cloned into a native tensor with the same datatype
+  and :resource-type :auto by default.
+
+  Options are the same as clone with the exception of :resource-type.
+
+  * `:resource-type` - Defaults to :auto - used as `tech.v3.resource/track track-type`."
+  ([tens options]
+   (let [options
+         (-> options
+             (update :resource-type #(or % :auto))
+             (update :datatype #(or % (dtype-base/elemwise-datatype tens)))
+             (assoc :container-type :native-heap)
+             ;;We are going to immediately overwrite the tensor..
+             (assoc :uninitialized? true))]
+     (if (and (dtype-base/as-native-buffer tens)
+              (= (dtype-base/elemwise-datatype tens) (:datatype options)))
+       (ensure-tensor tens)
+       (apply clone tens (->> (seq options)
+                              (apply concat))))))
+  ([tens]
+   (ensure-native tens nil)))
+
+
+(defn native-tensor
+  "Create a new native-backed tensor with a :resource-type :auto default
+  resource type.
+
+  Options are the same as new-tensor with some additions:
+
+  * `:resource-type` - Defaults to :auto - used as `tech.v3.resource/track track-type`.
+  * `:uninitialized?` - Defaults to false - do not 0-initialize the memory."
+  ([shape options]
+   (let [options (-> options
+                     (update :resource-type #(or % :auto))
+                     (assoc :container-type :native-heap))]
+     (apply new-tensor shape (->> (seq options)
+                                  (apply concat)))))
+  ([shape]
+   (native-tensor shape nil)))

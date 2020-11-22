@@ -184,6 +184,11 @@
     (dtype-cmc/copy! item
                      (BufferedImage. (.getWidth item) (.getHeight item)
                                      (.getType item))))
+  dtype-proto/PToTensor
+  (as-tensor [item]
+    (dtt/construct-tensor
+     (dtype-proto/->array-buffer item)
+     (dims/dimensions (dtype-base/shape item))))
   dtype-proto/PToArrayBuffer
   (convertible-to-array-buffer? [item]
     (dtype-proto/convertible-to-array-buffer?

@@ -61,10 +61,9 @@
 
 (defn data->tensor
   [{:keys [shape buffer metadata]}]
-  (with-meta
-    (dtt/construct-tensor (data->buffer buffer)
-                          (dims/dimensions shape))
-    metadata))
+  (dtt/construct-tensor (data->buffer buffer)
+                        (dims/dimensions shape)
+                        metadata))
 
 
 (nippy/extend-freeze

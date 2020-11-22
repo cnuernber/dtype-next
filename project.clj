@@ -1,4 +1,4 @@
-(defproject cnuernber/dtype-next "6.00-beta-4-SNAPSHOT"
+(defproject cnuernber/dtype-next "6.00-beta-4"
   :description "A Clojure library designed to aid in the implementation of high performance algorithms and systems."
   :url "http://github.com/cnuernber/dtype-next"
   :license {:name "EPL-2.0"
@@ -18,7 +18,7 @@
   :profiles {:dev
              {:dependencies [[criterium "0.4.5"]
                              [uncomplicate/neanderthal "0.35.0"]
-                             [com.taoensso/nippy "3.0.0"]
+                             [com.taoensso/nippy "3.1.0-RC1"]
                              [ch.qos.logback/logback-classic "1.1.3"]]
               :test-paths ["neanderthal" "test"]}
              :codox
