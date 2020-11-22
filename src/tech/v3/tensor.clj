@@ -1043,11 +1043,14 @@ user> (dtt/compute-tensor [2 2 2] (fn [& args] (vec args)) :object)
 
   * `:resource-type` - Defaults to :auto - used as `tech.v3.resource/track track-type`.
   * `:uninitialized?` - Defaults to false - do not 0-initialize the memory."
-  ([shape options]
+  ([shape datatype options]
    (let [options (-> options
                      (update :resource-type #(or % :auto))
-                     (assoc :container-type :native-heap))]
+                     (assoc :container-type :native-heap)
+                     (assoc :datatype datatype))]
      (apply new-tensor shape (->> (seq options)
                                   (apply concat)))))
+  ([shape datatype]
+   (native-tensor shape datatype nil))
   ([shape]
-   (native-tensor shape nil)))
+   (native-tensor shape :float64 nil)))
