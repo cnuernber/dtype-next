@@ -132,7 +132,10 @@
                ;;We scan the shape to see if we are over an element-count threashold.
                ;;If we are, then we reshape the tensor keeping track of which
                ;;dimensions got reshaped and thus need an elipsis.
-               item-shape (dtype-base/shape tens)
+               item-shape (->> (dtype-base/shape tens)
+                               (remove #{1})
+                               (vec))
+               tens (dtype-base/reshape tens item-shape)
                elipsis-vec (shape->elipsis-vec item-shape)
                tens (->> (map (fn [dim elipsis?]
                                 (if elipsis?
