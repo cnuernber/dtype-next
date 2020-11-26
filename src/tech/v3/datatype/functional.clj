@@ -167,19 +167,19 @@
 (defn reduce-*
   [rdr]
   (dtype-reductions/commutative-binary-reduce
-   rdr (:tech.numerics/* binary-op/builtin-ops)))
+   (:tech.numerics/* binary-op/builtin-ops) rdr))
 
 
 (defn reduce-max
   [rdr]
   (dtype-reductions/commutative-binary-reduce
-   rdr (:tech.numerics/max binary-op/builtin-ops)))
+   (:tech.numerics/max binary-op/builtin-ops) rdr))
 
 
 (defn reduce-min
   [rdr]
   (dtype-reductions/commutative-binary-reduce
-   rdr (:tech.numerics/min binary-op/builtin-ops)))
+   (:tech.numerics/min binary-op/builtin-ops) rdr))
 
 
 (defn magnitude-squared

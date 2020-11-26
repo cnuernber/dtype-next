@@ -580,3 +580,11 @@
   (is (= 0 (dtype-proto/constant-time-min (range 4))))
   (is (= 3 (dtype-proto/constant-time-max (range 4))))
   )
+
+(deftest reduce-min-max
+  (let [amin (dfn/reduce-min (range 10))
+        amax (dfn/reduce-max (range 10))
+        prod (dfn/reduce-* (range 1 11))]
+    (is (= amin 0))
+    (is (= amax 9))
+    (is (= prod 3628800))))
