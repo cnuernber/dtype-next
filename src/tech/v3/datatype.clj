@@ -211,6 +211,19 @@ user> (dtype/make-reader :float32 5 (* idx 2))
   (first (copy-raw->item! raw-data buffer)))
 
 
+(defn coalesce-blocks!
+  "Copy a sequence of blocks of countable things into a larger
+  countable thing."
+  [dst src-seq]
+  (reduce (fn [offset src-item]
+            (let [n-elems (ecount src-item)]
+              (copy! src-item (sub-buffer dst offset n-elems))
+              (+ (long offset) n-elems)))
+          0
+          src-seq)
+  dst)
+
+
 (defn as-roaring-bitmap
   ^RoaringBitmap [item]
   (dtype-proto/as-roaring-bitmap item))

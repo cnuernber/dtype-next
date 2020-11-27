@@ -1,4 +1,4 @@
-(defproject cnuernber/dtype-next "6.00-beta-7-SNAPSHOT"
+(defproject cnuernber/dtype-next "6.00-beta-7"
   :description "A Clojure library designed to aid in the implementation of high performance algorithms and systems."
   :url "http://github.com/cnuernber/dtype-next"
   :license {:name "EPL-2.0"
@@ -41,6 +41,7 @@
                                    tech.v3.datatype.mmap
                                    tech.v3.datatype.native-buffer
                                    tech.v3.datatype.nippy
+                                   tech.v3.datatype.rolling
                                    tech.v3.datatype.jna
                                    tech.v3.tensor.dimensions
                                    tech.v3.tensor.color-gradients

@@ -6,6 +6,7 @@
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.argops :as argops]
+            [tech.v3.datatype.rolling :as rolling]
             [tech.v3.datatype.datetime])
   (:import [java.nio FloatBuffer]
            [java.util ArrayList]))
@@ -588,3 +589,15 @@
     (is (= amin 0))
     (is (= amax 9))
     (is (= prod 3628800))))
+
+
+(deftest rolling-window-position
+  (is (= [0 0 1 3 6 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80]
+         (rolling/fixed-rolling-window (range 20) 5 dfn/sum
+                                       {:relative-window-position :left})))
+  (is (= [3 6 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 89 92]
+         (rolling/fixed-rolling-window (range 20) 5 dfn/sum
+                                       {:relative-window-position :center})))
+  (is (= [10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 89 92 94 95]
+       (rolling/fixed-rolling-window (range 20) 5 dfn/sum
+                                     {:relative-window-position :right}))))

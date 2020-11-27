@@ -77,9 +77,12 @@
 
 
 (defn windowed-reader
-  (^Buffer [window-size window-fn item]
+  (^Buffer [window-size window-fn item rel-position]
    (let [window-size (long window-size)
-         n-pad (quot (long window-size) 2)
+         n-pad (long (case rel-position
+                       :center (quot (long window-size) 2)
+                       :left window-size
+                       :right 0))
          elem-dtype (dtype-base/elemwise-datatype item)
          n-elems (dtype-base/ecount item)]
      (cond
@@ -102,22 +105,48 @@
            (window-fn (windowed-data-reader window-size (- idx n-pad) item))))))))
 
 
-;;TODO test rolling windows
 (defn fixed-rolling-window
   "Return a lazily evaluated rolling window of window-fn applied to each window.  The
   iterable or sequence is padded such that there are the same number of values in the
   result as in the input with repeated elements padding the beginning and end of the original
   sequence.
   If input is an iterator, output is an lazy sequence.  If input is a reader,
-  output is a reader."
-  [item window-size window-fn]
-  (vectorized-dispatch-1
-   (fn [_] (throw (ex-info "Rolling windows aren't defined on scalars" {})))
-   (fn [_res-dtype item]
-     (->> (pad-sequence (quot (long window-size) 2) item)
-          (fixed-window-sequence window-size 1)
-          (map window-fn)))
-   (fn [_result-dtype item]
-     (windowed-reader window-size window-fn item))
-   nil
-   item))
+  output is a reader.
+
+  :Options
+
+  * `:relative-window-position` - Defaults to `:center` - controls the window's relative positioning
+  in the sequence.
+
+
+  Example (all results are same length):
+
+```clojure
+user> (require '[tech.v3.datatype :as dtype])
+nil
+user> (require '[tech.v3.datatype.rolling :as rolling])
+nil
+user> (require '[tech.v3.datatype.functional :as dfn])
+nil
+user> (rolling/fixed-rolling-window (range 20) 5 dfn/sum {:relative-window-position :left})
+[0 0 1 3 6 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80]
+user> (rolling/fixed-rolling-window (range 20) 5 dfn/sum {:relative-window-position :center})
+[3 6 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 89 92]
+user> (rolling/fixed-rolling-window (range 20) 5 dfn/sum {:relative-window-position :right})
+[10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 89 92 94 95]
+user>
+```"
+  ([item window-size window-fn options]
+   (vectorized-dispatch-1
+    (fn [_] (throw (ex-info "Rolling windows aren't defined on scalars" {})))
+    (fn [_res-dtype item]
+      (->> (pad-sequence (quot (long window-size) 2) item)
+           (fixed-window-sequence window-size 1)
+           (map window-fn)))
+    (fn [_result-dtype item]
+      (windowed-reader window-size window-fn item
+                       (:relative-window-position options :center)))
+    nil
+    item))
+  ([item window-size window-fn]
+   (fixed-rolling-window item window-size window-fn nil)))
