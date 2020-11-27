@@ -592,7 +592,7 @@
 
 
 (deftest rolling-window-position
-  (is (= [0 0 1 3 6 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80]
+  (is (= [0 1 3 6 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85]
          (rolling/fixed-rolling-window (range 20) 5 dfn/sum
                                        {:relative-window-position :left})))
   (is (= [3 6 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 89 92]

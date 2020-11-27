@@ -81,7 +81,7 @@
    (let [window-size (long window-size)
          n-pad (long (case rel-position
                        :center (quot (long window-size) 2)
-                       :left window-size
+                       :left (dec window-size)
                        :right 0))
          elem-dtype (dtype-base/elemwise-datatype item)
          n-elems (dtype-base/ecount item)]
