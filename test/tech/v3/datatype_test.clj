@@ -600,4 +600,7 @@
                                        {:relative-window-position :center})))
   (is (= [10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 89 92 94 95]
        (rolling/fixed-rolling-window (range 20) 5 dfn/sum
-                                     {:relative-window-position :right}))))
+                                     {:relative-window-position :right})))
+  (is (= [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19]
+         (rolling/fixed-rolling-window (range 20) 5 (fn [w] (last w))
+                                       {:relative-window-position :left} ))))
