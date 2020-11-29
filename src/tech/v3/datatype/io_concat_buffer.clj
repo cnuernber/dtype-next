@@ -64,8 +64,7 @@
       (writeObject [this idx val] (dual-write-macro idx n-elems lhs-n-elems .writeObject lhs rhs val))
       dtype-proto/PElemwiseReaderCast
       (elemwise-reader-cast [this new-dtype]
-        (concat-buffers (map #(dtype-proto/elemwise-reader-cast % new-dtype) [lhs rhs])))
-      )))
+        (concat-buffers new-dtype (map #(dtype-proto/elemwise-reader-cast % new-dtype) [lhs rhs]))))))
 
 (defn- as-prim-io ^Buffer [item] item)
 
@@ -119,8 +118,7 @@
       (writeObject [this idx val] (same-len-write-macro idx n-elems buf-len .writeObject buffers val))
       dtype-proto/PElemwiseReaderCast
       (elemwise-reader-cast [this new-dtype]
-        (concat-buffers (map #(dtype-proto/elemwise-reader-cast % new-dtype) buffers)))
-      )))
+        (concat-buffers new-dtype (map #(dtype-proto/elemwise-reader-cast % new-dtype) buffers))))))
 
 
 (defmacro ^:private gen-read-macro
@@ -181,7 +179,7 @@
       (writeObject [this idx val] (gen-write-macro idx n-elems .writeObject n-buffers buffers val))
       dtype-proto/PElemwiseReaderCast
       (elemwise-reader-cast [this new-dtype]
-        (concat-buffers (map #(dtype-proto/elemwise-reader-cast % new-dtype) buffers))))))
+        (concat-buffers new-dtype (map #(dtype-proto/elemwise-reader-cast % new-dtype) buffers))))))
 
 
 
@@ -203,5 +201,5 @@
    (if (empty? buffers)
      nil
      (let [datatype (reduce casting/widest-datatype
-                            (dtype-proto/elemwise-datatype buffers))]
+                            (map dtype-proto/elemwise-datatype buffers))]
        (concat-buffers datatype buffers)))))
