@@ -22,7 +22,7 @@ an index space.
 
 This library forms the numeric basis that underlies the ['tech.ml.dataset'](https://github.com/techascent/tech.ml.dataset)
 system.  It also defines a language independent ABI which allows zerocopy to C-based systems
-such as numpy, OpenCV, and TVM.
+such as numpy, OpenCV, [Julia](https://github.com/cnuernber/libjulia-clj) and TVM.
 
 
 Targets of this library are:
