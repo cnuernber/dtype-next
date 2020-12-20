@@ -10,7 +10,7 @@
 (set! *unchecked-math* :warn-on-boxed)
 
 
-(defn do-pad-last
+(defn- do-pad-last
   [n-pad item-seq advanced-item-seq]
   (let [n-pad (long n-pad)]
     (if (seq advanced-item-seq)
@@ -22,19 +22,19 @@
               (lazy-seq (do-pad-last (dec n-pad) item-seq nil)))))))
 
 
-(defn pad-last
+(defn- pad-last
   [n-pad item-seq]
   (do-pad-last n-pad item-seq (rest item-seq)))
 
 
-(defn pad-sequence
+(defn- pad-sequence
   "Repeat the first and last members of the sequence pad times"
   [n-pad item-seq]
   (concat (repeat n-pad (first item-seq))
           (pad-last n-pad item-seq)))
 
 
-(defn fixed-window-sequence
+(defn- fixed-window-sequence
   "Return a sequence of fixed windows.  Stops when the next window cannot
   be fulfilled."
   [window-size n-skip item-sequence]
@@ -53,7 +53,7 @@
        (pmath/min ~last-index)))
 
 
-(defn windowed-data-reader
+(defn- windowed-data-reader
   ^Buffer [window-size offset item]
   (let [item (dtype-base/->buffer item)
         item-dtype (dtype-base/elemwise-datatype item)
@@ -76,7 +76,7 @@
       (allowsWrite [this] false))))
 
 
-(defn windowed-reader
+(defn ^:no-doc windowed-reader
   (^Buffer [window-size window-fn item rel-position]
    (let [window-size (long window-size)
          n-pad (long (case rel-position
