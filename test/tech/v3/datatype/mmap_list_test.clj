@@ -1,99 +1,102 @@
-(ns tech.v3.datatype.mmap-list-test
-  (:require [tech.v3.datatype.mmap :as sut]
-            [clojure.test :as t]
+(ns tech.v3.datatype.mmap-string-list-test
+  (:require [clojure.java.io :as io]
+            [clojure.test :refer [deftest is]]
             [tech.v3.datatype.mmap :as mmap]
-            [clojure.java.io :as io]
-            [tech.v3.datatype :as dtype]
-            )
+            [tech.v3.datatype.mmap-string-list :as string-list])
+  (:import [tech.v3.datatype ObjectBuffer PrimitiveList]))
 
-(:import
-           [tech.v3.datatype PrimitiveList Buffer]
-           )
-  )
-
-(defn append-to-file [fpath bytes]
-  (with-open [o (io/output-stream fpath :append true)]
-    (.write o bytes)))
-
-(defn extract-string [mmap offset length]
-     (String.
-      (dtype/->byte-array
-       (dtype/sub-buffer mmap offset length))))
+(deftest test-add-read
+  (let [mmap-file (.getPath (java.io.File/createTempFile "strings" ".mmap") )
+        positions (atom [])
+        string-list (string-list/->MmapStringList mmap-file positions)]
 
 
-(deftype MmapPrimitiveList [fpath positions]
-
-  Buffer
-  (elemwiseDatatype [this])
-  (lsize [this] (count  @positions ))
-  (allowsRead [this] true)
-  (allowsWrite [this] true)
-  (readBoolean [this idx] )
-  (readByte [this idx] )
-  (readShort [this idx] )
-  (readChar [this idx] )
-  (readInt [this idx] )
-  (readLong [this idx] )
-  (readFloat [this idx] )
-  (readDouble [this idx])
-  (readObject [this idx]
-    (let [mmap (mmap/mmap-file fpath)
-          current-positions (nth @positions idx)
-          ]
-      (extract-string
-       mmap
-       (first current-positions)
-       (second current-positions)
-       ))
-    )
-  (writeBoolean [this idx val] )
-  (writeByte [this idx val] )
-  (writeShort [this idx val])
-  (writeChar [this idx val] )
-  (writeInt [this idx val] )
-  (writeLong [this idx val] )
-  (writeFloat [this idx val] )
-  (writeDouble [this idx val] )
-  (writeObject [this idx val] )
+    (.addObject string-list "test")
+    (is (= 1 (.lsize string-list)))
+    (is (= "test" (.readObject string-list 0)))))
 
 
-  PrimitiveList
-  ;; (elemwiseDatatype [this] :int32)
 
-  ;; (lsize [this] 0)
 
-  (ensureCapacity [item new-size])
 
-  (addBoolean [this value])
-
-  (addDouble [this value])
-
-  (addObject [this value]
-    (let [bytes (.getBytes value)
-          file-length (.length (io/file fpath))
-          ]
-      (swap! positions #(conj % [file-length (count bytes)]))
-      (append-to-file fpath bytes ))
-
-    )
-
-  (addLong [this value]))
 
 (comment
+  (deftype MmapPrimitiveList-2 [fpath positions output-stream]
 
-  (def positions (atom []))
-  (def my-list (MmapPrimitiveList. "/tmp/test.mmap" positions))
-  (.addObject my-list "hello")
-  (.lsize my-list)
-  (.readObject my-list 0)
-  (.addObject my-list "super world")
-  (.lsize my-list)
-  (.readObject my-list 0)
+    ObjectBuffer
+    (elemwiseDatatype [this])
+    (lsize [this] (count  @positions ))
+    (allowsRead [this] true)
+    (allowsWrite [this] true)
+    (readObject [this idx]
+      (let [mmap (mmap/mmap-file fpath)
+            current-positions (nth @positions idx) ]
+        (string-list/extract-string
+         mmap
+         (first current-positions)
+         (second current-positions))))
 
-  @positions
+    PrimitiveList
+    (ensureCapacity [item new-size])
+    (addBoolean [this value])
+    (addDouble [this value])
+    (addObject [this value]
+      (let [bytes (.getBytes value)
+            file-length (.length (io/file fpath))
+            ]
+        (swap! positions #(conj % [file-length (count bytes)]))
+        (.write output-stream bytes)
+        (.flush output-stream)))
 
-  (.lsize my-list)
-  (.nth my-list 1)
+    (addLong [this value]))
 
+  (comment
+    ;; (def positions (atom []))
+    (use 'criterium.core)
+
+    (defn write-1m-data [my-list]
+      (doall
+       (repeatedly 1000
+                   #(do
+                      (.addObject my-list (apply str (repeat 1000 "a")))
+                      (.lsize my-list)
+                      (.readObject my-list 0)
+                      )))
+      (.readObject my-list 999)
+      nil)
+
+    (quick-bench
+     (do
+       (spit "/tmp/test.mmap" "")
+       (write-1m-data
+        (string-list/->MmapStringList "/tmp/test.mmap" (atom [])))))
+
+    ;; Execution time mean : 123.334262 ms
+
+    (quick-bench
+     (do
+       (spit "/tmp/test.mmap" "")
+       (write-1m-data
+        (MmapPrimitiveList-2.
+         "/tmp/test.mmap"
+         (atom [])
+         (io/output-stream "/tmp/test.mmap" :append true)))))
+
+    ;;  Execution time mean : 105.334262 ms
+    )
+
+
+  (comment
+
+    (def my-list (MmapPrimitiveList-1.  "/tmp/test.mmap" positions))
+    (.addObject my-list "super world")
+    (.lsize my-list)
+    (.readObject my-list 0)
+    (.writeObject my-list 0 "")
+
+    @positions
+
+    (.lsize my-list)
+    (.nth my-list 1))
 
   )
