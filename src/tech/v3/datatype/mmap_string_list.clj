@@ -4,17 +4,18 @@
             [tech.v3.datatype.mmap :as mmap])
   (:import [tech.v3.datatype ObjectBuffer PrimitiveList]))
 
-(defn append-to-file [fpath bytes]
-  (with-open [o (io/output-stream fpath :append true)]
-    (.write o bytes)))
+;; (defn append-to-file [fpath bytes]
+;;   (with-open [o (io/output-stream fpath :append true)]
+;;     (.write o bytes)))
+(set! *warn-on-reflection* true)
 
 (defn extract-string [mmap offset length]
-     (String.
-      (dtype/->byte-array
-       (dtype/sub-buffer mmap offset length))))
+  (String.
+   (dtype/->byte-array
+    (dtype/sub-buffer mmap offset length))))
 
 
-(deftype MmapStringList [fpath positions]
+(deftype MmapStringList [fpath ^java.io.OutputStream output-stream positions is-mmap-dirty? mmap]
 
   ObjectBuffer
   (elemwiseDatatype [this] :string)
@@ -22,29 +23,55 @@
   (allowsRead [this] true)
   (allowsWrite [this] false)
   (readObject [this idx]
-    (let [mmap (mmap/mmap-file fpath)
-          current-positions (nth @positions idx)]
+    (if @is-mmap-dirty?
+       (do (reset! mmap (mmap/mmap-file fpath))
+           (reset! is-mmap-dirty? false)))
+
+    (let [ current-positions (nth @positions idx)]
       (extract-string
-       mmap
+       @mmap
        (first current-positions)
        (second current-positions))))
   (writeObject [this idx val] (throw (RuntimeException. "Writing not supported")))
 
   PrimitiveList
-  ;; (elemwiseDatatype [this] :int32)
-
-  ;; (lsize [this] 0)
-
   (ensureCapacity [item new-size])
 
 
   (addObject [this value]
     (if (not  (instance? CharSequence value ))
       (throw (RuntimeException. "Only :string is upported"))
-      (let [bytes (.getBytes value)
+      (let [^bytes bytes (.getBytes ^String value)
             file-length (.length (io/file fpath))]
         (swap! positions #(conj % [file-length (count bytes)]))
-        (append-to-file fpath bytes ))))
+        (.write output-stream bytes)
+        (.flush output-stream)
+        (reset! is-mmap-dirty? true)
+        )))
   (addBoolean [this value] (.addObject value))
   (addDouble [this value] (.addObject value))
   (addLong [this value] (.addObject value)))
+
+(comment
+  (spit "/tmp/test.mmap" "")
+
+  (def my-list
+    (->MmapStringList "/tmp/test.mmap"
+                      (io/output-stream "/tmp/test.mmap" :append true)
+                      (atom [])
+                      (atom true)
+                      (atom (mmap/mmap-file "/tmp/test.mmap"))))
+
+  (time
+   (def _
+     (doall
+      (repeatedly  1000000
+                   #(.addObject my-list "hello world")))))
+
+  (time
+   (run!
+    #(.readObject ^PrimitiveList my-list %)
+    (range 1000000)))
+
+
+  )

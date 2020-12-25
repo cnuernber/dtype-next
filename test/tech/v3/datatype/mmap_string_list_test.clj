@@ -8,7 +8,13 @@
 (deftest test-add-read
   (let [mmap-file (.getPath (java.io.File/createTempFile "strings" ".mmap") )
         positions (atom [])
-        string-list (string-list/->MmapStringList mmap-file positions)]
+        string-list (string-list/->MmapStringList
+                     mmap-file
+                     (io/output-stream mmap-file :append true)
+                     positions
+                     (atom true)
+                     (atom (mmap/mmap-file mmap-file))
+                     )]
 
 
     (.addObject string-list "test")
