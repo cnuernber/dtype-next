@@ -4,18 +4,15 @@
             [tech.v3.datatype.mmap :as mmap])
   (:import [tech.v3.datatype ObjectBuffer PrimitiveList]))
 
-;; (defn append-to-file [fpath bytes]
-;;   (with-open [o (io/output-stream fpath :append true)]
-;;     (.write o bytes)))
+ (defn append-to-file [fpath bytes]
+   (with-open [o (io/output-stream fpath :append true)]
+     (.write o bytes)))
+
 (set! *warn-on-reflection* true)
 
-(defn extract-string [mmap offset length]
-  (String.
-   (dtype/->byte-array
-    (dtype/sub-buffer mmap offset length))))
 
 
-(deftype MmapStringList [fpath ^java.io.OutputStream output-stream positions is-mmap-dirty? mmap]
+(deftype MmapStringList [fpath ^java.io.OutputStream output-stream positions mmap]
 
   ObjectBuffer
   (elemwiseDatatype [this] :string)
@@ -23,9 +20,8 @@
   (allowsRead [this] true)
   (allowsWrite [this] false)
   (readObject [this idx]
-    (if @is-mmap-dirty?
-       (do (reset! mmap (mmap/mmap-file fpath))
-           (reset! is-mmap-dirty? false)))
+    (if (nil? mmap)
+      (reset! mmap (mmap/mmap-file fpath)))
 
     (let [ current-positions (nth @positions idx)]
       (extract-string
@@ -36,8 +32,6 @@
 
   PrimitiveList
   (ensureCapacity [item new-size])
-
-
   (addObject [this value]
     (if (not  (instance? CharSequence value ))
       (throw (RuntimeException. "Only :string is upported"))
@@ -46,32 +40,96 @@
         (swap! positions #(conj % [file-length (count bytes)]))
         (.write output-stream bytes)
         (.flush output-stream)
-        (reset! is-mmap-dirty? true)
+        (reset! mmap nil)
         )))
   (addBoolean [this value] (.addObject value))
   (addDouble [this value] (.addObject value))
   (addLong [this value] (.addObject value)))
 
+
 (comment
-  (spit "/tmp/test.mmap" "")
 
-  (def my-list
-    (->MmapStringList "/tmp/test.mmap"
-                      (io/output-stream "/tmp/test.mmap" :append true)
-                      (atom [])
-                      (atom true)
-                      (atom (mmap/mmap-file "/tmp/test.mmap"))))
+  (defn extract-string [mmap offset length]
+    (String.
+     (dtype/->byte-array
+      (dtype/sub-buffer mmap offset length))))
 
-  (time
-   (def _
-     (doall
-      (repeatedly  1000000
-                   #(.addObject my-list "hello world")))))
 
-  (time
-   (run!
-    #(.readObject ^PrimitiveList my-list %)
-    (range 1000000)))
+  (deftype MmapStringList-1 [fpath positions mmap]
 
+    ObjectBuffer
+    (elemwiseDatatype [this] :string)
+    (lsize [this] (count  @positions ))
+    (allowsRead [this] true)
+    (allowsWrite [this] false)
+    (readObject [this idx]
+      (if (nil? mmap)
+        (reset! mmap (mmap/mmap-file fpath)))
+
+      (let [ current-positions (nth @positions idx)]
+        (extract-string
+         @mmap
+         (first current-positions)
+         (second current-positions))))
+    (writeObject [this idx val] (throw (RuntimeException. "Writing not supported")))
+
+
+
+    PrimitiveList
+    (ensureCapacity [item new-size])
+    (addObject [this value]
+      (if (not  (instance? CharSequence value ))
+        (throw (RuntimeException. "Only :string is upported"))
+        (let [^bytes bytes (.getBytes ^String value)
+              file-length (.length (io/file fpath))]
+          (swap! positions #(conj % [file-length (count bytes)]))
+          (append-to-file fpath bytes)
+          (reset! mmap nil)
+          )))
+    (addBoolean [this value] (.addObject value))
+    (addDouble [this value] (.addObject value))
+    (addLong [this value] (.addObject value))))
+
+
+
+(comment
+  (require '[criterium.core :as crit])
+
+
+  (defn write-100M-data [my-list]
+    (doall
+     (repeatedly 1000000
+                 #(do
+                    (.addObject my-list (apply str (repeat 100 "a"))))))
+    nil)
+
+
+  (defn write-1M-data [my-list]
+    (doall
+     (repeatedly 10000
+                 #(do
+                    (.addObject my-list (apply str (repeat 100 "a")))
+                    )))
+    nil)
+
+  (do
+    (crit/quick-bench
+     (do
+       (spit "/tmp/test.mmap" "")
+       (write-1M-data
+        (->MmapStringList "/tmp/test.mmap"
+                          (io/output-stream "/tmp/test.mmap" :append true)
+                          (atom [])
+                          (atom nil)))))
+
+
+    (crit/quick-bench
+     (do
+       (spit "/tmp/test.mmap" "")
+       (write-1M-data
+        (->MmapStringList-1 "/tmp/test.mmap"
+                            (atom [])
+                            (atom nil))))))
 
   )
+
