@@ -4,11 +4,11 @@
             [tech.v3.datatype.mmap :as mmap])
   (:import [tech.v3.datatype ObjectBuffer PrimitiveList]))
 
- (defn append-to-file [fpath bytes]
-   (with-open [o (io/output-stream fpath :append true)]
-     (.write o bytes)))
 
-(set! *warn-on-reflection* true)
+(defn extract-string [mmap offset length]
+  (String.
+   (dtype/->byte-array
+    (dtype/sub-buffer mmap offset length))))
 
 
 
@@ -20,7 +20,7 @@
   (allowsRead [this] true)
   (allowsWrite [this] false)
   (readObject [this idx]
-    (if (nil? mmap)
+    (if (nil? @mmap)
       (reset! mmap (mmap/mmap-file fpath)))
 
     (let [ current-positions (nth @positions idx)]
@@ -49,11 +49,10 @@
 
 (comment
 
-  (defn extract-string [mmap offset length]
-    (String.
-     (dtype/->byte-array
-      (dtype/sub-buffer mmap offset length))))
 
+  (defn append-to-file [fpath bytes]
+    (with-open [o (io/output-stream fpath :append true)]
+      (.write o bytes)))
 
   (deftype MmapStringList-1 [fpath positions mmap]
 
@@ -63,7 +62,7 @@
     (allowsRead [this] true)
     (allowsWrite [this] false)
     (readObject [this idx]
-      (if (nil? mmap)
+      (if (nil? @mmap)
         (reset! mmap (mmap/mmap-file fpath)))
 
       (let [ current-positions (nth @positions idx)]
@@ -89,3 +88,48 @@
     (addBoolean [this value] (.addObject value))
     (addDouble [this value] (.addObject value))
     (addLong [this value] (.addObject value))))
+
+
+
+(comment
+
+  (defn write-100M-data [my-list]
+    (doall
+     (repeatedly 1000000
+                 #(do
+                    (.addObject my-list (apply str (repeat 100 "a"))))))
+    nil)
+
+
+  (defn write-1M-data [my-list]
+    (doall
+     (repeatedly 10000
+                 #(do
+                    (.addObject my-list (apply str (repeat 100 "a")))
+                    )))
+    nil)
+
+  (do
+    (crit/quick-bench
+     (do
+       (spit "/tmp/test.mmap" "")
+       (write-1M-data
+        (->MmapStringList "/tmp/test.mmap"
+                          (io/output-stream "/tmp/test.mmap" :append true)
+                          (atom [])
+                          (atom nil)))))
+    ;; ->   Execution time mean : 140.223013 ms
+
+    (crit/quick-bench
+     (do
+       (spit "/tmp/test.mmap" "")
+       (write-1M-data
+        (->MmapStringList-1 "/tmp/test.mmap"
+                            (atom [])
+                            (atom nil)))))
+
+    ;; ->  Execution time mean : 377.907873 ms
+    )
+
+  )
+

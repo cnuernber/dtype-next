@@ -12,8 +12,7 @@
                      mmap-file
                      (io/output-stream mmap-file :append true)
                      positions
-                     (atom true)
-                     (atom (mmap/mmap-file mmap-file))
+                     (atom nil)
                      )]
 
 
@@ -26,79 +25,21 @@
 
 
 
-(comment
-  (deftype MmapPrimitiveList-2 [fpath positions output-stream]
-
-    ObjectBuffer
-    (elemwiseDatatype [this])
-    (lsize [this] (count  @positions ))
-    (allowsRead [this] true)
-    (allowsWrite [this] true)
-    (readObject [this idx]
-      (let [mmap (mmap/mmap-file fpath)
-            current-positions (nth @positions idx) ]
-        (string-list/extract-string
-         mmap
-         (first current-positions)
-         (second current-positions))))
-
-    PrimitiveList
-    (ensureCapacity [item new-size])
-    (addBoolean [this value])
-    (addDouble [this value])
-    (addObject [this value]
-      (let [bytes (.getBytes value)
-            file-length (.length (io/file fpath))
-            ]
-        (swap! positions #(conj % [file-length (count bytes)]))
-        (.write output-stream bytes)
-        (.flush output-stream)))
-
-    (addLong [this value]))
-
+(
   (comment
-    ;; (def positions (atom []))
-    (use 'criterium.core)
-
-    (defn write-1m-data [my-list]
-      (doall
-       (repeatedly 1000
-                   #(do
-                      (.addObject my-list (apply str (repeat 1000 "a")))
-                      (.lsize my-list)
-                      (.readObject my-list 0)
-                      )))
-      (.readObject my-list 999)
-      nil)
-
-    (quick-bench
-     (do
-       (spit "/tmp/test.mmap" "")
-       (write-1m-data
-        (string-list/->MmapStringList "/tmp/test.mmap" (atom [])))))
-
-    ;; Execution time mean : 123.334262 ms
-
-    (quick-bench
-     (do
-       (spit "/tmp/test.mmap" "")
-       (write-1m-data
-        (MmapPrimitiveList-2.
-         "/tmp/test.mmap"
-         (atom [])
-         (io/output-stream "/tmp/test.mmap" :append true)))))
-
-    ;;  Execution time mean : 105.334262 ms
-    )
-
-
-  (comment
-
-    (def my-list (MmapPrimitiveList-1.  "/tmp/test.mmap" positions))
+    (spit "/tmp/test.mmap" "")
+    (def positions (atom []))
+    (def my-list (string-list/->MmapStringList  "/tmp/test.mmap"
+                                                (io/output-stream "/tmp/test.mmap")
+                                                positions
+                                                (atom nil)
+                                                ))
     (.addObject my-list "super world")
     (.lsize my-list)
     (.readObject my-list 0)
     (.writeObject my-list 0 "")
+
+    (.mmap my-list)
 
     @positions
 
