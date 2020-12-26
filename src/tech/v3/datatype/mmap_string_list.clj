@@ -121,7 +121,7 @@
                           (io/output-stream "/tmp/test.mmap" :append true)
                           (atom [])
                           (atom nil)))))
-
+    ;; ->   Execution time mean : 140.223013 ms
 
     (crit/quick-bench
      (do
@@ -129,7 +129,10 @@
        (write-1M-data
         (->MmapStringList-1 "/tmp/test.mmap"
                             (atom [])
-                            (atom nil))))))
+                            (atom nil)))))
+
+    ;; ->  Execution time mean : 377.907873 ms
+    )
 
   )
 
