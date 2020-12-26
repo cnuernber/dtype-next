@@ -37,7 +37,7 @@
 
 
 (set! *warn-on-reflection* true)
-
+(set! *unchecked-math* :warn-on-boxed)
 
 (defn ensure-reader
   "Ensure item is randomly addressable.  This may copy the data into a randomly
@@ -270,7 +270,7 @@
   "Given a reader of values an a source comparator, return either an
   IntComparator or a LongComparator depending on the number of indexes
   in the reader that compares the values using the passed in comparator."
-  [values src-comparator]
+  [src-comparator values]
   (let [src-dtype (dtype-base/elemwise-datatype values)
         values (ensure-reader values)
         n-values (.lsize values)
@@ -324,6 +324,16 @@
                 (.compare comp lhs-value rhs-value)))))))))
 
 
+(defn- find-base-comparator
+  [comparator val-dtype]
+  (or (if (keyword? comparator)
+        (binary-pred/builtin-ops comparator)
+        comparator)
+      (if (casting/numeric-type? val-dtype)
+        (binary-pred/builtin-ops :tech.numerics/<)
+        compare)))
+
+
 (defn argsort
   "Sort values in index space.  By default uses a parallelized quicksort algorithm."
   ([comparator {:keys [parallel?]
@@ -331,13 +341,8 @@
     values]
    (let [n-elems (dtype-base/ecount values)
          val-dtype (dtype-base/elemwise-datatype values)
-         comparator (or (if (keyword? comparator)
-                          (binary-pred/builtin-ops comparator)
-                          comparator)
-                        (if (casting/numeric-type? val-dtype)
-                          (binary-pred/builtin-ops :tech.numerics/<)
-                          compare))
-         comparator (index-comparator values comparator)]
+         comparator (-> (find-base-comparator comparator val-dtype)
+                        (index-comparator values))]
      (cond
        (== n-elems 0)
        (int-array 0)
@@ -357,6 +362,69 @@
    (argsort comparator {} values))
   ([values]
    (argsort nil {} values)))
+
+
+(defmacro ^:private double-compare
+  [comp lhs rhs]
+  `(Double/compare ~lhs ~rhs))
+
+
+(defmacro ^:private long-compare
+  [comp lhs rhs]
+  `(Long/compare ~lhs ~rhs))
+
+
+(defmacro ^:private object-compare
+  [comp lhs rhs]
+  `(.compare ~comp ~lhs ~rhs))
+
+
+(defmacro binary-search-impl
+  [data target scalar-cast read-fn comparator compare-fn]
+  `(let [data# (dtype-base/->buffer ~data)
+         target# (~scalar-cast ~target)
+         n-elems# (.lsize data#)]
+     (loop [low# (long 0)
+            high# n-elems#]
+       (if (< low# high#)
+         (let [mid# (+ low# (quot (- high# low#) 2))
+               buf-data# (~read-fn data# mid#)
+               compare-result# (~compare-fn ~comparator buf-data# target#)]
+           (if (= 0 compare-result#)
+             (recur mid# mid#)
+             (if (and (< compare-result# 0)
+                      (not= mid# low#))
+               (recur mid# high#)
+               (recur low# mid#))))
+         (let [buf-data# (~read-fn data# low#)]
+           (if (<= (~compare-fn ~comparator target# buf-data#) 0)
+             low#
+             (unchecked-inc low#)))))))
+
+
+(defn binary-search
+  "Returns a long result that points to just before the value or exactly points to the
+   value.  In the case where the target is after the last value will return
+  elem-count.
+
+  Options:
+
+  * `:comparator` - a specific comparator to use; defaults to `comparator`."
+  (^long [data target options]
+   (let [opt-dtype (:datatype options (dtype-base/elemwise-datatype data))
+         dtype (casting/simple-operation-space opt-dtype)]
+     (case dtype
+       :float64 (binary-search-impl data target double .readDouble nil
+                                    double-compare)
+       :int64 (binary-search-impl data target long .readLong nil
+                                  long-compare)
+       :object (let [comparator (-> (find-base-comparator (:comparator options)
+                                                          opt-dtype)
+                                    (->comparator))]
+                 (binary-search-impl data target identity .readObject
+                                     comparator object-compare)))))
+  (^long [data target]
+   (binary-search data target nil)))
 
 
 (defn argfilter
