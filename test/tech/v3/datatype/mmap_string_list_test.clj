@@ -1,19 +1,18 @@
 (ns tech.v3.datatype.mmap-string-list-test
-  (:require [clojure.java.io :as io]
-            [clojure.test :refer [deftest is]]
-            [tech.v3.datatype.mmap :as mmap]
+  (:require [clojure.test :refer [deftest is]]
             [tech.v3.datatype.mmap-string-list :as string-list])
-  (:import [tech.v3.datatype ObjectBuffer PrimitiveList]))
-
-
-
+  (:import java.net.URI
+           java.nio.channels.FileChannel
+           [java.nio.file Paths StandardOpenOption]))
 
 (deftest test-add-read
-  (let [mmap-file (.getPath (java.io.File/createTempFile "strings" ".mmap") )
+  (let [mmap-file (java.io.File/createTempFile "strings" ".mmap")
         positions (atom [])
         string-list (string-list/->MmapStringList
-                     mmap-file
-                     (io/output-stream mmap-file :append true)
+                     (.getPath mmap-file)
+                     (FileChannel/open  (.toPath mmap-file)
+                                        (into-array [StandardOpenOption/APPEND]))
+
                      positions
                      (atom nil)
                      )]
@@ -25,11 +24,12 @@
     ))
 
 (deftest test-add-read-varoius
-  (let [mmap-file (.getPath (java.io.File/createTempFile "strings" ".mmap") )
+  (let [mmap-file (java.io.File/createTempFile "strings" ".mmap")
         positions (atom [])
         string-list (string-list/->MmapStringList
-                     mmap-file
-                     (io/output-stream mmap-file :append true)
+                     (.getPath mmap-file)
+                     (FileChannel/open  (.toPath mmap-file)
+                                        (into-array [StandardOpenOption/APPEND]))
                      positions
                      (atom nil)
                      )
@@ -47,25 +47,25 @@
 
 
 
-(
-  (comment
-    (spit "/tmp/test.mmap" "")
-    (def positions (atom []))
-    (def my-list (string-list/->MmapStringList  "/tmp/test.mmap"
-                                                (io/output-stream "/tmp/test.mmap")
-                                                positions
-                                                (atom nil)
-                                                ))
-    (.addObject my-list "super world")
-    (.lsize my-list)
-    (.readObject my-list 0)
-    (.writeObject my-list 0 "")
+(comment
+  (spit "/tmp/test.mmap" "")
+  (def positions (atom []))
+  (def my-list (string-list/->MmapStringList
+                "/tmp/test.mmap"
+                (FileChannel/open  (Paths/get (URI. "file:/tmp/test.mmap"))
+                                   (into-array [StandardOpenOption/APPEND]))
+                positions
+                (atom nil)
+                ))
+  (.addObject my-list "super world")
+  (.lsize my-list)
+  (.readObject my-list 0)
+  (.writeObject my-list 0 "")
 
-    (.mmap my-list)
+  (.mmap my-list)
 
-    @positions
+  @positions
 
-    (.lsize my-list)
-    (.nth my-list 1))
+  (.nth my-list 0)
 
   )

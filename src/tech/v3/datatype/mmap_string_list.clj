@@ -2,21 +2,21 @@
   (:require [clojure.java.io :as io]
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.mmap :as mmap])
-  (:import [tech.v3.datatype ObjectBuffer PrimitiveList]
-           [java.io FileOutputStream]))
+  (:import java.net.URI
+           java.nio.ByteBuffer
+           java.nio.channels.FileChannel
+           [java.nio.file Paths StandardOpenOption]
+           [tech.v3.datatype ObjectBuffer PrimitiveList]))
 
-
+;; (set! *warn-on-reflection* true)
 (defn extract-string [mmap offset length]
   (String.
    (dtype/->byte-array
     (dtype/sub-buffer mmap offset length))))
 
- (defn append-to-file [fpath bytes]
-    (with-open [o (io/output-stream fpath :append true)]
-      (.write o bytes)))
 
 
-(deftype MmapStringList [fpath  ^FileOutputStream file-output-stream positions mmap]
+(deftype MmapStringList [fpath  ^FileChannel file-channel positions mmap]
 
   ObjectBuffer
   (elemwiseDatatype [this] :mmap-string)
@@ -25,7 +25,9 @@
   (allowsWrite [this] false)
   (readObject [this idx]
     (if (nil? @mmap)
-      (reset! mmap (mmap/mmap-file fpath)))
+      (do
+        (.force file-channel true)
+        (reset! mmap (mmap/mmap-file fpath))))
 
     (let [ current-positions (nth @positions idx)]
       (extract-string
@@ -40,11 +42,9 @@
     (if (not  (instance? CharSequence value ))
       (throw (RuntimeException. "Only :string is upported"))
       (let [^bytes bytes (.getBytes ^String value)
-            file-length (.length (io/file fpath))]
+            file-length (.position file-channel)]
         (swap! positions #(conj % [file-length (count bytes)]))
-        (.write file-output-stream bytes)
-        (.flush file-output-stream)
-        (.sync (.getFD file-output-stream))
+        (.write file-channel (ByteBuffer/wrap bytes))
         (reset! mmap nil))))
   (addBoolean [this value] (.addObject value))
   (addDouble [this value] (.addObject value))
@@ -53,13 +53,16 @@
 
 (comment
 
+ (defn append-to-file [fpath bytes]
+    (with-open [o (io/output-stream fpath :append true)]
+      (.write o bytes)))
 
 
   (deftype MmapStringList-1 [fpath positions mmap]
 
     ObjectBuffer
     (elemwiseDatatype [this] :string)
-    (lsize [this] (count  @positions ))
+    (lsize [this] (count @positions ))
     (allowsRead [this] true)
     (allowsWrite [this] false)
     (readObject [this idx]
@@ -116,11 +119,13 @@
        (spit "/tmp/test.mmap" "")
        (write-1M-data
         (->MmapStringList "/tmp/test.mmap"
-                          (FileOutputStream. "/tmp/test.mmap" true)
+                          (FileChannel/open  (Paths/get  (URI. "file:/tmp/test.mmap"))
+                                             (into-array [StandardOpenOption/APPEND]))
                           (atom [])
                           (atom nil)))))
     ;; ->   Execution time mean : 140.223013 ms
     ;; ->   72 ms with FileOutputStream
+    ;; ->   144 with FileChannel
 
     ;; (crit/quick-bench
     ;;  (do
