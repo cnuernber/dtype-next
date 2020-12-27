@@ -12,7 +12,7 @@
             [tech.v3.parallel.for :as parallel-for]
             [clojure.tools.logging :as log]
             [primitive-math :as pmath])
-  (:import [xerial.larray.buffer UnsafeUtil]
+  (:import [tech.v3.datatype UnsafeUtil]
            [sun.misc Unsafe]
            [tech.v3.datatype Buffer BufferCollection]
            [clojure.lang RT IObj Counted Indexed IFn]))

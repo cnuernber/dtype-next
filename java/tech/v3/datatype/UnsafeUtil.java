@@ -5,17 +5,35 @@ import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import sun.misc.Unsafe;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import clojure.lang.RT;
 
 
 public class UnsafeUtil {
+  public static Unsafe getUnsafe() {
+    try {
+      Field f = Unsafe.class.getDeclaredField("theUnsafe");
+      f.setAccessible(true);
+      return Unsafe.class.cast(f.get(null));
+    }
+    catch(NoSuchFieldException e) {
+      throw new IllegalStateException("sun.misc.Unsafe is not available in this JVM");
+    }
+    catch(IllegalAccessException e) {
+      throw new IllegalStateException("sun.misc.Unsafe is not available in this JVM");
+    }
+  }
+
+  public static Unsafe unsafe = getUnsafe();
+
   public static long addressField() {
     try {
-      return xerial.larray.buffer.UnsafeUtil.getUnsafe().objectFieldOffset(Buffer.class.getDeclaredField("address"));
-    }catch (Throwable e) {
+      return getUnsafe().objectFieldOffset(Buffer.class.getDeclaredField("address"));
+    } catch (Throwable e) {
       return -1;
     }
   }
+
   public static Constructor<?> findDirectBufferConstructor() {
     try {
       ByteBuffer direct = ByteBuffer.allocateDirect(1);
@@ -27,8 +45,8 @@ public class UnsafeUtil {
       return null;
     }
   }
-  public static final long addressFieldOffset = addressField();
 
+  public static final long addressFieldOffset = addressField();
   public static final Constructor<?> directBufferConstructor = findDirectBufferConstructor();
   public static Object constructByteBufferFromAddress(long address, long nBytes) throws Exception {
     return  directBufferConstructor.newInstance(address, RT.intCast(nBytes));
