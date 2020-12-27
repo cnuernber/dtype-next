@@ -2,7 +2,8 @@
   (:require [clojure.java.io :as io]
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.mmap :as mmap])
-  (:import [tech.v3.datatype ObjectBuffer PrimitiveList]))
+  (:import [tech.v3.datatype ObjectBuffer PrimitiveList]
+           [java.io FileOutputStream]))
 
 
 (defn extract-string [mmap offset length]
@@ -10,12 +11,15 @@
    (dtype/->byte-array
     (dtype/sub-buffer mmap offset length))))
 
+ (defn append-to-file [fpath bytes]
+    (with-open [o (io/output-stream fpath :append true)]
+      (.write o bytes)))
 
 
-(deftype MmapStringList [fpath ^java.io.OutputStream output-stream positions mmap]
+(deftype MmapStringList [fpath  ^FileOutputStream file-output-stream positions mmap]
 
   ObjectBuffer
-  (elemwiseDatatype [this] :string)
+  (elemwiseDatatype [this] :mmap-string)
   (lsize [this] (count  @positions ))
   (allowsRead [this] true)
   (allowsWrite [this] false)
@@ -38,10 +42,10 @@
       (let [^bytes bytes (.getBytes ^String value)
             file-length (.length (io/file fpath))]
         (swap! positions #(conj % [file-length (count bytes)]))
-        (.write output-stream bytes)
-        (.flush output-stream)
-        (reset! mmap nil)
-        )))
+        (.write file-output-stream bytes)
+        (.flush file-output-stream)
+        (.sync (.getFD file-output-stream))
+        (reset! mmap nil))))
   (addBoolean [this value] (.addObject value))
   (addDouble [this value] (.addObject value))
   (addLong [this value] (.addObject value)))
@@ -50,9 +54,6 @@
 (comment
 
 
-  (defn append-to-file [fpath bytes]
-    (with-open [o (io/output-stream fpath :append true)]
-      (.write o bytes)))
 
   (deftype MmapStringList-1 [fpath positions mmap]
 
@@ -92,7 +93,7 @@
 
 
 (comment
-
+  (require '[criterium.core :as crit])
   (defn write-100M-data [my-list]
     (doall
      (repeatedly 1000000
@@ -115,21 +116,19 @@
        (spit "/tmp/test.mmap" "")
        (write-1M-data
         (->MmapStringList "/tmp/test.mmap"
-                          (io/output-stream "/tmp/test.mmap" :append true)
+                          (FileOutputStream. "/tmp/test.mmap" true)
                           (atom [])
                           (atom nil)))))
     ;; ->   Execution time mean : 140.223013 ms
+    ;; ->   72 ms with FileOutputStream
 
-    (crit/quick-bench
-     (do
-       (spit "/tmp/test.mmap" "")
-       (write-1M-data
-        (->MmapStringList-1 "/tmp/test.mmap"
-                            (atom [])
-                            (atom nil)))))
+    ;; (crit/quick-bench
+    ;;  (do
+    ;;    (spit "/tmp/test.mmap" "")
+    ;;    (write-1M-data
+    ;;     (->MmapStringList-1 "/tmp/test.mmap"
+    ;;                         (atom [])
+    ;;                         (atom nil)))))
 
     ;; ->  Execution time mean : 377.907873 ms
-    )
-
-  )
-
+    ))
