@@ -1,6 +1,6 @@
 (ns tech.v3.datatype.mmap-string-list-test
   (:require [clojure.test :refer [deftest is]]
-            [tech.v3.datatype.mmap-string-list :as string-list])
+            [tech.v3.datatype.mmap-list :as mmap-list])
   (:import java.net.URI
            java.nio.channels.FileChannel
            [java.nio.file Paths StandardOpenOption]))
@@ -8,7 +8,9 @@
 (deftest test-add-read
   (let [mmap-file (java.io.File/createTempFile "strings" ".mmap")
         positions (atom [])
-        string-list (string-list/->MmapStringList
+        string-list (mmap-list/->MmapList
+                     #(String. %)
+                     #(.getBytes %)
                      (.getPath mmap-file)
                      (FileChannel/open  (.toPath mmap-file)
                                         (into-array [StandardOpenOption/APPEND]))
@@ -26,7 +28,9 @@
 (deftest test-add-read-varoius
   (let [mmap-file (java.io.File/createTempFile "strings" ".mmap")
         positions (atom [])
-        string-list (string-list/->MmapStringList
+        string-list (mmap-list/->MmapList
+                     #(String. %)
+                     #(.getBytes %)
                      (.getPath mmap-file)
                      (FileChannel/open  (.toPath mmap-file)
                                         (into-array [StandardOpenOption/APPEND]))
