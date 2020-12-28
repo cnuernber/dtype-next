@@ -5,8 +5,8 @@
             [clojure.tools.logging :as log]
             [tech.v3.datatype.native-buffer :as native-buffer]
             [tech.v3.datatype.protocols :as dtype-proto])
-  (:import [xerial.larray.mmap MMapBuffer MMapMode]
-           [xerial.larray.buffer UnsafeUtil]
+  (:import [xerial.larray.mmap MMapMode]
+           [tech.v3.datatype MMapBuffer]
            [sun.misc Unsafe]))
 
 
@@ -38,9 +38,10 @@
      ;;the mmap library has it's own gc-based cleanup system that works fine.
      (when (resource-type :stack)
        (resource/track map-buf
-                       {:dispose-fn #(do (log/debugf "closing %s" fpath) (.close map-buf))
+                       {:dispose-fn #(do (log/debugf "closing %s" fpath)
+                                         (.close map-buf))
                         :track-type :stack}))
-     (native-buffer/wrap-address (.address map-buf) (.size map-buf) :int8
+     (native-buffer/wrap-address (.address map-buf) (.mapSize map-buf) :int8
                                  endianness map-buf)))
   ([fpath]
    (mmap-file fpath {})))

@@ -1,19 +1,19 @@
-(defproject cnuernber/dtype-next "6.00-beta-12-SNAPSHOT"
+(defproject cnuernber/dtype-next "6.00-beta-12"
   :description "A Clojure library designed to aid in the implementation of high performance algorithms and systems."
   :url "http://github.com/cnuernber/dtype-next"
   :license {:name "EPL-2.0"
             :url "https://www.eclipse.org/legal/epl-2.0/"}
-  :dependencies [[org.clojure/clojure            "1.10.2-alpha1"]
-                 [org.ow2.asm/asm                "7.1"]
-                 [insn                           "0.4.0"]
-                 [camel-snake-kebab              "0.4.2"]
-                 [primitive-math                 "0.1.6"]
-                 [it.unimi.dsi/fastutil          "8.2.1"]
-                 [org.xerial.larray/larray-mmap  "0.4.1"]
+  :dependencies [[org.clojure/clojure              "1.10.2-alpha1"]
+                 [org.ow2.asm/asm                  "7.1"]
+                 [insn                             "0.4.0"]
+                 [camel-snake-kebab                "0.4.2"]
+                 [primitive-math                   "0.1.6"]
+                 [it.unimi.dsi/fastutil            "8.2.1"]
+                 [org.xerial.larray/larray-mmap    "0.4.1"]
                  [org.apache.commons/commons-math3 "3.6.1"]
                  [org.roaringbitmap/RoaringBitmap  "0.9.0"]
-                 [techascent/tech.resource       "5.02"]
-                 [techascent/tech.jna "4.05" :scope "provided"]]
+                 [techascent/tech.resource         "5.02"]
+                 [techascent/tech.jna              "4.05"]]
   :java-source-paths ["java"]
   :profiles {:dev
              {:dependencies [[criterium "0.4.5"]
