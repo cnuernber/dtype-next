@@ -1,6 +1,5 @@
 (ns tech.v3.datatype.mmap-list
-  (:require [clojure.java.io :as io]
-            [tech.v3.datatype :as dtype]
+  (:require [tech.v3.datatype :as dtype]
             [tech.v3.datatype.mmap :as mmap])
   (:import java.net.URI
            java.nio.ByteBuffer
@@ -17,11 +16,16 @@
 
 
 
-(deftype MmapList [from-bytes-fn to-bytes-fn fpath  ^FileChannel file-channel positions mmap]
+(deftype MmapList [from-bytes-fn
+                   to-bytes-fn
+                   elementwise-datatype
+                   fpath
+                   ^FileChannel file-channel
+                   positions mmap]
 
   ObjectBuffer
-  (elemwiseDatatype [this] :mmap-string)
-  (lsize [this] (count  @positions ))
+  (elemwiseDatatype [this] elementwise-datatype)
+  (lsize [this] (count @positions ))
   (allowsRead [this] true)
   (allowsWrite [this] false)
   (readObject [this idx]
@@ -76,9 +80,10 @@
        (spit "/tmp/test.mmap" "")
        (write-1M-data
 
-        (->MmapStringList
+        (->MmapList
          #(String. %)
          #(.getBytes %)
+         :string
          "/tmp/test.mmap"
          (FileChannel/open  (Paths/get  (URI. "file:/tmp/test.mmap"))
                             (into-array [StandardOpenOption/APPEND]))
@@ -106,6 +111,7 @@
     (->MmapList
      #(String. %)
      #(.getBytes %)
+     :string
      "/tmp/test.mmap"
      (FileChannel/open  (Paths/get  (URI. "file:/tmp/test.mmap"))
                         (into-array [StandardOpenOption/APPEND]))

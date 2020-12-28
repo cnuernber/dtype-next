@@ -11,6 +11,7 @@
         string-list (mmap-list/->MmapList
                      #(String. %)
                      #(.getBytes %)
+                     :string
                      (.getPath mmap-file)
                      (FileChannel/open  (.toPath mmap-file)
                                         (into-array [StandardOpenOption/APPEND]))
@@ -25,12 +26,13 @@
     (is (= "test" (.readObject string-list 0)))
     ))
 
-(deftest test-add-read-varoius
+(deftest test-add-read-various
   (let [mmap-file (java.io.File/createTempFile "strings" ".mmap")
         positions (atom [])
         string-list (mmap-list/->MmapList
                      #(String. %)
                      #(.getBytes %)
+                     :string
                      (.getPath mmap-file)
                      (FileChannel/open  (.toPath mmap-file)
                                         (into-array [StandardOpenOption/APPEND]))
@@ -54,7 +56,10 @@
 (comment
   (spit "/tmp/test.mmap" "")
   (def positions (atom []))
-  (def my-list (string-list/->MmapStringList
+  (def my-list (mmap-list/->MmapList
+                #(String. %)
+                #(.getBytes %)
+                :string
                 "/tmp/test.mmap"
                 (FileChannel/open  (Paths/get (URI. "file:/tmp/test.mmap"))
                                    (into-array [StandardOpenOption/APPEND]))
