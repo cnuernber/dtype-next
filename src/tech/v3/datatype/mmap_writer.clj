@@ -1,18 +1,22 @@
 (ns tech.v3.datatype.mmap-writer
+  "Provides the ability to efficiently write binary data to a file with an
+  automatic conversion to a native-buffer using mmap.
+
+  Endianness can be provided and strings are automatically saved as UTF-8."
   (:require [tech.v3.datatype :as dtype]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.mmap :as mmap]
             [tech.v3.datatype.casting :as casting]
-            [tech.v3.datatype.packing :as packing]
             ;;support for nio buffer conversions
             [tech.v3.datatype.nio-buffer]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.errors :as errors]
-            [tech.v3.resource :as resource])
-  (:import [java.net URI]
-           [java.nio ByteBuffer ByteOrder]
+            [tech.v3.resource :as resource]
+            [tech.v3.datatype.pprint :as pprint]
+            [clojure.tools.logging :as log])
+  (:import [java.nio ByteBuffer ByteOrder]
            [java.nio.channels FileChannel]
-           [java.nio.file Paths StandardOpenOption]
+           [java.nio.file Paths StandardOpenOption OpenOption]
            [tech.v3.datatype.array_buffer ArrayBuffer]
            [tech.v3.datatype ObjectBuffer DataWriter]))
 
@@ -61,7 +65,8 @@
 (deftype MMapWriter [fpath
                      ^FileChannel file-channel
                      endianness
-                     mmap-file-options]
+                     mmap-file-options
+                     close-ref*]
   DataWriter
   (elemwiseDatatype [this] :int8)
   (lsize [this] (.position file-channel))
@@ -69,38 +74,40 @@
     (.write file-channel (ByteBuffer/wrap ^bytes byte-data (int off) (int len))))
   (writeData [this data]
     (when-not (== 0 (dtype/ecount data))
-      (let [data-dtype (dtype/elemwise-datatype data)
-            data-shape (dtype/shape data)]
-        (errors/when-not-errorf (casting/numeric-type? data-dtype)
-          "Datatype %s is not numeric" data-dtype)
-        (errors/when-not-errorf (== 1 (count data-shape))
-          "Data should is not rank 1 (%d)" (count data-shape))
-        (let [data-ary (dtype-cmc/->array-buffer data)
-              ^ArrayBuffer data-ary (if (== 1 (casting/numeric-byte-width data-dtype))
-                                      data-ary
-                                      (convert-to-bytes data-ary endianness))]
-          (.writeBytes this (.ary-data data-ary)
-                       (.offset data-ary) (.n-elems data-ary))))))
+      (if (string? data)
+        (.writeBytes this (.getBytes ^String data))
+        (let [data-dtype (dtype/elemwise-datatype data)
+              data-shape (dtype/shape data)]
+          (errors/when-not-errorf (casting/numeric-type? data-dtype)
+            "Datatype %s is not numeric" data-dtype)
+          (errors/when-not-errorf (== 1 (count data-shape))
+            "Data should is not rank 1 (%d)" (count data-shape))
+          (let [data-ary (dtype-cmc/->array-buffer data)
+                ^ArrayBuffer data-ary (if (== 1
+                                              (casting/numeric-byte-width data-dtype))
+                                        data-ary
+                                        (convert-to-bytes data-ary endianness))]
+            (.writeBytes this (.ary-data data-ary)
+                         (.offset data-ary) (.n-elems data-ary)))))))
 
-  dtype-proto/PToBuffer
-  (convertible-to-buffer? [this] true)
-  (->buffer [this]
+  java.lang.AutoCloseable
+  (close [this] @close-ref*)
+
+  dtype-proto/PToNativeBuffer
+  (convertible-to-native-buffer? [this] true)
+  (->native-buffer [this]
     (.force file-channel true)
     (mmap/mmap-file fpath (merge {:endianness endianness}
-                                 mmap-file-options)))
-
-  dtype-proto/PToReader
-  (convertible-to-reader? [this] true)
-  (->reader [this] (dtype-proto/->buffer this))
-
-  dtype-proto/PToWriter
-  (convertible-to-writer? [this] false))
+                                 mmap-file-options))))
 
 
 (defn mmap-writer
   "Create a new data writer that has a conversion to a mmaped native buffer upon
   ->buffer or ->reader.  Object metadata is passed to the mmap-file method so users
   can specify how the new file should interact with the resource system.
+
+  Binary data will be encoded to bytes using the endianness provided in the options.
+  Strings are encoded to UTF-8 but *may not be zero terminated!!*.
 
   Options:
 
@@ -111,96 +118,62 @@
   * `:open-options` - defaults to `:overwrite` - either `:overwrite` or `:append`.
   * `:resource-type` - defaults to :auto, one of the tech.v3.resource/track
      track-type  options.
-  * `:mmap-file-options` - options to pass to mmap-file."
+  * `:mmap-file-options` - options to pass to mmap-file.
+  * `:delete-on-close?` - defaults to false - When true, the file is deleted upon
+     close."
   (^DataWriter [fpath {:keys [endianness resource-type mmap-file-options
-                              open-options file-channel]
+                              open-options file-channel delete-on-close?]
                        :or {resource-type :auto
                             endianness (dtype-proto/platform-endianness)
-                            open-options :overwrite}
+                            open-options :append}
                        :as options}]
-   (let [file-channel (or file-channel
-                          (FileChannel/open
-                           (Paths/get (str fpath)
-                                      ^"L[java.lang.String;" (make-array String 0))
-                           (into-array (case open-options
-                                         :append [StandardOpenOption/APPEND]
-                                         :overwrite [StandardOpenOption/CREATE]))))
+   (let [fpath (str fpath)
+         file-channel
+         (or file-channel
+             (FileChannel/open
+              (Paths/get (str fpath)
+                         ^"L[java.lang.String;" (make-array String 0))
+              (into-array (concat (case open-options
+                                    :append [StandardOpenOption/APPEND
+                                             StandardOpenOption/CREATE
+                                             StandardOpenOption/WRITE]
+                                    :overwrite [StandardOpenOption/CREATE
+                                                StandardOpenOption/TRUNCATE_EXISTING
+                                                StandardOpenOption/WRITE])))))
          _ (errors/when-not-errorf (instance? FileChannel file-channel)
              "Argument 'file-channel' (%s) is not an instance of a java.nio.FileChannel."
              file-channel)
+         close-ref* (delay (do
+                             (log/debugf "closing %s" fpath)
+                             (.close ^FileChannel file-channel)
+                               (when delete-on-close?
+                                 (.delete (java.io.File. fpath)))))
          retval
          (MMapWriter. fpath
                       file-channel
                       endianness
-                      mmap-file-options)]
+                      (merge {:resource-type :auto} mmap-file-options)
+                      close-ref*)]
      (resource/track retval {:track-type resource-type
-                             :dispose-fn #(.close ^FileChannel file-channel)})))
+                             :dispose-fn #(deref close-ref*)})))
   (^DataWriter [fpath] (mmap-writer fpath nil)))
 
-(comment
-  (require '[criterium.core :as crit])
-  (defn write-100M-data [my-list]
-    (doall
-     (repeatedly 1000000
-                 #(do
-                    (.addObject my-list (apply str (repeat 100 "a"))))))
-    nil)
 
+(defn temp-mmap-writer
+  "Create a temporary mmap writer.
 
-  (defn write-1M-data [my-list]
-    (doall
-     (repeatedly 10000
-                 #(do
-                    (.addObject my-list (apply str (repeat 100 "a")))
-                    )))
-    nil)
+  Options -- See options for mmap-writer.  In addition:
 
-  (do
-    (crit/quick-bench
-     (do
-       (spit "/tmp/test.mmap" "")
-       (write-1M-data
-
-        (->MmapList
-         #(String. %)
-         #(.getBytes %)
-         :string
-         "/tmp/test.mmap"
-         (FileChannel/open  (Paths/get  (URI. "file:/tmp/test.mmap"))
-                            (into-array [StandardOpenOption/APPEND]))
-         (atom [])
-         (atom nil))))
-
-     )
-    ;; ->   Execution time mean : 140.223013 ms
-    ;; ->   72 ms with FileOutputStream
-    ;; ->   144 with FileChannel
-
-    ;; (crit/quick-bench
-    ;;  (do
-    ;;    (spit "/tmp/test.mmap" "")
-    ;;    (write-1M-data
-    ;;     (->MmapStringList-1 "/tmp/test.mmap"
-    ;;                         (atom [])
-    ;;                         (atom nil)))))
-
-    ;; ->  Execution time mean : 377.907873 ms
-    ))
-
-(comment
-  (def my-list
-    (->MmapList
-     #(String. %)
-     #(.getBytes %)
-     :string
-     "/tmp/test.mmap"
-     (FileChannel/open  (Paths/get  (URI. "file:/tmp/test.mmap"))
-                        (into-array [StandardOpenOption/APPEND]))
-     (atom [])
-     (atom nil)
-
-     ))
-
-  (.addObject my-list "this is a test")
-  (first my-list)
-  )
+  * `:delete-on-close` - defaults to true.
+  * `:temp-dir` - Temporary directory.  Defaults to the system property
+     \"java.io.tmpdir\".
+  * `:suffix` - Suffix to use to create the file.  Defaults to nothing."
+  (^DataWriter [{:keys [temp-dir suffix delete-on-close?]
+                 :or {temp-dir (System/getProperty "java.io.tmpdir")
+                      suffix ""
+                      delete-on-close? true}
+                 :as options}]
+   (let [fname (str (java.util.UUID/randomUUID) suffix)
+         fullpath (str (Paths/get (str temp-dir) (into-array String [fname])))]
+     (mmap-writer fullpath (assoc options :delete-on-close? delete-on-close?))))
+  (^DataWriter [] (temp-mmap-writer nil)))
