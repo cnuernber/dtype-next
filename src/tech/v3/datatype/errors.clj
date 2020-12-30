@@ -60,3 +60,8 @@
      (when-not-errorf (<= (+ offset# length#) elem-ecount#)
        "Offset %d + length (%d) out of range of item length %d"
        offset# length# elem-ecount#)))
+
+
+(defmacro throw-unimplemented
+  [& args]
+  `(throw (UnsupportedOperationException. "Not implemented")))

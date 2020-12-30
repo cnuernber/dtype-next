@@ -177,3 +177,9 @@
          fullpath (str (Paths/get (str temp-dir) (into-array String [fname])))]
      (mmap-writer fullpath (assoc options :delete-on-close? delete-on-close?))))
   (^DataWriter [] (temp-mmap-writer nil)))
+
+
+(defn path
+  "Get the path used for a particular mmap-writer"
+  [^MMapWriter mmap-writer]
+  (.fpath mmap-writer))
