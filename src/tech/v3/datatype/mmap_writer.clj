@@ -100,6 +100,24 @@
     (mmap/mmap-file fpath (merge {:endianness endianness}
                                  mmap-file-options))))
 
+(def ^:private shutdown-hook
+  (delay
+   (let [shutdown-list (java.util.ArrayList.)]
+     ;;First add the hook to ensure all files are deleted.
+     (.addShutdownHook
+      (Runtime/getRuntime)
+      (Thread. ^Runnable #(locking shutdown-list
+                            (doseq [close-ref* shutdown-list]
+                              (try
+                                @close-ref*
+                                (catch Throwable e
+                                  (log/error e "mmap-writer shutdown failure")))))
+               "tech.v3.datatype.mmap-writer shutdown hook"))
+     ;;Second, return a function to add more shutdown refs to the list
+     (fn [close-ref*]
+       (locking shutdown-list
+         (.add shutdown-list close-ref*))))))
+
 
 (defn mmap-writer
   "Create a new data writer that has a conversion to a mmaped native buffer upon
@@ -154,6 +172,10 @@
                       endianness
                       (merge {:resource-type :auto} mmap-file-options)
                       close-ref*)]
+     ;;Guarantee this file will be deleted when the JVM shuts down.
+     (when (and delete-on-close?
+                (= :gc (resource/normalize-track-type resource-type)))
+       (@shutdown-hook close-ref*))
      (resource/track retval {:track-type resource-type
                              :dispose-fn #(deref close-ref*)})))
   (^DataWriter [fpath] (mmap-writer fpath nil)))
