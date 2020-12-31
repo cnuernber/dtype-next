@@ -1,4 +1,4 @@
-(ns tech.v3.datatype.mmap-writer
+3.(ns tech.v3.datatype.mmap-writer
   "Provides the ability to efficiently write binary data to a file with an
   automatic conversion to a native-buffer using mmap.
 
@@ -195,7 +195,7 @@
                       suffix ""
                       delete-on-close? true}
                  :as options}]
-   (let [fname (str (java.util.UUID/randomUUID) suffix)
+   (let [fname (str "dtype-next-mmap-writer-"(java.util.UUID/randomUUID) suffix)
          fullpath (str (Paths/get (str temp-dir) (into-array String [fname])))]
      (mmap-writer fullpath (assoc options :delete-on-close? delete-on-close?))))
   (^DataWriter [] (temp-mmap-writer nil)))
