@@ -23,12 +23,26 @@
 
 
 (defn indexed-map-reduce
-  "Given a function that takes exactly 2 arguments, a start-index and a length,
-call this function exactly N times where N is ForkJoinPool/getCommonPoolParallelism.
-  Indexes will be split as evenly as possible among the invocations.  Uses
-  ForkJoinPool/commonPool for parallelism.  The entire list of results (outputs of
-  indexed-map-fn) are passed to reduce-fn; reduce-fn is called once.
-  When called with 2 arguments the reduction function is dorun"
+  "Execute `indexed-map-fn` over `n-groups` subranges of `(range num-iters)`.
+   Then call `reduce-fn` passing in entire in order result value sequence.
+
+  * `num-iters` - Indexes are the values of `(range num-iters)`.
+  * `indexed-map-fn` - Function that takes two integers, start-idx and group-len and
+    returns a value.  These values are then reduced using `reduce-fn`.
+  * `reduce-fn` - Function from sequence of values to result.
+  * `max-batch-size` - Safepoint batch size, defaults to 64000.  For more
+    information, see [java safepoint documentation](https://medium.com/software-under-the-hood/under-the-hood-java-peak-safepoints-dd45af07d766).
+
+  Implementation:
+
+  This function uses the `ForkJoinPool/commonPool` to parallelize iteration over
+  (range num-iters) indexes via splitting the index space up into
+  `(>= n-groups ForkJoinPool/getCommonPoolParallelism)` tasks.  In order to respect
+  safepoints, n-groups may be only be allowed to iterate over up to `max-batch-size`
+  indexes.
+
+  If the current thread is already in the common pool, this function executes in the
+  current thread."
   ([^long num-iters indexed-map-fn reduce-fn max-batch-size]
    (if (or (< num-iters (* 2 (ForkJoinPool/getCommonPoolParallelism)))
            (ForkJoinTask/inForkJoinPool))
