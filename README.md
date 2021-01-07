@@ -22,10 +22,12 @@ an index space.
 
 This library forms the numeric basis that underlies the ['tech.ml.dataset'](https://github.com/techascent/tech.ml.dataset)
 system.  It also defines a language independent ABI which allows zerocopy to C-based systems
-such as numpy, OpenCV, [Julia](https://github.com/cnuernber/libjulia-clj) and TVM.
+such as [numpy](https://github.com/clj-python/libpython-clj), [OpenCV](https://github.com/techascent/tech.opencv), 
+[Julia](https://github.com/cnuernber/libjulia-clj), [TVM](https://github.com/techascent/tvm-clj)
+and [neanderthal](https://github.com/uncomplicate/neanderthal).
 
 
-Targets of this library are:
+Additional targets of this library:
 
 
 *  Small runtime footprint.  This is harder than it looks but the main thing is that
@@ -34,6 +36,7 @@ Targets of this library are:
 *  Full native memory support.  Malloc, free, memset, memcpy.  Just the basics but
    guaranteed to be available.
 *  Graal Native support.
+*  Support for JDK-8 through JDK-14.
 
 
 Checkout the [API Documentation](https://cnuernber.github.io/dtype-next/)
@@ -46,9 +49,7 @@ Checkout the [API Documentation](https://cnuernber.github.io/dtype-next/)
   problems getting graal native to package resources.
 
 Use the scripts to get graal and compile test.  The code is located under native-test; so far
-reader/writing/copying all work for native and jvm heap datasets.  Tensors work but appear to
-really make the executable size larger; potentially this is the insn bindings which perhaps could
-be optional.
+reader/writing/copying all work for native and jvm heap datasets.  Tensors work.
 
 
 ## Graal Native
