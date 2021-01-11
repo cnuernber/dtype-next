@@ -28,6 +28,7 @@
             [tech.v3.datatype.pprint :as dtype-pp]
             [tech.v3.datatype.argops :as argops]
             [tech.v3.datatype.argtypes :refer [arg-type]]
+            [tech.v3.datatype.emap :as emap]
             [tech.v3.tensor.pprint :as tens-pp]
             [tech.v3.tensor.dimensions :as dims]
             [tech.v3.tensor.dimensions.analytics :as dims-analytics]
@@ -51,29 +52,18 @@
 (declare construct-tensor tensor-copy!)
 
 
-(deftype Tensor [buffer dimensions
-                 ^long rank
-                 ^LongNDReader index-system
-                 ^Buffer cached-io
-                 metadata]
-  dtype-proto/PElemwiseDatatype
-  (elemwise-datatype [t] (dtype-proto/elemwise-datatype buffer))
+(extend-type NDBuffer
   dtype-proto/PElemwiseCast
   (elemwise-cast [t new-dtype]
-    (construct-tensor (dtype-proto/elemwise-cast buffer new-dtype)
-                      dimensions
-                      metadata))
-  dtype-proto/PElemwiseReaderCast
-  (elemwise-reader-cast [t new-dtype]
-    (-> (construct-tensor (dtype-proto/elemwise-reader-cast buffer new-dtype)
-                          dimensions)
-        (dtype-base/->reader)))
+    (construct-tensor (dtype-proto/elemwise-cast
+                       (or (.buffer t)
+                           (.bufferIO t)) new-dtype)
+                      (.dimensions t)
+                      (meta t)))
   dtype-proto/PDatatype
   (datatype [this] :tensor)
-  dtype-proto/PECount
-  (ecount [t] (dims/ecount dimensions))
   dtype-proto/PShape
-  (shape [t] (.shape index-system))
+  (shape [t] (.shape t))
   dtype-proto/PClone
   (clone [t]
     (tensor-copy! t
@@ -81,29 +71,28 @@
                    (dtype-cmc/make-container (dtype-proto/elemwise-datatype t)
                                              (dtype-base/ecount t))
                    (dims/dimensions (dtype-proto/shape t))
-                   metadata)))
+                   (meta t))))
   dtype-proto/PToNDBufferDesc
   (convertible-to-nd-buffer-desc? [item]
-    (and (dtype-proto/convertible-to-native-buffer? buffer)
-         (dims/direct? dimensions)))
+    (and (.buffer item)
+         (dtype-proto/convertible-to-native-buffer? (.buffer item))
+         (dims/direct? (.dimensions item))))
   (->nd-buffer-descriptor [item]
-    (let [nbuf (dtype-base/->native-buffer buffer)]
+    (let [item-buf (.buffer item)
+          nbuf (dtype-base/->native-buffer (.buffer item))]
       {:ptr (.address nbuf)
        :datatype :tensor
-       :elemwise-datatype (dtype-base/elemwise-datatype buffer)
+       :elemwise-datatype (dtype-base/elemwise-datatype item-buf)
        :endianness (dtype-proto/endianness nbuf)
        :shape (dtype-base/shape item)
        :strides (mapv (partial * (casting/numeric-byte-width
-                                  (dtype-base/elemwise-datatype buffer)))
-                      (:strides dimensions))
+                                  (dtype-base/elemwise-datatype item-buf)))
+                      (:strides (.dimensions item)))
        ;;Include the native buffer so gc references are kept.
        :native-buffer nbuf}))
   dtype-proto/PToBuffer
   (convertible-to-buffer? [t] true)
-  (->buffer [t]
-    (if (dims/native? dimensions)
-      (dtype-proto/->buffer buffer)
-      (indexed-buffer/indexed-buffer (.indexSystem t) buffer)))
+  (->buffer [t] (.bufferIO t))
   dtype-proto/PToReader
   (convertible-to-reader? [t] (.allowsRead t))
   (->reader [t] (dtype-proto/->buffer t))
@@ -112,24 +101,29 @@
   (->writer [t] (dtype-proto/->buffer t))
   dtype-proto/PToArrayBuffer
   (convertible-to-array-buffer? [t]
-    (and (dtype-proto/convertible-to-array-buffer? buffer)
-         (dims/native? dimensions)))
-  (->array-buffer [t] (dtype-proto/->array-buffer buffer))
+    (when-let [buffer (.buffer t)]
+      (and (dtype-proto/convertible-to-array-buffer? buffer)
+           (dims/native? (.dimensions t)))))
+  (->array-buffer [t] (dtype-proto/->array-buffer (.buffer t)))
   dtype-proto/PToNativeBuffer
   (convertible-to-native-buffer? [t]
-    (and (dtype-proto/convertible-to-native-buffer? buffer)
-         (dims/native? dimensions)))
-  (->native-buffer [t] (dtype-proto/->native-buffer buffer))
+    (when-let [buffer (.buffer t)]
+      (and  (dtype-proto/convertible-to-native-buffer? buffer)
+            (dims/native? (.dimensions t)))))
+  (->native-buffer [t] (dtype-proto/->native-buffer (.buffer t)))
+
   dtype-proto/PTensor
   (reshape [t new-shape]
     (construct-tensor
-     (dtype-proto/->buffer t)
-     (dims/dimensions new-shape)))
+     (or (.buffer t) (.bufferIO t))
+     (dims/dimensions new-shape)
+     (meta t)))
   (select [t select-args]
     (let [{buf-offset :elem-offset
            buf-len :buffer-ecount
            :as new-dims}
-          (apply dims/select dimensions select-args)
+          (apply dims/select (.dimensions t) select-args)
+          buffer (or (.buffer t) (.bufferIO t))
           buf-offset (long buf-offset)
           new-buffer (if-not (and (== buf-offset 0)
                                   (or (not buf-len)
@@ -138,9 +132,12 @@
                          (dtype-base/sub-buffer buffer buf-offset buf-len)
                          (dtype-base/sub-buffer buffer buf-offset))
                        buffer)]
-    (construct-tensor new-buffer new-dims)))
+    (construct-tensor new-buffer new-dims (meta t))))
   (transpose [t transpose-vec]
-    (construct-tensor buffer (dims/transpose dimensions transpose-vec)))
+    (construct-tensor (or (.buffer t)
+                          (.bufferIO t))
+                      (dims/transpose (.dimensions t) transpose-vec)
+                      (meta t)))
   (broadcast [t bcast-shape]
     (let [tens-shape (dtype-base/shape t)
           n-tens-elems (dtype-base/ecount t)
@@ -162,15 +159,21 @@
                 (format "Broadcast shape (%s) is not commensurate with tensor shape %s"
                         bcast-shape tens-shape)
                 {})))
-      (construct-tensor buffer (dims/broadcast dimensions bcast-shape))))
+      (construct-tensor (or (.buffer t)
+                            (.bufferIO t))
+                        (dims/broadcast (.dimensions t)
+                                        bcast-shape)
+                        (meta t))))
   (rotate [t offset-vec]
-    (construct-tensor buffer
-                      (dims/rotate dimensions
-                                   (mapv #(* -1 (long %)) offset-vec))))
+    (construct-tensor (or (.buffer t) (.bufferIO t))
+                      (dims/rotate (.dimensions t)
+                                   (mapv #(* -1 (long %)) offset-vec))
+                      (meta t)))
   (slice [tens slice-dims right?]
     (let [t-shape (dtype-base/shape tens)
           n-shape (count t-shape)
-          slice-dims (long slice-dims)]
+          slice-dims (long slice-dims)
+          dimensions (.dimensions tens)]
       (when-not (<= slice-dims n-shape)
         (throw (ex-info (format "Slice operator n-dims out of range: %s:%s"
                                 slice-dims t-shape)
@@ -183,7 +186,7 @@
                 (dims/slice dimensions slice-dims))
               ^Buffer offsets (dtype-base/->reader offsets)
               n-offsets (.lsize offsets)
-              tens-buf buffer
+              tens-buf (or (.buffer tens) (.bufferIO tens))
               buf-ecount (:buffer-ecount dimensions)]
           (reify ObjectReader
             (lsize [rdr] n-offsets)
@@ -196,9 +199,27 @@
   (mget [t idx-seq]
     (.ndReadObjectIter t idx-seq))
   (mset! [t idx-seq value]
-    (.ndWriteObjectIter t idx-seq value))
+    (.ndWriteObjectIter t idx-seq value)))
+
+
+(dtype-pp/implement-tostring-print NDBuffer)
+
+
+(deftype Tensor [buffer dimensions
+                 ^long rank
+                 ^LongNDReader index-system
+                 ^Buffer cached-io
+                 metadata]
+  dtype-proto/PECount
+  (ecount [t] (.lsize t))
   NDBuffer
+  (lsize [t] (.lsize index-system))
+  (elemwiseDatatype [t] (dtype-proto/elemwise-datatype buffer))
   (buffer [t] buffer)
+  (bufferIO [t]
+    (if (dims/native? dimensions)
+      (dtype-proto/->buffer buffer)
+      (indexed-buffer/indexed-buffer (.indexSystem t) buffer)))
   (dimensions [t] dimensions)
   (indexSystem [t] index-system)
   (ndReadBoolean [t idx]
@@ -309,18 +330,159 @@
 (casting/add-object-datatype! :tensor NDBuffer false)
 
 
+;;Tensor used with native dimensions; ones with in-order strides
+(deftype DirectTensor [buffer dimensions
+                       ^long rank
+                       ^LongNDReader index-system
+                       ^Buffer cached-io
+                       ^long y
+                       ^long x
+                       ^long c
+                       metadata]
+  dtype-proto/PECount
+  (ecount [t] (.lsize t))
+  NDBuffer
+  (elemwiseDatatype [t] (dtype-proto/elemwise-datatype buffer))
+  (buffer [t] buffer)
+  (bufferIO [t]
+    (if (dims/native? dimensions)
+      (dtype-proto/->buffer buffer)
+      (indexed-buffer/indexed-buffer (.indexSystem t) buffer)))
+  (dimensions [t] dimensions)
+  (indexSystem [t] index-system)
+  (lsize [t] (.lsize index-system))
+  (ndReadBoolean [t idx]
+    (.readBoolean cached-io (* idx c)))
+  (ndReadBoolean [t row col]
+    (.readBoolean cached-io (+ (* row x) (* col c))))
+  (ndReadBoolean [t height width chan]
+    (.readBoolean cached-io (+ (* height y) (* width x) (* chan c))))
+  (ndWriteBoolean [t idx value]
+    (.writeBoolean cached-io (* idx c) value))
+  (ndWriteBoolean [t row col value]
+    (.writeBoolean cached-io (+ (* row x) (* col c)) value))
+  (ndWriteBoolean [t height width chan value]
+    (.writeBoolean cached-io (+ (* height y) (* width x) (* chan c))
+                   value))
+
+  (ndReadLong [t idx]
+    (.readLong cached-io (* idx c)))
+  (ndReadLong [t row col]
+    (.readLong cached-io (+ (* row x) (* col c))))
+  (ndReadLong [t height width chan]
+    (.readLong cached-io (+ (* height y) (* width x) (* chan c))))
+  (ndWriteLong [t idx value]
+    (.writeLong cached-io (* idx c) value))
+  (ndWriteLong [t row col value]
+    (.writeLong cached-io (+ (* row x) (* col c)) value))
+  (ndWriteLong [t height width chan value]
+    (.writeLong cached-io (+ (* height y) (* width x) (* chan c))
+                value))
+
+  (ndReadDouble [t idx]
+    (.readDouble cached-io (* idx c)))
+  (ndReadDouble [t row col]
+    (.readDouble cached-io (+ (* row x) (* col c))))
+  (ndReadDouble [t height width chan]
+    (.readDouble cached-io (+ (* height y) (* width x) (* chan c))))
+  (ndWriteDouble [t idx value]
+    (.writeDouble cached-io (* idx c) value))
+  (ndWriteDouble [t row col value]
+    (.writeDouble cached-io (+ (* row x) (* col c)) value))
+  (ndWriteDouble [t height width chan value]
+    (.writeDouble cached-io (+ (* height y) (* width x) (* chan c))
+                  value))
+
+  (ndReadObject [t idx]
+    (if (== 1 rank)
+      (.readObject cached-io (* idx c))
+      (dtype-proto/select t [idx])))
+  (ndReadObject [t row col]
+    (if (== 2 rank)
+      (.readObject cached-io (+ (* row x) (* col c)))
+      (dtype-proto/select t [row col])))
+  (ndReadObject [t height width chan]
+    (if (== 3 rank)
+      (.readObject cached-io (+ (* height y) (* width x) (* chan c)))
+      (dtype-proto/select t [height width chan])))
+  (ndReadObjectIter [t indexes]
+    (if (== (count indexes) rank)
+      (.readObject cached-io (.ndReadLongIter index-system indexes))
+      (dtype-proto/select t indexes)))
+  (ndWriteObject [t idx value]
+    (if (== 1 rank)
+      (.writeObject cached-io (* idx c) value)
+      (tensor-copy! value (.ndReadObject t idx))))
+  (ndWriteObject [t row col value]
+    (if (== 2 rank)
+      (.writeObject cached-io (+ (* row x) (* col c)) value)
+      (tensor-copy! value (.ndReadObject t row col))))
+  (ndWriteObject [t height width chan value]
+    (if (== 3 rank)
+      (.writeObject cached-io (+ (* height y) (* width x) (* chan c))
+                    value)
+      (tensor-copy! value (.ndReadObject t height width chan))))
+  (ndWriteObjectIter [t indexes value]
+    (if (== (count indexes) rank)
+      (.writeObject cached-io (.ndReadLongIter index-system indexes) value)
+      (tensor-copy! value (dtype-proto/select t indexes))))
+
+   (ndAccumPlusLong [t idx value]
+     (.accumPlusLong cached-io (* idx c) value))
+   (ndAccumPlusLong [t row chan value]
+     (.accumPlusLong cached-io (+ (* row x) (* chan c)) value))
+   (ndAccumPlusLong [t height width chan value]
+     (.accumPlusLong cached-io (+ (* height y) (* width x) (* chan c)) value))
+
+   (ndAccumPlusDouble [t idx value]
+     (.accumPlusDouble cached-io (* idx c) value))
+   (ndAccumPlusDouble [t width chan value]
+     (.accumPlusDouble cached-io (+ (* width x) (* chan c)) value))
+   (ndAccumPlusDouble [t height width chan value]
+     (.accumPlusDouble cached-io (+ (* height y) (* width x) (* chan c)) value))
+
+  (allowsRead [t] (.allowsRead cached-io))
+  (allowsWrite [t] (.allowsWrite cached-io))
+  (iterator [t]
+    (.iterator (dtype-proto/slice t 1 false)))
+  IObj
+  (meta [item] metadata)
+  (withMeta [item metadata]
+    (Tensor. buffer dimensions rank index-system cached-io metadata))
+  Object
+  (toString [t] (tens-pp/tensor->string t)))
+
+
 (defn construct-tensor
   "Construct an implementation of tech.v3.datatype.NDBuffer from a buffer and
   a dimensions object.  See dimensions/dimensions."
   ^Tensor [buffer dimensions & [metadata]]
-  (let [nd-desc (dims/->global->local dimensions)]
-    (Tensor. buffer dimensions
-             (.rank nd-desc)
-             nd-desc
-             (if (dtype-proto/convertible-to-buffer? buffer)
-               (dtype-proto/->buffer buffer)
-               (dtype-base/->reader buffer))
-             metadata)))
+  (let [nd-desc  (dims/->global->local dimensions)]
+    (if (dims/direct? dimensions)
+      (let [strides (:strides dimensions)
+            n-strides (count strides)
+            y (if (>= n-strides 3)
+                (nth strides 0)
+                0)
+            x (if (>= n-strides 2)
+                (nth strides (- n-strides 2))
+                0)
+            c (last strides)]
+        (DirectTensor. buffer dimensions
+                       (.rank nd-desc)
+                       nd-desc
+                       (if (dtype-proto/convertible-to-buffer? buffer)
+                         (dtype-proto/->buffer buffer)
+                         (dtype-base/->reader buffer))
+                       y x c
+                       metadata))
+      (Tensor. buffer dimensions
+               (.rank nd-desc)
+               nd-desc
+               (if (dtype-proto/convertible-to-buffer? buffer)
+                 (dtype-proto/->buffer buffer)
+                 (dtype-base/->reader buffer))
+               metadata))))
 
 
 (defn tensor?
@@ -670,92 +832,32 @@
                                                          ~output-shape ~strides ~'idx))))))))
 
 
-
-(extend-type NDBuffer
-  dtype-proto/PToBuffer
-  (convertible-to-buffer? [b] true)
-  (->buffer [b]
-    (let [b-dtype (dtype-base/elemwise-datatype b)
-          b-shape (.shape b)
-          n-elems (long (apply * (.shape b)))
-          shape-chan (long (last b-shape))
-          shape-x (long (or (last (butlast b-shape))
-                            0))
-          strides (dims-analytics/shape-ary->strides b-shape)]
-      (case (.rank b)
-        1 (case (casting/simple-operation-space (dtype-base/elemwise-datatype b))
-            :int64 (make-tensor-reader :int64 b-dtype 1 n-elems b b-shape shape-x shape-chan strides)
-            :float64 (make-tensor-reader :float64 b-dtype 1 n-elems b b-shape shape-x shape-chan strides)
-            (make-tensor-reader :object b-dtype 1 n-elems b b-shape shape-x shape-chan strides))
-        2 (case (casting/simple-operation-space (dtype-base/elemwise-datatype b))
-            :int64 (make-tensor-reader :int64 b-dtype 2 n-elems b b-shape shape-x shape-chan strides)
-            :float64 (make-tensor-reader :float64 b-dtype 2 n-elems b b-shape shape-x shape-chan strides)
-            (make-tensor-reader :object b-dtype 2 n-elems b b-shape shape-x shape-chan strides))
-        3 (case (casting/simple-operation-space (dtype-base/elemwise-datatype b))
-            :int64 (make-tensor-reader :int64 b-dtype 3 n-elems b b-shape shape-x shape-chan strides)
-            :float64 (make-tensor-reader :float64 b-dtype 3 n-elems b b-shape shape-x shape-chan strides)
-            (make-tensor-reader :object b-dtype 3 n-elems b b-shape shape-x shape-chan strides))
-        (case (casting/simple-operation-space (dtype-base/elemwise-datatype b))
-            :int64 (make-tensor-reader :int64 b-dtype 4 n-elems b b-shape shape-x shape-chan strides)
-            :float64 (make-tensor-reader :float64 b-dtype 4 n-elems b b-shape shape-x shape-chan strides)
-            (make-tensor-reader :object b-dtype 4 n-elems b b-shape shape-x shape-chan strides)))))
-  dtype-proto/PToReader
-  (convertible-to-reader? [b] true)
-  (->reader [b] (dtype-proto/->buffer b))
-  dtype-proto/PToTensor
-  (as-tensor [tr] tr)
-  dtype-proto/PClone
-  (clone [tr]
-    (dtype-proto/clone (construct-tensor
-                        (dtype-proto/->reader tr)
-                        (dims/dimensions (.shape tr))
-                        (meta tr))))
-  dtype-proto/PShape
-  (shape [tr] (.shape tr))
-  dtype-proto/PSubBuffer
-  (sub-buffer [tr off len]
-    (dtype-proto/sub-buffer (dtype-proto/->buffer tr) off len))
-  dtype-proto/PECount
-  (ecount [tr] (long (apply * (.shape tr))))
-  dtype-proto/PTensor
-  (reshape [t new-shape]
-    (dtype-proto/reshape (construct-tensor
-                          (dtype-proto/->reader t)
-                          (dims/dimensions (.shape t)))
-                         new-shape))
-  (select [t select-args]
-    (dtype-proto/select (construct-tensor
-                         (dtype-proto/->reader t)
-                         (dims/dimensions (.shape t)))
-                        select-args))
-  (transpose [t reorder-vec]
-    (dtype-proto/transpose (construct-tensor
-                            (dtype-proto/->reader t)
-                            (dims/dimensions (.shape t)))
-                           reorder-vec))
-  (broadcast [t new-shape]
-    (dtype-proto/transpose (construct-tensor
-                            (dtype-proto/->reader t)
-                            (dims/dimensions (.shape t)))
-                           new-shape))
-  (rotate [t offset-vec]
-    (dtype-proto/rotate (construct-tensor
-                         (dtype-proto/->reader t)
-                         (dims/dimensions (.shape t)))
-                        offset-vec))
-  (slice [t n-dims right?]
-    (dtype-proto/slice
-     (construct-tensor
-      (dtype-proto/->reader t)
-      (dims/dimensions (.shape t)))
-     n-dims right?))
-  (mget [t idx-seq]
-    (.ndReadObjectIter t idx-seq))
-  (mset! [t idx-seq val]
-    (errors/throwf "Tensor is not writable")))
-
-
-(dtype-pp/implement-tostring-print NDBuffer)
+(defn nd-buffer->buffer-reader
+  ^Buffer [^NDBuffer b]
+  (let [b-dtype (dtype-base/elemwise-datatype b)
+        b-shape (.shape b)
+        n-elems (long (apply * (.shape b)))
+        shape-chan (long (last b-shape))
+        shape-x (long (or (last (butlast b-shape))
+                          0))
+        strides (dims-analytics/shape-ary->strides b-shape)]
+    (case (.rank b)
+      1 (case (casting/simple-operation-space (dtype-base/elemwise-datatype b))
+          :int64 (make-tensor-reader :int64 b-dtype 1 n-elems b b-shape shape-x shape-chan strides)
+          :float64 (make-tensor-reader :float64 b-dtype 1 n-elems b b-shape shape-x shape-chan strides)
+          (make-tensor-reader :object b-dtype 1 n-elems b b-shape shape-x shape-chan strides))
+      2 (case (casting/simple-operation-space (dtype-base/elemwise-datatype b))
+          :int64 (make-tensor-reader :int64 b-dtype 2 n-elems b b-shape shape-x shape-chan strides)
+          :float64 (make-tensor-reader :float64 b-dtype 2 n-elems b b-shape shape-x shape-chan strides)
+          (make-tensor-reader :object b-dtype 2 n-elems b b-shape shape-x shape-chan strides))
+      3 (case (casting/simple-operation-space (dtype-base/elemwise-datatype b))
+          :int64 (make-tensor-reader :int64 b-dtype 3 n-elems b b-shape shape-x shape-chan strides)
+          :float64 (make-tensor-reader :float64 b-dtype 3 n-elems b b-shape shape-x shape-chan strides)
+          (make-tensor-reader :object b-dtype 3 n-elems b b-shape shape-x shape-chan strides))
+      (case (casting/simple-operation-space (dtype-base/elemwise-datatype b))
+        :int64 (make-tensor-reader :int64 b-dtype 4 n-elems b b-shape shape-x shape-chan strides)
+        :float64 (make-tensor-reader :float64 b-dtype 4 n-elems b b-shape shape-x shape-chan strides)
+        (make-tensor-reader :object b-dtype 4 n-elems b b-shape shape-x shape-chan strides)))))
 
 
 (defmacro typed-compute-tensor
@@ -812,7 +914,7 @@
           (dimensions [tr#] dims#)
           (indexSystem [tr#] (dims/->global->local dims#))
           (rank [tr#] rank#)
-          (buffer [tr#] nil)
+          (bufferIO [tr#] (nd-buffer->buffer-reader tr#))
           ;;Implement typed read access
           ~@(case (long rank)
               1 [`(~nd-read-fn [tr# ~c] ~op-code)
@@ -1054,3 +1156,80 @@ user> (dtt/compute-tensor [2 2 2] (fn [& args] (vec args)) :object)
    (native-tensor shape datatype nil))
   ([shape]
    (native-tensor shape :float64 nil)))
+
+
+(defn reduce-axis
+  "Reduce a tensor along an axis using reduce-fn on the elemwise entries.
+
+
+  * reduce-fn - lazily applied reduction applied to each input.  Inputs are
+    1-dimensional vectors.  Use clone to force the operation.
+  * tensor - input tensor to use.
+  * axis - Defaults to -1 meaning the last axis.  So the default would
+    reduce across the rows of a matrix.
+  * res-dtype - result datatype, defaults to the datatype of the incoming
+    tensor.
+
+Example:
+
+```clojure
+user> t
+#tech.v3.tensor<object>[4 3]
+[[0  1  2]
+ [3  4  5]
+ [6  7  8]
+ [9 10 11]]
+user> (dtt/reduce-axis dfn/sum t 0)
+#tech.v3.tensor<object>[3]
+[18.00 22.00 26.00]
+user> (dtt/reduce-axis dfn/sum t 1)
+#tech.v3.tensor<object>[4]
+[3.000 12.00 21.00 30.00]
+user> (dtt/reduce-axis dfn/sum t)
+#tech.v3.tensor<object>[4]
+[3.000 12.00 21.00 30.00]
+user> (dtt/reduce-axis dfn/sum t 0 :float64)
+#tech.v3.tensor<float64>[3]
+[18.00 22.00 26.00]
+
+
+user> (def t (dtt/new-tensor [2 3 5]))
+#'user/t
+user> (dtype/shape (dtt/reduce-axis t dfn/sum 0))
+Execution error at tech.v3.datatype.base/as-buffer (base.clj:84).
+Cannot convert nil to reader
+user> (dtype/shape (dtt/reduce-axis dfn/sum t 0))
+[3 5]
+user> (dtype/shape (dtt/reduce-axis dfn/sum t 1))
+[2 5]
+user> (dtype/shape (dtt/reduce-axis dfn/sum t 2))
+[2 3]
+```"
+  ([reduce-fn tensor axis res-dtype]
+   (let [rank (count (dtype-base/shape tensor))
+         dec-rank (dec rank)
+         res-dtype (or res-dtype (dtype-base/elemwise-datatype tensor))
+         axis (long axis)
+         axis (if (>= axis 0)
+                axis
+                (+ rank axis))
+         ;;Get a relative set of indexes into the original shape that we
+         ;;will use for transpose to move the reduction dimension to the
+         ;;last or 'row' position.
+         shape-idxes (remove #(= axis %) (range rank))
+         orig-shape (dtype-base/shape tensor)
+         ;;transpose the tensor so the reduction axis is the last one
+         tensor (if-not (= dec-rank axis)
+                  (transpose tensor (concat shape-idxes [axis]))
+                  tensor)
+         ;;slice to produce a sequence of rows
+         slices (slice tensor dec-rank)
+         ;;Result shape is the original shape minus the reduction axis.
+         result-shape (mapv orig-shape shape-idxes)]
+     (-> (emap/emap reduce-fn res-dtype slices)
+         ;;reshape to the result shape
+         (reshape result-shape))))
+  ([reduce-fn tensor axis]
+   (reduce-axis reduce-fn tensor axis nil))
+  ([reduce-fn tensor]
+   (reduce-axis reduce-fn tensor -1 nil)))

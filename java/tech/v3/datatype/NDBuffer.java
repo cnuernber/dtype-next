@@ -15,9 +15,9 @@ public interface NDBuffer extends DatatypeBase, Iterable, IFn,
 				  Sequential, Indexed,
 				  List, RandomAccess
 {
-  Object buffer();
+  // Buffer may be nil if this isn't a buffer backed tensor
+  default Object buffer() { return null; }
   Object dimensions();
-
   LongNDReader indexSystem();
   Buffer bufferIO();
   default Iterable shape() { return indexSystem().shape(); }
@@ -25,6 +25,7 @@ public interface NDBuffer extends DatatypeBase, Iterable, IFn,
   default int rank() { return indexSystem().rank(); }
   //Outermost dimension
   default long outermostDim() { return indexSystem().outermostDim(); }
+  default long lsize() { return indexSystem().lsize(); }
   //Scalar read methods have to be exact to the number of dimensions of the
   //tensor.
   boolean ndReadBoolean(long idx);

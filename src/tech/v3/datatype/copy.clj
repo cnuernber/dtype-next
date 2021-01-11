@@ -4,7 +4,8 @@
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.base :as dtype-base]
-            [tech.v3.datatype.protocols :as dtype-proto])
+            [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.errors :as errors])
   (:import [sun.misc Unsafe]
            [tech.v3.datatype.native_buffer NativeBuffer]
            [tech.v3.datatype.array_buffer ArrayBuffer]
@@ -15,8 +16,13 @@
 (set! *unchecked-math* :warn-on-boxed)
 
 
+(defonce error-on-generic-copy* (atom false))
+
+
 (defn generic-copy!
   [src dst]
+  (when @error-on-generic-copy*
+    (errors/throwf "Generic copy detected!"))
   (let [dst-dtype (dtype-base/elemwise-datatype dst)
         op-space (casting/simple-operation-space dst-dtype)
         src (dtype-base/->reader src dst-dtype)
