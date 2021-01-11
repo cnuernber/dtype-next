@@ -1195,9 +1195,6 @@ user> (dtt/reduce-axis dfn/sum t 0 :float64)
 
 user> (def t (dtt/new-tensor [2 3 5]))
 #'user/t
-user> (dtype/shape (dtt/reduce-axis t dfn/sum 0))
-Execution error at tech.v3.datatype.base/as-buffer (base.clj:84).
-Cannot convert nil to reader
 user> (dtype/shape (dtt/reduce-axis dfn/sum t 0))
 [3 5]
 user> (dtype/shape (dtt/reduce-axis dfn/sum t 1))
