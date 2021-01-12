@@ -769,10 +769,47 @@
 
 
 (defn transpose
-  "In-place transpose an n-d object into a new shape.  Returns a tensor."
-  ^NDBuffer [t new-shape]
+  "In-place transpose an n-d object into a new shape.  Returns a tensor.
+
+  reorder-indexes are the relative indexes of the old indexes
+
+  Example:
+
+```clojure
+user> (def tensor (dtt/->tensor (partition 2 (partition 3 (flatten (repeat 6 [:r :g :b])))))
+        )
+#'user/tensor
+user> tensor
+#tech.v3.tensor<object>[3 2 3]
+[[[:r :g :b]
+  [:r :g :b]]
+ [[:r :g :b]
+  [:r :g :b]]
+ [[:r :g :b]
+  [:r :g :b]]]
+user> (dtt/transpose tensor [2 0 1])
+#tech.v3.tensor<object>[3 3 2]
+[[[:r :r]
+  [:r :r]
+  [:r :r]]
+ [[:g :g]
+  [:g :g]
+  [:g :g]]
+ [[:b :b]
+  [:b :b]
+  [:b :b]]]
+user> (dtt/transpose tensor [1 2 0])
+#tech.v3.tensor<object>[2 3 3]
+[[[:r :r :r]
+  [:g :g :g]
+  [:b :b :b]]
+ [[:r :r :r]
+  [:g :g :g]
+  [:b :b :b]]]
+```"
+  ^NDBuffer [t reorder-indexes]
   (check-ns 'tech.v3.tensor)
-  (dtype-proto/transpose t new-shape))
+  (dtype-proto/transpose t reorder-indexes))
 
 
 (defn broadcast

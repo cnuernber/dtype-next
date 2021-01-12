@@ -115,7 +115,7 @@
   dtype-proto/PTensor
   (reshape [t new-shape]
     (construct-tensor
-     (or (.buffer t) (.bufferIO t))
+     (.bufferIO t)
      (dims/dimensions new-shape)
      (meta t)))
   (select [t select-args]
