@@ -453,6 +453,9 @@
   (toString [t] (tens-pp/tensor->string t)))
 
 
+(dtype-pp/implement-tostring-print DirectTensor)
+
+
 (defn construct-tensor
   "Construct an implementation of tech.v3.datatype.NDBuffer from a buffer and
   a dimensions object.  See dimensions/dimensions."
@@ -536,7 +539,9 @@
   ^Tensor [data & {:keys [datatype container-type]
                    :as options}]
   (let [data-shape (dtype-base/shape data)
-        datatype (or datatype (dtype-base/elemwise-datatype data))
+        datatype (if (dtype-base/array? data)
+                   (dtype-base/nested-array-elemwise-datatype data)
+                   (or datatype (dtype-base/elemwise-datatype data)))
         container-type (or container-type :jvm-heap)
         n-elems (apply * 1 data-shape)]
     (construct-tensor
@@ -546,7 +551,7 @@
        (dtype-cmc/make-container container-type datatype
                                  (assoc options :uninitialized? true)
                                  n-elems)
-       0 options))
+       0 (assoc options :rectangular? true)))
      (dims/dimensions data-shape))))
 
 

@@ -9,7 +9,8 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.parallel.for :as parallel-for])
   (:import [tech.v3.datatype Buffer
-            ObjectBuffer ElemwiseDatatype ObjectReader NDBuffer]
+            ObjectBuffer ElemwiseDatatype ObjectReader NDBuffer
+            LongReader DoubleReader]
            [tech.v3.datatype.array_buffer ArrayBuffer]
            [tech.v3.datatype.native_buffer NativeBuffer]
            [clojure.lang IPersistentCollection APersistentMap APersistentVector APersistentSet]
@@ -387,9 +388,179 @@
        (not (iterable? item))
        (not (reader? item)))))
 
+(extend-type Class
+  dtype-proto/PDatatype
+  (datatype [cls]
+    (.getOrDefault casting/class->datatype-map cls :object)))
+
+
+(defn nested-array-elemwise-datatype
+  [item]
+  (when item
+    (loop [item-cls (.getClass ^Object item)]
+      (let [^Class comp-type (.getComponentType item-cls)]
+        (if (and comp-type (.isArray comp-type))
+          (recur comp-type)
+          (dtype-proto/datatype comp-type))))))
+
+
+(defn shape-ary->stride-ary
+  "Strides assuming everything is increasing and packed."
+  ^longs [shape-vec]
+  (let [retval (long-array (count shape-vec))
+        shape-vec (->buffer shape-vec)
+        n-elems (alength retval)
+        n-elems-dec (dec n-elems)]
+    (loop [idx n-elems-dec
+           last-stride 1]
+      (if (>= idx 0)
+        (let [next-stride (* last-stride
+                             (if (== idx n-elems-dec)
+                               1
+                               (.readLong shape-vec (inc idx))))]
+          (aset retval idx next-stride)
+          (recur (dec idx) next-stride))
+        retval))))
+
+(def byte-array-class (Class/forName "[B"))
+(def short-array-class (Class/forName "[S"))
+(def char-array-class (Class/forName "[C"))
+(def int-array-class (Class/forName "[I"))
+(def long-array-class (Class/forName "[J"))
+(def float-array-class (Class/forName "[F"))
+(def double-array-class (Class/forName "[D"))
+
+
+(defn make-nested-array-get-value-fn
+  [narray]
+  (let [ary-shape (shape narray)
+        n-shape (dec (count ary-shape))
+        barray-class (loop [narray-cls (.getClass ^Object narray)
+                            idx 0]
+                       (if (< idx n-shape)
+                         (recur (.getComponentType ^Class narray-cls)
+                                (unchecked-inc idx))
+                         narray-cls))]
+    (cond
+      (identical? byte-array-class barray-class)
+      (fn [^bytes barray ^long idx]
+        (aget barray idx))
+      (identical? char-array-class barray-class)
+      (fn [^chars barray ^long idx]
+        (aget barray idx))
+      (identical? short-array-class barray-class)
+      (fn [^shorts barray ^long idx]
+        (aget barray idx))
+      (identical? int-array-class barray-class)
+      (fn [^ints barray ^long idx]
+        (aget barray idx))
+      (identical? long-array-class barray-class)
+      (fn [^longs barray ^long idx]
+        (aget barray idx))
+      (identical? float-array-class barray-class)
+      (fn [^floats barray ^long idx]
+        (aget barray idx))
+      (identical? double-array-class barray-class)
+      (fn [^doubles barray ^long idx]
+        (aget barray idx))
+      :else
+      (fn [^"[Ljava.lang.Object;" barray ^long idx]
+        (aget barray idx)))))
+
+
+(defn rectangular-nested-array->elemwise-reader
+  [narray]
+  (let [^"[Ljava.lang.Object;" narray narray
+        ary-shape (int-array (shape narray))
+        ary-strides (shape-ary->stride-ary ary-shape)
+        n-elems (long (apply * ary-shape))
+        n-strides (alength ary-strides)
+        d-n-strides (dec n-strides)
+        gval-fn (make-nested-array-get-value-fn narray)
+        edtype (nested-array-elemwise-datatype narray)]
+    (case (count ary-shape)
+      2 (let [n-x (long (aget ary-strides 0))]
+          (reify ObjectReader
+            (elemwiseDatatype [rdr] edtype)
+            (lsize [rdr] n-elems)
+            (readObject [rdr idx]
+              (let [barray (aget narray (quot idx n-x))]
+                (gval-fn barray (rem idx n-x))))))
+      3 (let [n-y (long (aget ary-strides 0))
+              n-x (long (aget ary-strides 1))]
+          (reify ObjectReader
+            (elemwiseDatatype [rdr] edtype)
+            (lsize [rdr] n-elems)
+            (readObject [rdr idx]
+              (let [^"[Ljava.lang.Object;" narray (aget narray (quot idx n-y))
+                    leftover (rem idx n-y)
+                    barray (aget narray (quot leftover n-x))]
+                (gval-fn barray (rem leftover n-x))))))
+      (reify ObjectReader
+        (elemwiseDatatype [rdr] edtype)
+        (lsize [rdr] n-elems)
+        (readObject [rdr idx]
+          (let [n-x (aget ary-strides (long (dec d-n-strides)))
+                chan (rem idx n-x)
+                barray
+                (loop [stride-idx 0
+                       narray narray
+                       idx idx]
+                  (let [stride (aget ary-strides stride-idx)
+                        ary-idx (quot idx stride)
+                        idx (rem idx stride)]
+                    (if (< stride-idx d-n-strides)
+                      (recur (unchecked-inc stride-idx)
+                             (aget ^"[Ljava.lang.Object;" narray ary-idx)
+                             idx)
+                      narray)))]
+            (gval-fn barray chan)))))))
+
+(defn rectangular-nested-array->array-reader
+  ^Buffer [narray]
+  (let [^"[Ljava.lang.Object;" narray narray
+        ary-shape (int-array (drop-last (shape narray)))
+        ary-strides (shape-ary->stride-ary ary-shape)
+        n-elems (long (apply * ary-shape))
+        n-strides (alength ary-strides)
+        d-n-strides (dec n-strides)]
+    (case (count ary-shape)
+      1 (reify ObjectReader
+          (lsize [rdr] n-elems)
+          (readObject [rdr idx]
+            (aget narray idx)))
+      2 (let [n-x (long (aget ary-strides 1))]
+          (reify ObjectReader
+            (lsize [rdr] n-elems)
+            (readObject [rdr idx]
+              (let [^"[Ljava.lang.Object;" narray (aget narray (quot idx n-x))
+                    leftover (rem idx n-x)
+                    barray (aget narray (quot leftover n-x))]
+                barray))))
+      (reify ObjectReader
+        (lsize [rdr] n-elems)
+        (readObject [rdr idx]
+          (let [n-x (aget ary-strides (long (dec d-n-strides)))
+                chan (rem idx n-x)
+                barray
+                (loop [stride-idx 0
+                       narray narray
+                       idx idx]
+                  (let [stride (aget ary-strides stride-idx)
+                        ary-idx (quot idx stride)
+                        idx (rem idx stride)]
+                    (if (< stride-idx d-n-strides)
+                      (recur (unchecked-inc stride-idx)
+                             (aget ^"[Ljava.lang.Object;" narray ary-idx)
+                             idx)
+                      narray)))]
+            (aget ^"[Ljava.lang.Object;" barray chan)))))))
+
 
 ;;Datatype library Object defaults.  Here lie dragons.
 (extend-type Object
+  dtype-proto/PElemwiseDatatype
+  (elemwise-datatype [item] :object)
   dtype-proto/PDatatype
   (datatype [item]
     (if-let [buffer (as-concrete-buffer item)]

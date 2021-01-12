@@ -16,8 +16,6 @@
 
 
 (extend-protocol PElemwiseDatatype
-  Object
-  (elemwise-datatype [item] :object)
   ElemwiseDatatype
   (elemwise-datatype [item] (.elemwiseDatatype item)))
 

@@ -4,7 +4,8 @@
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.argtypes :as argtypes]
-            [tech.v3.parallel.for :as parallel-for])
+            [tech.v3.datatype.copy :as dtype-cp]
+            [tech.v3.parallel.for :as pfor])
   (:import [java.util RandomAccess]))
 
 
@@ -42,6 +43,32 @@
   Object
   (copy-raw->item! [raw-data ary-target ^long target-offset options]
     (cond
+      (and (:rectangular? options) (dtype-base/array? raw-data))
+      (let [dshape (dtype-base/shape raw-data)]
+        (cond
+          (== 1 (count dshape))
+          (raw-dtype-copy! raw-data ary-target target-offset options)
+          (< (long (last dshape)) 1000)
+          ;;fast paths for rectangular arrays-of-arrays
+          (raw-dtype-copy! (dtype-base/rectangular-nested-array->elemwise-reader
+                            raw-data)
+                           ary-target target-offset options)
+          :else
+          (let [ary-rdr (dtype-base/rectangular-nested-array->array-reader
+                         raw-data)
+                target-offset (long target-offset)
+                n-sub-elems (long (last dshape))
+                n-sub-arrays (.lsize ary-rdr)]
+            (pfor/parallel-for
+             ary-idx
+             n-sub-arrays
+             (dtype-cp/high-perf-copy!
+              (ary-rdr ary-idx)
+              (dtype-proto/sub-buffer ary-target (+ target-offset
+                                                    (* n-sub-elems ary-idx))
+                                      n-sub-elems)
+              n-sub-elems))
+            [ary-target (+ target-offset (* n-sub-elems n-sub-arrays))])))
       (dtype-proto/convertible-to-reader? raw-data)
       (let [src-reader (dtype-base/->reader raw-data)]
         (if (or (not= :object (casting/flatten-datatype

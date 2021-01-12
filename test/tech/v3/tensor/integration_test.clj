@@ -198,3 +198,31 @@
     (is (dfn/equals (dtt/->tensor [[10.00 35.00 60.00]
                                    [85.00 110.0 135.0]])
                     (dtt/reduce-axis dfn/sum src-tens 2)))))
+
+
+(defn array-of-array->tensor
+  []
+  (let [d2 (->> (range 2000000)
+                (partition 2)
+                (map double-array)
+                into-array)]
+    (println "nested array of tensor shape" (dtype/shape d2))
+    (time (dtt/->tensor d2)))
+  (let [d4 (->> (range 2000000)
+                (partition 4)
+                (map double-array)
+                into-array)]
+    (println "nested array of tensor shape" (dtype/shape d4))
+    (time (dtt/->tensor d4)))
+  (let [d100 (->> (range 2000000)
+                (partition 100)
+                (map double-array)
+                into-array)]
+    (println "nested array of tensor shape" (dtype/shape d100))
+    (time (dtt/->tensor d100)))
+  (let [d10000 (->> (range 2000000)
+                   (partition 10000)
+                   (map double-array)
+                   into-array)]
+    (println "nested array of tensor shape" (dtype/shape d10000))
+    (time (dtt/->tensor d10000))))
