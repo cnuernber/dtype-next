@@ -776,8 +776,7 @@
   Example:
 
 ```clojure
-user> (def tensor (dtt/->tensor (partition 2 (partition 3 (flatten (repeat 6 [:r :g :b])))))
-        )
+user> (def tensor (dtt/->tensor (partition 2 (partition 3 (flatten (repeat 6 [:r :g :b]))))))
 #'user/tensor
 user> tensor
 #tech.v3.tensor<object>[3 2 3]
