@@ -162,12 +162,22 @@
      (binaryChar [this lhs rhs] (= lhs rhs))
      (binaryInt [this lhs rhs] (== lhs rhs))
      (binaryLong [this lhs rhs] (== lhs rhs))
-     (binaryFloat [this lhs rhs] (Precision/equalsIncludingNaN lhs rhs))
-     (binaryDouble [this lhs rhs] (Precision/equalsIncludingNaN lhs rhs))
+     (binaryFloat [this lhs rhs]
+       (if (Float/isNaN lhs)
+         (Float/isNaN rhs)
+         (pmath/== lhs rhs)))
+     (binaryDouble [this lhs rhs]
+       (if (Double/isNaN lhs)
+         (Double/isNaN rhs)
+         (pmath/== lhs rhs)))
      (binaryObject [this lhs rhs]
-       (if lhs
-         (.equals ^Object lhs rhs)
-         (= lhs rhs)))
+       (if (and (number? lhs) (number? rhs))
+         (if (and (integer? lhs) (integer? rhs))
+           (.binaryLong this lhs rhs)
+           (.binaryDouble this lhs rhs))
+         (if lhs
+           (.equals ^Object lhs rhs)
+           (= lhs rhs))))
      dtype-proto/POperator
      (op-name [this] :eq))
    :tech.numerics/not-eq

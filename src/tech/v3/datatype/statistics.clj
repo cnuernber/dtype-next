@@ -256,7 +256,14 @@
                           0
                           Double/NaN)]))
           (into {})))
-   (let [rdr (dtype-base/->reader rdr :float64)
+   (let [rdr (dtype-base/->reader
+              (if (dtype-base/reader? rdr)
+                rdr
+                (dtype-cmc/make-container
+                 :jvm-heap
+                 :float64
+                 {:nan-strategy :keep}
+                 (or rdr []))))
          stats-set (set stats-names)
          median? (stats-set :median)
          percentile-set #{:quartile-1 :quartile-3}
@@ -280,13 +287,18 @@
          options (if median?
                    (assoc options :nan-strategy :keep)
                    options)
-         stats-data (merge (when median?
-                             (let [n-elems (dtype-base/ecount rdr)]
-                               {:min (rdr 0)
-                                :max (rdr (unchecked-dec n-elems))
-                                :median (rdr (quot n-elems 2))
-                                :n-values n-elems}))
-                           stats-data)
+         n-elems (dtype-base/ecount rdr)
+         stats-data (merge
+                     {:n-values n-elems}
+                     (if (== 0 n-elems)
+                       {:min ##NaN
+                        :max ##NaN
+                        :median ##NaN}
+                       (when median?
+                         {:min (rdr 0)
+                          :max (rdr (unchecked-dec n-elems))
+                          :median (rdr (quot n-elems 2))}))
+                     stats-data)
          calculate-stats-set (set/difference stats-set (set (keys stats-data)))
          dependency-set (reduce set/union (map node-dependencies calculate-stats-set))
          calculated-dependency-set (reduce set/union

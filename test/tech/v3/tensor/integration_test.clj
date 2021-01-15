@@ -59,7 +59,7 @@
         ;; There are 2N checks for correct datatype in this pathway; everything else
         ;; is read/operated on as a short integer.
         reader-composition  #(-> source-image
-                                 (dtt/select :all :all [2 1 0])
+                                 (dtt/select :all :all (long-array [2 1 0]))
                                  (dfn/+ 50)
                                  ;;Clamp top end to 0-255
                                  (dfn/min 255)

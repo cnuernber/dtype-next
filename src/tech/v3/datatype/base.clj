@@ -582,10 +582,23 @@
              (dispatch/typed-map-1 cast-fn new-dtype item))
            (fn [op-dtype item]
              (let [src-rdr (->reader item)]
-               (reify ObjectReader
-                 (elemwiseDatatype [rdr] new-dtype)
-                 (lsize [rdr] (.lsize src-rdr))
-                 (readObject [rdr idx] (cast-fn (.readObject src-rdr idx))))))
+               (case (casting/simple-operation-space op-dtype
+                                                     (elemwise-datatype src-rdr))
+                 :int64
+                 (reify LongReader
+                   (elemwiseDatatype [rdr] new-dtype)
+                   (lsize [rdr] (.lsize src-rdr))
+                   (readLong [rdr idx] (.readLong src-rdr idx)))
+                 :float64
+                 (reify DoubleReader
+                   (elemwiseDatatype [rdr] new-dtype)
+                   (lsize [rdr] (.lsize src-rdr))
+                   (readDouble [rdr idx] (.readDouble src-rdr idx)))
+                 (reify ObjectReader
+                   (elemwiseDatatype [rdr] new-dtype)
+                   (lsize [rdr] (.lsize src-rdr))
+                   (readObject [rdr idx]
+                     (cast-fn (.readObject src-rdr idx)))))))
            item)))))
   dtype-proto/PElemwiseReaderCast
   (elemwise-reader-cast [item new-dtype]

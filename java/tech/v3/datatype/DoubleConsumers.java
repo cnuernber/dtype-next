@@ -111,18 +111,30 @@ public class DoubleConsumers
       max = Math.max(val, max);
       nElems++;
     }
+    double getMin() {
+      if (nElems == 0)
+	return Double.NaN;
+      return min;
+    }
+
+    double getMax() {
+      if (nElems == 0)
+	return Double.NaN;
+      return max;
+    }
+
     public void inplaceCombine(Consumers.StagedConsumer _other) {
       MinMaxSum other = (MinMaxSum)_other;
       sum += other.sum;
-      min = Math.min(min, other.min);
-      max = Math.max(max, other.max);
+      min = Math.min(getMin(), other.min);
+      max = Math.max(getMax(), other.max);
       nElems += other.nElems;
     }
     public Object value() {
       HashMap retval = new HashMap();
       retval.put(sumKwd, sum);
-      retval.put(minKwd, min);
-      retval.put(maxKwd, max);
+      retval.put(minKwd, getMin());
+      retval.put(maxKwd, getMax());
       retval.put(ScalarReduceBase.nElemsKwd, nElems);
       return retval;
     }

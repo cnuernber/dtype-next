@@ -76,9 +76,10 @@
        (reify ObjectReader
          (elemwiseDatatype [rdr] res-dtype)
          (lsize [rdr] n-elems)
-         (readObject [rdr idx] (.binaryObject binop
-                                              (.readObject lhs idx)
-                                              (.readObject rhs idx)))))))
+         (readObject [rdr idx]
+           (.binaryObject binop
+                          (.readObject lhs idx)
+                          (.readObject rhs idx)))))))
   (^Buffer [binop lhs rhs]
    (reader binop (casting/widest-datatype
                   (dtype-base/elemwise-datatype lhs)

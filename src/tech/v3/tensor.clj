@@ -60,6 +60,15 @@
                            (.bufferIO t)) new-dtype)
                       (.dimensions t)
                       (meta t)))
+  dtype-proto/PElemwiseReaderCast
+  (elemwise-reader-cast [t new-dtype]
+    (let [new-tens
+          (construct-tensor (dtype-proto/elemwise-reader-cast
+                             (or (.buffer t)
+                                 (.bufferIO t)) new-dtype)
+                            (.dimensions t)
+                            (meta t))]
+      (.bufferIO ^NDBuffer new-tens)))
   dtype-proto/PDatatype
   (datatype [this] :tensor)
   dtype-proto/PShape

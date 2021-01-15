@@ -622,3 +622,33 @@
   (is (= [0 0 4 5 6]
          (mapv #(argops/binary-search (vec "bcdefg") %)
                [\a \b \f \g \h]))))
+
+
+(deftest seq-empty-stats
+  (let [stats #{:min :max :n-values :median}
+        dfn-map-eq (fn [key-seq expected data-map]
+                     (every? identity (dfn/eq expected
+                                              (mapv data-map key-seq))))]
+    (is (= {:min 1, :median 2, :max 4 :n-values 3}
+           (->> (dfn/descriptive-statistics stats (list 1 2 ##NaN 4))
+                (map (fn [[k v]]
+                       [k (int v)]))
+                (into {}))))
+    (is (dfn-map-eq [:min :median :max :n-values] [##NaN ##NaN ##NaN 0]
+                    (dfn/descriptive-statistics stats (list ##NaN ##NaN ##NaN))))
+    (is (dfn-map-eq [:min :max :n-values] [##NaN ##NaN 0]
+                    (dfn/descriptive-statistics
+                     (disj stats :median)
+                     (list ##NaN ##NaN ##NaN))))
+    (is (dfn-map-eq [:mean :standard-deviation]
+                    [##NaN 0.0]
+                    (dfn/descriptive-statistics #{:mean :standard-deviation}
+                                                  (list))))
+    (is (dfn-map-eq [:mean :standard-deviation]
+                    [##NaN 0.0]
+                    (dfn/descriptive-statistics #{:mean :standard-deviation}
+                                                nil)))))
+
+(deftest tricky-double-values
+  (is (dfn/eq 0.0 -0.0))
+  (is (dfn/eq Double/NaN Double/NaN)))
