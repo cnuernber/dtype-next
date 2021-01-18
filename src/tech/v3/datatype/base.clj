@@ -775,7 +775,27 @@
   Shape arguments may be readers, ranges, integers, or the keywords [:all :lla].
   :all means take the entire dimension, :lla means reverse the dimension.
   Arguments are applied left to right and any missing arguments are assumed to
-  be :all."
+  be :all.
+  
+  Example:
+  
+  ```clojure
+  user> (dtt/select (dtt/->tensor [1 2 3]) [0 2])
+  #tech.v3.tensor<object>[2]
+  [1 3]
+  
+  user> (def tensor (dtt/->tensor
+              [[1 2 3]
+               [4 5 6]]))
+  #'user/tensor
+  user> (dtt/select tensor [1] [0 2])
+  #tech.v3.tensor<object>[2]
+  [4 6]
+  user> (dtt/select tensor [0 1] [1 2])
+  #tech.v3.tensor<object>[2 2]
+  [[2 3]
+   [5 6]]
+  ```"
   ^NDBuffer [t & new-shape]
   (check-ns 'tech.v3.tensor)
   (dtype-proto/select t new-shape))
