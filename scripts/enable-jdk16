@@ -1,0 +1,5 @@
+#!/bin/bash
+
+
+export PATH=$(pwd)/jdk-16/bin:$PATH
+export JAVA_HOME=$(pwd)/jdk-16/
