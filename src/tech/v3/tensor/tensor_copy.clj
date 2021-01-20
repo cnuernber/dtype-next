@@ -90,8 +90,8 @@
                      (casting/host-flatten dst-dtype)
                      dst-dtype)
          ;;Getting the buffers defeats a check in the tensors
-         src-buffer (dtype-base/as-buffer (.buffer src))
-         dst-buffer (dtype-base/as-buffer (.buffer dst))]
+         src-buffer (when (.buffer src) (dtype-base/as-buffer (.buffer src)))
+         dst-buffer (when (.buffer dst) (dtype-base/as-buffer (.buffer dst)))]
      (when (and src-buffer
                 dst-buffer
                 (= src-dtype

@@ -3,13 +3,15 @@
   (:require [tech.v3.tensor :as tens]
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.functional :as dtype-fn]
-            [clojure.test :refer :all]))
+            [tech.v3.datatype.bitmap :as bitmap]
+            [clojure.test :refer :all])
+  (:import [java.util Set]))
 
 
 (defn membership
   [lhs rhs]
-  (let [membership-set (set (dtype/->vector rhs))]
-    (dtype/emap #(contains? membership-set %) :boolean lhs)))
+  (let [membership-set (bitmap/->bitmap rhs)]
+    (dtype/emap #(.contains membership-set %) :boolean lhs)))
 
 
 (defn apl-take
@@ -50,7 +52,7 @@
     (tens/rotate tens offsets)))
 
 
-(def range-tens (tens/reshape (vec (range 9)) [3 3]))
+(def range-tens (tens/->tensor (partition 3 (range 9)) :datatype :int8))
 
 (def bool-tens (-> range-tens
                    (membership [1 2 3 4 7])
@@ -143,6 +145,56 @@
 (deftest game-of-life-test
   (is (= end-state
          (->> (life-seq RR)
+              (take 1000)
+              last
+              (tens/->jvm)))))
+
+
+(defmacro ^:private center-coord
+  [loc dshp]
+  `(let [loc# (rem ~loc ~dshp)]
+     (if (< loc# 0)
+       (+ loc# ~dshp)
+       loc#)))
+
+
+(defn game-of-life-compute-op
+  [input-tens]
+  (let [[yshp xshp] (dtype/shape input-tens)
+        yshp (long yshp)
+        xshp (long xshp)
+        input-tens (tens/ensure-tensor input-tens)]
+    (-> (tens/compute-tensor
+         [yshp xshp]
+         (fn [^long y ^long x]
+           (let [original (.ndReadLong input-tens y x)
+                 conv-sum (long (loop [idx 0
+                                       sum 0]
+                                  (if (< idx 9)
+                                    (let [conv-y (unchecked-dec (quot idx 3))
+                                          conv-x (unchecked-dec (rem idx 3))
+                                          y-coord (center-coord (+ y conv-y) yshp)
+                                          x-coord (center-coord (+ x conv-x) xshp)]
+                                      (recur (unchecked-inc idx)
+                                             (+ sum (.ndReadDouble input-tens y-coord
+                                                                   x-coord))))
+                                    sum)))]
+             (if (or (== 3 conv-sum)
+                     (and (not= 0 original)
+                          (== 4 conv-sum)))
+               1
+               0)))
+         (dtype/elemwise-datatype input-tens))
+        (dtype/clone))))
+
+(defn life-compute-seq
+  [input]
+  (cons input (lazy-seq (life-compute-seq (game-of-life-compute-op input)))))
+
+
+(deftest game-of-life-compute-test
+  (is (= end-state
+         (->> (life-compute-seq RR)
               (take 1000)
               last
               (tens/->jvm)))))
