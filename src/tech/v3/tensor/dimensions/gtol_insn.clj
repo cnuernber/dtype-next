@@ -351,7 +351,7 @@
      :interfaces [LongReader]
      :fields (vec (emit-fields shape-scalar-vec fields))
      :methods [{:flags #{:public}
-                :name :init
+                :wname :init
                 :desc [(Class/forName "[Ljava.lang.Object;")
                        (Class/forName "[J")
                        (Class/forName "[J")
