@@ -14,7 +14,7 @@
                  [org.roaringbitmap/RoaringBitmap  "0.9.0"]
                  [techascent/tech.resource         "5.02"]
                  [techascent/tech.jna "4.05" :scope "provided"]]
-  :java-source-paths ["java" "java_jdk16"]
+  :java-source-paths ["java"]
   :javac-options ["--add-modules" "jdk.incubator.foreign"]
   :jvm-opts ["--add-modules" "jdk.incubator.foreign" "-Dforeign.restricted=permit"]
   :source-paths ["src" "src_jdk_16"]

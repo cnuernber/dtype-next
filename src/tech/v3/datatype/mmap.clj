@@ -17,14 +17,14 @@
   "Memory map a file returning a native buffer.  fpath must resolve to a valid
    java.io.File.
   Options
-  * :resource-type - maps to tech.v3.resource `:track-type`.
+  * :resource-type - maps to tech.v3.resource `:track-type`, defaults to :auto.
   * :mmap-mode
     * :read-only - default - map the data as shared read-only.
     * :read-write - map the data as shared read-write.
     * :private - map a private copy of the data and do not share."
-  ([fpath {:keys [resource-type mmap-mode endianness]
-           :or {resource-type :gc
-                mmap-mode :read-only}}]
+  (^NativeBuffer [fpath {:keys [resource-type mmap-mode endianness]
+                         :or {resource-type :auto
+                              mmap-mode :read-only}}]
    (let [file (io/file fpath)
          _ (when-not (.exists file)
              (throw (Exception. (format "%s not found" fpath))))
@@ -43,5 +43,5 @@
                         :track-type :stack}))
      (native-buffer/wrap-address (.address map-buf) (.mapSize map-buf) :int8
                                  endianness map-buf)))
-  ([fpath]
+  (^NativeBuffer [fpath]
    (mmap-file fpath {})))
