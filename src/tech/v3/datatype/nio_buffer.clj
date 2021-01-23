@@ -5,7 +5,8 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.errors :as errors]
-            [tech.v3.resource :as resource])
+            [tech.v3.resource :as resource]
+            [clojure.tools.logging :as log])
   (:import [java.nio Buffer ByteBuffer ShortBuffer IntBuffer LongBuffer
             FloatBuffer DoubleBuffer ByteOrder]
            [tech.v3.datatype UnsafeUtil]
@@ -91,13 +92,26 @@
 (extend-nio-types)
 
 
+(def buffer-constructor*
+  (delay (if UnsafeUtil/directBufferConstructor
+           (fn [nbuf ^long address ^long nbytes]
+             (let [retval
+                   (UnsafeUtil/constructByteBufferFromAddress
+                    address nbytes)]
+               (resource/chain-resources retval nbuf)))
+           (do
+             (log/info "Unable to find direct buffer constructor -
+falling back to jdk16 memory model.")
+             (requiring-resolve 'tech.v3.datatype.nio-buf-mmodel/direct-buffer-constructor)
+             ))))
+
+
 (defn native-buf->nio-buf
   ^java.nio.Buffer [^NativeBuffer buffer]
   (let [dtype (dtype-proto/elemwise-datatype buffer)
         byte-width (casting/numeric-byte-width dtype)
         n-bytes (* (.n-elems buffer) byte-width)
-        ^ByteBuffer byte-buf (UnsafeUtil/constructByteBufferFromAddress
-                              (.address buffer) n-bytes)]
+        ^ByteBuffer byte-buf (@buffer-constructor* buffer (.address buffer) n-bytes)]
     (.order byte-buf
             (case (.endianness buffer)
               :little-endian ByteOrder/LITTLE_ENDIAN
