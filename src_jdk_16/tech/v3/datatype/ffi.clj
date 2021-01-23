@@ -12,7 +12,6 @@
            [java.nio.file Path Paths]
            [java.lang.reflect Constructor]
            [tech.v3.datatype NumericConversions]
-           [tech.v3.datatype.ffi InvokeStub]
            [clojure.lang IFn RT ISeq Var]))
 
 
