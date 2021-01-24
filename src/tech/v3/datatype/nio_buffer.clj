@@ -94,7 +94,7 @@
 
 (def buffer-constructor*
   (delay (if UnsafeUtil/directBufferConstructor
-           (fn [nbuf ^long address ^long nbytes]
+           (fn [nbuf ^long address ^long nbytes options]
              (let [retval
                    (UnsafeUtil/constructByteBufferFromAddress
                     address nbytes)]
@@ -107,11 +107,12 @@ falling back to jdk16 memory model.")
 
 
 (defn native-buf->nio-buf
-  ^java.nio.Buffer [^NativeBuffer buffer]
+  ^java.nio.Buffer [^NativeBuffer buffer options]
   (let [dtype (dtype-proto/elemwise-datatype buffer)
         byte-width (casting/numeric-byte-width dtype)
         n-bytes (* (.n-elems buffer) byte-width)
-        ^ByteBuffer byte-buf (@buffer-constructor* buffer (.address buffer) n-bytes)]
+        ^ByteBuffer byte-buf (@buffer-constructor* buffer (.address buffer) n-bytes
+                              options)]
     (.order byte-buf
             (case (.endianness buffer)
               :little-endian ByteOrder/LITTLE_ENDIAN
@@ -129,38 +130,41 @@ falling back to jdk16 memory model.")
 
 (defn as-nio-buffer
   "Convert to a nio buffer returning nil if not possible."
-  ^Buffer [item]
-  (when-let [cbuf (dtype-base/as-concrete-buffer item)]
-    (when (nio-datatypes (casting/host-flatten (dtype-base/elemwise-datatype cbuf)))
-      (if (instance? NativeBuffer cbuf)
-        (native-buf->nio-buf cbuf)
-        (let [^ArrayBuffer ary-buf cbuf
-              pos (.offset ary-buf)
-              limit (+ pos (.n-elems ary-buf))]
-          (case (casting/host-flatten (dtype-base/elemwise-datatype cbuf))
-            :int8 (doto (ByteBuffer/wrap (.ary-data ary-buf))
-                    (.position pos)
-                    (.limit limit))
-            :int16 (doto (ShortBuffer/wrap (.ary-data ary-buf))
-                    (.position pos)
-                    (.limit limit))
-            :int32 (doto (IntBuffer/wrap (.ary-data ary-buf))
-                    (.position pos)
-                    (.limit limit))
-            :int64 (doto (LongBuffer/wrap (.ary-data ary-buf))
+  (^Buffer [item options]
+   (when-let [cbuf (dtype-base/as-concrete-buffer item)]
+     (when (nio-datatypes (casting/host-flatten (dtype-base/elemwise-datatype cbuf)))
+       (if (instance? NativeBuffer cbuf)
+         (native-buf->nio-buf cbuf options)
+         (let [^ArrayBuffer ary-buf cbuf
+               pos (.offset ary-buf)
+               limit (+ pos (.n-elems ary-buf))]
+           (case (casting/host-flatten (dtype-base/elemwise-datatype cbuf))
+             :int8 (doto (ByteBuffer/wrap (.ary-data ary-buf))
                      (.position pos)
                      (.limit limit))
-            :float32 (doto (FloatBuffer/wrap (.ary-data ary-buf))
-                       (.position pos)
-                       (.limit limit))
-            :float64 (doto (DoubleBuffer/wrap (.ary-data ary-buf))
-                       (.position pos)
-                       (.limit limit))))))))
+             :int16 (doto (ShortBuffer/wrap (.ary-data ary-buf))
+                      (.position pos)
+                      (.limit limit))
+             :int32 (doto (IntBuffer/wrap (.ary-data ary-buf))
+                      (.position pos)
+                      (.limit limit))
+             :int64 (doto (LongBuffer/wrap (.ary-data ary-buf))
+                      (.position pos)
+                      (.limit limit))
+             :float32 (doto (FloatBuffer/wrap (.ary-data ary-buf))
+                        (.position pos)
+                        (.limit limit))
+             :float64 (doto (DoubleBuffer/wrap (.ary-data ary-buf))
+                        (.position pos)
+                        (.limit limit))))))))
+  (^Buffer [item] (as-nio-buffer item nil)))
 
 
 (defn ->nio-buffer
   "Convert to nio buffer throwing exception if not possible."
-  ^Buffer [item]
-  (if-let [retval (as-nio-buffer item)]
-    retval
-    (errors/throwf "Failed to convert item to nio buffer: %s" item)))
+  (^Buffer [item options]
+   (if-let [retval (as-nio-buffer item options)]
+     retval
+     (errors/throwf "Failed to convert item to nio buffer: %s" item)))
+  (^Buffer [item]
+   (->nio-buffer item nil)))

@@ -4,11 +4,14 @@
 
 
 (def mmap-fn* (delay (try
-                       (requiring-resolve 'tech.v3.datatype.mmap-larray/mmap-file)
+                       (let [retval (requiring-resolve 'tech.v3.datatype.mmap-larray/mmap-file)]
+                         (when-not retval
+                           (throw (Exception. "failed to load mmap-larray namespace")))
+                         retval)
                        (catch Throwable e
                          (log/info "Failed to require larray-based mmap -
 falling back to jdk16+ ffi-based mmap")
-                         (requiring-resolve 'tech.v3.datatype.mmap-ffi/mmap-file)))))
+                         (requiring-resolve 'tech.v3.datatype.mmap-mmodel/mmap-file)))))
 
 
 (defn mmap-file
