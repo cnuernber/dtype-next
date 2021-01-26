@@ -1,4 +1,4 @@
-# Cheatsheet
+# Overview
 
 
 ## Setup
@@ -74,6 +74,19 @@ user> (dtype/copy! (dtype/make-container :native-heap :float32  [0 1 254])
 
 user>
 ```
+
+## Buffers, Readers, Writers
+
+Efficent primitive-datatype-aware access is provided via the [buffer interface](../java/tech/v3/datatype/Buffer.java).  A reader is a buffer
+that is can be read from and a writer is a buffer that can be written to -- note the buffer interface has 'canRead' and 'canWrite' methods.
+
+Buffers have many transformations such as adding a scalar or element-wise adding the elements of another buffer.  A few of these operations
+are exposed via the [tech.v3.datatype.functional](https://cnuernber.github.io/dtype-next/tech.v3.datatype.functional.html) interface and those
+are discussed in depth below.
+
+Most things are convertible to a reader of a specific type.  So things like persistent vectors, java arrays, numpy arrays, etc. are convertible
+to readers.  Some things are convertible to concrete buffers such as jvm heap containers (arrays) and native heap containers.  Any reader 
+can be `reshape`d into a tensor.
 
 
 ## Math
@@ -181,11 +194,30 @@ user> (dtype-dt/datetime->milliseconds (dtype-dt/system-zone-id) offset-local-da
 ```
 
 
-## Tensors
+## ND Buffers
 
-Generic N-dimensional support built on top of buffers and dimension objects.  Conceptually you combine
-a raw data buffer with an indexing mechanism capable if transforming multiple dimension address into
-a linear address into the raw data buffer.
+Generic N-dimensional support is provied both based on raw containers and based on functions from N indexes to a value.
+These objects implement the [NDBuffer interface](../java/tech/v3/datatype/NDBuffer.java) and the support is provided
+primarily via the 'tensor' namespace.  The basic ways of dealing with tensor are:
+
+
+* `->tensor` - Make a new tensor by copying data into a container.  This can take sequences, persistent vectors, etc. and
+  will copy the data into a contiguous buffer and return a new implementation of NDBuffer based on that data.
+* `ensure-tensor`- Attempt in-place transformation of data falling back to `->tensor` when not available.
+* `compute-tensor` - Create a new tensor via a function that takes `rank` long indexes and returns a value.
+* `reshape` - reshape a buffer or reader into a different dimension and rank via linear reinterpretation of the data.  Use
+this to convert a normal bit of data such as a java array or a persistent vector into a tensor without copying the data.
+* `transpose` - Permute data via reordering dimensions.
+* `select` - Select a subrect of data.  Select can also take indexes in order to do ad-hoc reordering of the data.
+* `broadcast` - Create a larger tensor via duplication along one or more dimensions.
+
+
+These tech.v3.datatype functions are also useful for tensors:
+
+
+* `elemwise-cast` - change datatype of tensor.
+* `clone` - Create a new tensor of same shape and data.  This can be used to realize lazy operations.
+* `->buffer,->reader` - Get the data in 1D row-major vector.
 
 
 ```clojure
