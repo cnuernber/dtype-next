@@ -922,7 +922,10 @@
             rank# (long ~rank)
             n-elems# (long (apply * shape#))
             dims# (dims/dimensions shape#)]
-        (reify ~read-type
+        (reify
+          dtype-proto/PECount
+          (ecount [this#] (.lsize this#))
+          ~read-type
           (elemwiseDatatype [tr#] ~advertised-datatype)
           (shape [tr#] shape#)
           (dimensions [tr#] dims#)

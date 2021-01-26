@@ -1,0 +1,8 @@
+#!/bin/bash
+
+if [ ! -e jdk-16 ]; then
+    get-jdk-16
+fi
+
+export PATH=$(pwd)/jdk-16/bin:$PATH
+export JAVA_HOME=$(pwd)/jdk-16/

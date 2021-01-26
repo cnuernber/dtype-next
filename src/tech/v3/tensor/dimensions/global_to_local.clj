@@ -321,6 +321,7 @@
 
 (comment
   (require '[tech.v3.tensor.dimensions :as dims])
+  (require '[tech.v3.tensor.dimensions.gtol-insn :as gtol])
 
   ;;Image dimensions when you have a 2048x2048 image and you
   ;;want to crop a 256x256 sub-image out of it.
@@ -328,10 +329,10 @@
                     (dims/rotate [0 0 1])
                     (dims/broadcast [4 4 4])))
   (def reduced-dims (dims-analytics/reduce-dimensionality src-dims))
+  (def method-sig (reduced-dims->signature reduced-dims))
+  (def test-ast (gtol/signature->ast method-sig))
 
-  (def test-ast (global->local-ast reduced-dims))
-
-  (def class-def (gen-ast-class-def test-ast))
+  (def class-def (gtol/gen-ast-class-def test-ast))
 
   (def class-obj (insn/define class-def))
 
