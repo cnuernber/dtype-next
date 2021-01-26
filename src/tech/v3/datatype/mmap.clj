@@ -1,17 +1,12 @@
 (ns tech.v3.datatype.mmap
-  (:require [clojure.tools.logging :as log])
+  (:require [tech.v3.datatype.native-buffer]
+            [clojure.tools.logging :as log])
   (:import [tech.v3.datatype.native_buffer NativeBuffer]))
 
 
-(def mmap-fn* (delay (try
-                       (let [retval (requiring-resolve 'tech.v3.datatype.mmap-larray/mmap-file)]
-                         (when-not retval
-                           (throw (Exception. "failed to load mmap-larray namespace")))
-                         retval)
-                       (catch Throwable e
-                         (log/info "Failed to require larray-based mmap -
-falling back to jdk16+ ffi-based mmap")
-                         (requiring-resolve 'tech.v3.datatype.mmap-mmodel/mmap-file)))))
+(def mmap-fn* (delay (if (.startsWith (System/getProperty "java.version") "16-")
+                       (requiring-resolve 'tech.v3.datatype.mmap-mmodel/mmap-file)
+                       (requiring-resolve 'tech.v3.datatype.mmap-larray/mmap-file))))
 
 
 (defn mmap-file

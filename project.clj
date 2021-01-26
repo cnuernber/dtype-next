@@ -15,14 +15,15 @@
                  [techascent/tech.resource         "5.02"]
                  [techascent/tech.jna "4.05" :scope "provided"]]
   :java-source-paths ["java"]
-  :jvm-opts ["--add-modules" "jdk.incubator.foreign" "-Dforeign.restricted=permit"]
-  :source-paths ["src" "src_jdk_16"]
+  :source-paths ["src"]
   :profiles {:dev
              {:dependencies [[criterium "0.4.5"]
                              [uncomplicate/neanderthal "0.35.0"]
                              [com.taoensso/nippy "3.1.0-RC1"]
                              [ch.qos.logback/logback-classic "1.1.3"]]
               :test-paths ["neanderthal" "test"]}
+             :jdk-16 {:jvm-opts ["--add-modules" "jdk.incubator.foreign" "-Dforeign.restricted=permit"]
+                      :source-paths ["src" "src_jdk_16"]}
              :codox
              {:dependencies [[codox-theme-rdash "0.1.2"]]
               :plugins [[lein-codox "0.10.7"]]

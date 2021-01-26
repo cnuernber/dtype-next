@@ -7,6 +7,7 @@
             [tech.v3.datatype.protocols :as dtype-proto])
   (:import [xerial.larray.mmap MMapMode]
            [tech.v3.datatype MMapBuffer]
+           [tech.v3.datatype.native_buffer NativeBuffer]
            [sun.misc Unsafe]))
 
 
