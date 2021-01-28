@@ -251,7 +251,7 @@ make numeric conversions easier.
 * `local-date`, `local-date-time`, `zoned-date-time`, `instant` - Scalar constructors
 of  specific java.time types.
 * [plus-temporal-amount](https://cnuernber.github.io/dtype-next/tech.v3.datatype.datetime.html#var-plus-temporal-amount), [minus-temporal-amount](https://cnuernber.github.io/dtype-next/tech.v3.datatype.datetime.html#var-minus-temporal-amount) - `vectorized` - add/subtract sime time returning a new datetime object.
-* [between](https://cnuernber.github.io/dtype-next/tech.v3.datatype.datetime.html#var-between) - Find the amount of time between two datetime objects or readers of datetime
+* [between](https://cnuernber.github.io/dtype-next/tech.v3.datatype.datetime.html#var-between) - `vectorized` - Find the amount of time between two datetime objects or readers of datetime
 objects.
 * [datetime->epoch](https://cnuernber.github.io/dtype-next/tech.v3.datatype.datetime.html#var-datetime-.3Eepoch), [epoch->datetime](https://cnuernber.github.io/dtype-next/tech.v3.datatype.datetime.html#var-epoch-.3Edatetime) - `vectorized` - convert to an epoch datatype such as milliseconds-since-epoch.
 * [long-temporal-field](https://cnuernber.github.io/dtype-next/tech.v3.datatype.datetime.html#var-long-temporal-field) - `vectorized` - Return a specific temporal field such as :days-since-epoch from a datetime type or a reader of datetime types.
