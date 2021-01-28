@@ -187,13 +187,6 @@ user> (dtype/make-reader :float32 5 (* idx 2))
    (make-list datatype 0)))
 
 
-(defn ->array-copy
-  "Create a new array that contains the data from the original container.
-  Returns a java array."
-  [item]
-  (.ary-data ^ArrayBuffer (make-container (elemwise-datatype item) item)))
-
-
 (defn copy-raw->item!
   "Copy raw data into a buffer.  Data may be a sequence of numbers or a sequence
   of containers.  Data will be coalesced into the buffer.  Returns a tuple of:

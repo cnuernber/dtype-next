@@ -77,7 +77,7 @@ user>
 
 ## Buffers, Readers, Writers
 
-Efficent primitive-datatype-aware access is provided via the [buffer interface](../java/tech/v3/datatype/Buffer.java).  A reader is a buffer
+Efficent primitive-datatype-aware access is provided via the [buffer interface](https://github.com/cnuernber/dtype-next/blob/d04c309bd565292c1c3d9880b4bbb80b6ff9478e/java/tech/v3/datatype/Buffer.java).  A reader is a buffer
 that is can be read from and a writer is a buffer that can be written to -- note the buffer interface has 'canRead' and 'canWrite' methods.
 
 Buffers have many transformations such as adding a scalar or element-wise adding the elements of another buffer.  A few of these operations
@@ -85,7 +85,7 @@ are exposed via the [tech.v3.datatype.functional](https://cnuernber.github.io/dt
 are discussed in depth below.
 
 Most things are convertible to a reader of a specific type.  So things like persistent vectors, java arrays, numpy arrays, etc. are convertible
-to readers.  Some things are convertible to concrete buffers such as jvm heap containers (arrays) and native heap containers.  Any reader 
+to readers.  Some things are convertible to concrete buffers such as jvm heap containers (arrays) and native heap containers.  Any reader
 can be `reshape`d into a tensor.
 
 
@@ -197,7 +197,7 @@ user> (dtype-dt/datetime->milliseconds (dtype-dt/system-zone-id) offset-local-da
 ## ND Buffers
 
 Generic N-dimensional support is provied both based on raw containers and based on functions from N indexes to a value.
-These objects implement the [NDBuffer interface](../java/tech/v3/datatype/NDBuffer.java) and the support is provided
+These objects implement the [NDBuffer interface](https://github.com/cnuernber/dtype-next/blob/d04c309bd565292c1c3d9880b4bbb80b6ff9478e/java/tech/v3/datatype/NDBuffer.java) and the support is provided
 primarily via the 'tensor' namespace.  The basic ways of dealing with tensor are:
 
 
