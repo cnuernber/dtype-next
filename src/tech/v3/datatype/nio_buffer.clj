@@ -107,25 +107,27 @@ falling back to jdk16 memory model.")
 
 
 (defn native-buf->nio-buf
-  ^java.nio.Buffer [^NativeBuffer buffer options]
-  (let [dtype (dtype-proto/elemwise-datatype buffer)
-        byte-width (casting/numeric-byte-width dtype)
-        n-bytes (* (.n-elems buffer) byte-width)
-        ^ByteBuffer byte-buf (@buffer-constructor* buffer (.address buffer) n-bytes
-                              options)]
-    (.order byte-buf
-            (case (.endianness buffer)
-              :little-endian ByteOrder/LITTLE_ENDIAN
-              :big-endian ByteOrder/BIG_ENDIAN))
-    (resource/chain-resources
-     (case (casting/host-flatten dtype)
-       :int8 byte-buf
-       :int16 (.asShortBuffer byte-buf)
-       :int32 (.asIntBuffer byte-buf)
-       :int64 (.asLongBuffer byte-buf)
-       :float32 (.asFloatBuffer byte-buf)
-       :float64 (.asDoubleBuffer byte-buf))
-     buffer)))
+  (^java.nio.Buffer [^NativeBuffer buffer options]
+   (let [dtype (dtype-proto/elemwise-datatype buffer)
+         byte-width (casting/numeric-byte-width dtype)
+         n-bytes (* (.n-elems buffer) byte-width)
+         ^ByteBuffer byte-buf (@buffer-constructor* buffer (.address buffer) n-bytes
+                               options)]
+     (.order byte-buf
+             (case (.endianness buffer)
+               :little-endian ByteOrder/LITTLE_ENDIAN
+               :big-endian ByteOrder/BIG_ENDIAN))
+     (resource/chain-resources
+      (case (casting/host-flatten dtype)
+        :int8 byte-buf
+        :int16 (.asShortBuffer byte-buf)
+        :int32 (.asIntBuffer byte-buf)
+        :int64 (.asLongBuffer byte-buf)
+        :float32 (.asFloatBuffer byte-buf)
+        :float64 (.asDoubleBuffer byte-buf))
+      buffer)))
+  (^java.nio.Buffer [buffer]
+   (native-buf->nio-buf buffer nil)))
 
 
 (defn as-nio-buffer

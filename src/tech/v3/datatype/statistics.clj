@@ -263,7 +263,8 @@
                  :jvm-heap
                  :float64
                  {:nan-strategy :keep}
-                 (or rdr []))))
+                 (or rdr [])))
+              :float64)
          stats-set (set stats-names)
          median? (stats-set :median)
          percentile-set #{:quartile-1 :quartile-3}

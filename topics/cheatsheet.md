@@ -186,7 +186,7 @@ are extension namespaces to allow zero-copy access to [buffered images](https://
 * [ensure-native](https://cnuernber.github.io/dtype-next/tech.v3.tensor.html#var-ensure-native) - If input is not native-heap-based, create a new tensor else return
   input.
 * [reshape](https://cnuernber.github.io/dtype-next/tech.v3.tensor.html#var-reshape) - Reshape any buffer-able object into a tensor of a given shape.
-* ]compute-tensor](https://cnuernber.github.io/dtype-next/tech.v3.tensor.html#var-compute-tensor) - Create a new N-dimensional tensor via a function that takes N
+* [compute-tensor](https://cnuernber.github.io/dtype-next/tech.v3.tensor.html#var-compute-tensor) - Create a new N-dimensional tensor via a function that takes N
   long integer index arguments and returns a value.
 
 

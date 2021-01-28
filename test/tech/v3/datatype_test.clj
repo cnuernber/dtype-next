@@ -201,10 +201,10 @@
 
 (deftest list-regression
   (is (= (Class/forName "[D")
-         (type (dtype/->array-copy
+         (type (dtype/->double-array
                 (dtype/make-container :list :float64 10)))))
   (is (= (Class/forName "[D")
-         (type (dtype/->array-copy
+         (type (dtype/->double-array
                 (-> (dtype/make-container :list :float64 10)
                     (dtype/sub-buffer 2 2)))))))
 

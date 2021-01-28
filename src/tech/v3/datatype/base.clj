@@ -581,19 +581,21 @@
            (fn [op-dtype item]
              (dispatch/typed-map-1 cast-fn new-dtype item))
            (fn [op-dtype item]
-             (let [src-rdr (->reader item)]
-               (case (casting/simple-operation-space op-dtype
-                                                     (elemwise-datatype src-rdr))
-                 :int64
+             (case (casting/simple-operation-space new-dtype
+                                                   (elemwise-datatype item))
+               :int64
+               (let [src-rdr (dtype-proto/elemwise-reader-cast item :int64)]
                  (reify LongReader
                    (elemwiseDatatype [rdr] new-dtype)
                    (lsize [rdr] (.lsize src-rdr))
-                   (readLong [rdr idx] (.readLong src-rdr idx)))
-                 :float64
+                   (readLong [rdr idx] (.readLong src-rdr idx))))
+               :float64
+               (let [src-rdr (dtype-proto/elemwise-reader-cast item :float64)]
                  (reify DoubleReader
                    (elemwiseDatatype [rdr] new-dtype)
                    (lsize [rdr] (.lsize src-rdr))
-                   (readDouble [rdr idx] (.readDouble src-rdr idx)))
+                   (readDouble [rdr idx] (.readDouble src-rdr idx))))
+               (let [src-rdr (->reader item)]
                  (reify ObjectReader
                    (elemwiseDatatype [rdr] new-dtype)
                    (lsize [rdr] (.lsize src-rdr))
@@ -776,14 +778,14 @@
   :all means take the entire dimension, :lla means reverse the dimension.
   Arguments are applied left to right and any missing arguments are assumed to
   be :all.
-  
+
   Example:
-  
+
   ```clojure
   user> (dtt/select (dtt/->tensor [1 2 3]) [0 2])
   #tech.v3.tensor<object>[2]
   [1 3]
-  
+
   user> (def tensor (dtt/->tensor
               [[1 2 3]
                [4 5 6]]))
