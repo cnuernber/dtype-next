@@ -39,7 +39,8 @@ Additional targets of this library:
 *  Support for JDK-8 through JDK-14.
 
 
-Checkout the [API Documentation](https://cnuernber.github.io/dtype-next/)
+Checkout the [Overview](https://cnuernber.github.io/dtype-next/overview.html), [API Documentation](https://cnuernber.github.io/dtype-next/), and 
+[Cheatsheet](https://cnuernber.github.io/dtype-next/cheatsheet.html).
 
 
 ## Native Test
