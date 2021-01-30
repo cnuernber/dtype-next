@@ -59,7 +59,7 @@ user&gt; (dtype/copy! (dtype/make-container :native-heap :float32  [0 1 254])
 user&gt;
 </code></pre>
 <h2><a href="#buffers-readers-writers" name="buffers-readers-writers"></a>Buffers, Readers, Writers</h2>
-<p>Efficent primitive-datatype-aware access is provided via the <a href="https://github.com/cnuernber/dtype-next/blob/d04c309bd565292c1c3d9880b4bbb80b6ff9478e/java/tech/v3/datatype/Buffer.java">buffer interface</a>. A reader is a buffer that is can be read from and a writer is a buffer that can be written to – note the buffer interface has ‘canRead’ and ‘canWrite’ methods.</p>
+<p>Efficent primitive-datatype-aware access is provided via the <a href="https://github.com/cnuernber/dtype-next/blob/d04c309bd565292c1c3d9880b4bbb80b6ff9478e/java/tech/v3/datatype/Buffer.java">buffer interface</a>. A reader is a buffer that can be read from and a writer is a buffer that can be written to – note the buffer interface has ‘canRead’ and ‘canWrite’ methods.</p>
 <p>Buffers have many transformations such as adding a scalar or element-wise adding the elements of another buffer. A few of these operations are exposed via the <a href="https://cnuernber.github.io/dtype-next/tech.v3.datatype.functional.html">tech.v3.datatype.functional</a> interface and those are discussed in depth below.</p>
 <p>Most things are convertible to a reader of a specific type. So things like persistent vectors, java arrays, numpy arrays, etc. are convertible to readers. Some things are convertible to concrete buffers such as jvm heap containers (arrays) and native heap containers. Any reader can be <code>reshape</code>d into a tensor.</p>
 <h2><a href="#math" name="math"></a>Math</h2>

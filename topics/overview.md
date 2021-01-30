@@ -78,7 +78,7 @@ user>
 ## Buffers, Readers, Writers
 
 Efficent primitive-datatype-aware access is provided via the [buffer interface](https://github.com/cnuernber/dtype-next/blob/d04c309bd565292c1c3d9880b4bbb80b6ff9478e/java/tech/v3/datatype/Buffer.java).  A reader is a buffer
-that is can be read from and a writer is a buffer that can be written to -- note the buffer interface has 'canRead' and 'canWrite' methods.
+that can be read from and a writer is a buffer that can be written to -- note the buffer interface has 'canRead' and 'canWrite' methods.
 
 Buffers have many transformations such as adding a scalar or element-wise adding the elements of another buffer.  A few of these operations
 are exposed via the [tech.v3.datatype.functional](https://cnuernber.github.io/dtype-next/tech.v3.datatype.functional.html) interface and those

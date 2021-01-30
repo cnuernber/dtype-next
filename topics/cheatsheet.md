@@ -187,7 +187,8 @@ are extension namespaces to allow zero-copy access to [buffered images](https://
   input.
 * [reshape](https://cnuernber.github.io/dtype-next/tech.v3.tensor.html#var-reshape) - Reshape any buffer-able object into a tensor of a given shape.
 * [compute-tensor](https://cnuernber.github.io/dtype-next/tech.v3.tensor.html#var-compute-tensor) - Create a new N-dimensional tensor via a function that takes N
-  long integer index arguments and returns a value.
+  long integer index arguments and returns a value.  The tensor definition is lazy - the function is called upon read of the value.  For this reason to make
+  a compute tensor concrete `tech.v3.datatype/clone` may be used.
 
 
 ### Manipulation
@@ -202,13 +203,13 @@ dimensions.
   keyword `:all`, a clojure range, or a convertible-to-long-reader object.  This can be
   used to crap an image or to do reorderings such as imagespace bga->rgb conversions.
 * [transpose](https://cnuernber.github.io/dtype-next/tech.v3.tensor.html#var-transpose) - Generic in-place transpose dimensions to implement operations of the
-  type `i,j,k` -> `k,j,i` for all orderings of `i,j,k`.  This can be used to convert
+  type `i,j,k` -> `k,j,i` for all orderings of `i,j,k`.  This can be used, for instance, to convert
   between channels-first planar representation of an image (2d planes of r,g,b,a) to a
   standard rgba-interleaved representation of an image.
 * [reshape](https://cnuernber.github.io/dtype-next/tech.v3.tensor.html#var-reshape) - Reshape a tensor via interpreting it as ->buffer and applying a new
   dimension object.  Can be used to in-place create a tensor out of a persisent
   vector.
-* [broadcast](https://cnuernber.github.io/dtype-next/tech.v3.tensor.html#var-broadcast) - Create a larger tensor via repeating one or more dimensions.
+* [broadcast](https://cnuernber.github.io/dtype-next/tech.v3.tensor.html#var-broadcast) - Create a larger read-only tensor via repeating one or more dimensions.
 * [slice](https://cnuernber.github.io/dtype-next/tech.v3.tensor.html#var-slice), [slice-right](https://cnuernber.github.io/dtype-next/tech.v3.tensor.html#var-slice-right) - Create a reader formed by iterating the left/right N dimensions
   in order.  Given a 2D matrix, `(slice mat 1)` returns the rows while
   `(slice-right mat 1)` returns the columns.
@@ -250,7 +251,7 @@ as `+` in the functional namespace.
 make numeric conversions easier.
 * `local-date`, `local-date-time`, `zoned-date-time`, `instant` - Scalar constructors
 of  specific java.time types.
-* [plus-temporal-amount](https://cnuernber.github.io/dtype-next/tech.v3.datatype.datetime.html#var-plus-temporal-amount), [minus-temporal-amount](https://cnuernber.github.io/dtype-next/tech.v3.datatype.datetime.html#var-minus-temporal-amount) - `vectorized` - add/subtract sime time returning a new datetime object.
+* [plus-temporal-amount](https://cnuernber.github.io/dtype-next/tech.v3.datatype.datetime.html#var-plus-temporal-amount), [minus-temporal-amount](https://cnuernber.github.io/dtype-next/tech.v3.datatype.datetime.html#var-minus-temporal-amount) - `vectorized` - add/subtract a temporal amount returning a new datetime object or reader.
 * [between](https://cnuernber.github.io/dtype-next/tech.v3.datatype.datetime.html#var-between) - `vectorized` - Find the amount of time between two datetime objects or readers of datetime
 objects.
 * [datetime->epoch](https://cnuernber.github.io/dtype-next/tech.v3.datatype.datetime.html#var-datetime-.3Eepoch), [epoch->datetime](https://cnuernber.github.io/dtype-next/tech.v3.datatype.datetime.html#var-epoch-.3Edatetime) - `vectorized` - convert to an epoch datatype such as milliseconds-since-epoch.
