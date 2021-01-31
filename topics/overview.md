@@ -284,3 +284,6 @@ user> (dtt/mset! (dtt/transpose tens [1 0]) 0 [25 26 27])
  [26  4  7]
  [27  5  8]]
 ```
+
+
+If you got this far be sure to checkout the [cheatseet](https://cnuernber.github.io/dtype-next/cheatsheet.html).
