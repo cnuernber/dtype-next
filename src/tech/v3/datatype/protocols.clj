@@ -1,5 +1,5 @@
 (ns tech.v3.datatype.protocols
-  (:import [tech.v3.datatype ElemwiseDatatype ECount Buffer]
+  (:import [tech.v3.datatype ElemwiseDatatype ECount Buffer BinaryBuffer]
            [clojure.lang Counted]
            [java.util List Map Set]
            [java.nio ByteOrder
@@ -122,6 +122,10 @@ Note that this makes no mention of indianness; buffers are in the format of the 
 (defprotocol PToReader
   (convertible-to-reader? [item])
   (^Buffer ->reader [item]))
+
+(defprotocol PToBinaryBuffer
+  (convertible-to-binary-buffer? [buf])
+  (^BinaryBuffer ->binary-buffer [buf]))
 
 (defprotocol POperator
   "It can be useful to know if a generic operator implements a higher level operation
