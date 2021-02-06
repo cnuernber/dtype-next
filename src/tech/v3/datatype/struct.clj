@@ -7,12 +7,13 @@
   (:require [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [primitive-math :as pmath])
   (:import [tech.v3.datatype BinaryBuffer Buffer ObjectBuffer]
            [java.util.concurrent ConcurrentHashMap]
            [java.util RandomAccess List Map LinkedHashSet Collection]
-           [clojure.lang MapEntry IObj]))
+           [clojure.lang MapEntry IObj IFn ILookup]))
 
 
 (set! *warn-on-reflection* true)
@@ -197,6 +198,17 @@
   (withMeta [this m]
     (Struct. struct-def buffer cached-buffer m))
 
+  ILookup
+  (valAt [this k] (.get this k))
+  (valAt [this k not-found] (.getOrDefault this k not-found))
+
+  IFn
+  (invoke [this k] (.get this k))
+  (applyTo [this args]
+    (errors/when-not-errorf
+     (= 1 (count args))
+     "only 1 arg is acceptable; %d provided" (count args)))
+
   Map
   (size [m] (count (:data-layout struct-def)))
   (containsKey [m k] (.containsKey ^Map (:layout-map struct-def) k))
@@ -269,8 +281,12 @@
   ([datatype options]
    (let [struct-def (get-struct-def datatype)
          ;;binary read/write to nio buffers is faster than our writer-wrapper
-         backing-data (byte-array (long (:datatype-size struct-def)))]
-     (Struct. struct-def backing-data nil {})))
+         backing-data (dtype-cmc/make-container
+                       (:container-type options :jvm-heap)
+                       :int8
+                       options
+                       (long (:datatype-size struct-def)))]
+     (Struct. struct-def backing-data nil options)))
   ([datatype]
    (new-struct datatype {})))
 

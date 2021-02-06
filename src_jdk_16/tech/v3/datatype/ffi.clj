@@ -2,6 +2,7 @@
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.errors :as errors]
+            [tech.v3.datatype.casting :as casting]
             [insn.core :as insn]
             [clojure.string :as s]
             [clojure.java.io :as io])
@@ -33,7 +34,7 @@
 (defprotocol PToMemoryAddress
   (convertible-to-memory-address? [item]
     "Is this object convertible to a MemoryAddress?")
-  (->memory-address ^MemoryAddress [item]
+  (^MemoryAddress ->memory-address [item]
     "Conversion to a MemoryAddress"))
 
 
@@ -324,6 +325,7 @@
             `((deref ~'fn-obj*))
             `((deref ~'fn-obj*) ~@fn-args))))))
 
+
 (def arch64-set #{"x86_64" "amd64"})
 
 
@@ -350,6 +352,10 @@
     :int64
     :int32))
 
+(casting/alias-datatype! :size-t (size-t-type))
+
 (defn ptr-int-type
   []
   (size-t-type))
+
+(casting/alias-datatype! :pointer (size-t-type))
