@@ -1,4 +1,4 @@
-(ns tech.v3.datatype.ffi
+(ns tech.v3.datatype.ffi-mmodel
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.errors :as errors]
