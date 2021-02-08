@@ -1,4 +1,4 @@
-(ns tech.v3.datatype.ffi-mmodel
+(ns tech.v3.datatype.ffi.mmodel
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.errors :as errors]
@@ -324,38 +324,3 @@
          ~(if (== 0 (count arglist))
             `((deref ~'fn-obj*))
             `((deref ~'fn-obj*) ~@fn-args))))))
-
-
-(def arch64-set #{"x86_64" "amd64"})
-
-
-(defn size-t-size
-  ^long []
-  (let [arch (.toLowerCase (System/getProperty "os.arch"))]
-    (if (arch64-set arch)
-      8
-      4)))
-
-
-(defmacro size-t-compile-time-switch
-  "Run either int32 based code or int64 based code depending
-   on the runtime size of size-t"
-  [int-body long-body]
-  (case (size-t-size)
-    4 `~int-body
-    8 `~long-body))
-
-
-(defn size-t-type
-  []
-  (if (= (size-t-size) 8)
-    :int64
-    :int32))
-
-(casting/alias-datatype! :size-t (size-t-type))
-
-(defn ptr-int-type
-  []
-  (size-t-type))
-
-(casting/alias-datatype! :pointer (size-t-type))
