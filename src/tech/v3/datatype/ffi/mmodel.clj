@@ -3,6 +3,7 @@
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.casting :as casting]
+            [tech.v3.datatype.ffi :as ffi]
             [insn.core :as insn]
             [clojure.string :as s]
             [clojure.java.io :as io])
@@ -31,51 +32,13 @@
 ;;     );
 
 
-(defprotocol PToMemoryAddress
-  (convertible-to-memory-address? [item]
-    "Is this object convertible to a MemoryAddress?")
-  (^MemoryAddress ->memory-address [item]
-    "Conversion to a MemoryAddress"))
-
-
-(extend-type Object
-  PToMemoryAddress
-  (is-memory-address-convertible? [item]
-    (dtype-proto/convertible-to-native-buffer? item))
-  (->memory-address [item]
-    (let [nbuf (dtype-base/->native-buffer item)]
-      (MemoryAddress/ofLong (.address nbuf)))))
-
-
-(defn ptr-convertible?
-  "Is this object pointer convertible via the PToPtr protocol."
-  [item]
-  (when item (convertible-to-memory-address? item)))
-
-
-(defn as-ptr
-  "Convert this object to a jna Pointer MEmoryAddress that points to 0 if not possible."
-  ^MemoryAddress [item]
-  (if (and item (ptr-convertible? item))
-    (->memory-address item)
-    (MemoryAddress/ofLong 0)))
-
-
-(defn ensure-ptr
-  "Ensure this is a non-nil ptr"
-  [item]
-  (when-not (and item (ptr-convertible? item))
-    (errors/throwf "Item is not pointer convertible: %s" item))
-  (as-ptr item))
-
-
-(extend-protocol PToMemoryAddress
+(extend-protocol ffi/PToPointer
   MemoryAddress
-  (is-memory-address-convertible? [item] true)
-  (->ptr-backing-store [item] item)
+  (is-convertible-to-pointer? [item] true)
+  (->pointer [item] (ffi/->Pointer (.address item)))
   Addressable
-  (is-memory-address-convertible? [item] true)
-  (->memory-address [item] (.address item))
+  (is-convertible-to-pointer? [item] true)
+  (->pointer [item] (.address item))
   String
   (is-memory-address-convertible? [item] true)
   (->memory-address [item] (.address (CLinker/toCString (str item)))))

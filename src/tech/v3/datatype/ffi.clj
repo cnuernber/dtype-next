@@ -4,9 +4,12 @@
             [tech.v3.datatype.base :as base]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.protocols :as dtype-proto]
-            [tech.v3.datatype.casting :as casting])
+            [tech.v3.datatype.casting :as casting]
+            [tech.v3.datatype.errors :as errors]
+            [clojure.tools.logging :as log])
   (:import [tech.v3.datatype.native_buffer NativeBuffer]
-           [java.nio.charset Charset]))
+           [java.nio.charset Charset]
+           [tech.v3.datatype.ffi Pointer]))
 
 
 (set! *warn-on-reflection* true)
@@ -47,6 +50,13 @@
 (casting/alias-datatype! :pointer (size-t-type))
 
 
+(defn lower-type
+  [argtype]
+  (if (= argtype :size-t)
+    (size-t-type)
+    argtype))
+
+
 (defn jdk-ffi?
   "Is the JDK foreign function interface enabled?"
   []
@@ -69,9 +79,6 @@
   (try
     (boolean (Class/forName "jdk.incubator.foreign.MemoryAddress"))
     (catch Throwable e false)))
-
-
-(defrecord Pointer [^long address])
 
 
 (defprotocol PToPointer
@@ -148,14 +155,47 @@
   (->pointer [item] (Pointer. (.address item))))
 
 
+(defn ptr-value
+  ^long [item]
+  (cond
+    (instance? tech.v3.datatype.ffi.Pointer item)
+    (.address ^tech.v3.datatype.ffi.Pointer item)
+    (instance? tech.v3.datatype.native_buffer.NativeBuffer item)
+    (.address ^tech.v3.datatype.native_buffer.NativeBuffer item)
+    :else
+    (.address ^tech.v3.datatype.ffi.Pointer (->pointer item))))
+
+
+(defn ptr-value?
+  ^long [item]
+  (cond
+    (instance? tech.v3.datatype.ffi.Pointer item)
+    (.address ^tech.v3.datatype.ffi.Pointer item)
+    (instance? tech.v3.datatype.native_buffer.NativeBuffer item)
+    (.address ^tech.v3.datatype.native_buffer.NativeBuffer item)
+    :else
+    (if item
+      (do
+        (errors/when-not-errorf
+         (convertible-to-pointer? item)
+         "Item %s is not convertible to a C pointer" item)
+        (.address ^tech.v3.datatype.ffi.Pointer (->pointer item)))
+      (long 0))))
+
+
 (def ^:private ffi-impl*
   (delay
-    (if (jdk-ffi?)
-      (requiring-resolve 'tech.v3.datatype.ffi.mmodel/ffi-fns)
-      (try
-        (requiring-resolve 'tech.v3.datatype.ffi.jna/ffi-fns)
-        (catch Throwable e
-          (throw (Exception. "Neither jdk-16 nor JNA are found on classpath.  FFI functionality is missing.")))))))
+    (let [ffi-data (when (jdk-ffi?)
+                     (try (requiring-resolve 'tech.v3.datatype.ffi.mmodel/ffi-fns)
+                          (catch Throwable e
+                            (log/warn e "Failed to require jdk-16+ ffi.  Falling back to JNA") nil)))]
+      (if ffi-data
+        ffi-data
+        (try
+          @(requiring-resolve 'tech.v3.datatype.ffi.jna/ffi-fns)
+          (catch Throwable e
+            (throw (Exception. "Neither jdk-16 nor JNA are found on classpath.  FFI functionality is missing."))))
+        ))))
 
 
 (defn load-library
@@ -190,6 +230,25 @@
   This object's ->pointer method returns the actual function pointer."
   [libname symbol-name rettype & [argtypes options]]
   ((:find-function @ffi-impl*) libname symbol-name rettype argtypes options))
+
+
+(defn define-library
+  "Define a library.  After this, it is legal to 'import' the symbol.  The library
+  class file will be written out to 'target/classes/...' unless :output-path is set
+  in the options.
+
+  * fn-defs - map of fn-name -> {:rettype :argtypes} - see 'find-function'.
+
+  After this functionc call, if output-path is on the classpath then you can
+  'import' the defined library.  It's constructor takes a string which is the
+  path of the library to bind to and it will have a correctly-typed function defined
+  for every key in fn-defs.
+
+  Options:
+
+  * `:output-path` - Root path to output class to; defaults to \"target/classes\"."
+  [library-symbol fn-defs & [options]]
+  ((:define-library @ffi-impl*) library-symbol fn-defs options))
 
 
 (defn fn->c
