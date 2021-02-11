@@ -25,9 +25,12 @@
 
 (defn load-library
   ^NativeLibrary [libname]
-  (if (instance? NativeLibrary libname)
-    libname
-    (NativeLibrary/getInstance (str libname))))
+  (cond
+    (instance? NativeLibrary libname) libname
+    (string? libname)
+    (NativeLibrary/getInstance (str libname))
+    (nil? libname)
+    (NativeLibrary/getProcess)))
 
 
 (defn find-symbol
@@ -107,9 +110,13 @@
   [inner-cls]
   [[:aload 0]
    [:invokespecial :super :init [:void]]
-   [:ldc inner-cls]
+   [:ldc "tech.v3.datatype.ffi.jna"]
+   [:ldc "load-library"]
+   [:invokestatic ClojureHelper "findFn" [String String IFn]]
    [:aload 1]
-   [:invokestatic NativeLibrary "getInstance" [String NativeLibrary]]
+   [:invokevirtual IFn "invoke" [Object Object]]
+   [:checkcast NativeLibrary]
+   [:ldc inner-cls]
    [:invokestatic com.sun.jna.Native "register" [Class NativeLibrary :void]]
    [:aload 0]
    [:ldc "tech.v3.datatype.ffi.jna"]
@@ -216,40 +223,6 @@
        :library-class-def cls-data})))
 
 
-(defn find-function
-  [libname symbol-name rettype argtypes options]
-  (let [lib-symbol (:library (define-library
-                               (symbol (str "tech.v3.datatype.ffi.jna.Invoker_"
-                                            (name (gensym))))
-                               {symbol-name {:rettype rettype
-                                             :argtypes argtypes}}
-                               {}))
-        eval-data
-        (list 'do (list 'import lib-symbol)
-              (list 'let ['libinst (list 'new lib-symbol libname)]
-                    (list 'fn (vec (map (fn[idx]
-                                          (symbol (str "arg_" idx)))
-                                        (range (count argtypes))))
-                          (concat
-                           [(symbol (str "." (name symbol-name))) 'libinst]
-                           (->> argtypes
-                                (map-indexed
-                                 (fn [idx argtype]
-                                   (let [arg-sym (symbol (str "arg_" idx))]
-                                     (case (ffi/lower-type argtype)
-                                       :int8 (list 'unchecked-byte arg-sym)
-                                       :int16 (list 'unchecked-short arg-sym)
-                                       :int32 (list 'unchecked-int arg-sym)
-                                       :int64 (list 'unchecked-long arg-sym)
-                                       :float32 (list 'unchecked-float arg-sym)
-                                       :float64 (list 'unchecked-double arg-sym)
-                                       :pointer arg-sym
-                                       :pointer? arg-sym)))))))))]
-    (eval eval-data)))
-
-
-(def ffi-fns {:library-instance? library-instance?
-              :load-library load-library
+(def ffi-fns {:load-library load-library
               :find-symbol find-symbol
-              :define-library define-library
-              :find-function find-function})
+              :define-library define-library})

@@ -156,6 +156,7 @@
 
 
 (defn ptr-value
+  "Item must not be nil.  A long address is returned."
   ^long [item]
   (cond
     (instance? tech.v3.datatype.ffi.Pointer item)
@@ -163,30 +164,25 @@
     (instance? tech.v3.datatype.native_buffer.NativeBuffer item)
     (.address ^tech.v3.datatype.native_buffer.NativeBuffer item)
     :else
-    (.address ^tech.v3.datatype.ffi.Pointer (->pointer item))))
+    (do
+      (errors/when-not-errorf
+       (convertible-to-pointer? item)
+       "Item %s is not convertible to a C pointer" item)
+      (.address ^tech.v3.datatype.ffi.Pointer (->pointer item)))))
 
 
 (defn ptr-value?
+  "Item may be nil in which case 0 is returned."
   ^long [item]
-  (cond
-    (instance? tech.v3.datatype.ffi.Pointer item)
-    (.address ^tech.v3.datatype.ffi.Pointer item)
-    (instance? tech.v3.datatype.native_buffer.NativeBuffer item)
-    (.address ^tech.v3.datatype.native_buffer.NativeBuffer item)
-    :else
-    (if item
-      (do
-        (errors/when-not-errorf
-         (convertible-to-pointer? item)
-         "Item %s is not convertible to a C pointer" item)
-        (.address ^tech.v3.datatype.ffi.Pointer (->pointer item)))
-      (long 0))))
+  (if item
+    (ptr-value item)
+    0))
 
 
-(def ^:private ffi-impl*
+(def ffi-impl*
   (delay
     (let [ffi-data (when (jdk-ffi?)
-                     (try (requiring-resolve 'tech.v3.datatype.ffi.mmodel/ffi-fns)
+                     (try @(requiring-resolve 'tech.v3.datatype.ffi.mmodel/ffi-fns)
                           (catch Throwable e
                             (log/warn e "Failed to require jdk-16+ ffi.  Falling back to JNA") nil)))]
       (if ffi-data
@@ -194,8 +190,7 @@
         (try
           @(requiring-resolve 'tech.v3.datatype.ffi.jna/ffi-fns)
           (catch Throwable e
-            (throw (Exception. "Neither jdk-16 nor JNA are found on classpath.  FFI functionality is missing."))))
-        ))))
+            (throw (Exception. "Neither jdk-16 nor JNA are found on classpath.  FFI functionality is missing."))))))))
 
 
 (defn load-library
@@ -215,6 +210,44 @@
    ((:find-symbol @ffi-impl*) nil symbol-name)))
 
 
+(defn define-library
+  "Define a library.  After this, it is legal to 'import' the symbol.  The library
+  class file will be written out to *compile-path* - see documentation for
+  insn.core/write.
+
+  * fn-defs - map of fn-name -> {:rettype :argtypes} - see 'find-function'.
+
+  After this functionc call, if output-path is on the classpath then you can
+  'import' the defined library.  It's constructor takes a string which is the
+  path of the library to bind to (or nil for current process) and it will have
+  a correctly-typed function defined for every key in fn-defs.
+
+  Example:
+
+```clojure
+user> (dtype-ffi/define-library 'tech.libmemset {:memset {:rettype :pointer
+                                                          :argtypes [:pointer :int32 :size-t]}})
+{:library tech.libmemset}
+user> (import 'tech.libmemset)
+tech.libmemset
+user> (def inst (tech.libmemset. nil)) ;;nil for current process
+#'user/inst
+user> (def test-buf (dtype/make-container :native-heap :float32 (range 10)))
+#'user/test-buf
+user> test-buf
+#native-buffer@0x00007F4E28CE56D0<float32>[10]
+[0.000, 1.000, 2.000, 3.000, 4.000, 5.000, 6.000, 7.000, 8.000, 9.000, ]
+user> (.memset ^tech.libmemset inst test-buf 0 40)
+#object[tech.v3.datatype.ffi.Pointer 0x33013c57 \"{:address 0x00007F4E28CE56D0 }\"]
+user> test-buf
+#native-buffer@0x00007F4E28CE56D0<float32>[10]
+[0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, ]
+user>
+```"
+  [library-symbol fn-defs & [options]]
+  ((:define-library @ffi-impl*) library-symbol fn-defs options))
+
+
 (defn find-function
   "Find the symbol and return an IFn implementation wrapping typesafe access
   to the function.  The function's signature has to be completely specified.
@@ -229,26 +262,42 @@
 
   This object's ->pointer method returns the actual function pointer."
   [libname symbol-name rettype & [argtypes options]]
-  ((:find-function @ffi-impl*) libname symbol-name rettype argtypes options))
+  (let [lib-symbol (:library (define-library
+                               (symbol (str "tech.v3.datatype.ffi.Invoker_"
+                                            (name symbol-name)
+                                            "_"
+                                            (name (gensym))))
+                               {symbol-name {:rettype rettype
+                                             :argtypes argtypes}}
+                               options))
+        eval-data
+        (list 'do (list 'import lib-symbol)
+              (list 'let ['libinst (list 'new lib-symbol libname)]
+                    (list 'fn (vec (map (fn[idx]
+                                          (symbol (str "arg_" idx)))
+                                        (range (count argtypes))))
+                          (concat
+                           [(symbol (str "." (name symbol-name))) 'libinst]
+                           (->> argtypes
+                                (map-indexed
+                                 (fn [idx argtype]
+                                   (let [arg-sym (symbol (str "arg_" idx))]
+                                     (case (lower-type argtype)
+                                       :int8 (list 'unchecked-byte arg-sym)
+                                       :int16 (list 'unchecked-short arg-sym)
+                                       :int32 (list 'unchecked-int arg-sym)
+                                       :int64 (list 'unchecked-long arg-sym)
+                                       :float32 (list 'unchecked-float arg-sym)
+                                       :float64 (list 'unchecked-double arg-sym)
+                                       :pointer arg-sym
+                                       :pointer? arg-sym)))))))))]
+    (eval eval-data)))
 
 
-(defn define-library
-  "Define a library.  After this, it is legal to 'import' the symbol.  The library
-  class file will be written out to 'target/classes/...' unless :output-path is set
-  in the options.
-
-  * fn-defs - map of fn-name -> {:rettype :argtypes} - see 'find-function'.
-
-  After this functionc call, if output-path is on the classpath then you can
-  'import' the defined library.  It's constructor takes a string which is the
-  path of the library to bind to and it will have a correctly-typed function defined
-  for every key in fn-defs.
-
-  Options:
-
-  * `:output-path` - Root path to output class to; defaults to \"target/classes\"."
-  [library-symbol fn-defs & [options]]
-  ((:define-library @ffi-impl*) library-symbol fn-defs options))
+(defn define-foreign-interface
+  "Define a strongly typed interface that can then be used with fn->c."
+  [iface-symbol rettype argtypes & [options]]
+  ((:define-foreign-interface @ffi-impl*) iface-symbol rettype argtypes options))
 
 
 (defn fn->c
@@ -256,5 +305,5 @@
   Callers must specify the C-interface they expect to be used.  See find-function
   for the definition of rettype and argtypes.  Returns a Pointer suitable to be
   passed to C functions as a callback with the given signature."
-  ^Pointer [ifn rettype & [argtypes options]]
-  ((:fn->pointer @ffi-impl*) ifn))
+  ^Pointer [ifn iface & [options]]
+  ((:fn->pointer @ffi-impl*) ifn iface options))

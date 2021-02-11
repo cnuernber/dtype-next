@@ -102,7 +102,7 @@
            (do
              (log/info "Unable to find direct buffer constructor -
 falling back to jdk16 memory model.")
-             (requiring-resolve 'tech.v3.datatype.nio-buf-mmodel/direct-buffer-constructor)
+             (requiring-resolve 'tech.v3.datatype.ffi.nio-buf-mmodel/direct-buffer-constructor)
              ))))
 
 

@@ -1,4 +1,4 @@
-(ns tech.v3.datatype.mmap-larray
+(ns tech.v3.datatype.mmap.larray
   "Bindings to an mmap pathway (provided by xerial.larray.mmap)."
   (:require [clojure.java.io :as io]
             [tech.v3.resource :as resource]

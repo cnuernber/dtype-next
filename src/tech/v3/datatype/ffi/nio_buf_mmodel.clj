@@ -1,4 +1,4 @@
-(ns tech.v3.datatype.nio-buf-mmodel
+(ns tech.v3.datatype.ffi.nio-buf-mmodel
   (:require [tech.v3.datatype.protocols :as dtype-proto])
   (:import [jdk.incubator.foreign MemoryAddress Addressable MemorySegment
             NativeScope]

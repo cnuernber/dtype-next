@@ -22,7 +22,7 @@
                              [com.taoensso/nippy "3.1.0-RC1"]
                              [ch.qos.logback/logback-classic "1.1.3"]]
               :test-paths ["neanderthal" "test"]}
-             :jdk-16 {:jvm-opts ["--add-modules" "jdk.incubator.foreign" "-Dforeign.restricted=permit"]
+             :jdk-16 {:jvm-opts ["--add-modules" "jdk.incubator.foreign" "-Dforeign.restricted=permit" "--add-opens" "java.base/java.lang=ALL-UNNAMED"]
                       :source-paths ["src"]}
              :codox
              {:dependencies [[codox-theme-rdash "0.1.2"]]
@@ -47,6 +47,7 @@
                                    tech.v3.datatype.nippy
                                    tech.v3.datatype.rolling
                                    tech.v3.datatype.jna
+                                   tech.v3.datatype.ffi
                                    tech.v3.tensor.dimensions
                                    tech.v3.tensor.color-gradients
                                    tech.v3.datatype.reductions
@@ -65,4 +66,4 @@
               :jvm-opts ["-Dclojure.compiler.direct-linking=true" "-Dtech.v3.datatype.graal-native=true"]
               :uberjar-name "dtype-next.jar"
               :main tech.v3.datatype.main}}
-  :aliases {"codox" ["with-profile" "codox,dev" "codox"]})
+  :aliases {"codox" ["with-profile" "jdk-16,codox,dev" "codox"]})
