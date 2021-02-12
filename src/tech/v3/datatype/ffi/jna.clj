@@ -2,7 +2,7 @@
   (:require [tech.v3.datatype.ffi :as ffi]
             [tech.v3.datatype.errors :as errors]
             [insn.core :as insn])
-  (:import [com.sun.jna NativeLibrary Pointer]
+  (:import [com.sun.jna NativeLibrary Pointer Callback CallbackReference]
            [tech.v3.datatype NumericConversions ClojureHelper]
            [clojure.lang IFn RT IPersistentMap IObj]
            [java.lang.reflect Constructor]
@@ -106,19 +106,8 @@
   (Pointer. (ffi/ptr-value? item)))
 
 
-(defn emit-library-constructor
-  [inner-cls]
+(def emit-ptr-ptrq
   [[:aload 0]
-   [:invokespecial :super :init [:void]]
-   [:ldc "tech.v3.datatype.ffi.jna"]
-   [:ldc "load-library"]
-   [:invokestatic ClojureHelper "findFn" [String String IFn]]
-   [:aload 1]
-   [:invokevirtual IFn "invoke" [Object Object]]
-   [:checkcast NativeLibrary]
-   [:ldc inner-cls]
-   [:invokestatic com.sun.jna.Native "register" [Class NativeLibrary :void]]
-   [:aload 0]
    [:ldc "tech.v3.datatype.ffi.jna"]
    [:ldc "ptr-value"]
    [:invokestatic ClojureHelper "findFn" [String String IFn]]
@@ -127,8 +116,24 @@
    [:ldc "tech.v3.datatype.ffi.jna"]
    [:ldc "ptr-value?"]
    [:invokestatic ClojureHelper "findFn" [String String IFn]]
-   [:putfield :this "asPointerQ" IFn]
-   [:return]])
+   [:putfield :this "asPointerQ" IFn]])
+
+
+(defn emit-library-constructor
+  [inner-cls]
+  (concat
+   [[:aload 0]
+    [:invokespecial :super :init [:void]]
+    [:ldc "tech.v3.datatype.ffi.jna"]
+    [:ldc "load-library"]
+    [:invokestatic ClojureHelper "findFn" [String String IFn]]
+    [:aload 1]
+    [:invokevirtual IFn "invoke" [Object Object]]
+    [:checkcast NativeLibrary]
+    [:ldc inner-cls]
+    [:invokestatic com.sun.jna.Native "register" [Class NativeLibrary :void]]]
+   emit-ptr-ptrq
+   [[:return]]))
 
 
 (defn args->indexes-args
@@ -223,6 +228,136 @@
        :library-class-def cls-data})))
 
 
+(defn emit-fi-constructor
+  []
+  (concat
+   [[:aload 0]
+    [:invokespecial :super :init [:void]]
+    [:aload 0]
+    [:aload 1]
+    [:putfield :this "ifn" IFn]]
+   emit-ptr-ptrq
+   [[:return]]))
+
+
+(defn load-ptr
+  [arg-idx]
+  [[:new tech.v3.datatype.ffi.Pointer]
+   [:dup]
+   [:aload arg-idx]
+   [:invokestatic Pointer "nativeValue" [Pointer :long]]
+   [:invokespecial tech.v3.datatype.ffi.Pointer :init [:long :void]]])
+
+
+(defn ifn-return-ptr
+  [ptr-field]
+  [[:astore 1]
+   [:new Pointer]
+   [:dup]
+   [:aload 0]
+   [:getfield :this ptr-field IFn]
+   [:aload 1]
+   [:invokeinterface IFn "invoke" [Object Object]]
+   [:checkcast Long]
+   [:invokevirtual Long "asLong" [:long]]
+   [:invokespecial Pointer :init [:long :void]]
+   [:areturn]])
+
+
+(defn emit-fi-invoke
+  [rettype argtypes]
+  (concat
+   [[:aload 0]
+    [:getfield :this "ifn" IFn]]
+   (->> (args->indexes-args argtypes)
+        (mapcat (fn [[arg-idx argtype]]
+                  (case (ffi/lower-type argtype)
+                    :int8 [[:iload arg-idx]
+                           [:invokestatic RT "box" [:byte Object]]]
+                    :int16 [[:iload arg-idx]
+                            [:invokestatic RT "box" [:short Object]]]
+                    :int32 [[:iload arg-idx]
+                            [:invokestatic RT "box" [:int Object]]]
+                    :int64 [[:lload arg-idx]
+                            [:invokestatic RT "box" [:long Object]]]
+                    :float32 [[:fload arg-idx]
+                              [:invokestatic RT "box" [:float Object]]]
+                    :float64 [[:dload arg-idx]
+                              [:invokestatic RT "box" [:double Object]]]
+                    :pointer (load-ptr arg-idx)
+                    :pointer? (load-ptr arg-idx)))))
+   [[:invokevirtual IFn "invoke" (repeat (inc (count argtypes)) Object)]]
+   (case (ffi/lower-type rettype)
+     :int8 [[:checkcast Byte]
+            [:invokevirtual Byte "asByte" [Byte :byte]]
+            [:ireturn]]
+     :int16 [[:checkcast Short]
+             [:invokevirtual Short "asShort" [Short :short]]
+             [:ireturn]]
+     :int32 [[:checkcast Integer]
+             [:invokevirtual Integer "asInt" [Short :int]]
+             [:ireturn]]
+     :int64 [[:checkcast Long]
+             [:invokevirtual Long "asLong" [Long :long]]
+             [:lreturn]]
+     :float32 [[:checkcast Float]
+               [:invokevirtual Float "asFloat" [Float :float]]
+               [:freturn]]
+     :float64 [[:checkcast Double]
+               [:invokevirtual Double "asDouble" [Double :double]]
+               [:dreturn]]
+     :pointer (ifn-return-ptr "asPointer")
+     :pointer? (ifn-return-ptr "asPointerQ"))))
+
+
+(defn foreign-interface-definition
+  [iface-symbol rettype argtypes options]
+  {:name iface-symbol
+   :flags #{:public}
+   :interfaces [Callback]
+   :fields [{:name "asPointer"
+             :type IFn
+             :flags #{:public :final}}
+            {:name "asPointerQ"
+             :type IFn
+             :flags #{:public :final}}
+            {:name "ifn"
+             :type IFn
+             :flags #{:public :final}}]
+   :methods [{:name :init
+              :flags #{:public}
+              :desc [IFn :void]
+              :emit (emit-fi-constructor)}
+             {:name :invoke
+              :flags #{:public}
+              :desc (vec
+                     (concat (map (partial dtype->insn
+                                           :ptr-as-platform) argtypes)
+                             [(dtype->insn :ptr-as-platform rettype)]))
+              :emit (emit-fi-invoke rettype argtypes)}]})
+
+
+(defn define-foreign-interface
+  [iface-symbol rettype argtypes options]
+  (let [cls-def (foreign-interface-definition iface-symbol rettype argtypes options)]
+    (-> cls-def
+        (insn/visit)
+        (insn/write))
+    {:rettype rettype
+     :argtypes argtypes
+     :foreign-iface-symbol iface-symbol
+     :foreign-iface-class (insn/define cls-def)}))
+
+
+(defn foreign-interface-instance->c
+  [inst iface-def]
+  (tech.v3.datatype.ffi/Pointer.
+   (-> (CallbackReference/getFunctionPointer inst)
+       (Pointer/nativeValue))))
+
+
 (def ffi-fns {:load-library load-library
               :find-symbol find-symbol
-              :define-library define-library})
+              :define-library define-library
+              :define-foreign-interface define-foreign-interface
+              :foreign-interface-instance->c foreign-interface-instance->c})

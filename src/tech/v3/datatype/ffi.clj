@@ -4,7 +4,6 @@
             [tech.v3.datatype.base :as base]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.protocols :as dtype-proto]
-            [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.errors :as errors]
             [clojure.tools.logging :as log])
   (:import [tech.v3.datatype.native_buffer NativeBuffer]
@@ -19,6 +18,7 @@
 
 
 (defn size-t-size
+  "Get the size in bytes of a size-t integer."
   ^long []
   (let [arch (.toLowerCase (System/getProperty "os.arch"))]
     (if (arch64-set arch)
@@ -26,9 +26,11 @@
       4)))
 
 
-(defmacro size-t-compile-time-switch
+(defmacro ^:no-doc size-t-compile-time-switch
   "Run either int32 based code or int64 based code depending
-   on the runtime size of size-t"
+   on the runtime size of size-t.  Use with extreme caution - this means that
+  size-t size will be set upon compilation of your code which may be on a different
+  platform than where your code runs."
   [int-body long-body]
   (case (size-t-size)
     4 `~int-body
@@ -36,21 +38,21 @@
 
 
 (defn size-t-type
+  "the size-t datatype - either `:int32` or `:int64`."
   []
   (if (= (size-t-size) 8)
     :int64
     :int32))
 
-(casting/alias-datatype! :size-t (size-t-type))
 
 (defn ptr-int-type
+  "Get the integer type of a pointer - either `:int32` or `:int64`."
   []
   (size-t-type))
 
-(casting/alias-datatype! :pointer (size-t-type))
-
 
 (defn lower-type
+  "Downcast `:size-t` to its integer equivalent."
   [argtype]
   (if (= argtype :size-t)
     (size-t-type)
@@ -58,7 +60,7 @@
 
 
 (defn jdk-ffi?
-  "Is the JDK foreign function interface enabled?"
+  "Is the JDK foreign function interface available?"
   []
   (try
     (boolean (Class/forName "jdk.incubator.foreign.LibraryLookup"))
@@ -66,7 +68,7 @@
 
 
 (defn jna-ffi?
-  "Is JNA's ffi interface enabled?"
+  "Is JNA's ffi interface available?"
   []
   (try
     (boolean (Class/forName "com.sun.jna.Pointer"))
@@ -74,7 +76,7 @@
 
 
 (defn jdk-mmodel?
-  "Is the JDK native memory model enabled?"
+  "Is the JDK native memory model available?"
   []
   (try
     (boolean (Class/forName "jdk.incubator.foreign.MemoryAddress"))
@@ -179,18 +181,36 @@
     0))
 
 
-(def ffi-impl*
-  (delay
-    (let [ffi-data (when (jdk-ffi?)
-                     (try @(requiring-resolve 'tech.v3.datatype.ffi.mmodel/ffi-fns)
-                          (catch Throwable e
-                            (log/warn e "Failed to require jdk-16+ ffi.  Falling back to JNA") nil)))]
-      (if ffi-data
-        ffi-data
+(def ^:private ffi-impl* (atom nil))
+
+
+(defn set-ffi-impl!
+  "Set the global ffi implementation.  Options are
+  * :jdk - namespace `'tech.v3.datatype.ffi.mmodel/ffi-fns` - only available with jdk's foreign function module enabled.
+  * :jna - namespace `''tech.v3.datatype.ffi.jna/ffi-fns` - available if JNA version 5+ is in the classpath."
+  [ffi-kwd]
+  (case ffi-kwd
+    :jdk (reset! ffi-impl* @(requiring-resolve 'tech.v3.datatype.ffi.mmodel/ffi-fns))
+    :jna (reset! ffi-impl* @(requiring-resolve 'tech.v3.datatype.ffi.jna/ffi-fns))))
+
+
+(defn- ffi-impl
+  "Get an implementation of the actual FFI interface.  This is for internal use only."
+  []
+  (when (nil? @ffi-impl*)
+    ;;prefer JDK support
+    (try
+      (set-ffi-impl! :jdk)
+      (catch Throwable e
+        (log/debug e "Failed to load JDK FFI implementation.")
         (try
-          @(requiring-resolve 'tech.v3.datatype.ffi.jna/ffi-fns)
+          (set-ffi-impl! :jna)
           (catch Throwable e
-            (throw (Exception. "Neither jdk-16 nor JNA are found on classpath.  FFI functionality is missing."))))))))
+            (reset! ffi-impl* :failed)
+            (log/error e "Failed to find a suitable ffi implementation.
+Attempted both :jdk and :jna -- call set-ffi-impl! from the repl to see specific failure."))))))
+  @ffi-impl*)
+
 
 
 (defn load-library
@@ -198,16 +218,16 @@
 
   Exception if the library cannot be found."
   [libname]
-  ((:load-library @ffi-impl*) libname))
+  ((:load-library (ffi-impl)) libname))
 
 
 (defn find-symbol
   "Find a symbol in a library.  A library symbol is guaranteed to have a conversion to
   a pointer."
   ([libname symbol-name]
-   ((:find-symbol @ffi-impl*) libname symbol-name))
+   ((:find-symbol (ffi-impl)) libname symbol-name))
   ([symbol-name]
-   ((:find-symbol @ffi-impl*) nil symbol-name)))
+   ((:find-symbol (ffi-impl)) nil symbol-name)))
 
 
 (defn define-library
@@ -245,7 +265,7 @@ user> test-buf
 user>
 ```"
   [library-symbol fn-defs & [options]]
-  ((:define-library @ffi-impl*) library-symbol fn-defs options))
+  ((:define-library (ffi-impl)) library-symbol fn-defs options))
 
 
 (defn find-function
@@ -295,15 +315,16 @@ user>
 
 
 (defn define-foreign-interface
-  "Define a strongly typed interface that can then be used with fn->c."
+  "Define a strongly typed instance that can be used with
+  foreign-interface-instance->c.  This instance takes a single constructor argument
+  which is the IFn that it is wrapping and will call the IFn with the argtypes
+  and expect an exact matching rettype."
   [iface-symbol rettype argtypes & [options]]
-  ((:define-foreign-interface @ffi-impl*) iface-symbol rettype argtypes options))
+  ((:define-foreign-interface (ffi-impl)) iface-symbol rettype argtypes options))
 
 
-(defn fn->c
-  "Convert something implementing the Clojure IFn interface to a Pointer value.
-  Callers must specify the C-interface they expect to be used.  See find-function
-  for the definition of rettype and argtypes.  Returns a Pointer suitable to be
-  passed to C functions as a callback with the given signature."
-  ^Pointer [ifn iface & [options]]
-  ((:fn->pointer @ffi-impl*) ifn iface options))
+(defn foreign-interface-instance->c
+  "Convert an instance of the above foreign interface definition into a Pointer
+  suitable to be called from C."
+  ^Pointer [foreign-inst iface-def]
+  ((:foreign-interface-instance->c @ffi-impl*) foreign-inst))
