@@ -7,8 +7,9 @@
             [tech.v3.datatype.errors :as errors]
             [clojure.tools.logging :as log])
   (:import [tech.v3.datatype.native_buffer NativeBuffer]
+           [tech.v3.datatype.ffi Pointer]
            [java.nio.charset Charset]
-           [tech.v3.datatype.ffi Pointer]))
+           [java.lang.reflect Constructor]))
 
 
 (set! *warn-on-reflection* true)
@@ -181,6 +182,16 @@
     0))
 
 
+(defn instantiate-class
+  "Utility function to instantiate a class via its first constructor in its list
+  of declared constructors.  Works with classes returned from 'define-library'
+  and 'define-foreign-interface'.  Uses reflection."
+  [cls & args]
+  (let [^Constructor constructor (-> (.getDeclaredConstructors ^Class cls)
+                                     (first))]
+    (.newInstance constructor (object-array args))))
+
+
 (def ^:private ffi-impl* (atom nil))
 
 
@@ -231,22 +242,29 @@ Attempted both :jdk and :jna -- call set-ffi-impl! from the repl to see specific
 
 
 (defn define-library
-  "Define a library.  After this, it is legal to 'import' the symbol.  The library
-  class file will be written out to *compile-path* - see documentation for
-  insn.core/write.
+  "Define a library returning the class.  The class can be instantiated with a string
+  naming the library path or nil for the current process.  After instantiation the
+  library instance will have strongly typed methods named the same as the
+  keyword keys in fn-defs efficiently bound to symbols of the same exact name in
+  library.
 
-  * fn-defs - map of fn-name -> {:rettype :argtypes} - see 'find-function'.
+  * `fn-defs` - map of fn-name -> {:rettype :argtypes} - see 'find-function'.
 
-  After this functionc call, if output-path is on the classpath then you can
-  'import' the defined library.  It's constructor takes a string which is the
-  path of the library to bind to (or nil for current process) and it will have
-  a correctly-typed function defined for every key in fn-defs.
+  Options:
+
+  * `:classname` - If classname (a symbol) is provided a .class file is saved to
+  *compile-path* after which `(import classname)` will be a validcall meaning that
+  after AOT no further reflection or class generation is required to access the
+  class explicitly.  That being said 'import' does not reload classes that are
+  already on the classpath so this option is best used after library has stopped
+  changing.
 
   Example:
 
 ```clojure
-user> (dtype-ffi/define-library 'tech.libmemset {:memset {:rettype :pointer
-                                                          :argtypes [:pointer :int32 :size-t]}})
+user> (dtype-ffi/define-library {:memset {:rettype :pointer
+                                 :argtypes [:pointer :int32 :size-t]}}
+                                {:classname 'tech.libmemset})
 {:library tech.libmemset}
 user> (import 'tech.libmemset)
 tech.libmemset
@@ -264,8 +282,8 @@ user> test-buf
 [0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, ]
 user>
 ```"
-  [library-symbol fn-defs & [options]]
-  ((:define-library (ffi-impl)) library-symbol fn-defs options))
+  [fn-defs & [options]]
+  ((:define-library (ffi-impl)) fn-defs options))
 
 
 (defn find-function
@@ -280,7 +298,8 @@ user>
   * `:pointer` `:pointer?` - Something convertible to a Pointer type.  Potentially
      exception when nil.
 
-  This object's ->pointer method returns the actual function pointer."
+  This object's ->pointer protocol implementation returns the actual function
+  pointer.  This function uses 'eval' and thus also uses reflection."
   [libname symbol-name rettype & [argtypes options]]
   (let [lib-symbol (:library (define-library
                                (symbol (str "tech.v3.datatype.ffi.Invoker_"
@@ -317,14 +336,29 @@ user>
 (defn define-foreign-interface
   "Define a strongly typed instance that can be used with
   foreign-interface-instance->c.  This instance takes a single constructor argument
-  which is the IFn that it is wrapping and will call the IFn with the argtypes
-  and expect an exact matching rettype."
-  [iface-symbol rettype argtypes & [options]]
-  ((:define-foreign-interface (ffi-impl)) iface-symbol rettype argtypes options))
+  which is the IFn that it is wrapping.  It has a single typesafe 'invoke' method
+  taking types defined by the underlying binding and transforming them into types
+  that Clojure expects - for instance pointers are transformed to/from
+  `tech.v3.datatype.ffi.Pointer` upon entry/exit from the wrapped IFn.
+
+  * `rettype` - The return type of the function.
+  * `argtypes` - A possibly empty sequence of argument types.
+
+  Options:
+
+  * `:classname` - Similar to `:classname` in 'define-library'.  A class will be
+     generated to *compile-path* and after this statement `(import classname)` will
+     be a valid call.
+
+  See foreign-interface-instance->c for example."
+  [rettype argtypes & [{:as options}]]
+  ((:define-foreign-interface (ffi-impl)) rettype argtypes options))
 
 
 (defn foreign-interface-instance->c
   "Convert an instance of the above foreign interface definition into a Pointer
-  suitable to be called from C."
-  ^Pointer [foreign-inst iface-def]
+  suitable to be called from C.
+
+  * `foreign-inst` - an instance of the class defined by 'define-foreign-interface'."
+  ^Pointer [foreign-inst]
   ((:foreign-interface-instance->c @ffi-impl*) foreign-inst))

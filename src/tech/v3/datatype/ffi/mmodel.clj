@@ -1,12 +1,9 @@
 (ns tech.v3.datatype.ffi.mmodel
-  (:require [tech.v3.datatype.base :as dtype-base]
-            [tech.v3.datatype.protocols :as dtype-proto]
-            [tech.v3.datatype.errors :as errors]
-            [tech.v3.datatype.casting :as casting]
+  (:require [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.ffi :as ffi]
+            [tech.v3.datatype.ffi.base :as ffi-base]
             [insn.core :as insn]
-            [clojure.string :as s]
-            [clojure.java.io :as io])
+            [clojure.string :as s])
   (:import [jdk.incubator.foreign LibraryLookup CLinker FunctionDescriptor
             MemoryLayout LibraryLookup$Symbol]
            [jdk.incubator.foreign MemoryAddress Addressable MemoryLayout]
@@ -142,48 +139,6 @@
     (MethodType/methodType (argtype->cls rettype) cls-ary)))
 
 
-(defn sig->cls-name
-  [{:keys [rettype argtypes]}]
-  (->> (concat [rettype] argtypes)
-       (map (fn [argtype]
-              (if-not (or (= :void argtype )
-                          (nil? argtype))
-                (case argtype
-                  :int8 "B"
-                  :int16 "S"
-                  :int32 "I"
-                  :int64 "J"
-                  :float32 "F"
-                  :float64 "D"
-                  "P")
-                "V")))
-       (s/join "_")))
-
-
-(defn argtype->insn-type
-  ([ptr-type argtype]
-   (if (or (= :void argtype)
-           (nil? argtype))
-     :void
-     (case (ffi/lower-type argtype)
-       :int8 :byte
-       :int16 :short
-       :int32 :int
-       :int64 :long
-       :float32 :float
-       :float64 :double
-       :pointer (case ptr-type
-                  :ptr-as-platform MemoryAddress
-                  :ptr-as-ptr Pointer
-                  :ptr-as-obj Object)
-       :pointer? (case ptr-type
-                   :ptr-to-platform MemoryAddress
-                   :ptr-to-ptr Pointer
-                   :ptr-as-obj Object))))
-  ([argtype]
-   (argtype->insn-type :ptr-to-platform argtype)))
-
-
 (defn library-sym->method-handle
   ^MethodHandle [library symbol-name rettype & argtypes]
   (let [sym (find-symbol library symbol-name)
@@ -200,23 +155,15 @@
   (->>
    (concat
     [[:aload 0]
-     [:invokespecial :super :init [:void]]
-     [:aload 0]
-     [:ldc "tech.v3.datatype.ffi.mmodel"]
-     [:ldc "ptr-value"]
-     [:invokestatic ClojureHelper "findFn" [String String IFn]]
-     [:putfield :this "asPointer" IFn]
-     [:aload 0]
-     [:ldc "tech.v3.datatype.ffi.mmodel"]
-     [:ldc "ptr-value?"]
-     [:invokestatic ClojureHelper "findFn" [String String IFn]]
-     [:putfield :this "asPointer" IFn]
-     [:ldc "tech.v3.datatype.ffi.mmodel"]
+     [:invokespecial :super :init [:void]]]
+    (ffi-base/find-ptr-ptrq "tech.v3.datatype.ffi.mmodel")
+    [[:ldc "tech.v3.datatype.ffi.mmodel"]
      [:ldc "library-sym->method-handle"]
      [:invokestatic ClojureHelper "findFn" [String String IFn]]
      ;;1 is the string constructor argument
      ;;2 is the method handle resolution system
      [:astore 2]]
+    ;;Load all the method handles.
     (mapcat
      (fn [[fn-name {:keys [rettype argtypes]}]]
        (let [hdl-name (str (name fn-name) "_hdl")]
@@ -239,25 +186,11 @@
     [[:return]])
    (vec)))
 
-(defn make-ptr-cast
-  [cast-fn]
-  [[:aload 0]
-   [:getfield :this cast-fn IFn]
-   [:swap]
-   [:invokeinterface IFn "invoke" [Object Object]]
-   [:checkcast MemoryAddress]])
 
-
-(def ptr-cast (make-ptr-cast "asPointer"))
-(def ptr?-cast (make-ptr-cast "asPointerQ"))
-(def ptr-return
-  [[:invokeinterface MemoryAddress "toRawLongValue" [:long]]
-   [:lstore 1]
-   [:new Pointer]
-   [:dup]
-   [:lload 1]
-   [:invokespecial Pointer :init [:long :void]]
-   [:areturn]])
+(def ptr-cast (ffi-base/make-ptr-cast "asPointer" MemoryAddress))
+(def ptr?-cast (ffi-base/make-ptr-cast "asPointerQ" MemoryAddress))
+(def ptr-return (ffi-base/ptr-return
+                 [[:invokeinterface MemoryAddress "toRawLongValue" [:long]]]))
 
 
 (defn emit-fn-def
@@ -265,43 +198,13 @@
   (->> (concat
         [[:aload 0]
          [:getfield :this hdl-name MethodHandle]]
-        (-> (reduce
-             (fn [[retval offset] argtype]
-               (let [argtype (ffi/lower-type argtype)]
-                 [(concat
-                   retval
-                   (case argtype
-                     :int8 [[:iload offset]]
-                     :int16 [[:iload offset]]
-                     :int32 [[:iload offset]]
-                     :int64 [[:lload offset]]
-                     :float32 [[:fload offset]]
-                     :float64 [[:dload offset]]
-                     :pointer (concat [[:aload offset]]
-                                      ptr-cast)
-                     :pointer? (concat [[:aload offset]]
-                                       ptr?-cast)))
-                  (+ (long offset)
-                     (long (case argtype
-                             :int64 2
-                             :float64 2
-                             1)))]))
-             ;;Start at 1 because 0 is the 'this' object
-             [[] 1]
-             argtypes)
-            (first))
+        (ffi-base/load-ffi-args ptr-cast ptr?-cast argtypes)
         [[:invokevirtual MethodHandle "invokeExact"
-          (concat (map (partial argtype->insn-type :ptr-as-platform) argtypes)
-                  [(argtype->insn-type :ptr-as-platform rettype)])]]
-        (case (ffi/lower-type rettype)
-          :int8 [[:ireturn]]
-          :int16 [[:ireturn]]
-          :int32 [[:ireturn]]
-          :int64 [[:lreturn]]
-          :float32 [[:freturn]]
-          :float64 [[:dreturn]]
-          :pointer ptr-return
-          :pointer? ptr-return))
+          (concat (map (partial ffi-base/argtype->insn
+                                MemoryAddress :ptr-as-platform) argtypes)
+                  [(ffi-base/argtype->insn MemoryAddress :ptr-as-platform
+                                           rettype)])]]
+        (ffi-base/ffi-call-return ptr-return rettype))
        (vec)))
 
 
@@ -335,9 +238,9 @@
                   {:keys [rettype argtypes]} fn-data]
               {:name fn-name
                :flags #{:public}
-               :desc (concat (map (partial argtype->insn-type :ptr-as-obj)
+               :desc (concat (map (partial ffi-base/argtype->insn MemoryAddress :ptr-as-obj)
                                   argtypes)
-                             [(argtype->insn-type :ptr-as-ptr rettype)])
+                             [(ffi-base/argtype->insn MemoryAddress :ptr-as-ptr rettype)])
                :emit (emit-fn-def hdl-name rettype argtypes)}))
           fn-defs))
         (vec))})
@@ -345,10 +248,12 @@
 
 (defn define-library
   [library-symbol fn-defs options]
-  (-> (base-define-library library-symbol fn-defs options)
-      (insn/visit)
-      (insn/write))
-  {:library library-symbol})
+  (let [cls-def (base-define-library library-symbol fn-defs options)]
+    (-> cls-def
+        (insn/visit)
+        (insn/write))
+    {:library library-symbol
+     :library-class (insn/define cls-def)}))
 
 
 (def ffi-fns {:load-library load-library
