@@ -5,7 +5,8 @@
             [insn.core :as insn])
   (:import [com.sun.jna NativeLibrary Pointer Callback CallbackReference]
            [tech.v3.datatype NumericConversions ClojureHelper]
-           [clojure.lang IFn RT IPersistentMap IObj]
+           [clojure.lang IFn RT IPersistentMap IObj MapEntry Keyword IDeref
+            ISeq]
            [java.lang.reflect Constructor]
            [java.nio.file Paths]))
 
@@ -75,16 +76,20 @@
   (concat
    [[:aload 0]
     [:invokespecial :super :init [:void]]
+    [:ldc inner-cls]
     [:ldc "tech.v3.datatype.ffi.jna"]
     [:ldc "load-library"]
     [:invokestatic ClojureHelper "findFn" [String String IFn]]
     [:aload 1]
-    [:invokevirtual IFn "invoke" [Object Object]]
+    [:invokeinterface IFn "invoke" [Object Object]]
     [:checkcast NativeLibrary]
-    [:ldc inner-cls]
     [:invokestatic com.sun.jna.Native "register" [Class NativeLibrary :void]]]
    emit-ptr-ptrq
-   [[:return]]))
+   [[:aload 0]
+    [:dup]
+    [:invokevirtual :this "buildFnMap" [Object]]
+    [:putfield :this "fnMap" Object]
+    [:return]]))
 
 
 (defn emit-wrapped-fn
@@ -104,11 +109,11 @@
 
 
 (defn define-library
-  [library-symbol fn-defs {:keys [emit-cls?]
-                           :or {emit-cls? true}
-                           :as options}]
+  [fn-defs & [{:keys [classname]
+               :or {classname (str "tech.v3.datatype.ffi.jna." (name (gensym)))}}]]
   ;; First we define the inner class which contains the typesafe static methods
-  (let [inner-name (symbol (str library-symbol "$inner"))]
+  (let [inner-name (symbol (str classname "$inner"))
+        fn-defs (ffi-base/lower-fn-defs fn-defs)]
     (-> {:name inner-name
          :flags #{:public :static}
          :methods (mapv (fn [[k v]]
@@ -121,27 +126,40 @@
                         fn-defs)}
         (insn/visit)
         (insn/write))
-    (let [cls-data
-          {:name library-symbol
+    (let [invokers (ffi-base/emit-invokers classname fn-defs)
+          cls-data
+          {:name classname
            :flags #{:public}
+           :interfaces [IDeref]
            :fields [{:name "asPointer"
                      :type IFn
                      :flags #{:public :final}}
                     {:name "asPointerQ"
                      :type IFn
+                     :flags #{:public :final}}
+                    {:name "fnMap"
+                     :type Object
                      :flags #{:public :final}}]
            :methods (vec (concat
                           [{:name :init
                             :desc [String :void]
-                            :emit (emit-library-constructor inner-name)}]
+                            :emit (emit-library-constructor inner-name)}
+                           {:name "buildFnMap"
+                            :desc [Object]
+                            :emit (ffi-base/emit-library-fn-map classname fn-defs)}
+                           {:name :deref
+                            :desc [Object]
+                            :emit [[:aload 0]
+                                   [:getfield :this "fnMap" Object]
+                                   [:areturn]]}]
                           (mapv (partial emit-wrapped-fn inner-name) fn-defs)))}]
-      (when emit-cls?
-        (-> cls-data
+      (doseq [cls (concat [cls-data] invokers)]
+        (-> cls
             (insn/visit)
-            (insn/write)))
-      {:inner-cls inner-name
-       :library library-symbol
-       :library-class (insn/define cls-data)})))
+            (insn/write))
+        (insn/define cls))
+      {:library-class (insn/define cls-data)
+       :library-symbol classname})))
 
 
 (defn emit-fi-constructor
@@ -209,22 +227,24 @@
 
 
 (defn define-foreign-interface
-  [iface-symbol rettype argtypes options]
-  (let [cls-def (foreign-interface-definition iface-symbol rettype argtypes options)]
+  [rettype argtypes options]
+  (let [classname (or (:classname options)
+                      (symbol (str "tech.v3.datatype.ffi.jna.ffi_" (name (gensym)))))
+        cls-def (foreign-interface-definition classname rettype argtypes options)]
     (-> cls-def
         (insn/visit)
         (insn/write))
     {:rettype rettype
      :argtypes argtypes
-     :foreign-iface-symbol iface-symbol
+     :foreign-iface-symbol classname
      :foreign-iface-class (insn/define cls-def)}))
 
 
 (defn foreign-interface-instance->c
-  [inst iface-def]
-  (tech.v3.datatype.ffi/Pointer.
-   (-> (CallbackReference/getFunctionPointer inst)
-       (Pointer/nativeValue))))
+  [inst]
+  (-> (CallbackReference/getFunctionPointer inst)
+      (Pointer/nativeValue)
+      (tech.v3.datatype.ffi/Pointer.)))
 
 
 (def ffi-fns {:load-library load-library

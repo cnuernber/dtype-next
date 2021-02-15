@@ -263,7 +263,7 @@ Attempted both :jdk and :jna -- call set-ffi-impl! from the repl to see specific
 
 ```clojure
 user> (dtype-ffi/define-library {:memset {:rettype :pointer
-                                 :argtypes [:pointer :int32 :size-t]}}
+                                          :argtypes [:pointer :int32 :size-t]}}
                                 {:classname 'tech.libmemset})
 {:library tech.libmemset}
 user> (import 'tech.libmemset)
