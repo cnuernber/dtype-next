@@ -1,6 +1,7 @@
 (ns tech.v3.datatype.ffi.base
   (:require [tech.v3.datatype.errors :as errors]
-            [tech.v3.datatype.ffi :as ffi])
+            [tech.v3.datatype.ffi :as ffi]
+            [insn.core :as insn])
   (:import [clojure.lang IFn RT IDeref ISeq Keyword]
            [tech.v3.datatype ClojureHelper NumericConversions]))
 
@@ -236,33 +237,36 @@
 
 (defn emit-library-fn-map
   [classname fn-defs]
-  (concat
-   [[:new 'java.util.ArrayList]
-    [:dup]
-    [:invokespecial 'java.util.ArrayList :init [:void]]
-    [:astore 1]]
-   (mapcat
-    (fn [[fn-name _fn-data]]
-      [[:aload 1]
-       [:ldc (name fn-name)]
-       [:invokestatic Keyword "intern" [String Keyword]]
-       [:invokevirtual 'java.util.ArrayList "add" [Object :boolean]]
-       [:pop]
-       [:aload 1]
-       [:new (invoker-classname classname fn-name)]
-       [:dup]
-       [:aload 0]
-       [:invokespecial (invoker-classname classname fn-name) :init [classname :void]]
-       [:invokevirtual 'java.util.ArrayList "add" [Object :boolean]]
-       [:pop]])
-    fn-defs)
-   [[:ldc "clojure.core"]
-    [:ldc "hash-map"]
-    [:invokestatic ClojureHelper "findFn" [String String IFn]]
-    [:aload 1]
-    [:invokestatic RT "seq" [Object ISeq]]
-    [:invokeinterface IFn "applyTo" [ISeq Object]]
-    [:areturn]]))
+  {:name "buildFnMap"
+   :desc [Object]
+   :emit
+   (concat
+    [[:new 'java.util.ArrayList]
+     [:dup]
+     [:invokespecial 'java.util.ArrayList :init [:void]]
+     [:astore 1]]
+    (mapcat
+     (fn [[fn-name _fn-data]]
+       [[:aload 1]
+        [:ldc (name fn-name)]
+        [:invokestatic Keyword "intern" [String Keyword]]
+        [:invokevirtual 'java.util.ArrayList "add" [Object :boolean]]
+        [:pop]
+        [:aload 1]
+        [:new (invoker-classname classname fn-name)]
+        [:dup]
+        [:aload 0]
+        [:invokespecial (invoker-classname classname fn-name) :init [classname :void]]
+        [:invokevirtual 'java.util.ArrayList "add" [Object :boolean]]
+        [:pop]])
+     fn-defs)
+    [[:ldc "clojure.core"]
+     [:ldc "hash-map"]
+     [:invokestatic ClojureHelper "findFn" [String String IFn]]
+     [:aload 1]
+     [:invokestatic RT "seq" [Object ISeq]]
+     [:invokeinterface IFn "applyTo" [ISeq Object]]
+     [:areturn]])})
 
 
 (defn lower-fn-defs
@@ -279,3 +283,20 @@
                                             (ffi/lower-type)))
                                       %))]))
        (into {})))
+
+
+(defn define-library
+  [fn-defs classname library-classes-fn]
+  (let [fn-defs (lower-fn-defs fn-defs)]
+    ;; First we define the inner class which contains the typesafe static methods
+    {:library-symbol classname
+     :library-class
+     (->> (concat (library-classes-fn classname fn-defs)
+                  (emit-invokers classname fn-defs))
+          ;;side effects
+          (mapv (fn [cls]
+                  (-> (insn/visit cls)
+                      (insn/write))
+                  ;;defined immediately for repl access
+                  (insn/define cls)))
+          (first))}))

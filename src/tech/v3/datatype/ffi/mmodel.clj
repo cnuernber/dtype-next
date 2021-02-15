@@ -12,7 +12,7 @@
            [java.lang.reflect Constructor]
            [tech.v3.datatype NumericConversions ClojureHelper]
            [tech.v3.datatype.ffi Pointer]
-           [clojure.lang IFn RT ISeq Var Keyword]))
+           [clojure.lang IFn RT ISeq Var Keyword IDeref]))
 
 
 (set! *warn-on-reflection* true)
@@ -128,7 +128,8 @@
     :float64 Double/TYPE
     :pointer MemoryAddress
     :pointer? MemoryAddress
-    :string MemoryAddress))
+    :string MemoryAddress
+    :void Void/TYPE))
 
 
 (defn sig->method-type
@@ -183,7 +184,11 @@
            [:checkcast MethodHandle]
            [:putfield :this hdl-name MethodHandle]])))
      fn-defs)
-    [[:return]])
+    [[:aload 0]
+    [:dup]
+    [:invokevirtual :this "buildFnMap" [Object]]
+    [:putfield :this "fnMap" Object]
+    [:return]])
    (vec)))
 
 
@@ -208,52 +213,59 @@
        (vec)))
 
 
-(defn base-define-library
-  [library-symbol fn-defs options]
-  {:name library-symbol
-   :flags #{:public}
-   :fields
-   (->> (concat
-         [{:name "asPointer"
-           :type IFn
-           :flags #{:public :final}}
-          {:name "asPointerQ"
-           :type IFn
-           :flags #{:public :final}}]
-         (map (fn [[fn-name _fn-args]]
-                {:name (str (name fn-name) "_hdl")
-                 :type MethodHandle
-                 :flags #{:public :final}})
-              fn-defs))
-        (vec))
-   :methods
-   (->> (concat
-         [{:name :init
-           :flags #{:public}
-           :desc [String :void]
-           :emit (emit-lib-constructor fn-defs)}]
-         (map
-          (fn [[fn-name fn-data]]
-            (let [hdl-name (str (name fn-name) "_hdl")
-                  {:keys [rettype argtypes]} fn-data]
-              {:name fn-name
-               :flags #{:public}
-               :desc (concat (map (partial ffi-base/argtype->insn MemoryAddress :ptr-as-obj)
-                                  argtypes)
-                             [(ffi-base/argtype->insn MemoryAddress :ptr-as-ptr rettype)])
-               :emit (emit-fn-def hdl-name rettype argtypes)}))
-          fn-defs))
-        (vec))})
+(defn define-mmodel-library
+  [classname fn-defs]
+  [{:name classname
+    :flags #{:public}
+    :interfaces [IDeref]
+    :fields (->> (concat
+                  [{:name "asPointer"
+                    :type IFn
+                    :flags #{:public :final}}
+                   {:name "asPointerQ"
+                    :type IFn
+                    :flags #{:public :final}}
+                   {:name "fnMap"
+                    :type Object
+                    :flags #{:public :final}}]
+                  (map (fn [[fn-name _fn-args]]
+                         {:name (str (name fn-name) "_hdl")
+                          :type MethodHandle
+                          :flags #{:public :final}})
+                       fn-defs))
+                 (vec))
+    :methods
+    (->> (concat
+          [{:name :init
+            :flags #{:public}
+            :desc [String :void]
+            :emit (emit-lib-constructor fn-defs)}
+           (ffi-base/emit-library-fn-map classname fn-defs)
+           {:name :deref
+            :desc [Object]
+            :emit [[:aload 0]
+                   [:getfield :this "fnMap" Object]
+                   [:areturn]]}]
+          (map
+           (fn [[fn-name fn-data]]
+             (let [hdl-name (str (name fn-name) "_hdl")
+                   {:keys [rettype argtypes]} fn-data]
+               {:name fn-name
+                :flags #{:public}
+                :desc (concat (map (partial ffi-base/argtype->insn
+                                            MemoryAddress :ptr-as-obj)
+                                   argtypes)
+                              [(ffi-base/argtype->insn MemoryAddress :ptr-as-ptr
+                                                       rettype)])
+                :emit (emit-fn-def hdl-name rettype argtypes)}))
+           fn-defs))
+         (vec))}])
 
 
 (defn define-library
-  [library-symbol fn-defs options]
-  (let [cls-def (base-define-library library-symbol fn-defs options)]
-    (-> cls-def
-        (insn/visit)
-        (insn/write))
-    {:library library-symbol
-     :library-class (insn/define cls-def)}))
+  [fn-defs & [{:keys [classname]
+               :or {classname (str "tech.v3.datatype.ffi.mmodel." (name (gensym)))}}]]
+    (ffi-base/define-library fn-defs classname define-mmodel-library))
 
 
 (def ffi-fns {:load-library load-library

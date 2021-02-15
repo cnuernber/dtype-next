@@ -3,7 +3,8 @@
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.ffi :as dtype-ffi]
             [tech.v3.datatype.native-buffer :as native-buffer]
-            [clojure.test :refer [deftest is]])
+            [clojure.test :refer [deftest is]]
+            [clojure.tools.logging :as log])
   (:import [tech.v3.datatype.ffi Pointer]))
 
 
@@ -54,9 +55,12 @@
 
 (deftest jna-ffi-test
   (dtype-ffi/set-ffi-impl! :jna)
-  (generic-define-library))
-
-
-(when (dtype-ffi/jdk-ffi?)
-
+  (generic-define-library)
   )
+
+
+(if (dtype-ffi/jdk-ffi?)
+  (deftest mmodel-ffi-test
+    (dtype-ffi/set-ffi-impl! :jdk)
+    (generic-define-library))
+  (log/warn "JDK-16 FFI pathway not tested."))

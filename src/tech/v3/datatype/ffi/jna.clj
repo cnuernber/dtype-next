@@ -107,59 +107,49 @@
                                 :ptr-as-platform)]]
          (ffi-base/ffi-call-return ptr-return (:rettype fn-def))))})
 
+(defn define-jna-library
+  [classname fn-defs]
+  ;; First we define the inner class which contains the typesafe static methods
+  (let [inner-name (symbol (str classname "$inner"))]
+    [{:name classname
+      :flags #{:public}
+      :interfaces [IDeref]
+      :fields [{:name "asPointer"
+                :type IFn
+                :flags #{:public :final}}
+               {:name "asPointerQ"
+                :type IFn
+                :flags #{:public :final}}
+               {:name "fnMap"
+                :type Object
+                :flags #{:public :final}}]
+      :methods (vec (concat
+                     [{:name :init
+                       :desc [String :void]
+                       :emit (emit-library-constructor inner-name)}
+                      (ffi-base/emit-library-fn-map classname fn-defs)
+                      {:name :deref
+                       :desc [Object]
+                       :emit [[:aload 0]
+                              [:getfield :this "fnMap" Object]
+                              [:areturn]]}]
+                     (mapv (partial emit-wrapped-fn inner-name) fn-defs)))}
+     {:name inner-name
+      :flags #{:public :static}
+      :methods (mapv (fn [[k v]]
+                       {:flags #{:public :static :native}
+                        :name k
+                        :desc (argtypes->insn-desc
+                               (:argtypes v)
+                               (:rettype v)
+                               :ptr-as-platform)})
+                     fn-defs)}]))
+
 
 (defn define-library
   [fn-defs & [{:keys [classname]
                :or {classname (str "tech.v3.datatype.ffi.jna." (name (gensym)))}}]]
-  ;; First we define the inner class which contains the typesafe static methods
-  (let [inner-name (symbol (str classname "$inner"))
-        fn-defs (ffi-base/lower-fn-defs fn-defs)]
-    (-> {:name inner-name
-         :flags #{:public :static}
-         :methods (mapv (fn [[k v]]
-                          {:flags #{:public :static :native}
-                           :name k
-                           :desc (argtypes->insn-desc
-                                  (:argtypes v)
-                                  (:rettype v)
-                                  :ptr-as-platform)})
-                        fn-defs)}
-        (insn/visit)
-        (insn/write))
-    (let [invokers (ffi-base/emit-invokers classname fn-defs)
-          cls-data
-          {:name classname
-           :flags #{:public}
-           :interfaces [IDeref]
-           :fields [{:name "asPointer"
-                     :type IFn
-                     :flags #{:public :final}}
-                    {:name "asPointerQ"
-                     :type IFn
-                     :flags #{:public :final}}
-                    {:name "fnMap"
-                     :type Object
-                     :flags #{:public :final}}]
-           :methods (vec (concat
-                          [{:name :init
-                            :desc [String :void]
-                            :emit (emit-library-constructor inner-name)}
-                           {:name "buildFnMap"
-                            :desc [Object]
-                            :emit (ffi-base/emit-library-fn-map classname fn-defs)}
-                           {:name :deref
-                            :desc [Object]
-                            :emit [[:aload 0]
-                                   [:getfield :this "fnMap" Object]
-                                   [:areturn]]}]
-                          (mapv (partial emit-wrapped-fn inner-name) fn-defs)))}]
-      (doseq [cls (concat [cls-data] invokers)]
-        (-> cls
-            (insn/visit)
-            (insn/write))
-        (insn/define cls))
-      {:library-class (insn/define cls-data)
-       :library-symbol classname})))
+  (ffi-base/define-library fn-defs classname define-jna-library))
 
 
 (defn emit-fi-constructor
@@ -192,9 +182,7 @@
    [:getfield :this ptr-field IFn]
    [:aload 1]
    [:invokeinterface IFn "invoke" [Object Object]]
-   [:checkcast Long]
-   [:invokevirtual Long "asLong" [:long]]
-   [:invokespecial Pointer :init [:long :void]]
+   [:checkcast Pointer]
    [:areturn]])
 
 
@@ -224,7 +212,6 @@
                              [(argtype->insn :ptr-as-platform rettype)]))
               :emit (ffi-base/emit-fi-invoke load-ptr ifn-return-ptr
                                              rettype argtypes)}]})
-
 
 (defn define-foreign-interface
   [rettype argtypes options]
