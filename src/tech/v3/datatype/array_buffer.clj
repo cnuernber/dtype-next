@@ -6,8 +6,10 @@
             [tech.v3.datatype.pprint :as dtype-pp]
             [primitive-math :as pmath])
   (:import [clojure.lang IObj Counted Indexed IFn]
-           [tech.v3.datatype Buffer ArrayHelpers BufferCollection]
-           [java.util Arrays]) )
+           [tech.v3.datatype Buffer ArrayHelpers BufferCollection BinaryBuffer
+            ByteConversions]
+           [java.util Arrays]))
+
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
@@ -23,6 +25,11 @@
        dtype-proto/PToArrayBuffer
        (convertible-to-array-buffer? [this#] true)
        (->array-buffer [this#] ~buffer)
+       dtype-proto/PToBinaryBuffer
+       (convertible-to-binary-buffer? [this#]
+         (dtype-proto/convertible-to-binary-buffer? ~buffer))
+       (->binary-buffer [this#]
+         (dtype-proto/->binary-buffer ~buffer))
        ;;Forward protocol methods that are efficiently implemented by the buffer
        dtype-proto/PSubBuffer
        (sub-buffer [this# offset# length#]
@@ -202,6 +209,14 @@
   dtype-proto/PToArrayBuffer
   (convertible-to-array-buffer? [item] true)
   (->array-buffer [item] item)
+  dtype-proto/PToBinaryBuffer
+  (convertible-to-binary-buffer? [item]
+    (and
+     (= datatype :int8)
+     (dtype-proto/convertible-to-binary-buffer? ary-data)))
+  (->binary-buffer [item]
+    (-> (dtype-proto/->binary-buffer ary-data)
+        (dtype-proto/sub-buffer offset n-elems)))
   dtype-proto/PSubBuffer
   (sub-buffer [item off len]
     (ArrayBuffer. ary-data
@@ -415,3 +430,94 @@
 
 
 (initial-implement-arrays)
+
+
+(deftype ByteArrayBinaryBufferLE [^bytes ary-data
+                                  ^Buffer buffer
+                                  ^long offset
+                                  ^long n-elems]
+  dtype-proto/PEndianness
+  (endianness [this] :little-endian)
+  BinaryBuffer
+  (lsize [this] n-elems)
+  (allowsBinaryRead [this] true)
+  (readBinByte [this byteOffset] (aget ary-data (+ offset byteOffset)))
+  (readBinShort [this byteOffset]
+    (let [byteOffset (+ byteOffset offset)]
+      (ByteConversions/shortFromBytesLE (aget ary-data byteOffset)
+                                        (aget ary-data (+ byteOffset 1)))))
+  (readBinInt [this byteOffset]
+    (let [byteOffset (+ byteOffset offset)]
+      (ByteConversions/intFromBytesLE (aget ary-data byteOffset)
+                                      (aget ary-data (+ byteOffset 1))
+                                      (aget ary-data (+ byteOffset 2))
+                                      (aget ary-data (+ byteOffset 3)))))
+  (readBinLong [this byteOffset]
+    (let [byteOffset (+ byteOffset offset)]
+      (ByteConversions/longFromBytesLE (aget ary-data byteOffset)
+                                       (aget ary-data (+ byteOffset 1))
+                                       (aget ary-data (+ byteOffset 2))
+                                       (aget ary-data (+ byteOffset 3))
+                                       (aget ary-data (+ byteOffset 4))
+                                       (aget ary-data (+ byteOffset 5))
+                                       (aget ary-data (+ byteOffset 6))
+                                       (aget ary-data (+ byteOffset 7)))))
+  (readBinFloat [this byteOffset]
+    (let [byteOffset (+ byteOffset offset)]
+      (ByteConversions/floatFromBytesLE (aget ary-data byteOffset)
+                                        (aget ary-data (+ byteOffset 1))
+                                        (aget ary-data (+ byteOffset 2))
+                                        (aget ary-data (+ byteOffset 3)))))
+  (readBinDouble [this byteOffset]
+    (let [byteOffset (+ byteOffset offset)]
+      (ByteConversions/doubleFromBytesLE (aget ary-data byteOffset)
+                                         (aget ary-data (+ byteOffset 1))
+                                         (aget ary-data (+ byteOffset 2))
+                                         (aget ary-data (+ byteOffset 3))
+                                         (aget ary-data (+ byteOffset 4))
+                                         (aget ary-data (+ byteOffset 5))
+                                         (aget ary-data (+ byteOffset 6))
+                                         (aget ary-data (+ byteOffset 7)))))
+
+  (allowsBinaryWrite [this] true)
+  (writeBinByte [this byteOffset data]
+    (aset ary-data (+ byteOffset offset) data))
+  (writeBinShort [this byteOffset data]
+    (ByteConversions/shortToWriterLE data buffer (+ byteOffset offset)))
+  (writeBinInt [this byteOffset data]
+    (ByteConversions/intToWriterLE data buffer (+ byteOffset offset)))
+  (writeBinLong [this byteOffset data]
+    (ByteConversions/longToWriterLE data buffer (+ byteOffset offset)))
+  (writeBinFloat [this byteOffset data]
+    (ByteConversions/floatToWriterLE data buffer (+ byteOffset offset)))
+  (writeBinDouble [this byteOffset data]
+    (ByteConversions/doubleToWriterLE data buffer (+ byteOffset offset)))
+  dtype-proto/PClone
+  (clone [this]
+    (-> (dtype-proto/sub-buffer ary-data offset n-elems)
+        (dtype-proto/clone)
+        (dtype-proto/->binary-buffer)))
+  dtype-proto/PToArrayBuffer
+  (convertible-to-array-buffer? [this] true)
+  (->array-buffer [this]
+    (-> (dtype-proto/->array-buffer ary-data)
+        (dtype-proto/sub-buffer offset n-elems)))
+  dtype-proto/PSubBuffer
+  (sub-buffer [this off len]
+    (let [off (long off)
+          len (long len)]
+      (ByteArrayBinaryBufferLE. ary-data
+                                (-> (dtype-proto/->array-buffer this)
+                                    (dtype-proto/sub-buffer off len)
+                                    (dtype-proto/->buffer))
+                                (+ offset off)
+                                len))))
+
+
+(extend-type (Class/forName "[B")
+  dtype-proto/PToBinaryBuffer
+  (convertible-to-binary-buffer? [ary] true)
+  (->binary-buffer [ary]
+    (ByteArrayBinaryBufferLE. ary
+                              (dtype-proto/->buffer ary)
+                              0 (alength ^bytes ary))))

@@ -1,16 +1,22 @@
-(ns tech.v3.datatype.mmap-mmodel
+(ns tech.v3.datatype.mmap.mmodel
   "Mmap based on the MemorySegment jdk16 memory model pathway"
-  (:require [tech.v3.datatype.errors :as errors]
-            [tech.v3.datatype.native-buffer-mmodel :as nbuf-mmodel]
-            [tech.v3.resource :as resource]
-            [tech.v3.datatype.ffi :as ffi])
+  (:require [tech.v3.datatype.ffi.native-buffer-mmodel :as nbuf-mmodel]
+            [tech.v3.resource :as resource])
   (:import [jdk.incubator.foreign LibraryLookup CLinker FunctionDescriptor
             MemoryLayout LibraryLookup$Symbol MemorySegment]
            [java.nio.channels FileChannel$MapMode]
+           [java.nio.file Path Paths]
            [tech.v3.datatype.native_buffer NativeBuffer]))
 
 
 (set! *warn-on-reflection* true)
+
+
+(defn- ->path
+  ^Path [item]
+  (if (instance? Path item)
+    item
+    (Paths/get item (into-array String []))))
 
 
 (defn mmap-file
@@ -26,9 +32,8 @@
                          :or {resource-type :auto
                               mmap-mode :read-only}
                          :as options}]
-   (let [flen (long (:map-len options
-                              (.length (java.io.File. (str fpath)))))
-         mseg (-> (MemorySegment/mapFile (ffi/->path fpath) 0 flen
+   (let [flen (long (:map-len options (.length (java.io.File. (str fpath)))))
+         mseg (-> (MemorySegment/mapFile (->path fpath) 0 flen
                                          (case mmap-mode
                                            :read-only FileChannel$MapMode/READ_ONLY
                                            :read-write FileChannel$MapMode/READ_WRITE

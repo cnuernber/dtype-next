@@ -1,4 +1,4 @@
-(ns tech.v3.datatype.native-buffer-mmodel
+(ns tech.v3.datatype.ffi.native-buffer-mmodel
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.native-buffer :as native-buffer]

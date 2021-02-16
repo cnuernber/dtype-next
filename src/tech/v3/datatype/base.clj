@@ -8,12 +8,13 @@
             [tech.v3.datatype.io-sub-buffer :as io-sub-buf]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.parallel.for :as parallel-for])
-  (:import [tech.v3.datatype Buffer
+  (:import [tech.v3.datatype Buffer BinaryBuffer
             ObjectBuffer ElemwiseDatatype ObjectReader NDBuffer
             LongReader DoubleReader]
            [tech.v3.datatype.array_buffer ArrayBuffer]
            [tech.v3.datatype.native_buffer NativeBuffer]
-           [clojure.lang IPersistentCollection APersistentMap APersistentVector APersistentSet]
+           [clojure.lang IPersistentCollection APersistentMap APersistentVector
+            APersistentSet]
            [java.util RandomAccess List
             Spliterator Spliterator$OfDouble Spliterator$OfLong
             Spliterator$OfInt]
@@ -97,9 +98,6 @@
     (errors/throwf "Item type %s is not convertible to buffer"
                    (type item))))
 
-
-
-
 (defn as-reader
   "If this object has a read-only or read-write conversion to a primitive
   io object return the buffer object."
@@ -120,7 +118,6 @@
      :else
      (dtype-proto/elemwise-reader-cast item read-datatype))))
 
-
 (defn ->reader
   "If this object has a read-only or read-write conversion to a buffer
   object return the buffer object.  Else throw an exception."
@@ -135,14 +132,11 @@
      (errors/throwf "Item type %s is not convertible to primitive reader"
                     (type item)))))
 
-
 (defn reader?
   "True if this item is convertible to a read-only or read-write Buffer
   interface."
   [item]
   (when item (dtype-proto/convertible-to-reader? item)))
-
-
 
 (defn ->iterable
   "Ensure this object is iterable.  If item is iterable, return the item.
@@ -207,6 +201,25 @@
     io
     (errors/throwf "Item type %s is not convertible to primitive writer"
                    (type item))))
+
+
+(defn as-binary-buffer
+  "Convert an item into a binary buffer.  Fails with nil."
+  ^BinaryBuffer [item]
+  (when item
+    (if (instance? BinaryBuffer item) item
+        (when (dtype-proto/convertible-to-binary-buffer? item)
+          (dtype-proto/->binary-buffer item)))))
+
+
+(defn ->binary-buffer
+  "Convert an item into a binary buffer. Fails with an exception."
+  ^BinaryBuffer [item]
+  (let [retval (as-binary-buffer item)]
+    (errors/when-not-errorf
+     item
+     "Item %s is not convertible to a binary buffer" item)
+    retval))
 
 
 (defn as-array-buffer

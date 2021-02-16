@@ -5,8 +5,8 @@
 
 
 (def mmap-fn* (delay (if (.startsWith (System/getProperty "java.version") "16-")
-                       (requiring-resolve 'tech.v3.datatype.mmap-mmodel/mmap-file)
-                       (requiring-resolve 'tech.v3.datatype.mmap-larray/mmap-file))))
+                       (requiring-resolve 'tech.v3.datatype.mmap.mmodel/mmap-file)
+                       (requiring-resolve 'tech.v3.datatype.mmap.larray/mmap-file))))
 
 
 (defn mmap-file
