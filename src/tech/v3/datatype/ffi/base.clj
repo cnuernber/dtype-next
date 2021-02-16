@@ -63,7 +63,7 @@
 
 (defn find-ptr-ptrq
   [src-namespace]
-    [[:aload 0]
+  [[:aload 0]
    [:ldc src-namespace]
    [:ldc "ptr-value"]
    [:invokestatic ClojureHelper "findFn" [String String IFn]]
@@ -72,7 +72,7 @@
    [:ldc src-namespace]
    [:ldc "ptr-value?"]
    [:invokestatic ClojureHelper "findFn" [String String IFn]]
-     [:putfield :this "asPointerQ" IFn]])
+   [:putfield :this "asPointerQ" IFn]])
 
 (defn args->indexes-args
   [argtypes]
