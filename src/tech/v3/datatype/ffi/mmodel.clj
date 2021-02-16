@@ -7,7 +7,7 @@
   (:import [jdk.incubator.foreign LibraryLookup CLinker FunctionDescriptor
             MemoryLayout LibraryLookup$Symbol]
            [jdk.incubator.foreign MemoryAddress Addressable MemoryLayout]
-           [java.lang.invoke MethodHandle MethodType]
+           [java.lang.invoke MethodHandle MethodType MethodHandles]
            [java.nio.file Path Paths]
            [java.lang.reflect Constructor]
            [tech.v3.datatype NumericConversions ClojureHelper]
@@ -129,7 +129,12 @@
     :pointer MemoryAddress
     :pointer? MemoryAddress
     :string MemoryAddress
-    :void Void/TYPE))
+    :void Void/TYPE
+    (do
+      (errors/when-not-errorf
+       (instance? Class argtype)
+       "argtype (%s) must be instance of class" argtype)
+      argtype)))
 
 
 (defn sig->method-type
@@ -265,9 +270,49 @@
 (defn define-library
   [fn-defs & [{:keys [classname]
                :or {classname (str "tech.v3.datatype.ffi.mmodel." (name (gensym)))}}]]
-    (ffi-base/define-library fn-defs classname define-mmodel-library))
+  (ffi-base/define-library fn-defs classname define-mmodel-library))
+
+
+(defn platform-ptr->ptr
+  [arg-idx]
+  [[:new tech.v3.datatype.ffi.Pointer]
+   [:dup]
+   [:aload arg-idx]
+   [:invokeinterface MemoryAddress "toRawLongValue" [:long]]
+   [:invokespecial tech.v3.datatype.ffi.Pointer :init [:long :void]]])
+
+
+(defn define-foreign-interface
+  [rettype argtypes options]
+  (let [classname (or (:classname options)
+                      (symbol (str "tech.v3.datatype.ffi.mmodel.ffi_"
+                                   (name (gensym)))))]
+    (let [retval (ffi-base/define-foreign-interface classname rettype argtypes
+                   {:src-ns-str "tech.v3.datatype.ffi.mmodel"
+                    :platform-ptr->ptr platform-ptr->ptr
+                    :ptrtype MemoryAddress})
+          iface-cls (:foreign-iface-class retval)
+          lookup (MethodHandles/lookup)
+          sig {:rettype rettype
+               :argtypes argtypes}]
+      (assoc retval
+             :method-handle (.findVirtual lookup iface-cls "invoke"
+                                          (sig->method-type
+                                           {:rettype rettype
+                                            :argtypes argtypes}))
+             :fndesc (sig->fdesc sig)))))
+
+
+(defn foreign-interface-instance->c
+  [iface-def inst]
+  (let [linker (CLinker/getInstance)
+        new-hdn (.bindTo ^MethodHandle (:method-handle iface-def) inst)
+        mem-seg (.upcallStub linker new-hdn ^FunctionDescriptor (:fndesc iface-def))]
+    (ffi/->pointer mem-seg)))
 
 
 (def ffi-fns {:load-library load-library
               :find-symbol find-symbol
-              :define-library define-library})
+              :define-library define-library
+              :define-foreign-interface define-foreign-interface
+              :foreign-interface-instance->c foreign-interface-instance->c})

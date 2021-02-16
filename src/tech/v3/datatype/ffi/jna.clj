@@ -107,6 +107,7 @@
                                 :ptr-as-platform)]]
          (ffi-base/ffi-call-return ptr-return (:rettype fn-def))))})
 
+
 (defn define-jna-library
   [classname fn-defs]
   ;; First we define the inner class which contains the typesafe static methods
@@ -152,19 +153,7 @@
   (ffi-base/define-library fn-defs classname define-jna-library))
 
 
-(defn emit-fi-constructor
-  []
-  (concat
-   [[:aload 0]
-    [:invokespecial :super :init [:void]]
-    [:aload 0]
-    [:aload 1]
-    [:putfield :this "ifn" IFn]]
-   emit-ptr-ptrq
-   [[:return]]))
-
-
-(defn load-ptr
+(defn platform-ptr->ptr
   [arg-idx]
   [[:new tech.v3.datatype.ffi.Pointer]
    [:dup]
@@ -173,62 +162,19 @@
    [:invokespecial tech.v3.datatype.ffi.Pointer :init [:long :void]]])
 
 
-(defn ifn-return-ptr
-  [ptr-field]
-  [[:astore 1]
-   [:new Pointer]
-   [:dup]
-   [:aload 0]
-   [:getfield :this ptr-field IFn]
-   [:aload 1]
-   [:invokeinterface IFn "invoke" [Object Object]]
-   [:checkcast Pointer]
-   [:areturn]])
-
-
-(defn foreign-interface-definition
-  [iface-symbol rettype argtypes options]
-  {:name iface-symbol
-   :flags #{:public}
-   :interfaces [Callback]
-   :fields [{:name "asPointer"
-             :type IFn
-             :flags #{:public :final}}
-            {:name "asPointerQ"
-             :type IFn
-             :flags #{:public :final}}
-            {:name "ifn"
-             :type IFn
-             :flags #{:public :final}}]
-   :methods [{:name :init
-              :flags #{:public}
-              :desc [IFn :void]
-              :emit (emit-fi-constructor)}
-             {:name :invoke
-              :flags #{:public}
-              :desc (vec
-                     (concat (map (partial argtype->insn
-                                           :ptr-as-platform) argtypes)
-                             [(argtype->insn :ptr-as-platform rettype)]))
-              :emit (ffi-base/emit-fi-invoke load-ptr ifn-return-ptr
-                                             rettype argtypes)}]})
-
 (defn define-foreign-interface
   [rettype argtypes options]
   (let [classname (or (:classname options)
-                      (symbol (str "tech.v3.datatype.ffi.jna.ffi_" (name (gensym)))))
-        cls-def (foreign-interface-definition classname rettype argtypes options)]
-    (-> cls-def
-        (insn/visit)
-        (insn/write))
-    {:rettype rettype
-     :argtypes argtypes
-     :foreign-iface-symbol classname
-     :foreign-iface-class (insn/define cls-def)}))
+                      (symbol (str "tech.v3.datatype.ffi.jna.ffi_" (name (gensym))))) ]
+    (ffi-base/define-foreign-interface classname rettype argtypes
+      {:src-ns-str "tech.v3.datatype.ffi.jna"
+       :platform-ptr->ptr platform-ptr->ptr
+       :ptrtype Pointer
+       :interfaces [Callback]})))
 
 
 (defn foreign-interface-instance->c
-  [inst]
+  [_iface-def inst]
   (-> (CallbackReference/getFunctionPointer inst)
       (Pointer/nativeValue)
       (tech.v3.datatype.ffi/Pointer.)))

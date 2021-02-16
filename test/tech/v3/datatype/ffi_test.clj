@@ -25,23 +25,22 @@
                                          ['nitems :size-t]
                                          ['item-size :size-t]
                                          ['comparator :pointer]]}})
-        libmem-cls (:library-class libmem-def)
         ;;nil meaning find the symbols in the current process
-        libmem-inst (dtype-ffi/instantiate-class libmem-cls nil)
+        libmem-inst (dtype-ffi/instantiate-library libmem-def nil)
         libmem-fns @libmem-inst
         memcpy (:memcpy libmem-fns)
         memset (:memset libmem-fns)
         qsort (:qsort libmem-fns)
         comp-iface-def (dtype-ffi/define-foreign-interface :int32 [:pointer :pointer])
-        comp-iface-cls (:foreign-iface-class comp-iface-def)
-        comp-iface-inst
-        (dtype-ffi/instantiate-class
-         comp-iface-cls
-         (fn [^Pointer lhs ^Pointer rhs]
-           (let [lhs (.getDouble (native-buffer/unsafe) (.address lhs))
-                 rhs (.getDouble (native-buffer/unsafe) (.address rhs))]
-             (Double/compare lhs rhs))))
-        comp-iface-ptr (dtype-ffi/foreign-interface-instance->c comp-iface-inst)
+        comp-iface-inst (dtype-ffi/instantiate-foreign-interface
+                         comp-iface-def
+                         (fn [^Pointer lhs ^Pointer rhs]
+                           (let [lhs (.getDouble (native-buffer/unsafe) (.address lhs))
+                                 rhs (.getDouble (native-buffer/unsafe) (.address rhs))]
+                             (Double/compare lhs rhs))))
+        comp-iface-ptr (dtype-ffi/foreign-interface-instance->c
+                        comp-iface-def
+                        comp-iface-inst)
         first-buf (dtype/make-container :native-heap :float32 (range 10))
         second-buf (dtype/make-container :native-heap :float32 (range 10))
         dbuf (dtype/make-container :native-heap :float64 (shuffle (range 100)))]
@@ -55,8 +54,7 @@
 
 (deftest jna-ffi-test
   (dtype-ffi/set-ffi-impl! :jna)
-  (generic-define-library)
-  )
+  (generic-define-library))
 
 
 (if (dtype-ffi/jdk-ffi?)

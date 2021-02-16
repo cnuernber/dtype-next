@@ -9,7 +9,8 @@
   (:import [tech.v3.datatype.native_buffer NativeBuffer]
            [tech.v3.datatype.ffi Pointer]
            [java.nio.charset Charset]
-           [java.lang.reflect Constructor]))
+           [java.lang.reflect Constructor]
+           [clojure.lang IFn]))
 
 
 (set! *warn-on-reflection* true)
@@ -248,7 +249,15 @@ Attempted both :jdk and :jna -- call set-ffi-impl! from the repl to see specific
   keyword keys in fn-defs efficiently bound to symbols of the same exact name in
   library.
 
-  * `fn-defs` - map of fn-name -> {:rettype :argtypes} - see 'find-function'.
+  * `fn-defs` - map of fn-name -> {:rettype :argtypes}.
+     * `argtypes` -
+       * `:void` - return type only.
+       * `:int8` `:int16` `:int32` `:int64`
+       * `:float32` `:float64`
+       * `:size-t` - int32 or int64 depending on cpu architecture.
+       * `:pointer` `:pointer?` - Something convertible to a Pointer type.  Potentially
+          exception when nil.
+     * `rettype` - any argtype plus :void
 
   Options:
 
@@ -286,17 +295,16 @@ user>
   ((:define-library (ffi-impl)) fn-defs options))
 
 
+(defn instantiate-library
+  "Uses reflection to instantiate a library"
+  [library-def libpath]
+  (instantiate-class (:library-class library-def) libpath))
+
+
 (defn find-function
   "Find the symbol and return an IFn implementation wrapping typesafe access
   to the function.  The function's signature has to be completely specified.
-  Supported datatypes are:
-
-  * `:void` - return type only.
-  * `:int8` `:int16` `:int32` `:int64`
-  * `:float32` `:float64`
-  * `:size-t` - int32 or int64 depending on cpu architecture.
-  * `:pointer` `:pointer?` - Something convertible to a Pointer type.  Potentially
-     exception when nil.
+  Supported datatypes are
 
   This object's ->pointer protocol implementation returns the actual function
   pointer.  This function uses 'eval' and thus also uses reflection."
@@ -355,10 +363,19 @@ user>
   ((:define-foreign-interface (ffi-impl)) rettype argtypes options))
 
 
+(defn instantiate-foreign-interface
+  [ffi-def ifn]
+  (errors/when-not-errorf
+   (instance? IFn ifn)
+   "IFn argument (%s) must be an instance of IFn" ifn)
+  (instantiate-class (:foreign-iface-class ffi-def) ifn))
+
+
 (defn foreign-interface-instance->c
   "Convert an instance of the above foreign interface definition into a Pointer
-  suitable to be called from C.
+  suitable to be called from C.  Callers must ensure that foreign-inst is visible
+  to the gc the entire time the foreign system has a reference to the pointer.
 
   * `foreign-inst` - an instance of the class defined by 'define-foreign-interface'."
-  ^Pointer [foreign-inst]
-  ((:foreign-interface-instance->c @ffi-impl*) foreign-inst))
+  ^Pointer [ffi-def foreign-inst]
+  ((:foreign-interface-instance->c @ffi-impl*) ffi-def foreign-inst))

@@ -88,78 +88,6 @@
                [[] 1])
        (first)))
 
-
-(defn load-ffi-args
-  [ptr-cast ptr?-cast argtypes]
-  (->> (args->indexes-args argtypes)
-       (mapcat
-        (fn [[arg-idx argtype]]
-          (case (ffi/lower-type argtype)
-            :int8 [[:iload arg-idx]]
-            :int16 [[:iload arg-idx]]
-            :int32 [[:iload arg-idx]]
-            :int64 [[:lload arg-idx]]
-            :pointer (vec (concat [[:aload arg-idx]]
-                                  ptr-cast))
-            :pointer? (vec (concat [[:aload arg-idx]]
-                                   ptr?-cast))
-            :float32 [[:fload arg-idx]]
-            :float64 [[:dload arg-idx]])))))
-
-
-(defn ffi-call-return
-  [ptr-return rettype]
-  (case (ffi/lower-type rettype)
-    :void [[:return]]
-    :int8 [[:ireturn]]
-    :int16 [[:ireturn]]
-    :int32 [[:ireturn]]
-    :int64 [[:lreturn]]
-    :pointer ptr-return
-    :float32 [[:freturn]]
-    :float64 [[:dreturn]]))
-
-
-(defn emit-fi-invoke
-  [load-ptr-fn ifn-return-ptr rettype argtypes]
-  (concat
-   [[:aload 0]
-    [:getfield :this "ifn" IFn]]
-   (->> (args->indexes-args argtypes)
-        (mapcat (fn [[arg-idx argtype]]
-                  (case (ffi/lower-type argtype)
-                    :int8 [[:iload arg-idx]
-                           [:invokestatic RT "box" [:byte Object]]]
-                    :int16 [[:iload arg-idx]
-                            [:invokestatic RT "box" [:short Object]]]
-                    :int32 [[:iload arg-idx]
-                            [:invokestatic RT "box" [:int Object]]]
-                    :int64 [[:lload arg-idx]
-                            [:invokestatic RT "box" [:long Object]]]
-                    :float32 [[:fload arg-idx]
-                              [:invokestatic RT "box" [:float Object]]]
-                    :float64 [[:dload arg-idx]
-                              [:invokestatic RT "box" [:double Object]]]
-                    :pointer (load-ptr-fn arg-idx)
-                    :pointer? (load-ptr-fn arg-idx)))))
-   [[:invokeinterface IFn "invoke" (repeat (inc (count argtypes)) Object)]]
-   (case (ffi/lower-type rettype)
-     :int8 [[:invokestatic RT "uncheckedByteCast" [Object :byte]]
-            [:ireturn]]
-     :int16 [[:invokestatic RT "uncheckedShortCast" [Object :short]]
-             [:ireturn]]
-     :int32 [[:invokestatic RT "uncheckedIntCast" [Object :int]]
-             [:ireturn]]
-     :int64 [[:invokestatic RT "uncheckedLongCast" [Object :long]]
-             [:lreturn]]
-     :float32 [[:invokestatic RT "uncheckedFloatCast" [Object :float]]
-               [:freturn]]
-     :float64 [[:invokestatic RT "uncheckedDoubleCast" [Object :double]]
-               [:dreturn]]
-     :pointer (ifn-return-ptr "asPointer")
-     :pointer? (ifn-return-ptr "asPointerQ"))))
-
-
 (defn emit-invoker-invoke
   [classname fn-name rettype argtypes]
   (concat
@@ -300,3 +228,144 @@
                   ;;defined immediately for repl access
                   (insn/define cls)))
           (first))}))
+
+
+(defn emit-fi-constructor
+  [src-ns-str]
+  (concat
+   [[:aload 0]
+    [:invokespecial :super :init [:void]]
+    [:aload 0]
+    [:aload 1]
+    [:putfield :this "ifn" IFn]]
+   (find-ptr-ptrq src-ns-str)
+   [[:return]]))
+
+
+(defn ptr->platform-ptr
+  [ptrtype ptr-field]
+  [[:aload 0]
+   [:getfield :this ptr-field IFn]
+   [:swap]
+   [:invokeinterface IFn "invoke" [Object Object]]
+   [:checkcast ptrtype]
+   [:areturn]])
+
+
+(defn load-ffi-args
+  [ptr-cast ptr?-cast argtypes]
+  (->> (args->indexes-args argtypes)
+       (mapcat
+        (fn [[arg-idx argtype]]
+          (case (ffi/lower-type argtype)
+            :int8 [[:iload arg-idx]]
+            :int16 [[:iload arg-idx]]
+            :int32 [[:iload arg-idx]]
+            :int64 [[:lload arg-idx]]
+            :pointer (vec (concat [[:aload arg-idx]]
+                                  ptr-cast))
+            :pointer? (vec (concat [[:aload arg-idx]]
+                                   ptr?-cast))
+            :float32 [[:fload arg-idx]]
+            :float64 [[:dload arg-idx]])))))
+
+
+(defn ffi-call-return
+  [ptr-return rettype]
+  (case (ffi/lower-type rettype)
+    :void [[:return]]
+    :int8 [[:ireturn]]
+    :int16 [[:ireturn]]
+    :int32 [[:ireturn]]
+    :int64 [[:lreturn]]
+    :pointer ptr-return
+    :float32 [[:freturn]]
+    :float64 [[:dreturn]]))
+
+
+(defn emit-fi-invoke
+  [platform-ptr->ptr ptr->platform-ptr rettype argtypes]
+  (concat
+   [[:aload 0]
+    [:getfield :this "ifn" IFn]]
+   (->> (args->indexes-args argtypes)
+        (mapcat (fn [[arg-idx argtype]]
+                  (case (ffi/lower-type argtype)
+                    :int8 [[:iload arg-idx]
+                           [:invokestatic RT "box" [:byte Object]]]
+                    :int16 [[:iload arg-idx]
+                            [:invokestatic RT "box" [:short Object]]]
+                    :int32 [[:iload arg-idx]
+                            [:invokestatic RT "box" [:int Object]]]
+                    :int64 [[:lload arg-idx]
+                            [:invokestatic RT "box" [:long Object]]]
+                    :float32 [[:fload arg-idx]
+                              [:invokestatic RT "box" [:float Object]]]
+                    :float64 [[:dload arg-idx]
+                              [:invokestatic RT "box" [:double Object]]]
+                    :pointer (platform-ptr->ptr arg-idx)
+                    :pointer? (platform-ptr->ptr arg-idx arg-idx)))))
+   [[:invokeinterface IFn "invoke" (repeat (inc (count argtypes)) Object)]]
+   (case (ffi/lower-type rettype)
+     :int8 [[:invokestatic RT "uncheckedByteCast" [Object :byte]]
+            [:ireturn]]
+     :int16 [[:invokestatic RT "uncheckedShortCast" [Object :short]]
+             [:ireturn]]
+     :int32 [[:invokestatic RT "uncheckedIntCast" [Object :int]]
+             [:ireturn]]
+     :int64 [[:invokestatic RT "uncheckedLongCast" [Object :long]]
+             [:lreturn]]
+     :float32 [[:invokestatic RT "uncheckedFloatCast" [Object :float]]
+               [:freturn]]
+     :float64 [[:invokestatic RT "uncheckedDoubleCast" [Object :double]]
+               [:dreturn]]
+     :pointer (ptr->platform-ptr "asPointer")
+     :pointer? (ptr->platform-ptr "asPointerQ"))))
+
+
+
+(defn foreign-interface-definition
+  [iface-symbol rettype argtypes {:keys [src-ns-str ;;ns string
+                                         platform-ptr->ptr
+                                         ptrtype ;;platform ptr type
+                                         interfaces ;;marker interfaces
+                                         ]}]
+  (merge
+   {:name iface-symbol
+    :flags #{:public}
+    :fields [{:name "asPointer"
+              :type IFn
+              :flags #{:public :final}}
+             {:name "asPointerQ"
+              :type IFn
+              :flags #{:public :final}}
+             {:name "ifn"
+              :type IFn
+              :flags #{:public :final}}]
+    :methods [{:name :init
+               :flags #{:public}
+               :desc [IFn :void]
+               :emit (emit-fi-constructor src-ns-str)}
+              {:name :invoke
+               :flags #{:public}
+               :desc (vec
+                      (concat (map (partial argtype->insn ptrtype
+                                            :ptr-as-platform) argtypes)
+                              [(argtype->insn ptrtype :ptr-as-platform rettype)]))
+               :emit (emit-fi-invoke platform-ptr->ptr
+                                     (partial ptr->platform-ptr ptrtype)
+                                     rettype argtypes)}]}
+   (when interfaces
+     {:interfaces interfaces})))
+
+
+(defn define-foreign-interface
+  [classname rettype argtypes options]
+  (let [cls-def (foreign-interface-definition classname rettype argtypes options)]
+    (-> cls-def
+        (insn/visit)
+        (insn/write))
+    {:rettype rettype
+     :argtypes argtypes
+     :foreign-iface-symbol classname
+     :foreign-iface-class (insn/define cls-def)}))
