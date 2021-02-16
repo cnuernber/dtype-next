@@ -1,8 +1,6 @@
 (ns tech.v3.datatype.ffi.jna
   (:require [tech.v3.datatype.ffi :as ffi]
-            [tech.v3.datatype.errors :as errors]
-            [tech.v3.datatype.ffi.base :as ffi-base]
-            [insn.core :as insn])
+            [tech.v3.datatype.ffi.base :as ffi-base])
   (:import [com.sun.jna NativeLibrary Pointer Callback CallbackReference]
            [tech.v3.datatype NumericConversions ClojureHelper]
            [clojure.lang IFn RT IPersistentMap IObj MapEntry Keyword IDeref

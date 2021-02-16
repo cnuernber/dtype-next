@@ -1,9 +1,7 @@
 (ns tech.v3.datatype.ffi.mmodel
   (:require [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.ffi :as ffi]
-            [tech.v3.datatype.ffi.base :as ffi-base]
-            [insn.core :as insn]
-            [clojure.string :as s])
+            [tech.v3.datatype.ffi.base :as ffi-base])
   (:import [jdk.incubator.foreign LibraryLookup CLinker FunctionDescriptor
             MemoryLayout LibraryLookup$Symbol]
            [jdk.incubator.foreign MemoryAddress Addressable MemoryLayout]
