@@ -1,5 +1,71 @@
 (ns tech.v3.datatype.ffi
-  "Generalized C FFI interface that unifies JNA and JDK-16 FFI architectures."
+  "Generalized C FFI interface that unifies JNA and JDK-16 FFI architectures.
+
+  Users can dynamically define and load libraries and define callbacks that C can then
+  call.
+
+  This namespace is meant to work with the `struct` namespace where you can define
+  C-structs laid out precisely in memory.
+
+  Available datatypes for the binding layer:
+
+  * `:int8` `:int16` `:int32` `:int64` `:float32` `:float64` `:pointer` `:pointer?`
+    `:size-t`.
+
+  `:pointer`, `:pointer?`, `:size-t` are all types that change their underlying
+  definition depending on if the system is 32 bit or 64 bit.
+
+  Note that unsigned types will work but the interface will have to be defined in
+  terms of their signed analogues.
+
+Example:
+
+```clojure
+
+user> (require '[tech.v3.datatype :as dtype])
+nil
+user> (require '[tech.v3.datatype.ffi :as dtype-ffi])
+nil
+user> (def libmem-def (dtype-ffi/define-library
+                        {:qsort {:rettype :void
+                                 :argtypes [['data :pointer]
+                                            ['nitems :size-t]
+                                            ['item-size :size-t]
+                                            ['comparator :pointer]]}}))
+#'user/libmem-def
+user> (def libmem-inst (dtype-ffi/instantiate-library libmem-def nil))
+#'user/libmem-inst
+user> (def         libmem-fns @libmem-inst)
+#'user/libmem-fns
+user> (def         qsort (:qsort libmem-fns))
+#'user/qsort
+user> (def comp-iface-def (dtype-ffi/define-foreign-interface :int32 [:pointer :pointer]))
+#'user/comp-iface-def
+user> (require '[tech.v3.datatype.native-buffer :as native-buffer])
+nil
+user> (def comp-iface-inst (dtype-ffi/instantiate-foreign-interface
+                         comp-iface-def
+                         (fn [^tech.v3.datatype.ffi.Pointer lhs ^tech.v3.datatype.ffi.Pointer rhs]
+                           (let [lhs (.getDouble (native-buffer/unsafe) (.address lhs))
+                                 rhs (.getDouble (native-buffer/unsafe) (.address rhs))]
+                             (Double/compare lhs rhs)))))
+#'user/comp-iface-inst
+user> (def comp-iface-ptr (dtype-ffi/foreign-interface-instance->c
+                        comp-iface-def
+                        comp-iface-inst))
+#'user/comp-iface-ptr
+user> (def dbuf (dtype/make-container :native-heap :float64 (shuffle (range 100))))
+09:00:27.900 [tech.resource.gc ref thread] INFO  tech.v3.resource.gc - Reference thread starting
+#'user/dbuf
+user> dbuf
+#native-buffer@0x00007F47084E4210<float64>[100]
+[80.00, 90.00, 96.00, 29.00, 19.00, 12.00, 88.00, 94.00, 81.00, 17.00, 54.00, 52.00, 64.00, 86.00, 10.00, 76.00, 49.00, 5.000, 32.00, 69.00, ...]
+user> (qsort dbuf (dtype/ecount dbuf) Double/BYTES comp-iface-ptr)
+nil
+user> dbuf
+#native-buffer@0x00007F47084E4210<float64>[100]
+[0.000, 1.000, 2.000, 3.000, 4.000, 5.000, 6.000, 7.000, 8.000, 9.000, 10.00, 11.00, 12.00, 13.00, 14.00, 15.00, 16.00, 17.00, 18.00, 19.00, ...]
+```"
   (:require [tech.v3.datatype.native-buffer :as native-buffer]
             [tech.v3.datatype.base :as base]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]

@@ -1,4 +1,4 @@
-(defproject cnuernber/dtype-next "6.01-SNAPSHOT"
+(defproject cnuernber/dtype-next "6.01"
   :description "A Clojure library designed to aid in the implementation of high performance algorithms and systems."
   :url "http://github.com/cnuernber/dtype-next"
   :license {:name "EPL-2.0"
@@ -48,6 +48,7 @@
                                    tech.v3.datatype.rolling
                                    tech.v3.datatype.jna
                                    tech.v3.datatype.ffi
+                                   tech.v3.datatype.struct
                                    tech.v3.tensor.dimensions
                                    tech.v3.tensor.color-gradients
                                    tech.v3.datatype.reductions
@@ -66,4 +67,4 @@
               :jvm-opts ["-Dclojure.compiler.direct-linking=true" "-Dtech.v3.datatype.graal-native=true"]
               :uberjar-name "dtype-next.jar"
               :main tech.v3.datatype.main}}
-  :aliases {"codox" ["with-profile" "jdk-16,codox,dev" "codox"]})
+  :aliases {"codox" ["with-profile" "codox,dev" "codox"]})
