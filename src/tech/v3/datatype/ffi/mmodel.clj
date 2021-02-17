@@ -61,7 +61,11 @@
     (instance? Path libname)
     (LibraryLookup/ofPath libname)
     (string? libname)
-    (LibraryLookup/ofLibrary libname)
+    (let [libname (str libname)]
+      (if (or (.contains libname "/")
+              (.contains libname "\\"))
+        (LibraryLookup/ofPath (Paths/get libname (into-array String [])))
+        (LibraryLookup/ofLibrary libname)))
     (nil? libname)
     (LibraryLookup/ofDefault)
     :else

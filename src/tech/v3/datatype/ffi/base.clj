@@ -121,12 +121,12 @@
      (concat (map (partial argtype->insn nil :ptr-as-obj) argtypes)
              [(argtype->insn nil :ptr-as-ptr rettype)])]]
    (case (ffi/lower-type rettype)
-     :int8 [[:invokestatic RT "box" [:byte Object]]]
-     :int16 [[:invokestatic RT "box" [:short Object]]]
-     :int32 [[:invokestatic RT "box" [:int Object]]]
-     :int64 [[:invokestatic RT "box" [:long Object]]]
-     :float32 [[:invokestatic RT "box" [:float Object]]]
-     :float64 [[:invokestatic RT "box" [:double Object]]]
+     :int8 [[:invokestatic RT "box" [:byte Number]]]
+     :int16 [[:invokestatic RT "box" [:short Number]]]
+     :int32 [[:invokestatic RT "box" [:int Number]]]
+     :int64 [[:invokestatic RT "box" [:long Number]]]
+     :float32 [[:invokestatic RT "box" [:float Number]]]
+     :float64 [[:invokestatic RT "box" [:double Number]]]
      :void [[:aconst-null]]
      nil)
    [[:areturn]]))
@@ -292,17 +292,17 @@
         (mapcat (fn [[arg-idx argtype]]
                   (case (ffi/lower-type argtype)
                     :int8 [[:iload arg-idx]
-                           [:invokestatic RT "box" [:byte Object]]]
+                           [:invokestatic RT "box" [:byte Number]]]
                     :int16 [[:iload arg-idx]
-                            [:invokestatic RT "box" [:short Object]]]
+                            [:invokestatic RT "box" [:short Number]]]
                     :int32 [[:iload arg-idx]
-                            [:invokestatic RT "box" [:int Object]]]
+                            [:invokestatic RT "box" [:int Number]]]
                     :int64 [[:lload arg-idx]
-                            [:invokestatic RT "box" [:long Object]]]
+                            [:invokestatic RT "box" [:long Number]]]
                     :float32 [[:fload arg-idx]
-                              [:invokestatic RT "box" [:float Object]]]
+                              [:invokestatic RT "box" [:float Number]]]
                     :float64 [[:dload arg-idx]
-                              [:invokestatic RT "box" [:double Object]]]
+                              [:invokestatic RT "box" [:double Number]]]
                     :pointer (platform-ptr->ptr arg-idx)
                     :pointer? (platform-ptr->ptr arg-idx arg-idx)))))
    [[:invokeinterface IFn "invoke" (repeat (inc (count argtypes)) Object)]]

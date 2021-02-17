@@ -122,8 +122,9 @@ user> dbuf
 (defn lower-type
   "Downcast `:size-t` to its integer equivalent."
   [argtype]
-  (if (= argtype :size-t)
-    (size-t-type)
+  (case argtype
+    :size-t (size-t-type)
+    :string :pointer
     argtype))
 
 
