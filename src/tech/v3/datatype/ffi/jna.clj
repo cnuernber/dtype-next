@@ -3,6 +3,7 @@
             [tech.v3.datatype.ffi.base :as ffi-base])
   (:import [com.sun.jna NativeLibrary Pointer Callback CallbackReference]
            [tech.v3.datatype NumericConversions ClojureHelper]
+           [tech.v3.datatype.ffi Library]
            [clojure.lang IFn RT IPersistentMap IObj MapEntry Keyword IDeref
             ISeq]
            [java.lang.reflect Constructor]
@@ -81,13 +82,33 @@
     [:aload 1]
     [:invokeinterface IFn "invoke" [Object Object]]
     [:checkcast NativeLibrary]
-    [:invokestatic com.sun.jna.Native "register" [Class NativeLibrary :void]]]
+    [:astore 2]
+    [:aload 2]
+    [:invokestatic com.sun.jna.Native "register" [Class NativeLibrary :void]]
+    [:aload 0]
+    [:aload 2]
+    [:putfield :this "libraryImpl" NativeLibrary]]
    emit-ptr-ptrq
    [[:aload 0]
     [:dup]
     [:invokevirtual :this "buildFnMap" [Object]]
     [:putfield :this "fnMap" Object]
     [:return]]))
+
+
+(defn emit-find-symbol
+  []
+  [[:aload 0]
+   [:getfield :this "libraryImpl" NativeLibrary]
+   [:aload 1]
+   [:invokevirtual NativeLibrary "getGlobalVariableAddress" [String Pointer]]
+   [:invokestatic Pointer "nativeValue" [Pointer :long]]
+   [:lstore 1]
+   [:new tech.v3.datatype.ffi.Pointer]
+   [:dup]
+   [:lload 1]
+   [:invokespecial tech.v3.datatype.ffi.Pointer :init [:long :void]]
+   [:areturn]])
 
 
 (defn emit-wrapped-fn
@@ -112,7 +133,7 @@
   (let [inner-name (symbol (str classname "$inner"))]
     [{:name classname
       :flags #{:public}
-      :interfaces [IDeref]
+      :interfaces [IDeref Library]
       :fields [{:name "asPointer"
                 :type IFn
                 :flags #{:public :final}}
@@ -121,11 +142,17 @@
                 :flags #{:public :final}}
                {:name "fnMap"
                 :type Object
+                :flags #{:public :final}}
+               {:name "libraryImpl"
+                :type NativeLibrary
                 :flags #{:public :final}}]
       :methods (vec (concat
                      [{:name :init
                        :desc [String :void]
                        :emit (emit-library-constructor inner-name)}
+                      {:name "findSymbol"
+                       :desc [String tech.v3.datatype.ffi.Pointer]
+                       :emit (emit-find-symbol)}
                       (ffi-base/emit-library-fn-map classname fn-defs)
                       {:name :deref
                        :desc [Object]

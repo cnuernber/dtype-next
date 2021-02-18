@@ -73,7 +73,7 @@ user> dbuf
             [tech.v3.datatype.errors :as errors]
             [clojure.tools.logging :as log])
   (:import [tech.v3.datatype.native_buffer NativeBuffer]
-           [tech.v3.datatype.ffi Pointer]
+           [tech.v3.datatype.ffi Pointer Library]
            [java.nio.charset Charset]
            [java.lang.reflect Constructor]
            [clojure.lang IFn]))
@@ -364,7 +364,7 @@ user>
 
 (defn instantiate-library
   "Uses reflection to instantiate a library"
-  [library-def libpath]
+  ^Library [library-def libpath]
   (instantiate-class (:library-class library-def) libpath))
 
 

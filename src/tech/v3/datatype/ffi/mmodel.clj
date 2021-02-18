@@ -9,7 +9,7 @@
            [java.nio.file Path Paths]
            [java.lang.reflect Constructor]
            [tech.v3.datatype NumericConversions ClojureHelper]
-           [tech.v3.datatype.ffi Pointer]
+           [tech.v3.datatype.ffi Pointer Library]
            [clojure.lang IFn RT ISeq Var Keyword IDeref]))
 
 
@@ -165,7 +165,15 @@
     [[:aload 0]
      [:invokespecial :super :init [:void]]]
     (ffi-base/find-ptr-ptrq "tech.v3.datatype.ffi.mmodel")
-    [[:ldc "tech.v3.datatype.ffi.mmodel"]
+    [[:aload 0]
+     [:ldc "tech.v3.datatype.ffi.mmodel"]
+     [:ldc "load-library"]
+     [:invokestatic ClojureHelper "findFn" [String String IFn]]
+     [:aload 1]
+     [:invokeinterface IFn "invoke" [Object Object]]
+     [:checkcast LibraryLookup]
+     [:putfield :this "libraryImpl" LibraryLookup]
+     [:ldc "tech.v3.datatype.ffi.mmodel"]
      [:ldc "library-sym->method-handle"]
      [:invokestatic ClojureHelper "findFn" [String String IFn]]
      ;;1 is the string constructor argument
@@ -199,6 +207,25 @@
    (vec)))
 
 
+(defn emit-find-symbol
+  []
+  [[:ldc "tech.v3.datatype.ffi.mmodel"]
+   [:ldc "find-symbol"]
+   [:invokestatic ClojureHelper "findFn" [String String IFn]]
+   [:aload 0]
+   [:getfield :this "libraryImpl" LibraryLookup]
+   [:aload 1]
+   [:invokeinterface IFn "invoke" [Object Object Object]]
+   [:astore 2]
+   [:ldc "tech.v3.datatype.ffi"]
+   [:ldc "->pointer"]
+   [:invokestatic ClojureHelper "findFn" [String String IFn]]
+   [:aload 2]
+   [:invokeinterface IFn "invoke" [Object Object]]
+   [:checkcast Pointer]
+   [:areturn]])
+
+
 (def ptr-cast (ffi-base/make-ptr-cast "asPointer" MemoryAddress))
 (def ptr?-cast (ffi-base/make-ptr-cast "asPointerQ" MemoryAddress))
 (def ptr-return (ffi-base/ptr-return
@@ -224,7 +251,7 @@
   [classname fn-defs]
   [{:name classname
     :flags #{:public}
-    :interfaces [IDeref]
+    :interfaces [Library]
     :fields (->> (concat
                   [{:name "asPointer"
                     :type IFn
@@ -234,6 +261,9 @@
                     :flags #{:public :final}}
                    {:name "fnMap"
                     :type Object
+                    :flags #{:public :final}}
+                   {:name "libraryImpl"
+                    :type LibraryLookup
                     :flags #{:public :final}}]
                   (map (fn [[fn-name _fn-args]]
                          {:name (str (name fn-name) "_hdl")
@@ -247,6 +277,10 @@
             :flags #{:public}
             :desc [String :void]
             :emit (emit-lib-constructor fn-defs)}
+           {:name :findSymbol
+            :flags #{:public}
+            :desc [String Pointer]
+            :emit (emit-find-symbol)}
            (ffi-base/emit-library-fn-map classname fn-defs)
            {:name :deref
             :desc [Object]

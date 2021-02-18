@@ -49,7 +49,9 @@
     (qsort dbuf (dtype/ecount dbuf) Double/BYTES comp-iface-ptr)
     (is (dfn/equals first-buf (vec (repeat 10 0.0))))
     (is (dfn/equals second-buf (vec (repeat 10 0.0))))
-    (is (dfn/equals dbuf (range 100)))))
+    (is (dfn/equals dbuf (range 100)))
+    (is (= (.findSymbol libmem-inst "qsort")
+           (.findSymbol libmem-inst "qsort")))))
 
 
 (deftest jna-ffi-test
