@@ -7,7 +7,7 @@ public interface BinaryBuffer extends ECount
   byte readBinByte(long byteOffset);
   short readBinShort(long byteOffset);
   int readBinInt(long byteOffset);
-  long readBinLong(long byteByteOffset);
+  long readBinLong(long byteOffset);
   float readBinFloat(long byteOffset);
   double readBinDouble(long byteOffset);
 

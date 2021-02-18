@@ -155,7 +155,7 @@ user> dbuf
 (defprotocol PToPointer
   (convertible-to-pointer? [item]
     "Query whether an item is convertible to a pointer.")
-  (^Pointer ->pointer [item]
+  (^tech.v3.datatype.ffi.Pointer ->pointer [item]
    "Convert an item into a Pointer, throwing an exception upon failure."))
 
 

@@ -14,7 +14,7 @@
             [primitive-math :as pmath])
   (:import [tech.v3.datatype UnsafeUtil]
            [sun.misc Unsafe]
-           [tech.v3.datatype Buffer BufferCollection]
+           [tech.v3.datatype Buffer BufferCollection BinaryBuffer]
            [clojure.lang RT IObj Counted Indexed IFn]))
 
 (set! *warn-on-reflection* true)
@@ -251,6 +251,10 @@
          (datatype [rdr#] (dtype-proto/datatype ~buffer))
          dtype-proto/PElemwiseReaderCast
          (elemwise-reader-cast [item# new-dtype#] item#)
+         dtype-proto/PToBinaryBuffer
+         (convertible-to-binary-buffer? [item#] true)
+         (->binary-buffer [item#]
+           (dtype-proto/->binary-buffer ~buffer))
          ~(typecast/datatype->io-type (casting/safe-flatten datatype))
          (elemwiseDatatype [rdr#] ~advertised-datatype)
          (lsize [rdr#] ~n-elems)
@@ -355,7 +359,7 @@
                             (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))])))))
 
 
-(declare native-buffer->buffer native-buffer->map)
+(declare native-buffer->buffer native-buffer->map construct-binary-buffer)
 
 
 ;;Size is in elements, not in bytes
@@ -435,6 +439,9 @@
   (convertible-to-writer? [this] true)
   (->writer [this]
     (dtype-proto/->buffer this))
+  dtype-proto/PToBinaryBuffer
+  (convertible-to-binary-buffer? [buf] true)
+  (->binary-buffer [buf] (construct-binary-buffer buf))
   IObj
   (meta [item] metadata)
   (withMeta [item metadata]
@@ -716,3 +723,68 @@
   (^NativeBuffer [address n-bytes gc-obj]
    (wrap-address address n-bytes :int8 (dtype-proto/platform-endianness)
                  gc-obj)))
+
+
+(defmacro ^:private check-bounds
+  [dt-width byte-offset address n-bytes]
+  `(do
+     (errors/when-not-errorf
+      (pmath/<= (pmath/+ ~byte-offset ~dt-width) ~n-bytes)
+      "Element access out of range - %d >= %d"
+      ~byte-offset ~n-bytes)
+     (pmath/+ ~address ~byte-offset)))
+
+
+(deftype NativeBinaryBuffer [^NativeBuffer nbuf
+                             ^long address
+                             ^long n-bytes
+                             metadata]
+  dtype-proto/PClone
+  (clone [this]
+    (-> (dtype-proto/clone nbuf)
+        (dtype-proto/->binary-buffer)))
+  BinaryBuffer
+  (lsize [this] n-bytes)
+  (allowsBinaryRead [this] true)
+  (readBinByte [this byteOffset]
+    (.getByte (unsafe) (check-bounds 1 byteOffset address n-bytes)))
+  (readBinShort [this byteOffset]
+    (.getShort (unsafe) (check-bounds 2 byteOffset address n-bytes)))
+  (readBinInt [this byteOffset]
+    (.getInt (unsafe) (check-bounds 4 byteOffset address n-bytes)))
+  (readBinLong [this byteOffset]
+    (.getLong (unsafe) (check-bounds 8 byteOffset address n-bytes)))
+  (readBinFloat [this byteOffset]
+    (.getFloat (unsafe) (check-bounds 4 byteOffset address n-bytes)))
+  (readBinDouble [this byteOffset]
+    (.getDouble (unsafe) (check-bounds 8 byteOffset address n-bytes)))
+
+  (allowsBinaryWrite [this] true)
+  (writeBinByte [this byteOffset data]
+    (.putByte (unsafe) (check-bounds 1 byteOffset address n-bytes) data))
+  (writeBinShort [this byteOffset data]
+    (.putShort (unsafe) (check-bounds 2 byteOffset address n-bytes) data))
+  (writeBinInt [this byteOffset data]
+    (.putInt (unsafe) (check-bounds 4 byteOffset address n-bytes) data))
+  (writeBinLong [this byteOffset data]
+    (.putLong (unsafe) (check-bounds 8 byteOffset address n-bytes) data))
+  (writeBinFloat [this byteOffset data]
+    (.putFloat (unsafe) (check-bounds 4 byteOffset address n-bytes) data))
+  (writeBinDouble [this byteOffset data]
+    (.putDouble (unsafe) (check-bounds 8 byteOffset address n-bytes) data))
+  IObj
+  (meta [this] metadata)
+  (withMeta [this newMeta]
+    (NativeBinaryBuffer. nbuf address n-bytes newMeta)))
+
+
+(defn construct-binary-buffer
+  ^BinaryBuffer [^NativeBuffer nbuf]
+  (errors/when-not-error
+   (= (dtype-proto/platform-endianness)
+      (dtype-proto/endianness nbuf))
+   "Endianness conversion is unsupported for binary buffers")
+  (let [n-bytes (* (.n-elems nbuf)
+                   (casting/numeric-byte-width
+                    (dtype-proto/elemwise-datatype nbuf)))]
+    (NativeBinaryBuffer. nbuf (.address nbuf) n-bytes {})))
