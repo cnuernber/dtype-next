@@ -192,9 +192,9 @@ user> dbuf
   (let [ptr-data (->pointer data)]
     (if (== 0 (.address ptr-data))
       nil
-      (let [nbuf (native-buffer/wrap-address ptr-data Integer/MAX_VALUE :int8
-                                             (dtype-proto/platform-endianness)
-                                             nil)
+      (let [nbuf (native-buffer/wrap-address
+                  (.address ptr-data) Integer/MAX_VALUE :int8
+                  (dtype-proto/platform-endianness) nil)
             [enc-width enc-name] (encoding->info encoding)
             nbuf (case (long enc-width)
                    1 nbuf
