@@ -1,6 +1,9 @@
 package tech.v3.datatype.ffi;
 
 
+import clojure.lang.Murmur3;
+
+
 public class Pointer
 {
   public final long address;
@@ -9,5 +12,15 @@ public class Pointer
   }
   public String toString() {
     return "{:address " + String.format("0x%016X", address) + " }";
+  }
+  public int hashCode() {
+    return Murmur3.hashLong(address);
+  }
+  public boolean equals(Object other) {
+    if(other instanceof Pointer) {
+      return address == ((Pointer)other).address;
+    } else {
+      return false;
+    }
   }
 }
