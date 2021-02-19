@@ -23,4 +23,13 @@ public class Pointer
       return false;
     }
   }
+  public boolean isNil () {
+    return address != 0;
+  }
+  public static Pointer constructNonZero(long val) {
+    if (val != 0) {
+      return new Pointer(val);
+    }
+    return null;
+  }
 }

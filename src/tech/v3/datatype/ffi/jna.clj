@@ -103,11 +103,8 @@
    [:aload 1]
    [:invokevirtual NativeLibrary "getGlobalVariableAddress" [String Pointer]]
    [:invokestatic Pointer "nativeValue" [Pointer :long]]
-   [:lstore 1]
-   [:new tech.v3.datatype.ffi.Pointer]
-   [:dup]
-   [:lload 1]
-   [:invokespecial tech.v3.datatype.ffi.Pointer :init [:long :void]]
+   [:invokestatic tech.v3.datatype.ffi.Pointer "constructNonZero"
+    [:long tech.v3.datatype.ffi.Pointer]]
    [:areturn]])
 
 

@@ -229,17 +229,22 @@ user> dbuf
 (defn ptr-value
   "Item must not be nil.  A long address is returned."
   ^long [item]
-  (cond
-    (instance? tech.v3.datatype.ffi.Pointer item)
-    (.address ^tech.v3.datatype.ffi.Pointer item)
-    (instance? tech.v3.datatype.native_buffer.NativeBuffer item)
-    (.address ^tech.v3.datatype.native_buffer.NativeBuffer item)
-    :else
-    (do
-      (errors/when-not-errorf
-       (convertible-to-pointer? item)
-       "Item %s is not convertible to a C pointer" item)
-      (.address ^tech.v3.datatype.ffi.Pointer (->pointer item)))))
+  (let [retval
+        (long (cond
+                (instance? tech.v3.datatype.ffi.Pointer item)
+                (.address ^tech.v3.datatype.ffi.Pointer item)
+                (instance? tech.v3.datatype.native_buffer.NativeBuffer item)
+                (.address ^tech.v3.datatype.native_buffer.NativeBuffer item)
+                :else
+                (do
+                  (errors/when-not-errorf
+                   (convertible-to-pointer? item)
+                   "Item %s is not convertible to a C pointer" item)
+                  (.address ^tech.v3.datatype.ffi.Pointer (->pointer item)))))]
+    (errors/when-not-error
+     (not= 0 retval)
+     "Pointer value is zero!")
+    retval))
 
 
 (defn ptr-value?

@@ -3,7 +3,8 @@
             [tech.v3.datatype.ffi :as ffi]
             [insn.core :as insn])
   (:import [clojure.lang IFn RT IDeref ISeq Keyword]
-           [tech.v3.datatype ClojureHelper NumericConversions]))
+           [tech.v3.datatype ClojureHelper NumericConversions]
+           [tech.v3.datatype.ffi Pointer]))
 
 
 (defn unify-ptr-types
@@ -53,11 +54,7 @@
   (vec
    (concat
     ptr->long
-    [[:lstore 1]
-     [:new tech.v3.datatype.ffi.Pointer]
-     [:dup]
-     [:lload 1]
-     [:invokespecial tech.v3.datatype.ffi.Pointer :init [:long :void]]
+    [[:invokestatic Pointer "constructNonZero" [:long Pointer]]
      [:areturn]])))
 
 
