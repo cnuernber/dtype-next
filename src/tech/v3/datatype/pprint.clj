@@ -31,8 +31,13 @@
                        (.append builder
                                 (formatter val))
                        (.append builder ", "))
-                     (StringBuilder.)))]
-    (.toString builder)))
+                     (StringBuilder.)))
+        len (.length builder)]
+    (if (> len 0)
+      (-> builder
+          (.delete (- len 2) len) ; remove the last ", "
+          (.toString))
+      "")))
 
 
 (defn buffer->string
