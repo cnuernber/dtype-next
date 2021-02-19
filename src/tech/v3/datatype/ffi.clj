@@ -71,6 +71,7 @@ user> dbuf
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.errors :as errors]
+            [tech.v3.datatype :as dtype]
             [clojure.tools.logging :as log])
   (:import [tech.v3.datatype.native_buffer NativeBuffer]
            [tech.v3.datatype.ffi Pointer Library]
@@ -125,6 +126,14 @@ user> dbuf
   (case argtype
     :size-t (size-t-type)
     :string :pointer
+    argtype))
+
+
+(defn lower-ptr-type
+  "Downcast size-t and pointers to their integer equivalents"
+  [argtype]
+  (if (#{:size-t :string :pointer} argtype)
+    (size-t-type)
     argtype))
 
 
@@ -451,3 +460,27 @@ user>
   * `foreign-inst` - an instance of the class defined by 'define-foreign-interface'."
   ^Pointer [ffi-def foreign-inst]
   ((:foreign-interface-instance->c @ffi-impl*) ffi-def foreign-inst))
+
+
+(defn make-ptr
+  ^NativeBuffer [dtype prim-init-value]
+  (let [dtype (lower-ptr-type dtype)]
+    (dtype/make-container :native-heap dtype
+                          {:resource-type :auto}
+                          [prim-init-value])))
+
+
+(defn make-ptr-ptr
+  ^NativeBuffer [dtype prim-init-value]
+  (let [ptr-type (size-t-type)
+        src-buf (make-ptr dtype prim-init-value)]
+    (-> (dtype/make-container :native-heap ptr-type
+                              {:resource-type :auto}
+                              [(.address src-buf)])
+        (vary-meta assoc :src-buffer src-buf))))
+
+
+(defn ptr-ptr-value
+  [^NativeBuffer nbuf]
+  (let [src-buf (:src-buffer (meta nbuf))]
+    (src-buf 0)))
