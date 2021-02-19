@@ -311,11 +311,9 @@
 
 (defn platform-ptr->ptr
   [arg-idx]
-  [[:new tech.v3.datatype.ffi.Pointer]
-   [:dup]
-   [:aload arg-idx]
+  [[:aload arg-idx]
    [:invokeinterface MemoryAddress "toRawLongValue" [:long]]
-   [:invokespecial tech.v3.datatype.ffi.Pointer :init [:long :void]]])
+   [:invokestatic Pointer "constructNonZero" [:long Pointer]]])
 
 
 (defn define-foreign-interface

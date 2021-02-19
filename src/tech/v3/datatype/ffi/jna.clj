@@ -177,11 +177,10 @@
 
 (defn platform-ptr->ptr
   [arg-idx]
-  [[:new tech.v3.datatype.ffi.Pointer]
-   [:dup]
-   [:aload arg-idx]
+  [[:aload arg-idx]
    [:invokestatic Pointer "nativeValue" [Pointer :long]]
-   [:invokespecial tech.v3.datatype.ffi.Pointer :init [:long :void]]])
+   [:invokestatic tech.v3.datatype.ffi.Pointer "constructNonZero"
+    [:long tech.v3.datatype.ffi.Pointer]]])
 
 
 (defn define-foreign-interface
