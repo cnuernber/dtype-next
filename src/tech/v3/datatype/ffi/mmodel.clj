@@ -30,12 +30,12 @@
 
 (defn ptr-value
   ^MemoryAddress [item]
-  (MemoryAddress/ofLong (ffi/ptr-value item)))
+  (MemoryAddress/ofLong (ffi-base/ptr-value item)))
 
 
 (defn ptr-value?
   ^MemoryAddress [item]
-  (MemoryAddress/ofLong (ffi/ptr-value? item)))
+  (MemoryAddress/ofLong (ffi-base/ptr-value? item)))
 
 
 (extend-protocol ffi/PToPointer

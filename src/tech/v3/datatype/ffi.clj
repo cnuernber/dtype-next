@@ -114,13 +114,7 @@ user> dbuf
     :int32))
 
 
-(defn ptr-int-type
-  "Get the integer type of a pointer - either `:int32` or `:int64`."
-  []
-  (size-t-type))
-
-
-(defn lower-type
+(defn ^:no-doc lower-type
   "Downcast `:size-t` to its integer equivalent."
   [argtype]
   (case argtype
@@ -129,7 +123,7 @@ user> dbuf
     argtype))
 
 
-(defn lower-ptr-type
+(defn ^:no-doc lower-ptr-type
   "Downcast size-t and pointers to their integer equivalents"
   [argtype]
   (if (#{:size-t :string :pointer} argtype)
@@ -235,35 +229,6 @@ user> dbuf
   (->pointer [item] (Pointer. (.address item))))
 
 
-(defn ptr-value
-  "Item must not be nil.  A long address is returned."
-  ^long [item]
-  (let [retval
-        (long (cond
-                (instance? tech.v3.datatype.ffi.Pointer item)
-                (.address ^tech.v3.datatype.ffi.Pointer item)
-                (instance? tech.v3.datatype.native_buffer.NativeBuffer item)
-                (.address ^tech.v3.datatype.native_buffer.NativeBuffer item)
-                :else
-                (do
-                  (errors/when-not-errorf
-                   (convertible-to-pointer? item)
-                   "Item %s is not convertible to a C pointer" item)
-                  (.address ^tech.v3.datatype.ffi.Pointer (->pointer item)))))]
-    (errors/when-not-error
-     (not= 0 retval)
-     "Pointer value is zero!")
-    retval))
-
-
-(defn ptr-value?
-  "Item may be nil in which case 0 is returned."
-  ^long [item]
-  (if item
-    (ptr-value item)
-    0))
-
-
 (defn instantiate-class
   "Utility function to instantiate a class via its first constructor in its list
   of declared constructors.  Works with classes returned from 'define-library'
@@ -305,13 +270,12 @@ Attempted both :jdk and :jna -- call set-ffi-impl! from the repl to see specific
   @ffi-impl*)
 
 
-
-(defn load-library
-  "Load a library returning an implementation specific library instance.
-
-  Exception if the library cannot be found."
+(defn library-loadable?
+  "This method is useful to check if loading a library will work."
   [libname]
-  ((:load-library (ffi-impl)) libname))
+  (boolean (try
+             ((:load-library (ffi-impl)) libname)
+             (catch Exception e false))))
 
 
 (defn find-symbol
@@ -382,46 +346,6 @@ user>
   (instantiate-class (:library-class library-def) libpath))
 
 
-(defn find-function
-  "Find the symbol and return an IFn implementation wrapping typesafe access
-  to the function.  The function's signature has to be completely specified.
-  Supported datatypes are
-
-  This object's ->pointer protocol implementation returns the actual function
-  pointer.  This function uses 'eval' and thus also uses reflection."
-  [libname symbol-name rettype & [argtypes options]]
-  (let [lib-symbol (:library (define-library
-                               (symbol (str "tech.v3.datatype.ffi.Invoker_"
-                                            (name symbol-name)
-                                            "_"
-                                            (name (gensym))))
-                               {symbol-name {:rettype rettype
-                                             :argtypes argtypes}}
-                               options))
-        eval-data
-        (list 'do (list 'import lib-symbol)
-              (list 'let ['libinst (list 'new lib-symbol libname)]
-                    (list 'fn (vec (map (fn[idx]
-                                          (symbol (str "arg_" idx)))
-                                        (range (count argtypes))))
-                          (concat
-                           [(symbol (str "." (name symbol-name))) 'libinst]
-                           (->> argtypes
-                                (map-indexed
-                                 (fn [idx argtype]
-                                   (let [arg-sym (symbol (str "arg_" idx))]
-                                     (case (lower-type argtype)
-                                       :int8 (list 'unchecked-byte arg-sym)
-                                       :int16 (list 'unchecked-short arg-sym)
-                                       :int32 (list 'unchecked-int arg-sym)
-                                       :int64 (list 'unchecked-long arg-sym)
-                                       :float32 (list 'unchecked-float arg-sym)
-                                       :float64 (list 'unchecked-double arg-sym)
-                                       :pointer arg-sym
-                                       :pointer? arg-sym)))))))))]
-    (eval eval-data)))
-
-
 (defn define-foreign-interface
   "Define a strongly typed instance that can be used with
   foreign-interface-instance->c.  This instance takes a single constructor argument
@@ -463,24 +387,10 @@ user>
 
 
 (defn make-ptr
+  "Make an object convertible to a pointer that points to  single value of type
+  `dtype`."
   ^NativeBuffer [dtype prim-init-value]
   (let [dtype (lower-ptr-type dtype)]
     (dtype/make-container :native-heap dtype
                           {:resource-type :auto}
                           [prim-init-value])))
-
-
-(defn make-ptr-ptr
-  ^NativeBuffer [dtype prim-init-value]
-  (let [ptr-type (size-t-type)
-        src-buf (make-ptr dtype prim-init-value)]
-    (-> (dtype/make-container :native-heap ptr-type
-                              {:resource-type :auto}
-                              [(.address src-buf)])
-        (vary-meta assoc :src-buffer src-buf))))
-
-
-(defn ptr-ptr-value
-  [^NativeBuffer nbuf]
-  (let [src-buf (:src-buffer (meta nbuf))]
-    (src-buf 0)))

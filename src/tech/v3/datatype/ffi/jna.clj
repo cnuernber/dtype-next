@@ -59,12 +59,12 @@
 
 (defn ptr-value
   ^Pointer [item]
-  (Pointer. (ffi/ptr-value item)))
+  (Pointer. (ffi-base/ptr-value item)))
 
 
 (defn ptr-value?
   ^Pointer [item]
-  (Pointer. (ffi/ptr-value? item)))
+  (Pointer. (ffi-base/ptr-value? item)))
 
 
 (def emit-ptr-ptrq (ffi-base/find-ptr-ptrq "tech.v3.datatype.ffi.jna"))
