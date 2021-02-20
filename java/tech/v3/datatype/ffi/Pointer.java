@@ -24,7 +24,7 @@ public class Pointer
     }
   }
   public boolean isNil () {
-    return address != 0;
+    return address == 0;
   }
   public static Pointer constructNonZero(long val) {
     if (val != 0) {
