@@ -1,7 +1,8 @@
 (ns tech.v3.datatype.errors
   "Generic, basic error handling.  No dependencies aside from apache commons math
   for NAN exception."
-  (:import [org.apache.commons.math3.exception NotANumberException]))
+  (:import [org.apache.commons.math3.exception NotANumberException]
+           [java.util NoSuchElementException]))
 
 
 (defmacro throwf
@@ -65,3 +66,8 @@
 (defmacro throw-unimplemented
   [& args]
   `(throw (UnsupportedOperationException. "Not implemented")))
+
+
+(defmacro throw-iterator-past-end
+  []
+  `(throw (NoSuchElementException. "Iteration past end of sequence")))
