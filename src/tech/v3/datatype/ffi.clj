@@ -177,12 +177,15 @@ user> dbuf
   * `:ascii`, `:utf-8` (default), `:utf-16`, and `:utf-32`
 
   String data will be zero padded."
-  ^NativeBuffer [str-data & [encoding]]
+  ^NativeBuffer [str-data & [{:keys [encoding]
+                              :as options}]]
   (let [[enc-width enc-name] (encoding->info encoding)
         charset (Charset/forName (str enc-name))
         byte-data (.getBytes (str str-data) charset)
         n-bytes (alength byte-data)
-        nbuf (dtype-cmc/make-container :native-heap :int8 {:resource-type :auto}
+        nbuf (dtype-cmc/make-container :native-heap :int8
+                                       (merge {:resource-type :auto}
+                                              options)
                                        (+ n-bytes (long enc-width)))]
     (dtype-cmc/copy! byte-data (base/sub-buffer nbuf 0 n-bytes))
     nbuf))

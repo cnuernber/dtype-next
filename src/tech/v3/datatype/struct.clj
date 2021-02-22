@@ -270,15 +270,15 @@
 
 
 (defn inplace-new-struct
-  ([datatype backing-store options]
+  (^Struct [datatype backing-store options]
    (let [struct-def (get-struct-def datatype)]
      (Struct. struct-def backing-store nil {})))
-  ([datatype backing-store]
+  (^Struct [datatype backing-store]
    (inplace-new-struct datatype backing-store {})))
 
 
 (defn new-struct
-  ([datatype options]
+  (^Struct [datatype options]
    (let [struct-def (get-struct-def datatype)
          ;;binary read/write to nio buffers is faster than our writer-wrapper
          backing-data (dtype-cmc/make-container
@@ -287,7 +287,7 @@
                        options
                        (long (:datatype-size struct-def)))]
      (Struct. struct-def backing-data nil options)))
-  ([datatype]
+  (^Struct [datatype]
    (new-struct datatype {})))
 
 
