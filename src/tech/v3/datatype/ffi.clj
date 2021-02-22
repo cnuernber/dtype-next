@@ -372,6 +372,8 @@ user>
 
 
 (defn instantiate-foreign-interface
+  "Instantiate a foreign interface defintion.  This returns an instance object which
+  can then be converted into a c-pointer via `foreign-interface-instance->c`."
   [ffi-def ifn]
   (errors/when-not-errorf
    (instance? IFn ifn)
