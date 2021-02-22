@@ -40,12 +40,14 @@
 
 (extend-protocol ffi/PToPointer
   MemoryAddress
-  (is-convertible-to-pointer? [item] true)
-  (->pointer [item] (Pointer. (.toRawLongValue item)))
+  (convertible-to-pointer? [item] true)
+  (->pointer [item] (Pointer. (.toRawLongValue item)
+                              {:src-ptr item}))
   Addressable
-  (is-convertible-to-pointer? [item] true)
+  (convertible-to-pointer? [item] true)
   (->pointer [item] (Pointer. (-> (.address item)
-                                  (.toRawLongValue)))))
+                                  (.toRawLongValue))
+                              {:src-ptr item})))
 
 
 (defn ->path

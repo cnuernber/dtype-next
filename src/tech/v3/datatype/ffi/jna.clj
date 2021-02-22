@@ -16,7 +16,8 @@
 (extend-type Pointer
   ffi/PToPointer
   (convertible-to-pointer? [item] true)
-  (->pointer [item] (tech.v3.datatype.ffi.Pointer. (Pointer/nativeValue item))))
+  (->pointer [item] (tech.v3.datatype.ffi.Pointer. (Pointer/nativeValue item)
+                                                   {:src-ptr item})))
 
 
 (defn library-instance?
@@ -196,9 +197,10 @@
 
 (defn foreign-interface-instance->c
   [_iface-def inst]
-  (-> (CallbackReference/getFunctionPointer inst)
-      (Pointer/nativeValue)
-      (tech.v3.datatype.ffi/Pointer.)))
+  (let [jna-ptr (CallbackReference/getFunctionPointer inst)]
+    ;;make sure we keep the src ptr in scope
+    (tech.v3.datatype.ffi.Pointer. (Pointer/nativeValue jna-ptr)
+                                   {:src-ptr jna-ptr})))
 
 
 (def ffi-fns {:load-library load-library
