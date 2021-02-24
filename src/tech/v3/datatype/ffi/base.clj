@@ -1,6 +1,7 @@
 (ns tech.v3.datatype.ffi.base
   (:require [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.ffi :as ffi]
+            [tech.v3.datatype.ffi.size-t :as ffi-size-t]
             [insn.core :as insn])
   (:import [clojure.lang IFn RT IDeref ISeq Keyword]
            [tech.v3.datatype ClojureHelper NumericConversions]
@@ -51,7 +52,7 @@
 
 (defn argtype->insn
   [platform-ptr-type ptr-disposition argtype]
-  (case (-> (ffi/lower-type argtype)
+  (case (-> (ffi-size-t/lower-type argtype)
             (unify-ptr-types))
     :int8 :byte
     :int16 :short
@@ -61,7 +62,8 @@
     :float64 :double
     :pointer
     (case ptr-disposition
-      :ptr-as-int (argtype->insn platform-ptr-type :ptr-as-int (ffi/size-t-type))
+      :ptr-as-int (argtype->insn platform-ptr-type
+                                 :ptr-as-int (ffi-size-t/size-t-type))
       :ptr-as-obj Object
       :ptr-as-ptr tech.v3.datatype.ffi.Pointer
       :ptr-as-platform platform-ptr-type)
@@ -112,7 +114,7 @@
        (reduce (fn [[retval offset] argtype]
                  [(conj retval [offset argtype])
                   (+ (long offset)
-                     (long (case (ffi/lower-type argtype)
+                     (long (case (ffi-size-t/lower-type argtype)
                              :int64 2
                              :float64 2
                              1)))])
@@ -128,7 +130,7 @@
    (map-indexed
     (fn [idx argtype]
       (let [arg-idx (inc idx)]
-        (case (ffi/lower-type argtype)
+        (case (ffi-size-t/lower-type argtype)
           :int8 [[:aload arg-idx]
                  [:invokestatic NumericConversions "numberCast" [Object Number]]
                  [:invokestatic RT "uncheckedByteCast" [Object :byte]]]
@@ -152,7 +154,7 @@
    [[:invokevirtual classname fn-name
      (concat (map (partial argtype->insn nil :ptr-as-obj) argtypes)
              [(argtype->insn nil :ptr-as-ptr rettype)])]]
-   (case (ffi/lower-type rettype)
+   (case (ffi-size-t/lower-type rettype)
      :int8 [[:invokestatic RT "box" [:byte Number]]]
      :int16 [[:invokestatic RT "box" [:short Number]]]
      :int32 [[:invokestatic RT "box" [:int Number]]]
@@ -240,7 +242,7 @@
                                         (-> (if (sequential? fn-item)
                                               (second fn-item)
                                               fn-item)
-                                            (ffi/lower-type)))
+                                            (ffi-size-t/lower-type)))
                                       %))]))
        (into {})))
 
@@ -289,7 +291,7 @@
   (->> (args->indexes-args argtypes)
        (mapcat
         (fn [[arg-idx argtype]]
-          (case (ffi/lower-type argtype)
+          (case (ffi-size-t/lower-type argtype)
             :int8 [[:iload arg-idx]]
             :int16 [[:iload arg-idx]]
             :int32 [[:iload arg-idx]]
@@ -304,7 +306,7 @@
 
 (defn ffi-call-return
   [ptr-return rettype]
-  (case (ffi/lower-type rettype)
+  (case (ffi-size-t/lower-type rettype)
     :void [[:return]]
     :int8 [[:ireturn]]
     :int16 [[:ireturn]]
@@ -322,7 +324,7 @@
     [:getfield :this "ifn" IFn]]
    (->> (args->indexes-args argtypes)
         (mapcat (fn [[arg-idx argtype]]
-                  (case (ffi/lower-type argtype)
+                  (case (ffi-size-t/lower-type argtype)
                     :int8 [[:iload arg-idx]
                            [:invokestatic RT "box" [:byte Number]]]
                     :int16 [[:iload arg-idx]
@@ -338,7 +340,7 @@
                     :pointer (platform-ptr->ptr arg-idx)
                     :pointer? (platform-ptr->ptr arg-idx arg-idx)))))
    [[:invokeinterface IFn "invoke" (repeat (inc (count argtypes)) Object)]]
-   (case (ffi/lower-type rettype)
+   (case (ffi-size-t/lower-type rettype)
      :int8 [[:invokestatic RT "uncheckedByteCast" [Object :byte]]
             [:ireturn]]
      :int16 [[:invokestatic RT "uncheckedShortCast" [Object :short]]

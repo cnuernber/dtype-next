@@ -71,6 +71,7 @@ user> dbuf
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.errors :as errors]
+            [tech.v3.datatype.ffi.size-t :as ffi-size-t]
             [tech.v3.datatype :as dtype]
             [clojure.tools.logging :as log])
   (:import [tech.v3.datatype.native_buffer NativeBuffer]
@@ -81,54 +82,6 @@ user> dbuf
 
 
 (set! *warn-on-reflection* true)
-
-
-(def arch64-set #{"x86_64" "amd64"})
-
-
-(defn size-t-size
-  "Get the size in bytes of a size-t integer."
-  ^long []
-  (let [arch (.toLowerCase (System/getProperty "os.arch"))]
-    (if (arch64-set arch)
-      8
-      4)))
-
-
-(defmacro ^:no-doc size-t-compile-time-switch
-  "Run either int32 based code or int64 based code depending
-   on the runtime size of size-t.  Use with extreme caution - this means that
-  size-t size will be set upon compilation of your code which may be on a different
-  platform than where your code runs."
-  [int-body long-body]
-  (case (size-t-size)
-    4 `~int-body
-    8 `~long-body))
-
-
-(defn size-t-type
-  "the size-t datatype - either `:int32` or `:int64`."
-  []
-  (if (= (size-t-size) 8)
-    :int64
-    :int32))
-
-
-(defn ^:no-doc lower-type
-  "Downcast `:size-t` to its integer equivalent."
-  [argtype]
-  (case argtype
-    :size-t (size-t-type)
-    :string :pointer
-    argtype))
-
-
-(defn ^:no-doc lower-ptr-type
-  "Downcast size-t and pointers to their integer equivalents"
-  [argtype]
-  (if (#{:size-t :string :pointer} argtype)
-    (size-t-type)
-    argtype))
 
 
 (defn jdk-ffi?
@@ -263,7 +216,8 @@ user> dbuf
     (try
       (set-ffi-impl! :jdk)
       (catch Throwable e
-        (log/debug e "Failed to load JDK FFI implementation.")
+        ;;brief error report on this log.
+        (log/debugf "Failed to load JDK FFI implementation: %s" e)
         (try
           (set-ffi-impl! :jna)
           (catch Throwable e
@@ -395,7 +349,7 @@ user>
   "Make an object convertible to a pointer that points to  single value of type
   `dtype`."
   ^NativeBuffer [dtype prim-init-value]
-  (let [dtype (lower-ptr-type dtype)]
+  (let [dtype (ffi-size-t/lower-ptr-type dtype)]
     (dtype/make-container :native-heap dtype
                           {:resource-type :auto}
                           [prim-init-value])))

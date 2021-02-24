@@ -1,6 +1,7 @@
 (ns tech.v3.datatype.ffi.mmodel
   (:require [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.ffi :as ffi]
+            [tech.v3.datatype.ffi.size-t :as ffi-size-t]
             [tech.v3.datatype.ffi.base :as ffi-base])
   (:import [jdk.incubator.foreign LibraryLookup CLinker FunctionDescriptor
             MemoryLayout LibraryLookup$Symbol]
@@ -97,7 +98,7 @@
 
 (defn argtype->mem-layout-type
   [argtype]
-  (case (ffi/lower-type argtype)
+  (case (ffi-size-t/lower-type argtype)
     :int8 CLinker/C_CHAR
     :int16 CLinker/C_SHORT
     :int32 CLinker/C_INT
@@ -123,7 +124,7 @@
 
 (defn argtype->cls
   ^Class [argtype]
-  (case (ffi/lower-type argtype)
+  (case (ffi-size-t/lower-type argtype)
     :int8 Byte/TYPE
     :int16 Short/TYPE
     :int32 Integer/TYPE
