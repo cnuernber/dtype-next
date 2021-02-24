@@ -28,16 +28,12 @@
         (->> (packing/unpack rdr)
              (dtype-proto/->reader)
              (reduce (fn [^StringBuilder builder val]
+                       (when-not (= 0 (.length builder)) ; not the first element
+                         (.append builder ", "))
                        (.append builder
-                                (formatter val))
-                       (.append builder ", "))
-                     (StringBuilder.)))
-        len (.length builder)]
-    (if (> len 0)
-      (-> builder
-          (.delete (- len 2) len) ; remove the last ", "
-          (.toString))
-      "")))
+                                (formatter val)))
+                     (StringBuilder.)))]
+    (.toString builder)))
 
 
 (defn buffer->string
