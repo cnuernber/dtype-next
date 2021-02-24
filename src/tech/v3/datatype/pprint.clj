@@ -28,9 +28,10 @@
         (->> (packing/unpack rdr)
              (dtype-proto/->reader)
              (reduce (fn [^StringBuilder builder val]
+                       (when-not (= 0 (.length builder)) ; not the first element
+                         (.append builder ", "))
                        (.append builder
-                                (formatter val))
-                       (.append builder ", "))
+                                (formatter val)))
                      (StringBuilder.)))]
     (.toString builder)))
 
