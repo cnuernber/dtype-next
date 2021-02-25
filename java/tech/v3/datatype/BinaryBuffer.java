@@ -14,7 +14,7 @@ public interface BinaryBuffer extends ECount
   boolean allowsBinaryWrite();
   void writeBinByte(long byteOffset, byte data);
   void writeBinShort(long byteOffset, short data);
-  void writeBinInt(long byteOffset, short data);
+  void writeBinInt(long byteOffset, int data);
   void writeBinLong(long byteOffset, long data);
   void writeBinFloat(long byteOffset, float data);
   void writeBinDouble(long byteOffset, double data);

@@ -46,6 +46,14 @@
     :int32))
 
 
+(defn ptr-t-type
+  "the size-t datatype - either `:uint32` or `:int64`."
+  []
+  (if (= (size-t-size) 8)
+    :int64
+    :uint32))
+
+
 (defn ^:no-doc lower-type
   "Downcast `:size-t` to its integer equivalent."
   [argtype]

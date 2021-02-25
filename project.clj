@@ -18,7 +18,7 @@
   :source-paths ["src"]
   :profiles {:dev
              {:dependencies [[criterium "0.4.5"]
-                             [uncomplicate/neanderthal "0.35.0"]
+                             ;;[uncomplicate/neanderthal "0.35.0"]
                              [com.taoensso/nippy "3.1.0-RC1"]
                              [ch.qos.logback/logback-classic "1.1.3"]]
               :test-paths ["neanderthal" "test"]}
