@@ -76,6 +76,8 @@ user> dbuf
             [clojure.tools.logging :as log])
   (:import [tech.v3.datatype.native_buffer NativeBuffer]
            [tech.v3.datatype.ffi Pointer Library]
+           [java.util.concurrent ConcurrentHashMap]
+           [java.util.function BiFunction]
            [java.nio.charset Charset]
            [java.lang.reflect Constructor]
            [clojure.lang IFn]))
@@ -123,6 +125,38 @@ user> dbuf
     :utf-16 [2 "UTF-16"]
     :utf-32 [4 "UTF-32"]))
 
+(def ^{:tag BiFunction
+       :private true} incrementor
+  (reify BiFunction
+    (apply [this k v] (if-not v 1 (+ 1 (long v))))))
+
+(defonce ^:private string->c-access-map* (atom nil))
+
+(defn- s->c-amap
+  ^ConcurrentHashMap [] @string->c-access-map*)
+
+
+(defn enable-string->c-stats!
+  "Enable tracking how often string->c is getting called."
+  ([enabled?]
+   (reset! string->c-access-map*
+           (when enabled? (ConcurrentHashMap.))))
+  ([] (enable-string->c-stats! true)))
+
+
+(defn clear-string->c-stats!
+  []
+  (when-let [amap (s->c-amap)]
+    (.clear amap)))
+
+
+(defn string->c-data-histogram
+  []
+  (->> (s->c-amap)
+       (into {})
+       (sort-by second)
+       (mapv vec)))
+
 
 (defn string->c
   "Convert a java String to a zero-padded c-string.  Available encodings are
@@ -132,6 +166,10 @@ user> dbuf
   String data will be zero padded."
   ^NativeBuffer [str-data & [{:keys [encoding]
                               :as options}]]
+  (errors/when-not-errorf
+   (instance? String str-data)
+   "string->c called with object that is not a string: %s" str-data)
+  (when-let [amap (s->c-amap)] (.compute amap str-data incrementor))
   (let [[enc-width enc-name] (encoding->info encoding)
         charset (Charset/forName (str enc-name))
         byte-data (.getBytes (str str-data) charset)
