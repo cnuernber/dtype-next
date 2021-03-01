@@ -448,7 +448,7 @@
     (NativeBuffer. address n-elems datatype endianness resource-type
                    metadata
                    cached-io
-                   parent))
+                   item))
   Counted
   (count [item] (int (dtype-proto/ecount item)))
   Indexed

@@ -220,7 +220,9 @@ user> dbuf
   (->pointer [item] item)
   NativeBuffer
   (convertible-to-pointer? [item] true)
-  (->pointer [item] (Pointer. (.address item))))
+  ;;Keep a reference to the native buffer so that it doesn't get GC'd while
+  ;;this pointer is in scope.
+  (->pointer [item] (Pointer. (.address item) {:src-buffer item})))
 
 
 (defn instantiate-class
