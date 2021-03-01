@@ -67,6 +67,7 @@ user> dbuf
 [0.000, 1.000, 2.000, 3.000, 4.000, 5.000, 6.000, 7.000, 8.000, 9.000, 10.00, 11.00, 12.00, 13.00, 14.00, 15.00, 16.00, 17.00, 18.00, 19.00, ...]
 ```"
   (:require [tech.v3.datatype.native-buffer :as native-buffer]
+            [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.base :as base]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.protocols :as dtype-proto]
@@ -388,8 +389,22 @@ user>
 (defn make-ptr
   "Make an object convertible to a pointer that points to  single value of type
   `dtype`."
-  ^NativeBuffer [dtype prim-init-value]
-  (let [dtype (ffi-size-t/lower-ptr-type dtype)]
-    (dtype/make-container :native-heap dtype
-                          {:resource-type :auto}
-                          [prim-init-value])))
+  (^NativeBuffer [dtype prim-init-value options]
+   (let [dtype (ffi-size-t/lower-ptr-type dtype)
+         ^NativeBuffer nbuf (-> (native-buffer/malloc
+                                 (casting/numeric-byte-width dtype)
+                                 options)
+                                (native-buffer/set-native-datatype dtype))
+         addr (.address nbuf)
+         unsafe (native-buffer/unsafe)]
+     (case dtype
+       :int8 (.putByte unsafe addr (unchecked-byte prim-init-value))
+       :int16 (.putShort unsafe addr (unchecked-short prim-init-value))
+       :int32 (.putInt unsafe addr (unchecked-int prim-init-value))
+       :int64 (.putLong unsafe addr (unchecked-long prim-init-value))
+       :float32 (.putFloat unsafe addr (unchecked-float prim-init-value))
+       :float64 (.putDouble unsafe addr (unchecked-double prim-init-value)))
+     nbuf))
+  (^NativeBuffer [dtype prim-init-value]
+   (make-ptr dtype prim-init-value {:resource-type :auto
+                                    :uninitialized? true})))

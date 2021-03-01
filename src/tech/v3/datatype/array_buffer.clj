@@ -338,12 +338,12 @@
 
 (defn array-buffer
   ([java-ary]
-   (ArrayBuffer. java-ary 0 (count java-ary)
+   (ArrayBuffer. java-ary 0 (dtype-proto/ecount java-ary)
                  (dtype-proto/elemwise-datatype java-ary)
                  {}
                  nil))
   ([java-ary buf-dtype]
-   (ArrayBuffer. java-ary 0 (count java-ary) buf-dtype {}
+   (ArrayBuffer. java-ary 0 (dtype-proto/ecount java-ary) buf-dtype {}
                  nil)))
 
 

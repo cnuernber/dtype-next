@@ -117,15 +117,16 @@ falling back to jdk16 memory model.")
              (case (.endianness buffer)
                :little-endian ByteOrder/LITTLE_ENDIAN
                :big-endian ByteOrder/BIG_ENDIAN))
-     (resource/chain-resources
-      (case (casting/host-flatten dtype)
-        :int8 byte-buf
-        :int16 (.asShortBuffer byte-buf)
-        :int32 (.asIntBuffer byte-buf)
-        :int64 (.asLongBuffer byte-buf)
-        :float32 (.asFloatBuffer byte-buf)
-        :float64 (.asDoubleBuffer byte-buf))
-      buffer)))
+     (let [retval (case (casting/host-flatten dtype)
+                    :int8 byte-buf
+                    :int16 (.asShortBuffer byte-buf)
+                    :int32 (.asIntBuffer byte-buf)
+                    :int64 (.asLongBuffer byte-buf)
+                    :float32 (.asFloatBuffer byte-buf)
+                    :float64 (.asDoubleBuffer byte-buf))]
+       (if (:resource-type options :auto)
+         (resource/chain-resources retval buffer)
+         retval))))
   (^java.nio.Buffer [buffer]
    (native-buf->nio-buf buffer nil)))
 

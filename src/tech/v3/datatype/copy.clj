@@ -88,6 +88,35 @@
                                (type item))))))
 
 
+(defn unsafe-copy-memory
+  [src-buf dst-buf src-dt ^long n-elems]
+  (let [[src src-off] (unpack-copy-item src-buf)
+        [dst dst-off] (unpack-copy-item dst-buf)
+        byte-width (casting/numeric-byte-width
+                    (casting/un-alias-datatype src-dt))]
+    (if (< n-elems 1024)
+      (.copyMemory (native-buffer/unsafe)
+                   src (long src-off)
+                   dst (long dst-off)
+                   (* n-elems byte-width))
+      (parallel-for/indexed-map-reduce
+       n-elems
+       (fn [^long start-idx ^long group-len]
+         (let [[src src-off] (unpack-copy-item
+                              (dtype-base/sub-buffer src-buf
+                                                     start-idx group-len))
+               [dst dst-off] (unpack-copy-item
+                              (dtype-base/sub-buffer dst-buf
+                                                     start-idx group-len))]
+           (.copyMemory (native-buffer/unsafe)
+                        src (long src-off)
+                        dst (long dst-off)
+                        (* group-len byte-width))))))))
+
+
+(defonce fast-copy-fn* (atom unsafe-copy-memory))
+
+
 (defn high-perf-copy!
   "Src, dst *must* be same unaliased datatype and that datatype must be a primitive
   datatype.
@@ -134,28 +163,7 @@
                                   group-len)))))
          (= (dtype-proto/endianness src-buf)
             (dtype-proto/endianness dst-buf))
-         (let [[src src-off] (unpack-copy-item src-buf)
-               [dst dst-off] (unpack-copy-item dst-buf)
-               byte-width (casting/numeric-byte-width
-                           (casting/un-alias-datatype src-dt))]
-           (if (< n-elems 1024)
-             (.copyMemory (native-buffer/unsafe)
-                          src (long src-off)
-                          dst (long dst-off)
-                          (* n-elems byte-width))
-             (parallel-for/indexed-map-reduce
-              n-elems
-              (fn [^long start-idx ^long group-len]
-                (let [[src src-off] (unpack-copy-item
-                                     (dtype-base/sub-buffer src-buf
-                                                            start-idx group-len))
-                      [dst dst-off] (unpack-copy-item
-                                     (dtype-base/sub-buffer dst-buf
-                                                            start-idx group-len))]
-                  (.copyMemory (native-buffer/unsafe)
-                               src (long src-off)
-                               dst (long dst-off)
-                               (* group-len byte-width)))))))
+         (@fast-copy-fn* src-buf dst-buf src-dt n-elems)
          :else
          (generic-copy! src dst))
        dst)))

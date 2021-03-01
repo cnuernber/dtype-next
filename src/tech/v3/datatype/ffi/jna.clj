@@ -1,9 +1,13 @@
 (ns tech.v3.datatype.ffi.jna
   (:require [tech.v3.datatype.ffi :as ffi]
-            [tech.v3.datatype.ffi.base :as ffi-base])
+            [tech.v3.datatype.ffi.base :as ffi-base]
+            [tech.v3.datatype.copy :as dt-copy]
+            [tech.v3.datatype.array-buffer :as array-buffer])
   (:import [com.sun.jna NativeLibrary Pointer Callback CallbackReference]
            [tech.v3.datatype NumericConversions ClojureHelper]
            [tech.v3.datatype.ffi Library]
+           [tech.v3.datatype.array_buffer ArrayBuffer]
+           [tech.v3.datatype.native_buffer NativeBuffer]
            [clojure.lang IFn RT IPersistentMap IObj MapEntry Keyword IDeref
             ISeq]
            [java.lang.reflect Constructor]
@@ -208,3 +212,38 @@
               :define-library define-library
               :define-foreign-interface define-foreign-interface
               :foreign-interface-instance->c foreign-interface-instance->c})
+
+
+;;JNA's array->native copy pathway is just a lot faster than unsafe's
+;;We know that one of the two buffers is native memory
+(defn jna-copy-memory
+  [src-buf dst-buf src-dt ^long n-elems]
+  (cond
+    (instance? ArrayBuffer src-buf)
+    (let [^ArrayBuffer src-buf src-buf
+          dst-buf (Pointer. (.address ^NativeBuffer dst-buf))]
+      (case src-dt
+        :int8 (.write dst-buf 0 ^bytes (.ary-data src-buf) (.offset src-buf) n-elems)
+        :int16 (.write dst-buf 0 ^shorts (.ary-data src-buf) (.offset src-buf) n-elems)
+        :int32 (.write dst-buf 0 ^ints (.ary-data src-buf) (.offset src-buf) n-elems)
+        :int64 (.write dst-buf 0 ^longs (.ary-data src-buf) (.offset src-buf) n-elems)
+        :float32 (.write dst-buf 0 ^floats (.ary-data src-buf) (.offset src-buf) n-elems)
+        :float64 (.write dst-buf 0 ^doubles (.ary-data src-buf) (.offset src-buf) n-elems)
+        )
+      )
+    (instance? ArrayBuffer dst-buf)
+    (let [src-buf (Pointer. (.address ^NativeBuffer src-buf))
+          ^ArrayBuffer dst-buf dst-buf]
+      (case src-dt
+        :int8 (.read src-buf 0 ^bytes (.ary-data dst-buf) (.offset dst-buf) n-elems)
+        :int16 (.read src-buf 0 ^shorts (.ary-data dst-buf) (.offset dst-buf) n-elems)
+        :int32 (.read src-buf 0 ^ints (.ary-data dst-buf) (.offset dst-buf) n-elems)
+        :int64 (.read src-buf 0 ^longs (.ary-data dst-buf) (.offset dst-buf) n-elems)
+        :float32 (.read src-buf 0 ^floats (.ary-data dst-buf) (.offset dst-buf) n-elems)
+        :float64 (.read src-buf 0 ^doubles (.ary-data dst-buf) (.offset dst-buf) n-elems)))
+    ;;both native buffers
+    :else
+    (dt-copy/unsafe-copy-memory src-buf dst-buf src-dt n-elems)))
+
+
+;; (reset! dt-copy/fast-copy-fn* jna-copy-memory)
