@@ -118,13 +118,45 @@ user> dbuf
    "Convert an item into a Pointer, throwing an exception upon failure."))
 
 
+(defn utf16-platform-encoding
+  "Get the utf-16 encoding that matches the current platform so you can encode
+  a utf-16 string without a bom."
+  []
+  (case (dtype-proto/platform-endianness)
+    :little-endian :utf-16LE
+    :big-endian :utf-16BE))
+
+
+(defn utf32-platform-encoding
+  "Get the utf-16 encoding that matches the current platform so you can encode
+  a utf-16 string without a bom."
+  []
+  (case (dtype-proto/platform-endianness)
+    :little-endian :utf-32LE
+    :big-endian :utf-32BE))
+
+
+(defn windows-platform?
+  []
+  (-> (System/getProperty "os.name")
+      (.toLowerCase)
+      (.contains "win")))
+
+
 (defn ^:private encoding->info
   [encoding]
   (case (or encoding :utf-8)
     :ascii [1 "ASCII"]
     :utf-8 [1 "UTF-8"]
     :utf-16 [2 "UTF-16"]
-    :utf-32 [4 "UTF-32"]))
+    :utf-16LE [2 "UTF-16LE"]
+    :utf-16BE [2 "UTF-16BE"]
+    :utf-32 [4 "UTF-32"]
+    :utf-32LE [4 "UTF-32LE"]
+    :utf-32BE [4 "UTF-32BE"]
+    :wchar-t (if (windows-platform?)
+               (encoding->info (utf16-platform-encoding))
+               (encoding->info (utf32-platform-encoding)))))
 
 (def ^{:tag BiFunction
        :private true} incrementor
@@ -162,7 +194,7 @@ user> dbuf
 (defn string->c
   "Convert a java String to a zero-padded c-string.  Available encodings are
 
-  * `:ascii`, `:utf-8` (default), `:utf-16`, and `:utf-32`
+  * `:ascii`, `:utf-8` (default), `:utf-16`, `:utf-16LE`, `utf-16-BE` and `:utf-32`
 
   String data will be zero padded."
   ^NativeBuffer [str-data & [{:keys [encoding]
