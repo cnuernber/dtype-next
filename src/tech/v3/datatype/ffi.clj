@@ -1,5 +1,5 @@
 (ns tech.v3.datatype.ffi
-  "Generalized C FFI interface that unifies JNA and JDK-16 FFI architectures.
+  "Generalized C Foreign Function Interface (FFI) that unifies JNA and JDK-16 FFI architectures.
 
   Users can dynamically define and load libraries and define callbacks that C can then
   call.
@@ -287,15 +287,15 @@ user> dbuf
   (when (nil? @ffi-impl*)
     ;;prefer JDK support
     (try
-      (set-ffi-impl! :jdk)
+      (set-ffi-impl! :jna)
       (catch Throwable e
         ;;brief error report on this log.
-        (log/debugf "Failed to load JDK FFI implementation: %s" e)
+        (log/debugf "Failed to load JNA FFI implementation: %s" e)
         (try
-          (set-ffi-impl! :jna)
+          (set-ffi-impl! :jdk)
           (catch Throwable e
             (reset! ffi-impl* :failed)
-            (log/error e "Failed to find a suitable ffi implementation.
+            (log/error e "Failed to find a suitable FFI implementation.
 Attempted both :jdk and :jna -- call set-ffi-impl! from the repl to see specific failure."))))))
   @ffi-impl*)
 
