@@ -25,8 +25,9 @@
              :jdk-16 {:jvm-opts ["--add-modules" "jdk.incubator.foreign" "-Dforeign.restricted=permit" "--add-opens" "java.base/java.lang=ALL-UNNAMED"]
                       }
              :codox
-             {:dependencies [[codox-theme-rdash "0.1.2"]]
-              :plugins [[lein-codox "0.10.7"]]
+             {:dependencies [[codox-theme-rdash "0.1.2"]
+                             [codox "0.10.7"
+                              :exclusions [org.ow2.asm/asm-all]]]
               :codox {:project {:name "dtype-next"}
                       :metadata {:doc/format :markdown}
                       :themes [:rdash]
@@ -67,4 +68,4 @@
               :jvm-opts ["-Dclojure.compiler.direct-linking=true" "-Dtech.v3.datatype.graal-native=true"]
               :uberjar-name "dtype-next.jar"
               :main tech.v3.datatype.main}}
-  :aliases {"codox" ["with-profile" "codox,dev" "codox"]})
+  :aliases {"codox" ["with-profile" "codox,dev" "run" "-m" "tech.v3.libs.lein-codox"]})
