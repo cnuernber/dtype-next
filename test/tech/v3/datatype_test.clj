@@ -652,3 +652,8 @@
 (deftest tricky-double-values
   (is (dfn/eq 0.0 -0.0))
   (is (dfn/eq Double/NaN Double/NaN)))
+
+
+(deftest really-ordered-group-by
+  (let [groups (argops/arggroup-by #(mod % 13) (range 200))]
+    (is (dfn/eq (range 13) (vec (keys groups))))))
