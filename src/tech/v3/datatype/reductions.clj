@@ -15,7 +15,7 @@
             DoubleConsumers$UnaryOpSum
             DoubleConsumers$BinaryOp
             Consumers$MultiStagedConsumer]
-           [java.util List Map HashMap Map$Entry Spliterator$OfDouble Spliterator]
+           [java.util List Map HashMap Map$Entry Spliterator$OfDouble Spliterator LinkedHashMap]
            [java.util.concurrent ForkJoinPool Callable Future]
            [java.util.stream StreamSupport]
            [java.util.concurrent ConcurrentHashMap]
@@ -314,7 +314,7 @@
      (parallel-for/indexed-map-reduce
       n-elems
       (fn [^long start-idx ^long group-len]
-        (let [result-map (HashMap.)
+        (let [result-map (LinkedHashMap.)
               bifn (IndexReduction$IndexedBiFunction. reducer batch-data)
               end-idx (+ start-idx group-len)]
           (loop [idx start-idx]
