@@ -73,14 +73,17 @@ user> dbuf
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.ffi.size-t :as ffi-size-t]
-            [tech.v3.datatype :as dtype]
-            [clojure.tools.logging :as log])
+            [tech.v3.datatype.dechunk-map :refer [dechunk-map]]
+            [clojure.tools.logging :as log]
+            [clojure.string :as s])
   (:import [tech.v3.datatype.native_buffer NativeBuffer]
            [tech.v3.datatype.ffi Pointer Library]
            [java.util.concurrent ConcurrentHashMap]
            [java.util.function BiFunction]
            [java.nio.charset Charset]
            [java.lang.reflect Constructor]
+           [java.io File]
+           [java.nio.file Paths]
            [clojure.lang IFn]))
 
 
@@ -300,12 +303,27 @@ Attempted both :jdk and :jna -- call set-ffi-impl! from the repl to see specific
   @ffi-impl*)
 
 
-(defn library-loadable?
-  "This method is useful to check if loading a library will work."
+(defn find-library
+  "This method is useful to check if loading a library will work.  If successful,
+  returns the library name that did finally succeed.  This may be different from
+  `libname` in the case where java.library.path has been used to actively find the
+  library."
   [libname]
-  (boolean (try
-             ((:load-library (ffi-impl)) libname)
-             (catch Exception e false))))
+  (->> (concat [libname]
+               (->> (s/split (System/getProperty "java.library.path") #":")
+                    (map (comp str #(Paths/get % (into-array String
+                                                             [(System/mapLibraryName libname)]))))
+                    (filter #(.exists (File. (str %))))))
+       (dechunk-map identity)
+       (filter #(try ((:load-library (ffi-impl)) %)
+                     true
+                     (catch Throwable e false)))
+       (first)))
+
+
+(defn library-loadable?
+  [libname]
+  (boolean (find-library libname)))
 
 
 (defn find-symbol
