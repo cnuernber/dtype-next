@@ -2,7 +2,9 @@
   (:require [codox.main :as codox]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [clojure.pprint :as pprint]
+            [clojure.tools.logging :as log]))
 
 
 (defn find-vals
@@ -33,7 +35,6 @@
                    retval (->> (:arg-paths base-argmap)
                                (map #(get-in deps-edn %))
                                (apply merge))]
-               (println "RETVAL is" retval)
                retval)
              (.exists (io/file "project.clj"))
              (let [proj-file (edn/read-string (slurp "project.clj"))
@@ -49,4 +50,7 @@
 
 (defn -main
   [& args]
-  (codox/generate-docs (get-codox-options args)))
+  (let [codox-opts (get-codox-options args)]
+    (log/infof "Codox options:
+%s" (with-out-str (pprint/pprint codox-opts)))
+    (codox/generate-docs codox-opts)))
