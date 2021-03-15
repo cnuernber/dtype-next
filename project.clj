@@ -1,4 +1,4 @@
-(defproject cnuernber/dtype-next "6.14"
+(defproject cnuernber/dtype-next "6.15-SNAPSHOT"
   :description "A Clojure library designed to aid in the implementation of high performance algorithms and systems."
   :url "http://github.com/cnuernber/dtype-next"
   :license {:name "EPL-2.0"
