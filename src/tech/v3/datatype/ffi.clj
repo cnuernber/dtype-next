@@ -73,6 +73,7 @@ user> dbuf
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.ffi.size-t :as ffi-size-t]
+            [tech.v3.datatype.struct :as dt-struct]
             [tech.v3.datatype.dechunk-map :refer [dechunk-map]]
             [tech.v3.resource :as resource]
             [clojure.tools.logging :as log]
@@ -564,7 +565,19 @@ Example:
            (let [fn-symbol (symbol (name fn-name))
                  requires-resctx? (first (filter #(= :string %)
                                                  (concat (map second argtypes)
-                                                         [rettype])))]
+                                                         [rettype])))
+                 fn-def `(~'ifn ~@(map
+                                   (fn [[argname argtype]]
+                                     (cond
+                                       (#{:int8 :int16 :int32 :int64} argtype)
+                                       `(long ~argname)
+                                       (#{:float32 :float64} argtype)
+                                       `(double ~argname)
+                                       (= :string argtype)
+                                       `(string->c ~argname)
+                                       :else
+                                       argname))
+                                   argtypes))]
              `(defn ~fn-symbol
                 ~(:doc fn-data "No documentation!")
                 ~(mapv first argtypes)
@@ -572,35 +585,21 @@ Example:
                   (do
                     ~(if requires-resctx?
                        `(resource/stack-resource-context
-                         (let [~'retval
-                               (~'ifn ~@(map
-                                         (fn [[argname argtype]]
-                                           (cond
-                                             (#{:int8 :int16 :int32 :int64} argtype)
-                                             `(long ~argname)
-                                             (#{:float32 :float64} argtype)
-                                             `(double ~argname)
-                                             (= :string argtype)
-                                             `(string->c ~argname)
-                                             :else
-                                             argname))
-                                         argtypes))]
+                         (let [~'retval ~fn-def]
                            ~(when check-error? `(~check-error ~'retval))
                            ~(if (= :string rettype)
                               `(c->string ~'retval)
                               `~'retval)))
-                       `(let [~'retval
-                              (~'ifn ~@(map
-                                        (fn [[argname argtype]]
-                                          (cond
-                                            (#{:int8 :int16 :int32 :int64} argtype)
-                                            `(long ~argname)
-                                            (#{:float32 :float64} argtype)
-                                            `(double ~argname)
-                                            (= :string argtype)
-                                            `(string->c ~argname)
-                                            :else
-                                            argname))
-                                        argtypes))]
+                       `(let [~'retval ~fn-def]
                           ~(when check-error? `(~check-error ~'retval))
                           ~'retval)))))))))))
+
+
+(defn ptr->struct
+  [struct-type ptr-type]
+  (let [n-bytes (:datatype-size (dt-struct/get-struct-def struct-type))
+        src-ptr (->pointer ptr-type)
+        nbuf (native-buffer/wrap-address (.address src-ptr)
+                                         n-bytes
+                                         src-ptr)]
+    (dt-struct/inplace-new-struct struct-type nbuf)))

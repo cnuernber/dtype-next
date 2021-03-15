@@ -2,6 +2,8 @@
   (:require [tech.v3.datatype :as dtype]
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.ffi :as dt-ffi]
+            [tech.v3.datatype.ffi.clang :as ffi-clang]
+            [tech.v3.datatype.struct :as dt-struct]
             [tech.v3.datatype.native-buffer :as native-buffer]
             [clojure.test :refer [deftest is]]
             [clojure.tools.logging :as log])
@@ -97,3 +99,70 @@
     ;;Everything works
     (is (dt-ffi/library-singleton-find-fn singleton :memset))
     (is (dt-ffi/library-singleton-find-fn singleton :memcpy))))
+
+
+(def frame-layout
+  "      0 |   uint8_t *[8] data
+        64 |   int [8] linesize
+        96 |   uint8_t ** extended_data
+       104 |   int width
+       108 |   int height
+       112 |   int nb_samples
+       116 |   int format
+       120 |   int key_frame
+       124 |   enum AVPictureType pict_type
+       128 |   struct AVRational sample_aspect_ratio
+       128 |     int num
+       132 |     int den
+       136 |   int64_t pts
+       144 |   int64_t pkt_pts
+       152 |   int64_t pkt_dts
+       160 |   int coded_picture_number
+       164 |   int display_picture_number
+       168 |   int quality
+       176 |   void * opaque
+       184 |   uint64_t [8] error
+       248 |   int repeat_pict
+       252 |   int interlaced_frame
+       256 |   int top_field_first
+       260 |   int palette_has_changed
+       264 |   int64_t reordered_opaque
+       272 |   int sample_rate
+       280 |   uint64_t channel_layout
+       288 |   AVBufferRef *[8] buf
+       352 |   AVBufferRef ** extended_buf
+       360 |   int nb_extended_buf
+       368 |   AVFrameSideData ** side_data
+       376 |   int nb_side_data
+       380 |   int flags
+       384 |   enum AVColorRange color_range
+       388 |   enum AVColorPrimaries color_primaries
+       392 |   enum AVColorTransferCharacteristic color_trc
+       396 |   enum AVColorSpace colorspace
+       400 |   enum AVChromaLocation chroma_location
+       408 |   int64_t best_effort_timestamp
+       416 |   int64_t pkt_pos
+       424 |   int64_t pkt_duration
+       432 |   AVDictionary * metadata
+       440 |   int decode_error_flags
+       444 |   int channels
+       448 |   int pkt_size
+       456 |   int8_t * qscale_table
+       464 |   int qstride
+       468 |   int qscale_type
+       472 |   AVBufferRef * qp_table_buf
+       480 |   AVBufferRef * hw_frames_ctx
+       488 |   AVBufferRef * opaque_ref
+       496 |   size_t crop_top
+       504 |   size_t crop_bottom
+       512 |   size_t crop_left
+       520 |   size_t crop_right
+       528 |   AVBufferRef * private_ref")
+
+
+(deftest struct-layout
+  (let [rational-def (dt-struct/define-datatype!
+                       :av-rational [{:name :num :datatype :int32}
+                                     {:name :den :datatype :int32}])
+        struct-def (ffi-clang/defstruct-from-layout :av-frame frame-layout)]
+    (is (= 54 (count (:data-layout struct-def))))))
