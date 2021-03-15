@@ -74,6 +74,7 @@ user> dbuf
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.ffi.size-t :as ffi-size-t]
             [tech.v3.datatype.dechunk-map :refer [dechunk-map]]
+            [tech.v3.resource :as resource]
             [clojure.tools.logging :as log]
             [clojure.string :as s])
   (:import [tech.v3.datatype.native_buffer NativeBuffer]
@@ -84,7 +85,7 @@ user> dbuf
            [java.lang.reflect Constructor]
            [java.io File]
            [java.nio.file Paths]
-           [clojure.lang IFn]))
+           [clojure.lang IFn IDeref]))
 
 
 (set! *warn-on-reflection* true)
@@ -458,3 +459,148 @@ user>
   (^NativeBuffer [dtype prim-init-value]
    (make-ptr dtype prim-init-value {:resource-type :auto
                                     :uninitialized? true})))
+
+
+(defprotocol PLibrarySingleton
+  "Protocol to allow easy definition of a library singleton that manages re-creating
+  the library definition when the library data changes and also recreating the
+  library instance if necessary."
+  (library-singleton-reset! [lib-singleton]
+    "Regenerate library bindings and bind a new instance to allow repl-style
+iterative development.")
+  (library-singleton-set! [lib-singleton libpath]
+    "Set the library path, generate the library and create a new instance.")
+  (library-singleton-find-fn [lib-singleton fn-name]
+    "Find a bound function in the library.  Returns an implementation of
+clojure.lang.IFn that takes only the specific arguments.")
+  (library-singleton-find-symbol [lib-singleton sym-name]
+    "Find a symbol in the library.  Returns a pointer.")
+  ;;accessors
+  (library-singleton-library-path [lib-singleton]
+    "Get the bound library path")
+  (library-singleton-definition [lib-singleton]
+    "Return the library definition.")
+  (library-singleton-library [lib-singleton]
+    "Return the library instance"))
+
+
+(deftype LibrarySingleton [library-def-var
+                           ^:unsynchronized-mutable library-definition
+                           ^{:unsynchronized-mutable true
+                             :tag Library} library-instance
+                           ^:unsynchronized-mutable library-path]
+  IDeref
+  (deref [this] library-instance)
+  PLibrarySingleton
+  (library-singleton-reset! [this]
+    (locking this
+      (when library-path
+        (set! library-definition (define-library @library-def-var))
+        (set! library-instance (instantiate-library library-definition
+                                                    (:libpath library-path))))))
+  (library-singleton-set! [this libpath]
+    (set! library-path {:libpath libpath})
+    (library-singleton-reset! this))
+  (library-singleton-find-fn [this fn-kwd]
+    (errors/when-not-errorf
+     library-instance
+     "Library instance not found.  Has initialize! been called?")
+    ;;derefencing a library instance returns a map of fn-kwd->fn
+    (if-let [retval (fn-kwd @library-instance)]
+      retval
+      (errors/throwf "Library function %s not found" (symbol (name fn-kwd)))))
+  (library-singleton-find-symbol [this sym-name]
+    (errors/when-not-errorf
+     library-instance
+     "Library instance not found.  Has initialize! been called?")
+    (.findSymbol library-instance sym-name))
+  (library-singleton-library-path [lib-singleton] (:libpath library-path))
+  (library-singleton-definition [lib-singleton] library-definition)
+  (library-singleton-library [lib-singleton] library-instance))
+
+
+(defn library-singleton
+  "Create a singleton object, ideally assigned to a variable with defonce, that
+  you can reset to auto-reload the bindings i.e. with new function definitions
+  at the repl.
+
+  * `library-def-var` must be something that deref's to the latest library definition.
+
+```clojure
+(defonce ^:private lib (dt-ffi/library-singleton #'avcodec-fns))
+
+;;Safe to call on uninitialized library.  If the library is initialized, however,
+;;a new library instance is created from the latest avcodec-fns
+(dt-ffi/library-singelton-reset! lib)
+
+(defn set-library!
+  [libpath]
+  (dt-ffi/library-singelton-set! lib libpath))
+(defn- find-avcodec-fn
+  [fn-kwd]
+  (dt-ffi/library-singelton-find-fn lib fn-kwd))
+```"
+  [library-def-var]
+  (LibrarySingleton. library-def-var nil nil nil))
+
+
+(defmacro define-library-functions
+  "Define public callable vars that will call library functions marshaling strings
+  back and forth.  These vars will call find-fn with the fn-name in a late-bound way
+  and check-error may be provided and called on a return value assuming :check-error?
+  is set in the library definition.
+
+Example:
+
+```clojure
+(dt-ffi/define-library-functions avclj.ffi/avcodec-fns find-avcodec-fn check-error)
+```"
+  [library-def-symbol find-fn check-error]
+  `(do
+     ~@(->>
+        @(resolve library-def-symbol)
+        (map
+         (fn [[fn-name {:keys [rettype argtypes check-error?] :as fn-data}]]
+           (let [fn-symbol (symbol (name fn-name))
+                 requires-resctx? (first (filter #(= :string %)
+                                                 (concat (map second argtypes)
+                                                         [rettype])))]
+             `(defn ~fn-symbol
+                ~(:doc fn-data "No documentation!")
+                ~(mapv first argtypes)
+                (let [~'ifn (~find-fn ~fn-name)]
+                  (do
+                    ~(if requires-resctx?
+                       `(resource/stack-resource-context
+                         (let [~'retval
+                               (~'ifn ~@(map
+                                         (fn [[argname argtype]]
+                                           (cond
+                                             (#{:int8 :int16 :int32 :int64} argtype)
+                                             `(long ~argname)
+                                             (#{:float32 :float64} argtype)
+                                             `(double ~argname)
+                                             (= :string argtype)
+                                             `(string->c ~argname)
+                                             :else
+                                             argname))
+                                         argtypes))]
+                           ~(when check-error? `(~check-error ~'retval))
+                           ~(if (= :string rettype)
+                              `(c->string ~'retval)
+                              `~'retval)))
+                       `(let [~'retval
+                              (~'ifn ~@(map
+                                        (fn [[argname argtype]]
+                                          (cond
+                                            (#{:int8 :int16 :int32 :int64} argtype)
+                                            `(long ~argname)
+                                            (#{:float32 :float64} argtype)
+                                            `(double ~argname)
+                                            (= :string argtype)
+                                            `(string->c ~argname)
+                                            :else
+                                            argname))
+                                        argtypes))]
+                          ~(when check-error? `(~check-error ~'retval))
+                          ~'retval)))))))))))
