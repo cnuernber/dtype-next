@@ -82,6 +82,7 @@ user> dbuf
            [tech.v3.datatype.ffi Pointer Library]
            [java.util.concurrent ConcurrentHashMap]
            [java.util.function BiFunction]
+           [java.util Map]
            [java.nio.charset Charset]
            [java.lang.reflect Constructor]
            [java.io File]
@@ -596,10 +597,39 @@ Example:
 
 
 (defn ptr->struct
-  [struct-type ptr-type]
+  "Given a struct type and a pointer return a struct whose data starts
+  at the address of the pointer.
+
+```clojure
+  (let [codec (dt-ffi/ptr->struct (:datatype-name @av-context/codec-def*) codec-ptr)]
+       ...)
+```"
+  ^Map [struct-type ptr]
   (let [n-bytes (:datatype-size (dt-struct/get-struct-def struct-type))
-        src-ptr (->pointer ptr-type)
+        src-ptr (->pointer ptr)
         nbuf (native-buffer/wrap-address (.address src-ptr)
                                          n-bytes
                                          src-ptr)]
     (dt-struct/inplace-new-struct struct-type nbuf)))
+
+
+(defn struct-member-ptr
+  "Get a pointer to a struct data member.
+
+```clojure
+   (swscale/sws_scale sws-ctx
+                      (struct-member-ptr input-frame :data)
+                      (struct-member-ptr input-frame :linesize)
+                      0 (:height input-frame)
+                      (struct-member-ptr encoder-frame :data)
+                      (struct-member-ptr encoder-frame :linesize))
+```"
+  ^Pointer [data-struct member]
+  (let [data-ptr (->pointer data-struct)
+        member-offset (-> (dt-struct/offset-of
+                           (dt-struct/get-struct-def (dtype-proto/datatype
+                                                      data-struct))
+                           member)
+                          ;;offset-of returns a pair of offset,datatype
+                          (first))]
+    (Pointer. (+ (.address data-ptr) member-offset))))
