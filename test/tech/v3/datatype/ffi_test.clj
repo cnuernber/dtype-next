@@ -72,23 +72,28 @@
                                                 ['byte-value :int32]
                                                 ['n-bytes :size-t]]
                                      :doc "set memory to value"}})
-        singleton (dt-ffi/library-singleton library-def*)
-        ;;set-library! hasn't been called
-        _ (is (thrown? Exception (dt-ffi/library-singleton-find-fn singleton :memset)))
-        _ (dt-ffi/library-singleton-set! singleton nil)
-        _ (println @singleton)
-        _ (is (dt-ffi/library-singleton-find-fn singleton :memset))
-        _ (is (thrown? Exception (dt-ffi/library-singleton-find-fn singleton :memcpy)))
-        _ (reset! library-def* {:memset {:rettype :pointer
-                                         :argtypes [['buffer :pointer]
-                                                    ['byte-value :int32]
-                                                    ['n-bytes :size-t]]
-                                         :doc "set memory to value"}
-                                :memcpy {:rettype :pointer
-                                         ;;dst src size-t
-                                         :argtypes [['dst :pointer]
-                                                    ['src :pointer]
-                                                    ['n-bytes :size-t]]}})
-        _ (dt-ffi/library-singleton-reset! singleton)
-        _ (is (dt-ffi/library-singleton-find-fn singleton :memset))
-        _ (is (dt-ffi/library-singleton-find-fn singleton :memcpy))]))
+        singleton (dt-ffi/library-singleton library-def*)]
+    ;;set-library! hasn't been called
+    (is (thrown? Exception (dt-ffi/library-singleton-find-fn singleton :memset)))
+    ;;Users calls initialize!
+    (dt-ffi/library-singleton-set! singleton nil)
+    ;;does some repl exploration
+    (is (dt-ffi/library-singleton-find-fn singleton :memset))
+    (is (thrown? Exception (dt-ffi/library-singleton-find-fn singleton :memcpy)))
+    ;;Decides they need a new function.  They recompile the namespace thus generating
+    ;;a new var value (but not a new var).
+    (reset! library-def* {:memset {:rettype :pointer
+                                   :argtypes [['buffer :pointer]
+                                              ['byte-value :int32]
+                                              ['n-bytes :size-t]]
+                                   :doc "set memory to value"}
+                          :memcpy {:rettype :pointer
+                                   ;;dst src size-t
+                                   :argtypes [['dst :pointer]
+                                              ['src :pointer]
+                                              ['n-bytes :size-t]]}})
+    ;;Reset rebuilds the library and generates new functions
+    (dt-ffi/library-singleton-reset! singleton)
+    ;;Everything works
+    (is (dt-ffi/library-singleton-find-fn singleton :memset))
+    (is (dt-ffi/library-singleton-find-fn singleton :memcpy))))
