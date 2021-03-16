@@ -1218,7 +1218,9 @@ user> (dtype/shape (dtt/reduce-axis dfn/sum t 1))
 [2 5]
 user> (dtype/shape (dtt/reduce-axis dfn/sum t 2))
 [2 3]
-```"
+```
+
+  For the opposite - adding dimensions via repetition - see [[broadcast]]."
   ([reduce-fn tensor axis res-dtype]
    (let [rank (count (dtype-base/shape tensor))
          dec-rank (dec rank)
