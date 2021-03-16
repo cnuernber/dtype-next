@@ -1,4 +1,5 @@
 (ns tech.v3.datatype.object-pool
+  "Simple threadsafe object pool."
   (:require [tech.v3.datatype.errors :as errors])
   (:import [java.util.concurrent ArrayBlockingQueue]))
 
