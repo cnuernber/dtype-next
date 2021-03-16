@@ -861,7 +861,9 @@ user> (dtt/transpose tensor [1 2 0])
 
 (defn broadcast
   "Broadcase an element into a new (larger) shape.  The new shape's dimension
-  must be even multiples of the old shape's dimensions.  Elements are repeated."
+  must be even multiples of the old shape's dimensions.  Elements are repeated.
+
+  See [[reduce-axis]] for the opposite operation."
   ^NDBuffer [t new-shape]
   (check-ns 'tech.v3.tensor)
   (dtype-proto/broadcast t new-shape))
