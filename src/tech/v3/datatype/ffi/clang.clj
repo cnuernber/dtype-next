@@ -16,6 +16,7 @@
 
 (def ^:private simple-type-table
   {"int8_t" :int8
+   "char" :int8
    "uint8_t" :uint8
    "int16_t" :int16
    "uint16_t" :uint16
