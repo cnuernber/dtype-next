@@ -231,6 +231,38 @@
      [:areturn]])})
 
 
+(defn emit-library-symbol-table
+  [classname symbols find-symbol-fn]
+  {:name "buildSymbolTable"
+   :desc [Object]
+   :emit
+   (concat
+    [[:new 'java.util.ArrayList]
+     [:dup]
+     [:invokespecial 'java.util.ArrayList :init [:void]]
+     [:astore 1]]
+    #_(mapcat
+     (fn [symbol-name]
+       (concat
+        [[:aload 1]
+         [:ldc (name symbol-name)]
+         [:invokestatic Keyword "intern" [String Keyword]]
+         [:invokevirtual java.util.ArrayList "add" [Object :boolean]]
+         [:pop]
+         [:aload 1]]
+        (find-symbol-fn symbol-name)
+        [[:invokevirtual java.util.ArrayList "add" [Object :boolean]]
+         [:pop]]))
+     symbols)
+    [[:ldc "clojure.core"]
+     [:ldc "hash-map"]
+     [:invokestatic ClojureHelper "findFn" [String String IFn]]
+     [:aload 1]
+     [:invokestatic RT "seq" [Object ISeq]]
+     [:invokeinterface IFn "applyTo" [ISeq Object]]
+     [:areturn]])})
+
+
 (defn lower-fn-defs
   "Eliminate size-t as a type and if the arg type is a tuple take remove
   the argname."
@@ -248,19 +280,21 @@
 
 
 (defn define-library
-  [fn-defs classname library-classes-fn]
+  [fn-defs symbols classname library-classes-fn instantiate? options]
   (let [fn-defs (lower-fn-defs fn-defs)]
     ;; First we define the inner class which contains the typesafe static methods
     {:library-symbol classname
      :library-class
-     (->> (concat (library-classes-fn classname fn-defs)
+     (->> (concat (library-classes-fn classname fn-defs symbols options)
                   (emit-invokers classname fn-defs))
           ;;side effects
           (mapv (fn [cls]
                   (-> (insn/visit cls)
                       (insn/write))
                   ;;defined immediately for repl access
-                  (insn/define cls)))
+                  (if instantiate?
+                    (insn/define cls)
+                    (:name cls))))
           (first))}))
 
 

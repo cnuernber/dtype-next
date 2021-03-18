@@ -251,7 +251,7 @@
 
 
 (defn define-mmodel-library
-  [classname fn-defs]
+  [classname fn-defs symbols options]
   [{:name classname
     :flags #{:public}
     :interfaces [Library]

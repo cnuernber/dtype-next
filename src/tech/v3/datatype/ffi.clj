@@ -387,8 +387,12 @@ user> test-buf
 [0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, ]
 user>
 ```"
-  [fn-defs & [options]]
-  ((:define-library (ffi-impl)) fn-defs options))
+  ([fn-defs symbols options]
+   ((:define-library (ffi-impl)) fn-defs symbols options))
+  ([fn-defs options]
+   ((:define-library (ffi-impl)) fn-defs nil options))
+  ([fn-defs]
+   ((:define-library (ffi-impl)) fn-defs nil nil)))
 
 
 (defn instantiate-library

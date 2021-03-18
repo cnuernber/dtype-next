@@ -2,7 +2,8 @@
   (:require [tech.v3.datatype.ffi :as ffi]
             [tech.v3.datatype.ffi.base :as ffi-base]
             [tech.v3.datatype.copy :as dt-copy]
-            [tech.v3.datatype.array-buffer :as array-buffer])
+            [tech.v3.datatype.array-buffer :as array-buffer]
+            [clojure.tools.logging :as log])
   (:import [com.sun.jna NativeLibrary Pointer Callback CallbackReference]
            [tech.v3.datatype NumericConversions ClojureHelper]
            [tech.v3.datatype.ffi Library]
@@ -98,18 +99,36 @@
     [:dup]
     [:invokevirtual :this "buildFnMap" [Object]]
     [:putfield :this "fnMap" Object]
+    [:aload 0]
+    [:dup]
+    [:invokevirtual :this "buildSymbolTable" [Object]]
+    [:putfield :this "symbolTable" Object]
     [:return]]))
+
+
+(defn find-library-symbol
+  ^Pointer [symbol-name symbol-map ^NativeLibrary library]
+  (if-let [^Pointer retval (get symbol-map (keyword symbol-name))]
+    (tech.v3.datatype.ffi.Pointer/constructNonZero (Pointer/nativeValue retval))
+    (do
+      (log/warnf "Finding non-predefined symbol \"%s\"" symbol-name)
+      (-> (.getGlobalVariableAddress library (str symbol-name))
+          (Pointer/nativeValue)
+          (tech.v3.datatype.ffi.Pointer/constructNonZero)))))
 
 
 (defn emit-find-symbol
   []
-  [[:aload 0]
-   [:getfield :this "libraryImpl" NativeLibrary]
+  [[:ldc "tech.v3.datatype.ffi.jna"]
+   [:ldc "find-library-symbol"]
+   [:invokestatic ClojureHelper "findFn" [String String IFn]]
    [:aload 1]
-   [:invokevirtual NativeLibrary "getGlobalVariableAddress" [String Pointer]]
-   [:invokestatic Pointer "nativeValue" [Pointer :long]]
-   [:invokestatic tech.v3.datatype.ffi.Pointer "constructNonZero"
-    [:long tech.v3.datatype.ffi.Pointer]]
+   [:aload 0]
+   [:getfield :this "symbolTable" Object]
+   [:aload 0]
+   [:getfield :this "libraryImpl" NativeLibrary]
+   [:invokeinterface IFn "invoke" [Object Object Object Object]]
+   [:checkcast tech.v3.datatype.ffi.Pointer]
    [:areturn]])
 
 
@@ -129,8 +148,16 @@
          (ffi-base/ffi-call-return ptr-return (:rettype fn-def))))})
 
 
+(defn emit-constructor-find-symbol
+  [symbol-name]
+  [[:aload 0]
+   [:getfield :this "libraryImpl" NativeLibrary]
+   [:ldc (name symbol-name)]
+   [:invokevirtual NativeLibrary "getGlobalVariableAddress" [String Pointer]]])
+
+
 (defn define-jna-library
-  [classname fn-defs]
+  [classname fn-defs symbols _options]
   ;; First we define the inner class which contains the typesafe static methods
   (let [inner-name (symbol (str classname "$inner"))]
     [{:name classname
@@ -142,11 +169,14 @@
                {:name "asPointerQ"
                 :type IFn
                 :flags #{:public :final}}
+               {:name "libraryImpl"
+                :type NativeLibrary
+                :flags #{:public :final}}
                {:name "fnMap"
                 :type Object
                 :flags #{:public :final}}
-               {:name "libraryImpl"
-                :type NativeLibrary
+               {:name "symbolTable"
+                :type Object
                 :flags #{:public :final}}]
       :methods (vec (concat
                      [{:name :init
@@ -156,7 +186,9 @@
                        :desc [String tech.v3.datatype.ffi.Pointer]
                        :emit (emit-find-symbol)}
                       (ffi-base/emit-library-fn-map classname fn-defs)
-                      {:name :deref
+                      (ffi-base/emit-library-symbol-table classname symbols
+                                                          emit-constructor-find-symbol)
+                      {:name"deref"
                        :desc [Object]
                        :emit [[:aload 0]
                               [:getfield :this "fnMap" Object]
@@ -175,9 +207,12 @@
 
 
 (defn define-library
-  [fn-defs & [{:keys [classname]
-               :or {classname (str "tech.v3.datatype.ffi.jna." (name (gensym)))}}]]
-  (ffi-base/define-library fn-defs classname define-jna-library))
+  [fn-defs symbols
+   {:keys [classname] :as options}]
+  (let [instantiate? (nil? classname)
+        classname (or classname (str "tech.v3.datatype.ffi.jna." (name (gensym))))]
+    (ffi-base/define-library fn-defs symbols classname define-jna-library
+      instantiate? options)))
 
 
 (defn platform-ptr->ptr
