@@ -387,8 +387,12 @@ user> test-buf
 [0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, ]
 user>
 ```"
-  [fn-defs & [options]]
-  ((:define-library (ffi-impl)) fn-defs options))
+  ([fn-defs symbols options]
+   ((:define-library (ffi-impl)) fn-defs symbols options))
+  ([fn-defs options]
+   ((:define-library (ffi-impl)) fn-defs nil options))
+  ([fn-defs]
+   ((:define-library (ffi-impl)) fn-defs nil nil)))
 
 
 (defn instantiate-library
@@ -472,6 +476,9 @@ user>
 iterative development.")
   (library-singleton-set! [lib-singleton libpath]
     "Set the library path, generate the library and create a new instance.")
+  (library-singleton-set-instance!
+    [lib-singleton libinst]
+    "In some cases such as graal native pathways you have to hard-set the definition and instance.")
   (library-singleton-find-fn [lib-singleton fn-name]
     "Find a bound function in the library.  Returns an implementation of
 clojure.lang.IFn that takes only the specific arguments.")
@@ -503,6 +510,9 @@ clojure.lang.IFn that takes only the specific arguments.")
   (library-singleton-set! [this libpath]
     (set! library-path {:libpath libpath})
     (library-singleton-reset! this))
+  (library-singleton-set-instance!
+    [lib-singleton libinst]
+    (set! library-instance libinst))
   (library-singleton-find-fn [this fn-kwd]
     (errors/when-not-errorf
      library-instance

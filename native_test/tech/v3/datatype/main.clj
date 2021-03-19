@@ -1,22 +1,40 @@
 (ns tech.v3.datatype.main
   (:require [tech.v3.datatype :as dtype]
-            [tech.v3.datatype.datetime :as dtype-dt]
-            [tech.v3.tensor :as dtt]
-            [tech.v3.jna :as jna])
-  (:import [tech.v3.datatype DirectMapped])
+            [tech.v3.datatype.native-buffer :as native-buffer]
+            [tech.v3.datatype.ffi :as dt-ffi]
+            [tech.v3.datatype.ffi.graalvm-runtime :as graalvm-runtime])
+  (:import [clojure.lang RT])
   (:gen-class))
+
 
 (set! *warn-on-reflection* true)
 
+
+(comment
+  (do
+    (require '[tech.v3.datatype.ffi.graalvm :as graalvm])
+    (def lib-def
+      (with-bindings {#'*compile-path* "generated_classes"}
+        (do (graalvm/define-library
+              {:memset {:rettype :pointer
+                        :argtypes [['buffer :pointer]
+                                   ['byte-value :int32]
+                                   ['n-bytes :size-t]]}}
+              [:M_PI]
+              {:header-files ["<string.h>" "<math.h>"]
+               :classname 'tech.v3.datatype.GraalNativeGen
+               :instantiate? true})))))
+  )
+
+(import 'tech.v3.datatype.GraalNativeGen)
+
 (defn -main
   [& args]
-  (println "loading jna jni lib")
-  (System/load (str (System/getProperty "user.dir") "/libs/libjnidispatch.so"))
-  (println "attempting to load native c lib")
-  (let [ld (dtype-dt/local-date)
-        native-lib (jna/load-library "c")
-        data (byte-array 10)]
-    (com.sun.jna.Native/register DirectMapped native-lib)
-    (DirectMapped/memset (java.nio.ByteBuffer/wrap data) -1 10)
-    (println (vec data)))
+  (let [nbuf (dtype/make-container :native-heap :float32 (range 10))
+        inst (GraalNativeGen.)]
+    (.memset inst nbuf 0 40)
+    (println (graalvm-runtime/ptr-value nbuf))
+    (println nbuf)
+    (println (dt-ffi/string->c "hey")))
+
   0)

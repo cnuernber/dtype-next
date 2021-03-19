@@ -2,12 +2,14 @@
   (:require [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.ffi :as ffi]
             [tech.v3.datatype.ffi.size-t :as ffi-size-t]
+            [tech.v3.datatype.ffi.ptr-value :as ptr-value]
             [tech.v3.datatype.ffi.base :as ffi-base])
   (:import [jdk.incubator.foreign LibraryLookup CLinker FunctionDescriptor
             MemoryLayout LibraryLookup$Symbol]
            [jdk.incubator.foreign MemoryAddress Addressable MemoryLayout]
            [java.lang.invoke MethodHandle MethodType MethodHandles]
            [java.nio.file Path Paths]
+           [java.util ArrayList]
            [java.lang.reflect Constructor]
            [tech.v3.datatype NumericConversions ClojureHelper]
            [tech.v3.datatype.ffi Pointer Library]
@@ -31,12 +33,12 @@
 
 (defn ptr-value
   ^MemoryAddress [item]
-  (MemoryAddress/ofLong (ffi-base/ptr-value item)))
+  (MemoryAddress/ofLong (ptr-value/ptr-value item)))
 
 
-(defn ptr-value?
+(defn ptr-value-q
   ^MemoryAddress [item]
-  (MemoryAddress/ofLong (ffi-base/ptr-value? item)))
+  (MemoryAddress/ofLong (ptr-value/ptr-value? item)))
 
 
 (extend-protocol ffi/PToPointer
@@ -150,8 +152,8 @@
     (MethodType/methodType (argtype->cls rettype) cls-ary)))
 
 
-(defn library-sym->method-handle
-  ^MethodHandle [library symbol-name rettype & argtypes]
+(defn library-sym-method-handle
+  ^MethodHandle [library symbol-name rettype argtypes]
   (let [sym (find-symbol library symbol-name)
         sig {:rettype rettype
              :argtypes argtypes}
@@ -167,38 +169,37 @@
    (concat
     [[:aload 0]
      [:invokespecial :super :init [:void]]]
-    (ffi-base/find-ptr-ptrq "tech.v3.datatype.ffi.mmodel")
     [[:aload 0]
-     [:ldc "tech.v3.datatype.ffi.mmodel"]
-     [:ldc "load-library"]
-     [:invokestatic ClojureHelper "findFn" [String String IFn]]
      [:aload 1]
-     [:invokeinterface IFn "invoke" [Object Object]]
+     [:invokestatic 'tech.v3.datatype.ffi.mmodel$load_library
+      'invokeStatic [Object Object]]
      [:checkcast LibraryLookup]
-     [:putfield :this "libraryImpl" LibraryLookup]
-     [:ldc "tech.v3.datatype.ffi.mmodel"]
-     [:ldc "library-sym->method-handle"]
-     [:invokestatic ClojureHelper "findFn" [String String IFn]]
-     ;;1 is the string constructor argument
-     ;;2 is the method handle resolution system
-     [:astore 2]]
+     [:putfield :this "libraryImpl" LibraryLookup]]
     ;;Load all the method handles.
     (mapcat
      (fn [[fn-name {:keys [rettype argtypes]}]]
        (let [hdl-name (str (name fn-name) "_hdl")]
          (concat
           [[:aload 0] ;;this-ptr
-           [:aload 2] ;;handle resolution fn
            [:aload 1] ;;libname
            [:ldc (name fn-name)]
            [:ldc (name rettype)]
-           [:invokestatic Keyword "intern" [String Keyword]]]
+           [:invokestatic Keyword "intern" [String Keyword]]
+           [:new ArrayList]
+           [:dup]
+           [:invokespecial ArrayList :init [:void]]
+           [:astore 2]]
           (mapcat (fn [argtype]
-                    [[:ldc (name argtype)]
-                     [:invokestatic Keyword "intern" [String Keyword]]])
+                    [[:aload 2]
+                     [:ldc (name argtype)]
+                     [:invokestatic Keyword "intern" [String Keyword]]
+                     [:invokevirtual ArrayList 'add [Object :boolean]]
+                     [:pop]])
                   argtypes)
-          [[:invokeinterface IFn "invoke"
-            (concat [Object Object Object] (repeat (inc (count argtypes)) Object))]
+          [[:aload 2]
+           [:invokestatic 'tech.v3.datatype.ffi.mmodel$library_sym_method_handle
+            'invokeStatic
+            [Object Object Object Object Object]]
            [:checkcast MethodHandle]
            [:putfield :this hdl-name MethodHandle]])))
      fn-defs)
@@ -212,25 +213,28 @@
 
 (defn emit-find-symbol
   []
-  [[:ldc "tech.v3.datatype.ffi.mmodel"]
-   [:ldc "find-symbol"]
-   [:invokestatic ClojureHelper "findFn" [String String IFn]]
-   [:aload 0]
+  [[:aload 0]
    [:getfield :this "libraryImpl" LibraryLookup]
    [:aload 1]
-   [:invokeinterface IFn "invoke" [Object Object Object]]
-   [:astore 2]
-   [:ldc "tech.v3.datatype.ffi"]
-   [:ldc "->pointer"]
-   [:invokestatic ClojureHelper "findFn" [String String IFn]]
-   [:aload 2]
-   [:invokeinterface IFn "invoke" [Object Object]]
-   [:checkcast Pointer]
+   [:invokestatic 'tech.v3.datatype.ffi.mmodel$find_symbol
+    'invokeStatic [Object Object Object]]
+   [:checkcast Addressable]
+   [:invokeinterface Addressable 'address [MemoryAddress]]
+   [:invokeinterface MemoryAddress 'toRawLongValue [:long]]
+   [:invokestatic Pointer 'constructNonZero [:long Pointer]]
    [:areturn]])
 
 
-(def ptr-cast (ffi-base/make-ptr-cast "asPointer" MemoryAddress))
-(def ptr?-cast (ffi-base/make-ptr-cast "asPointerQ" MemoryAddress))
+(def ptr-cast
+  [[:invokestatic 'tech.v3.datatype.ffi.mmodel$ptr_value
+    'invokeStatic [Object Object]]
+   [:checkcast MemoryAddress]])
+
+(def ptr?-cast
+  [[:invokestatic 'tech.v3.datatype.ffi.mmodel$ptr_value_q
+    'invokeStatic [Object Object]]
+   [:checkcast MemoryAddress]])
+
 (def ptr-return (ffi-base/ptr-return
                  [[:invokeinterface MemoryAddress "toRawLongValue" [:long]]]))
 
@@ -246,23 +250,20 @@
                                 MemoryAddress :ptr-as-platform) argtypes)
                   [(ffi-base/argtype->insn MemoryAddress :ptr-as-platform
                                            rettype)])]]
-        (ffi-base/ffi-call-return ptr-return rettype))
+        (ffi-base/exact-type-retval
+         rettype
+         (fn [ptr-type]
+           ptr-return)))
        (vec)))
 
 
 (defn define-mmodel-library
-  [classname fn-defs]
+  [classname fn-defs symbols options]
   [{:name classname
     :flags #{:public}
     :interfaces [Library]
     :fields (->> (concat
-                  [{:name "asPointer"
-                    :type IFn
-                    :flags #{:public :final}}
-                   {:name "asPointerQ"
-                    :type IFn
-                    :flags #{:public :final}}
-                   {:name "fnMap"
+                  [{:name "fnMap"
                     :type Object
                     :flags #{:public :final}}
                    {:name "libraryImpl"
@@ -307,9 +308,14 @@
 
 
 (defn define-library
-  [fn-defs & [{:keys [classname]
-               :or {classname (str "tech.v3.datatype.ffi.mmodel." (name (gensym)))}}]]
-  (ffi-base/define-library fn-defs classname define-mmodel-library))
+  [fn-defs symbols
+   {:keys [classname]
+    :as options}]
+  (let [clsname (or classname (str "tech.v3.datatype.ffi.mmodel." (name (gensym))))]
+    (ffi-base/define-library fn-defs symbols clsname define-mmodel-library
+      (or (:instantiate? options)
+          (not (boolean classname)))
+      options)))
 
 
 (defn platform-ptr->ptr
