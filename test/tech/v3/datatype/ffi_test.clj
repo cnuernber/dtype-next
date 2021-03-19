@@ -13,6 +13,7 @@
 (defn generic-define-library
   []
   (let [libmem-def (dt-ffi/define-library
+                     ;;function definitions
                      {:memset {:rettype :pointer
                                :argtypes [['buffer :pointer]
                                           ['byte-value :int32]
@@ -26,7 +27,11 @@
                               :argtypes [['data :pointer]
                                          ['nitems :size-t]
                                          ['item-size :size-t]
-                                         ['comparator :pointer]]}})
+                                         ['comparator :pointer]]}}
+                     ;;symbol definitions
+                     [:memmove]
+                     ;;no extra options
+                     nil)
         ;;nil meaning find the symbols in the current process
         libmem-inst (dt-ffi/instantiate-library libmem-def nil)
         libmem-fns @libmem-inst
@@ -53,7 +58,9 @@
     (is (dfn/equals second-buf (vec (repeat 10 0.0))))
     (is (dfn/equals dbuf (range 100)))
     (is (= (.findSymbol libmem-inst "qsort")
-           (.findSymbol libmem-inst "qsort")))))
+           (.findSymbol libmem-inst "qsort")))
+    (is (not= (.findSymbol libmem-inst "memmove")
+              (.findSymbol libmem-inst "qsort")))))
 
 
 (deftest jna-ffi-test

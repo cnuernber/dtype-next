@@ -65,7 +65,7 @@
                              [com.taoensso/nippy "3.1.0-RC1"]]}
              :uberjar
              {:aot [tech.v3.datatype.main]
-              :source-paths ["src" "native_test"]
+              :source-paths ["src" "native_test" "generated_classes"]
               :jvm-opts ["-Dclojure.compiler.direct-linking=true" "-Dtech.v3.datatype.graal-native=true"]
               :uberjar-name "dtype-next.jar"
               :main tech.v3.datatype.main}}
