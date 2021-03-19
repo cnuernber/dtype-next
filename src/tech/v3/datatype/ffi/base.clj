@@ -5,42 +5,8 @@
             [insn.core :as insn])
   (:import [clojure.lang IFn RT IDeref ISeq Keyword]
            [tech.v3.datatype ClojureHelper NumericConversions]
-           [tech.v3.datatype.ffi Pointer]))
-
-
-(defn- unchecked-ptr-value
-  ^long [item]
-  (if item
-    (cond
-      (instance? tech.v3.datatype.ffi.Pointer item)
-      (.address ^tech.v3.datatype.ffi.Pointer item)
-      (instance? tech.v3.datatype.native_buffer.NativeBuffer item)
-      (.address ^tech.v3.datatype.native_buffer.NativeBuffer item)
-      :else
-      (do
-        (errors/when-not-errorf
-         (ffi/convertible-to-pointer? item)
-         "Item %s is not convertible to a C pointer" item)
-        (.address ^tech.v3.datatype.ffi.Pointer (ffi/->pointer item))))
-    0))
-
-
-(defn ptr-value
-  "Item must not be nil.  A long address is returned."
-  ^long [item]
-  (let [retval (unchecked-ptr-value item)]
-    (errors/when-not-error
-     (not= 0 retval)
-     "Pointer value is zero!")
-    retval))
-
-
-(defn ptr-value?
-  "Item may be nil in which case 0 is returned."
-  ^long [item]
-  (if item
-    (unchecked-ptr-value item)
-    0))
+           [tech.v3.datatype.ffi Pointer]
+           [java.util HashMap]))
 
 
 (defn unify-ptr-types
@@ -104,7 +70,7 @@
    [:putfield :this "asPointer" IFn]
    [:aload 0]
    [:ldc src-namespace]
-   [:ldc "ptr-value?"]
+   [:ldc "ptr-value-p"]
    [:invokestatic ClojureHelper "findFn" [String String IFn]]
    [:putfield :this "asPointerQ" IFn]])
 
@@ -202,31 +168,23 @@
    :desc [Object]
    :emit
    (concat
-    [[:new 'java.util.ArrayList]
+    [[:new HashMap]
      [:dup]
-     [:invokespecial 'java.util.ArrayList :init [:void]]
+     [:invokespecial HashMap :init [:void]]
      [:astore 1]]
     (mapcat
      (fn [[fn-name _fn-data]]
        [[:aload 1]
         [:ldc (name fn-name)]
         [:invokestatic Keyword "intern" [String Keyword]]
-        [:invokevirtual 'java.util.ArrayList "add" [Object :boolean]]
-        [:pop]
-        [:aload 1]
         [:new (invoker-classname classname fn-name)]
         [:dup]
         [:aload 0]
         [:invokespecial (invoker-classname classname fn-name) :init [classname :void]]
-        [:invokevirtual 'java.util.ArrayList "add" [Object :boolean]]
+        [:invokevirtual HashMap 'put [Object Object Object]]
         [:pop]])
      fn-defs)
-    [[:ldc "clojure.core"]
-     [:ldc "hash-map"]
-     [:invokestatic ClojureHelper "findFn" [String String IFn]]
-     [:aload 1]
-     [:invokestatic RT "seq" [Object ISeq]]
-     [:invokeinterface IFn "applyTo" [ISeq Object]]
+    [[:aload 1]
      [:areturn]])})
 
 
@@ -236,29 +194,21 @@
    :desc [Object]
    :emit
    (concat
-    [[:new 'java.util.ArrayList]
+    [[:new HashMap]
      [:dup]
-     [:invokespecial 'java.util.ArrayList :init [:void]]
+     [:invokespecial HashMap :init [:void]]
      [:astore 1]]
-    #_(mapcat
+    (mapcat
      (fn [symbol-name]
        (concat
         [[:aload 1]
          [:ldc (name symbol-name)]
-         [:invokestatic Keyword "intern" [String Keyword]]
-         [:invokevirtual java.util.ArrayList "add" [Object :boolean]]
-         [:pop]
-         [:aload 1]]
+         [:invokestatic Keyword "intern" [String Keyword]]]
         (find-symbol-fn symbol-name)
-        [[:invokevirtual java.util.ArrayList "add" [Object :boolean]]
+        [[:invokevirtual HashMap 'put [Object Object Object]]
          [:pop]]))
      symbols)
-    [[:ldc "clojure.core"]
-     [:ldc "hash-map"]
-     [:invokestatic ClojureHelper "findFn" [String String IFn]]
-     [:aload 1]
-     [:invokestatic RT "seq" [Object ISeq]]
-     [:invokeinterface IFn "applyTo" [ISeq Object]]
+    [[:aload 1]
      [:areturn]])})
 
 
@@ -280,41 +230,38 @@
 
 (defn define-library
   [fn-defs symbols classname library-classes-fn instantiate? options]
-  (let [fn-defs (lower-fn-defs fn-defs)]
+  (let [fn-defs (lower-fn-defs fn-defs)
+        lib-class-defs (library-classes-fn classname fn-defs symbols options)
+        n-lib-class-defs (count lib-class-defs)
+        class-definitions (->> (concat lib-class-defs
+                                       (emit-invokers classname fn-defs))
+                               ;;side effects
+                               (mapv (fn [cls]
+                                       (-> (insn/visit cls)
+                                           (insn/write))
+                                      ;;defined immediately for repl access
+                                       (if instantiate?
+                                         (insn/define cls)
+                                         (:name cls)))))]
     ;; First we define the inner class which contains the typesafe static methods
     {:library-symbol classname
-     :library-class
-     (->> (concat (library-classes-fn classname fn-defs symbols options)
-                  (emit-invokers classname fn-defs))
-          ;;side effects
-          (mapv (fn [cls]
-                  (-> (insn/visit cls)
-                      (insn/write))
-                  ;;defined immediately for repl access
-                  (if instantiate?
-                    (insn/define cls)
-                    (:name cls))))
-          (last))}))
+     :library-class (nth class-definitions (dec n-lib-class-defs))}))
 
 
 (defn emit-fi-constructor
   [src-ns-str]
-  (concat
-   [[:aload 0]
-    [:invokespecial :super :init [:void]]
-    [:aload 0]
-    [:aload 1]
-    [:putfield :this "ifn" IFn]]
-   (find-ptr-ptrq src-ns-str)
-   [[:return]]))
+  [[:aload 0]
+   [:invokespecial :super :init [:void]]
+   [:aload 0]
+   [:aload 1]
+   [:putfield :this "ifn" IFn]
+   [:return]])
 
 
 (defn ptr->platform-ptr
-  [ptrtype ptr-field]
-  [[:aload 0]
-   [:getfield :this ptr-field IFn]
-   [:swap]
-   [:invokeinterface IFn "invoke" [Object Object]]
+  [src-ns-str ptrtype ptr-field]
+  [[:invokestatic (symbol (str src-ns-str "$" ptr-field)) 'invokeStatic
+    [Object Object]]
    [:checkcast ptrtype]
    [:areturn]])
 
@@ -337,17 +284,37 @@
             :float64 [[:dload arg-idx]])))))
 
 
-(defn ffi-call-return
-  [ptr-return rettype]
+(defn exact-type-retval
+  [rettype ptr->ptr]
   (case (ffi-size-t/lower-type rettype)
-    :void [[:return]]
-    :int8 [[:ireturn]]
-    :int16 [[:ireturn]]
-    :int32 [[:ireturn]]
-    :int64 [[:lreturn]]
-    :pointer ptr-return
-    :float32 [[:freturn]]
-    :float64 [[:dreturn]]))
+     :int8 [[:ireturn]]
+     :int16 [[:ireturn]]
+     :int32 [[:ireturn]]
+     :int64 [[:lreturn]]
+     :float32 [[:freturn]]
+     :float64 [[:dreturn]]
+     :void [[:return]]
+     :pointer (ptr->ptr "ptr_value")
+     :pointer? (ptr->ptr "ptr_value_q")))
+
+
+(defn object->exact-type-retval
+  [rettype ptr->ptr]
+  (case (ffi-size-t/lower-type rettype)
+    :int8 [[:invokestatic RT "uncheckedByteCast" [Object :byte]]
+           [:ireturn]]
+    :int16 [[:invokestatic RT "uncheckedShortCast" [Object :short]]
+            [:ireturn]]
+    :int32 [[:invokestatic RT "uncheckedIntCast" [Object :int]]
+            [:ireturn]]
+    :int64 [[:invokestatic RT "uncheckedLongCast" [Object :long]]
+            [:lreturn]]
+    :float32 [[:invokestatic RT "uncheckedFloatCast" [Object :float]]
+              [:freturn]]
+    :float64 [[:invokestatic RT "uncheckedDoubleCast" [Object :double]]
+              [:dreturn]]
+    :pointer (ptr->ptr "ptr_value")
+    :pointer? (ptr->ptr "ptr_value_q")))
 
 
 (defn emit-fi-invoke
@@ -373,46 +340,27 @@
                     :pointer (platform-ptr->ptr arg-idx)
                     :pointer? (platform-ptr->ptr arg-idx arg-idx)))))
    [[:invokeinterface IFn "invoke" (repeat (inc (count argtypes)) Object)]]
-   (case (ffi-size-t/lower-type rettype)
-     :int8 [[:invokestatic RT "uncheckedByteCast" [Object :byte]]
-            [:ireturn]]
-     :int16 [[:invokestatic RT "uncheckedShortCast" [Object :short]]
-             [:ireturn]]
-     :int32 [[:invokestatic RT "uncheckedIntCast" [Object :int]]
-             [:ireturn]]
-     :int64 [[:invokestatic RT "uncheckedLongCast" [Object :long]]
-             [:lreturn]]
-     :float32 [[:invokestatic RT "uncheckedFloatCast" [Object :float]]
-               [:freturn]]
-     :float64 [[:invokestatic RT "uncheckedDoubleCast" [Object :double]]
-               [:dreturn]]
-     :pointer (ptr->platform-ptr "asPointer")
-     :pointer? (ptr->platform-ptr "asPointerQ"))))
+   (object->exact-type-retval rettype ptr->platform-ptr)))
 
 
 
 (defn foreign-interface-definition
-  [iface-symbol rettype argtypes {:keys [src-ns-str ;;ns string
+  [iface-symbol rettype argtypes {:keys [ptr-resolve-ns ;;ns string
                                          platform-ptr->ptr
+                                         ptr->platform-ptr ;;convert to a platform ptr
                                          ptrtype ;;platform ptr type
                                          interfaces ;;marker interfaces
                                          ]}]
   (merge
    {:name iface-symbol
     :flags #{:public}
-    :fields [{:name "asPointer"
-              :type IFn
-              :flags #{:public :final}}
-             {:name "asPointerQ"
-              :type IFn
-              :flags #{:public :final}}
-             {:name "ifn"
+    :fields [{:name "ifn"
               :type IFn
               :flags #{:public :final}}]
     :methods [{:name :init
                :flags #{:public}
                :desc [IFn :void]
-               :emit (emit-fi-constructor src-ns-str)}
+               :emit (emit-fi-constructor ptr-resolve-ns)}
               {:name :invoke
                :flags #{:public}
                :desc (vec
@@ -420,7 +368,7 @@
                                             :ptr-as-platform) argtypes)
                               [(argtype->insn ptrtype :ptr-as-platform rettype)]))
                :emit (emit-fi-invoke platform-ptr->ptr
-                                     (partial ptr->platform-ptr ptrtype)
+                                     ptr->platform-ptr
                                      rettype argtypes)}]}
    (when interfaces
      {:interfaces interfaces})))

@@ -1,8 +1,8 @@
 (ns tech.v3.datatype.ffi.jna
   (:require [tech.v3.datatype.ffi :as ffi]
             [tech.v3.datatype.ffi.base :as ffi-base]
+            [tech.v3.datatype.ffi.ptr-value :as ptr-value]
             [tech.v3.datatype.copy :as dt-copy]
-            [tech.v3.datatype.array-buffer :as array-buffer]
             [clojure.tools.logging :as log])
   (:import [com.sun.jna NativeLibrary Pointer Callback CallbackReference]
            [tech.v3.datatype NumericConversions ClojureHelper]
@@ -57,20 +57,24 @@
    (argtypes->insn-desc argtypes rettype :ptr-as-int)))
 
 
-(def ptr-cast (ffi-base/make-ptr-cast "asPointer" Pointer))
-(def ptr?-cast (ffi-base/make-ptr-cast "asPointerQ" Pointer))
+(def ptr-cast
+  [[:invokestatic 'tech.v3.datatype.ffi.jna$ptr_value 'invokeStatic [Object Object]]
+   [:checkcast Pointer]])
+(def ptr?-cast
+  [[:invokestatic 'tech.v3.datatype.ffi.jna$ptr_value_q 'invokeStatic [Object Object]]
+   [:checkcast Pointer]])
 (def ptr-return (ffi-base/ptr-return
                  [[:invokestatic Pointer "nativeValue" [Pointer :long]]]))
 
 
 (defn ptr-value
   ^Pointer [item]
-  (Pointer. (ffi-base/ptr-value item)))
+  (Pointer. (ptr-value/ptr-value item)))
 
 
-(defn ptr-value?
+(defn ptr-value-q
   ^Pointer [item]
-  (Pointer. (ffi-base/ptr-value? item)))
+  (Pointer. (ptr-value/ptr-value? item)))
 
 
 (def emit-ptr-ptrq (ffi-base/find-ptr-ptrq "tech.v3.datatype.ffi.jna"))
@@ -78,32 +82,28 @@
 
 (defn emit-library-constructor
   [inner-cls]
-  (concat
-   [[:aload 0]
-    [:invokespecial :super :init [:void]]
-    [:ldc inner-cls]
-    [:ldc "tech.v3.datatype.ffi.jna"]
-    [:ldc "load-library"]
-    [:invokestatic ClojureHelper "findFn" [String String IFn]]
-    [:aload 1]
-    [:invokeinterface IFn "invoke" [Object Object]]
-    [:checkcast NativeLibrary]
-    [:astore 2]
-    [:aload 2]
-    [:invokestatic com.sun.jna.Native "register" [Class NativeLibrary :void]]
-    [:aload 0]
-    [:aload 2]
-    [:putfield :this "libraryImpl" NativeLibrary]]
-   emit-ptr-ptrq
-   [[:aload 0]
-    [:dup]
-    [:invokevirtual :this "buildFnMap" [Object]]
-    [:putfield :this "fnMap" Object]
-    [:aload 0]
-    [:dup]
-    [:invokevirtual :this "buildSymbolTable" [Object]]
-    [:putfield :this "symbolTable" Object]
-    [:return]]))
+  [[:aload 0]
+   [:invokespecial :super :init [:void]]
+   [:ldc inner-cls]
+   [:aload 1]
+   [:invokestatic 'tech.v3.datatype.ffi.jna$load_library
+    'invokeStatic [Object Object]]
+   [:checkcast NativeLibrary]
+   [:astore 2]
+   [:aload 2]
+   [:invokestatic com.sun.jna.Native "register" [Class NativeLibrary :void]]
+   [:aload 0]
+   [:aload 2]
+   [:putfield :this "libraryImpl" NativeLibrary]
+   [:aload 0]
+   [:dup]
+   [:invokevirtual :this "buildFnMap" [Object]]
+   [:putfield :this "fnMap" Object]
+   [:aload 0]
+   [:dup]
+   [:invokevirtual :this "buildSymbolTable" [Object]]
+   [:putfield :this "symbolTable" Object]
+   [:return]])
 
 
 (defn find-library-symbol
@@ -119,33 +119,38 @@
 
 (defn emit-find-symbol
   []
-  [[:ldc "tech.v3.datatype.ffi.jna"]
-   [:ldc "find-library-symbol"]
-   [:invokestatic ClojureHelper "findFn" [String String IFn]]
-   [:aload 1]
+  [[:aload 1]
    [:aload 0]
    [:getfield :this "symbolTable" Object]
    [:aload 0]
    [:getfield :this "libraryImpl" NativeLibrary]
-   [:invokeinterface IFn "invoke" [Object Object Object Object]]
+   [:invokestatic 'tech.v3.datatype.ffi.jna$find_library_symbol
+    'invokeStatic [Object Object Object Object]]
    [:checkcast tech.v3.datatype.ffi.Pointer]
    [:areturn]])
 
 
 (defn emit-wrapped-fn
-  [inner-cls [fn-name fn-def]]
+  [inner-cls [fn-name {:keys [argtypes rettype]}]]
   {:name fn-name
    :flags #{:public}
-   :desc (->> (concat (map (partial argtype->insn :ptr-as-obj) (:argtypes fn-def))
-                      [(argtype->insn :ptr-as-ptr (:rettype fn-def))])
+   :desc (->> (concat (map (partial argtype->insn :ptr-as-obj) argtypes)
+                      [(argtype->insn :ptr-as-ptr rettype)])
               (vec))
    :emit
    (vec (concat
-         (ffi-base/load-ffi-args ptr-cast ptr?-cast (:argtypes fn-def))
+         (ffi-base/load-ffi-args ptr-cast ptr?-cast argtypes)
          [[:invokestatic inner-cls (name fn-name)
-           (argtypes->insn-desc (:argtypes fn-def) (:rettype fn-def)
-                                :ptr-as-platform)]]
-         (ffi-base/ffi-call-return ptr-return (:rettype fn-def))))})
+           (argtypes->insn-desc argtypes rettype :ptr-as-platform)]]
+         (ffi-base/exact-type-retval rettype
+                                     (fn [ptr-fn]
+                                       [[:checkcast Pointer]
+                                        [:invokestatic Pointer 'nativeValue
+                                         [Pointer :long]]
+                                        [:invokestatic tech.v3.datatype.ffi.Pointer
+                                         'constructNonZero
+                                         [:long tech.v3.datatype.ffi.Pointer]]
+                                        [:areturn]]))))})
 
 
 (defn emit-constructor-find-symbol
@@ -156,20 +161,29 @@
    [:invokevirtual NativeLibrary "getGlobalVariableAddress" [String Pointer]]])
 
 
+(defn- inline-print
+  [item]
+  (clojure.pprint/pprint item)
+  item)
+
 (defn define-jna-library
   [classname fn-defs symbols _options]
   ;; First we define the inner class which contains the typesafe static methods
   (let [inner-name (symbol (str classname "$inner"))]
-    [{:name classname
+    [{:name inner-name
+      :flags #{:public :static}
+      :methods (mapv (fn [[k v]]
+                       {:flags #{:public :static :native}
+                        :name k
+                        :desc (argtypes->insn-desc
+                               (:argtypes v)
+                               (:rettype v)
+                               :ptr-as-platform)})
+                     fn-defs)}
+     {:name classname
       :flags #{:public}
       :interfaces [IDeref Library]
-      :fields [{:name "asPointer"
-                :type IFn
-                :flags #{:public :final}}
-               {:name "asPointerQ"
-                :type IFn
-                :flags #{:public :final}}
-               {:name "libraryImpl"
+      :fields [{:name "libraryImpl"
                 :type NativeLibrary
                 :flags #{:public :final}}
                {:name "fnMap"
@@ -193,17 +207,7 @@
                        :emit [[:aload 0]
                               [:getfield :this "fnMap" Object]
                               [:areturn]]}]
-                     (mapv (partial emit-wrapped-fn inner-name) fn-defs)))}
-     {:name inner-name
-      :flags #{:public :static}
-      :methods (mapv (fn [[k v]]
-                       {:flags #{:public :static :native}
-                        :name k
-                        :desc (argtypes->insn-desc
-                               (:argtypes v)
-                               (:rettype v)
-                               :ptr-as-platform)})
-                     fn-defs)}]))
+                     (mapv (partial emit-wrapped-fn inner-name) fn-defs)))}]))
 
 
 (defn define-library
@@ -230,6 +234,7 @@
     (ffi-base/define-foreign-interface classname rettype argtypes
       {:src-ns-str "tech.v3.datatype.ffi.jna"
        :platform-ptr->ptr platform-ptr->ptr
+       :ptr->platform-ptr (partial ffi-base/ptr->platform-ptr "tech.v3.datatype.ffi.jna" Pointer)
        :ptrtype Pointer
        :interfaces [Callback]})))
 
@@ -247,38 +252,3 @@
               :define-library define-library
               :define-foreign-interface define-foreign-interface
               :foreign-interface-instance->c foreign-interface-instance->c})
-
-
-;;JNA's array->native copy pathway is just a lot faster than unsafe's
-;;We know that one of the two buffers is native memory
-(defn jna-copy-memory
-  [src-buf dst-buf src-dt ^long n-elems]
-  (cond
-    (instance? ArrayBuffer src-buf)
-    (let [^ArrayBuffer src-buf src-buf
-          dst-buf (Pointer. (.address ^NativeBuffer dst-buf))]
-      (case src-dt
-        :int8 (.write dst-buf 0 ^bytes (.ary-data src-buf) (.offset src-buf) n-elems)
-        :int16 (.write dst-buf 0 ^shorts (.ary-data src-buf) (.offset src-buf) n-elems)
-        :int32 (.write dst-buf 0 ^ints (.ary-data src-buf) (.offset src-buf) n-elems)
-        :int64 (.write dst-buf 0 ^longs (.ary-data src-buf) (.offset src-buf) n-elems)
-        :float32 (.write dst-buf 0 ^floats (.ary-data src-buf) (.offset src-buf) n-elems)
-        :float64 (.write dst-buf 0 ^doubles (.ary-data src-buf) (.offset src-buf) n-elems)
-        )
-      )
-    (instance? ArrayBuffer dst-buf)
-    (let [src-buf (Pointer. (.address ^NativeBuffer src-buf))
-          ^ArrayBuffer dst-buf dst-buf]
-      (case src-dt
-        :int8 (.read src-buf 0 ^bytes (.ary-data dst-buf) (.offset dst-buf) n-elems)
-        :int16 (.read src-buf 0 ^shorts (.ary-data dst-buf) (.offset dst-buf) n-elems)
-        :int32 (.read src-buf 0 ^ints (.ary-data dst-buf) (.offset dst-buf) n-elems)
-        :int64 (.read src-buf 0 ^longs (.ary-data dst-buf) (.offset dst-buf) n-elems)
-        :float32 (.read src-buf 0 ^floats (.ary-data dst-buf) (.offset dst-buf) n-elems)
-        :float64 (.read src-buf 0 ^doubles (.ary-data dst-buf) (.offset dst-buf) n-elems)))
-    ;;both native buffers
-    :else
-    (dt-copy/unsafe-copy-memory src-buf dst-buf src-dt n-elems)))
-
-
-;; (reset! dt-copy/fast-copy-fn* jna-copy-memory)

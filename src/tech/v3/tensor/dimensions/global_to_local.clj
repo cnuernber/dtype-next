@@ -96,7 +96,7 @@
 
 (defonce sig->constructor-fn
   (graal-native/if-defined-graal-native
-   (constantly elem-idx->addr-fn)
+   elem-idx->addr-fn
    (try
      (let [insn-fn
            (requiring-resolve 'tech.v3.tensor.dimensions.gtol-insn/generate-constructor)]
@@ -105,10 +105,10 @@
            (insn-fn signature)
            (catch Throwable e
              (log/warnf e "Index function generation failed for sig %s" signature)
-             (constantly elem-idx->addr-fn)))))
+             elem-idx->addr-fn))))
      (catch Throwable e
        (log/warn e "insn unavailable-falling back to default indexing system")
-       (constantly elem-idx->addr-fn)))))
+       elem-idx->addr-fn))))
 
 
 (defn- absent-sig-fn
@@ -120,14 +120,16 @@
 
 (defn make-indexing-obj
   [reduced-dims broadcast?]
-  (let [signature (reduced-dims->signature reduced-dims broadcast?)
-        reader-constructor-fn
-        (or (.get defined-classes signature)
-            (.computeIfAbsent
-             defined-classes
-             signature
-             (absent-sig-fn signature)))]
-    (reader-constructor-fn reduced-dims)))
+  (graal-native/if-defined-graal-native
+   (elem-idx->addr-fn reduced-dims)
+   (let [signature (reduced-dims->signature reduced-dims broadcast?)
+         reader-constructor-fn
+         (or (.get defined-classes signature)
+             (.computeIfAbsent
+              defined-classes
+              signature
+              (absent-sig-fn signature)))]
+     (reader-constructor-fn reduced-dims))))
 
 
 (defn get-or-create-reader
