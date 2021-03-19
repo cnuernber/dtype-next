@@ -118,7 +118,6 @@
                              :int64 2
                              :float64 2
                              1)))])
-               ;;this ptr is offset 0
                [[] 1])
        (first)))
 
@@ -295,7 +294,7 @@
                   (if instantiate?
                     (insn/define cls)
                     (:name cls))))
-          (first))}))
+          (last))}))
 
 
 (defn emit-fi-constructor
