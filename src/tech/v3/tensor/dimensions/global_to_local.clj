@@ -92,30 +92,33 @@
                              reduced-dims))))
 
 
-(defonce ^ConcurrentHashMap defined-classes (ConcurrentHashMap.))
+(graal-native/if-defined-graal-native
+ (do
+   (log/infof "Graal Native Defined -- insn custom indexing disabled!"))
+ (do
+   (log/infof "insn custom indexing enabled!")
+   (defonce ^ConcurrentHashMap defined-classes (ConcurrentHashMap.))
 
-(defonce sig->constructor-fn
-  (graal-native/if-defined-graal-native
-   elem-idx->addr-fn
-   (try
-     (let [insn-fn
-           (requiring-resolve 'tech.v3.tensor.dimensions.gtol-insn/generate-constructor)]
-       (fn [signature]
-         (try
-           (insn-fn signature)
-           (catch Throwable e
-             (log/warnf e "Index function generation failed for sig %s" signature)
-             elem-idx->addr-fn))))
-     (catch Throwable e
-       (log/warn e "insn unavailable-falling back to default indexing system")
-       elem-idx->addr-fn))))
+   (defonce sig->constructor-fn
+     (try
+       (let [insn-fn
+             (requiring-resolve 'tech.v3.tensor.dimensions.gtol-insn/generate-constructor)]
+         (fn [signature]
+           (try
+             (insn-fn signature)
+             (catch Throwable e
+               (log/warnf e "Index function generation failed for sig %s" signature)
+               elem-idx->addr-fn))))
+       (catch Throwable e
+         (log/warn e "insn unavailable-falling back to default indexing system")
+         elem-idx->addr-fn)))
 
 
-(defn- absent-sig-fn
-  [signature]
-  (reify Function
-    (apply [this signature]
-      (sig->constructor-fn signature))))
+   (defn- absent-sig-fn
+     [signature]
+     (reify Function
+       (apply [this signature]
+         (sig->constructor-fn signature))))))
 
 
 (defn make-indexing-obj
@@ -238,87 +241,6 @@
                                         (pmath/+ val))
                                     (pmath/inc idx)))
                            val)))))))))
-
-(def builtin-signatures
-  [{:n-dims 3,
-    :direct-vec [false false true],
-    :offsets? false,
-    :broadcast? false,
-    :trivial-last-stride? true}
-   {:n-dims 2,
-    :direct-vec [true true],
-    :offsets? false,
-    :broadcast? true,
-    :trivial-last-stride? false}
-   {:n-dims 2,
-    :direct-vec [true true],
-    :offsets? false,
-    :broadcast? false,
-    :trivial-last-stride? true}
-   {:n-dims 1,
-    :direct-vec [true],
-    :offsets? false,
-    :broadcast? false,
-    :trivial-last-stride? false}
-   {:n-dims 2,
-    :direct-vec [true false],
-    :offsets? false,
-    :broadcast? true,
-    :trivial-last-stride? false}
-   {:n-dims 2,
-    :direct-vec [true true],
-    :offsets? true,
-    :broadcast? false,
-    :trivial-last-stride? true}
-   {:n-dims 2,
-    :direct-vec [true false],
-    :offsets? false,
-    :broadcast? false,
-    :trivial-last-stride? true}
-   {:n-dims 2,
-    :direct-vec [true true],
-    :offsets? false,
-    :broadcast? true,
-    :trivial-last-stride? true}
-   {:n-dims 2,
-    :direct-vec [true false],
-    :offsets? true,
-    :broadcast? true,
-    :trivial-last-stride? false}
-   {:n-dims 1,
-    :direct-vec [true],
-    :offsets? false,
-    :broadcast? false,
-    :trivial-last-stride? true}
-   {:n-dims 2,
-    :direct-vec [true false],
-    :offsets? false,
-    :broadcast? true,
-    :trivial-last-stride? true}
-   {:n-dims 2,
-    :direct-vec [true true],
-    :offsets? false,
-    :broadcast? false,
-    :trivial-last-stride? false}
-   {:n-dims 2,
-    :direct-vec [true false],
-    :offsets? true,
-    :broadcast? true,
-    :trivial-last-stride? true}
-   {:n-dims 2,
-    :direct-vec [false true],
-    :offsets? false,
-    :broadcast? false,
-    :trivial-last-stride? true}
-   {:n-dims 2,
-    :direct-vec [true false],
-    :offsets? false,
-    :broadcast? false,
-    :trivial-last-stride? false}])
-
-;;Implement builtin signatures that we always want to have
-(doseq [sig builtin-signatures]
-  (.computeIfAbsent defined-classes sig (absent-sig-fn sig)))
 
 
 (comment
