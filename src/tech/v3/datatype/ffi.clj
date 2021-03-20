@@ -75,6 +75,7 @@ user> dbuf
             [tech.v3.datatype.ffi.size-t :as ffi-size-t]
             [tech.v3.datatype.struct :as dt-struct]
             [tech.v3.datatype.dechunk-map :refer [dechunk-map]]
+            [tech.v3.datatype.graal-native :as graal-native]
             [tech.v3.resource :as resource]
             [clojure.tools.logging :as log]
             [clojure.string :as s])
@@ -502,16 +503,16 @@ clojure.lang.IFn that takes only the specific arguments.")
   (deref [this] library-instance)
   PLibrarySingleton
   (library-singleton-reset! [this]
-    (locking this
-      (when library-path
-        (set! library-definition (define-library @library-def-var))
-        (set! library-instance (instantiate-library library-definition
-                                                    (:libpath library-path))))))
+    (graal-native/when-not-defined-graal-native
+     (locking this
+       (when library-path
+         (set! library-definition (define-library @library-def-var))
+         (set! library-instance (instantiate-library library-definition
+                                                     (:libpath library-path)))))))
   (library-singleton-set! [this libpath]
     (set! library-path {:libpath libpath})
     (library-singleton-reset! this))
-  (library-singleton-set-instance!
-    [lib-singleton libinst]
+  (library-singleton-set-instance! [lib-singleton libinst]
     (set! library-instance libinst))
   (library-singleton-find-fn [this fn-kwd]
     (errors/when-not-errorf
