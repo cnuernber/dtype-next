@@ -96,7 +96,7 @@
  (do
    (log/debug "Graal Native Defined -- insn custom indexing disabled!"))
  (do
-   (log/debuf "insn custom indexing enabled!")
+   (log/debug "insn custom indexing enabled!")
    (defonce ^ConcurrentHashMap defined-classes (ConcurrentHashMap.))
 
    (defonce sig->constructor-fn
