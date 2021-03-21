@@ -176,7 +176,7 @@
       (boolean instantiate?) options)))
 
 
-(defn map-key->java-safe-ns-name
+(defn- map-key->java-safe-ns-name
   [k]
   (let [[ns-name sym-name]
         (if (or (keyword? k)
@@ -192,7 +192,7 @@ Ensure you are passing the var \"#'add-fn\" and not the fn \"add-fn\""
     [(munge ns-name) (munge sym-name)]))
 
 
-(defn- write-java-source
+#_(defn- write-java-source
   [fn-defs classname]
   (let [fn-defs (ffi-base/lower-fn-defs fn-defs)
         clsname-parts (s/split (str classname) #"\.")
@@ -324,7 +324,7 @@ public final class %s {
           [:areturn]])))))
 
 
-(defn generate-assembly
+(defn- generate-assembly
   [fn-defs classname {:keys [instantiate?]}]
   (let [fn-defs (ffi-base/lower-fn-defs fn-defs)
         clsname-parts (s/split (str classname) #"\.")
@@ -364,6 +364,12 @@ public final class %s {
   resuling class file will be output to *compile-path*.
 
   One caveat - strings are passed as tech.v3.datatype.ffi.Pointer classes and you
-  will have to use tech.v3.datatype.ffi/c->string in order to process them."
+  will have to use tech.v3.datatype.ffi/c->string in order to process them.
+
+  Another caveat - You cannot have any 'def,defonce' variables defined in your export
+  file.  Any persistent state must be referenced also from your main class in your
+  jarfile so it will have to reference systems used in your libfile.  'def', 'defonce'
+  variables will show up as uninitialized exceptions at runtime when objects call
+  into your library."
   [fn-defs classname options]
   (generate-assembly fn-defs classname options))

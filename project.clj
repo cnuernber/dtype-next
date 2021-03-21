@@ -1,11 +1,11 @@
-(defproject cnuernber/dtype-next "6.22-SNAPSHOT"
+(defproject cnuernber/dtype-next "6.22"
   :description "A Clojure library designed to aid in the implementation of high performance algorithms and systems."
   :url "http://github.com/cnuernber/dtype-next"
   :license {:name "EPL-2.0"
             :url "https://www.eclipse.org/legal/epl-2.0/"}
   :dependencies [[org.clojure/clojure              "1.10.2"]
                  [org.ow2.asm/asm                  "9.0"]
-                 [insn                             "0.5.2-SNAPSHOT"]
+                 [insn                             "0.5.2"]
                  [camel-snake-kebab                "0.4.2"]
                  [primitive-math                   "0.1.6"]
                  [it.unimi.dsi/fastutil            "8.2.1"]
@@ -55,6 +55,7 @@
                                    tech.v3.tensor.color-gradients
                                    tech.v3.datatype.reductions
                                    tech.v3.datatype.packing
+                                   tech.v3.datatype.ffi.graalvm
                                    tech.v3.parallel.for
                                    tech.v3.libs.buffered-image
                                    tech.v3.libs.neanderthal]}
