@@ -3,9 +3,9 @@
   :url "http://github.com/cnuernber/dtype-next"
   :license {:name "EPL-2.0"
             :url "https://www.eclipse.org/legal/epl-2.0/"}
-  :dependencies [[org.clojure/clojure              "1.10.2-alpha1"]
+  :dependencies [[org.clojure/clojure              "1.10.2"]
                  [org.ow2.asm/asm                  "9.0"]
-                 [insn                             "0.5.1"]
+                 [insn                             "0.5.2-SNAPSHOT"]
                  [camel-snake-kebab                "0.4.2"]
                  [primitive-math                   "0.1.6"]
                  [it.unimi.dsi/fastutil            "8.2.1"]
@@ -64,7 +64,7 @@
               :dependencies [[org.clojure/core.async "1.3.610"]
                              [com.taoensso/nippy "3.1.0-RC1"]]}
              :uberjar
-             {:aot [tech.v3.datatype.main]
+             {:aot [tech.v3.datatype.main tech.v3.datatype.expose-fn]
               :source-paths ["src" "native_test" "generated_classes"]
               :jvm-opts ["-Dclojure.compiler.direct-linking=true" "-Dtech.v3.datatype.graal-native=true"]
               :uberjar-name "dtype-next.jar"

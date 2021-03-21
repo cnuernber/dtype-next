@@ -1,7 +1,10 @@
 #!/bin/bash
 
-wget https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-20.2.0/graalvm-ce-java8-linux-amd64-20.2.0.tar.gz
-tar -xvzf graalvm-ce-java8-linux-amd64-20.2.0.tar.gz
-ln -s "$(pwd)/graalvm-ce-java8-20.2.0" "$(pwd)/graalvm"
-rm graalvm-ce-java8-linux-amd64-20.2.0.tar.gz
+
+GRAAL_VERSION="21.0.0.2"
+
+wget https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-$GRAAL_VERSION/graalvm-ce-java8-linux-amd64-$GRAAL_VERSION.tar.gz
+tar -xvzf graalvm-ce-java8-linux-amd64-$GRAAL_VERSION.tar.gz
+ln -s "$(pwd)/graalvm-ce-java8-$GRAAL_VERSION" "$(pwd)/graalvm"
+rm graalvm-ce-java8-linux-amd64-$GRAAL_VERSION.tar.gz
 graalvm/bin/gu install native-image
