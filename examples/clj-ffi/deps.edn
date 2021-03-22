@@ -1,0 +1,22 @@
+{:paths ["src" "generated-classes"]
+ :deps {cnuernber/dtype-next {:mvn/version "6.24"}
+        net.java.dev.jna/jna {:mvn/version "5.8.0"}}
+ :aliases
+ {:jdk-16
+  {:jvm-opts ["--add-modules" "jdk.incubator.foreign" "-Dforeign.restricted=permit" "--add-opens" "java.base/java.lang=ALL-UNNAMED" "-Djava.library.path=/usr/lib/x86_64-linux-gnu"]}
+  :depstar
+  {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.0.193"}}
+   :ns-default hf.depstar
+   :exec-fn hf.depstar/uberjar
+   :exec-args {:group-id "mygroup"
+               :artifact-id "libc"
+               :version "1.00-beta-1"
+               :sync-pom true
+               :aot true
+               :compile-ns [graal-main]
+               :main-class graal-main
+               :jar "libc.jar"
+               ;;Disable tensor code generation and ensure direct linking.
+               :jvm-opts ["-Dtech.v3.datatype.graal-native=true"
+                          "-Dclojure.compiler.direct-linking=true"
+                          "-Dclojure.spec.skip-macros=true"]}}}}

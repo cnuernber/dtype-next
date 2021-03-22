@@ -1,0 +1,17 @@
+#!/bin/bash
+
+set -e
+
+rm -rf classes && mkdir classes
+clojure -X:depstar
+
+$GRAALVM_HOME/bin/native-image \
+    --report-unsupported-elements-at-runtime \
+    --initialize-at-build-time \
+    --no-fallback \
+    --no-server \
+    -H:+ReportExceptionStackTraces \
+    -J-Dclojure.spec.skip-macros=true \
+    -J-Dclojure.compiler.direct-linking=true \
+    -J-Dtech.v3.datatype.graal-native=true \
+    -jar libc.jar graal_main
