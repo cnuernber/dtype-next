@@ -39,6 +39,14 @@
 
 
 (defn size-t-type
+  "the size-t datatype - either `:uint32` or `:uint64`."
+  []
+  (if (= (size-t-size) 8)
+    :uint64
+    :uint32))
+
+
+(defn offset-t-type
   "the size-t datatype - either `:int32` or `:int64`."
   []
   (if (= (size-t-size) 8)
@@ -47,18 +55,18 @@
 
 
 (defn ptr-t-type
-  "the size-t datatype - either `:uint32` or `:int64`."
+  "the size-t datatype - either `:uint32` or `:uint64`."
   []
   (if (= (size-t-size) 8)
-    :int64
+    :uint64
     :uint32))
 
 
 (defn ^:no-doc lower-type
-  "Downcast `:size-t` to its integer equivalent."
+  "Downcast `:size-t` to its signed integer equivalent."
   [argtype]
   (case argtype
-    :size-t (size-t-type)
+    :size-t (offset-t-type)
     :string :pointer
     argtype))
 
@@ -67,5 +75,5 @@
   "Downcast size-t and pointers to their integer equivalents"
   [argtype]
   (if (#{:size-t :string :pointer} argtype)
-    (size-t-type)
+    (offset-t-type)
     argtype))
