@@ -495,6 +495,8 @@ clojure.lang.IFn that takes only the specific arguments.")
 
 
 (deftype LibrarySingleton [library-def-var
+                           library-symbols-var
+                           library-def-options
                            ^:unsynchronized-mutable library-definition
                            ^{:unsynchronized-mutable true
                              :tag Library} library-instance
@@ -506,7 +508,9 @@ clojure.lang.IFn that takes only the specific arguments.")
     (graal-native/when-not-defined-graal-native
      (locking this
        (when library-path
-         (set! library-definition (define-library @library-def-var))
+         (set! library-definition (define-library @library-def-var
+                                    @library-symbols-var
+                                    library-def-options))
          (set! library-instance (instantiate-library library-definition
                                                      (:libpath library-path)))))))
   (library-singleton-set! [this libpath]
@@ -553,8 +557,10 @@ clojure.lang.IFn that takes only the specific arguments.")
   [fn-kwd]
   (dt-ffi/library-singelton-find-fn lib fn-kwd))
 ```"
-  [library-def-var]
-  (LibrarySingleton. library-def-var nil nil nil))
+  ([library-def-var library-sym-var library-def-opts]
+   (LibrarySingleton. library-def-var library-sym-var library-def-opts nil nil nil))
+  ([library-def-var]
+   (library-singleton library-def-var (delay nil) nil)))
 
 
 (defmacro define-library-functions
