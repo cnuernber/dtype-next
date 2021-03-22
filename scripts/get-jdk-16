@@ -3,4 +3,4 @@
 
 wget https://download.java.net/java/early_access/jdk16/32/GPL/openjdk-16-ea+32_linux-x64_bin.tar.gz
 tar -xvzf openjdk-16-ea+32_linux-x64_bin.tar.gz
-rm tar -xvzf openjdk-16-ea+32_linux-x64_bin.tar.gz
+rm openjdk-16-ea+32_linux-x64_bin.tar.gz
