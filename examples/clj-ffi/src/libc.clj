@@ -14,13 +14,19 @@
                        ['n-bytes :size-t]]}})
 
 
-(defonce lib (dt-ffi/library-singleton #'fn-defs))
+(def lib (dt-ffi/library-singleton #'fn-defs))
 (dt-ffi/library-singleton-reset! lib)
-(defn- find-fn
-  [fn-name]
-  (dt-ffi/library-singleton-find-fn lib fn-name))
+
+
+(defmacro check-error
+  [fn-data & body]
+  `(let [retval# (do ~@body)]
+     retval#))
+
 
 (dt-ffi/define-library-functions
   libc/fn-defs
-  find-fn
-  nil)
+  #(dt-ffi/library-singleton-find-fn lib %)
+  ;;Check-error is caled with the function defintion as the first argument allowing
+  ;;you to put specific error checking information into the fn definition above.
+  check-error)

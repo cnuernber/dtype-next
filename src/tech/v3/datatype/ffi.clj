@@ -569,6 +569,12 @@ clojure.lang.IFn that takes only the specific arguments.")
   and check-error may be provided and called on a return value assuming :check-error?
   is set in the library definition.
 
+  * library-def-symbol - The fully namespaced symbol that points to the function definitions.
+  * find-fn - A function taking one argument - the fn name, and returning the function.
+  * check-error - A function or macro that receives two arguments - the fn definition
+    from above and the actual un-evaluated function call allowing you to insert pre/post
+    checks.
+
 Example:
 
 ```clojure
@@ -576,41 +582,44 @@ Example:
 ```"
   [library-def-symbol find-fn check-error]
   `(do
-     ~@(->>
-        @(resolve library-def-symbol)
-        (map
-         (fn [[fn-name {:keys [rettype argtypes check-error?] :as fn-data}]]
-           (let [fn-symbol (symbol (name fn-name))
-                 requires-resctx? (first (filter #(= :string %)
-                                                 (concat (map second argtypes)
-                                                         [rettype])))
-                 fn-def `(~'ifn ~@(map
-                                   (fn [[argname argtype]]
-                                     (cond
-                                       (#{:int8 :int16 :int32 :int64} argtype)
-                                       `(long ~argname)
-                                       (#{:float32 :float64} argtype)
-                                       `(double ~argname)
-                                       (= :string argtype)
-                                       `(string->c ~argname)
-                                       :else
-                                       argname))
-                                   argtypes))]
-             `(defn ~fn-symbol
-                ~(:doc fn-data "No documentation!")
-                ~(mapv first argtypes)
-                (let [~'ifn (~find-fn ~fn-name)]
-                  (do
-                    ~(if requires-resctx?
-                       `(resource/stack-resource-context
-                         (let [~'retval ~fn-def]
-                           ~(when check-error? `(~check-error ~'retval))
-                           ~(if (= :string rettype)
-                              `(c->string ~'retval)
-                              `~'retval)))
-                       `(let [~'retval ~fn-def]
-                          ~(when check-error? `(~check-error ~'retval))
-                          ~'retval)))))))))))
+     (let [~'find-fn ~find-fn]
+       ~@(->>
+          @(resolve library-def-symbol)
+          (map
+           (fn [[fn-name {:keys [rettype argtypes check-error?] :as fn-data}]]
+             (let [fn-symbol (symbol (name fn-name))
+                   requires-resctx? (first (filter #(= :string %)
+                                                   (concat (map second argtypes)
+                                                           [rettype])))
+                   fn-def `(~'ifn ~@(map
+                                     (fn [[argname argtype]]
+                                       (cond
+                                         (#{:int8 :int16 :int32 :int64} argtype)
+                                         `(long ~argname)
+                                         (#{:float32 :float64} argtype)
+                                         `(double ~argname)
+                                         (= :string argtype)
+                                         `(string->c ~argname)
+                                         :else
+                                         argname))
+                                     argtypes))]
+               `(defn ~fn-symbol
+                  ~(:doc fn-data "No documentation!")
+                  ~(mapv first argtypes)
+                  (let [~'ifn (~'find-fn ~fn-name)]
+                    (do
+                      ~(if requires-resctx?
+                         `(resource/stack-resource-context
+                           (let [~'retval ~(if check-error
+                                             `(~check-error ~fn-data ~fn-def)
+                                             ~fn-def)]
+                             ~(if (= :string rettype)
+                                `(c->string ~'retval)
+                                `~'retval)))
+                         `(let [~'retval ~(if check-error
+                                             `(~check-error ~fn-data ~fn-def)
+                                             ~fn-def)]
+                            ~'retval))))))))))))
 
 
 (defn ptr->struct
