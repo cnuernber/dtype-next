@@ -610,15 +610,15 @@ Example:
                     (do
                       ~(if requires-resctx?
                          `(resource/stack-resource-context
-                           (let [~'retval ~(if check-error
+                           (let [~'retval ~(if (and check-error check-error?)
                                              `(~check-error ~fn-data ~fn-def)
-                                             ~fn-def)]
+                                             `~fn-def)]
                              ~(if (= :string rettype)
                                 `(c->string ~'retval)
                                 `~'retval)))
-                         `(let [~'retval ~(if check-error
+                         `(let [~'retval ~(if (and check-error check-error?)
                                              `(~check-error ~fn-data ~fn-def)
-                                             ~fn-def)]
+                                             `~fn-def)]
                             ~'retval))))))))))))
 
 
