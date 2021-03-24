@@ -2,6 +2,7 @@ package tech.v3.datatype;
 
 
 import java.util.function.BiFunction;
+import java.util.List;
 
 public interface IndexReduction
 {
@@ -10,6 +11,18 @@ public interface IndexReduction
   public default Object prepareBatch(Object batchData) { return batchData; }
   public Object reduceIndex(Object batchData, Object ctx, long idx);
   public Object reduceReductions(Object lhsCtx, Object rhsCtx);
+  public default Object reduceReductionList(List contexts) {
+    int n_contexts = contexts.size();
+    if ( 1 == n_contexts ) {
+      return contexts.get(0);
+    } else {
+      Object retval = contexts.get(0);
+      for (int idx = 1; idx < n_contexts; ++idx ) {
+	retval = reduceReductions(retval, contexts.get(idx));
+      }
+      return retval;
+    }
+  }
   public default Object finalize(Object ctx)
   {
     return ctx;
