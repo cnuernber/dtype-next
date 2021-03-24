@@ -37,7 +37,7 @@ Additional targets of this library:
    guaranteed to be available.
 *  Graal Native support.
 *  Support for JDK-8 through JDK-14.
-
+*  [Blogpost](https://techascent.com/blog/next-gen-native.html) and [example](examples/clj-ffi) of using the FFI architecture across JNA, JDK-16 and GraalNative.
 
 Checkout the [Overview](https://cnuernber.github.io/dtype-next/overview.html), [API Documentation](https://cnuernber.github.io/dtype-next/), and 
 [Cheatsheet](https://cnuernber.github.io/dtype-next/cheatsheet.html).
