@@ -5,6 +5,7 @@ import java.util.function.DoubleConsumer;
 import java.util.function.LongConsumer;
 import java.util.function.IntConsumer;
 import java.util.function.DoublePredicate;
+import java.util.List;
 
 
 public class Consumers {
@@ -15,6 +16,14 @@ public class Consumers {
     // Combine this with another.  This object is mutated
     public void inplaceCombine(StagedConsumer other);
     // Post reduction get the values back.
+    public default StagedConsumer combineList(List<StagedConsumer> others) {
+      int n_consumers = others.size();
+      StagedConsumer retval = this;
+      for (int idx = 0; idx < n_consumers; ++idx ) {
+	retval.inplaceCombine(others.get(idx));
+      }
+      return retval;
+    }
     public Object value();
   }
   public static class MultiStagedConsumer implements StagedConsumer,
