@@ -36,8 +36,7 @@
          (-> (dtype-proto/sub-buffer ~buffer offset# length#)
              (dtype-proto/->reader)))
        dtype-proto/PDatatype
-       (datatype [this#]
-         (dtype-proto/datatype ~buffer))
+       (datatype [this#] :object)
        dtype-proto/PElemwiseReaderCast
        (elemwise-reader-cast [this# new-dtype#] this#)
        ~(typecast/datatype->io-type (casting/safe-flatten cast-dtype))

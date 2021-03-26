@@ -39,16 +39,22 @@
 (defn buffer->string
   (^String [buffer typename]
    (let [n-items (dtype-proto/ecount buffer)
-         datatype (dtype-proto/elemwise-datatype buffer)
-         format-str (if (> n-items 20)
-                      "#%s<%s>%s\n[%s...]"
-                      "#%s<%s>%s\n[%s]")]
-     (format format-str
-             typename
-             (name datatype)
-             [n-items]
-             (-> (dtype-proto/sub-buffer buffer 0 (min 20 n-items))
-                 (print-reader-data)))))
+         simple-print? (:simple-print? (meta buffer))
+         reader-data (-> (dtype-proto/sub-buffer buffer 0 (min 20 n-items))
+                         (print-reader-data))
+         datatype (dtype-proto/elemwise-datatype buffer)]
+     (if simple-print?
+       (format (if (> n-items 20)
+                 "[%s...]"
+                 "[%s]")
+               reader-data)
+       (format (if (> n-items 20)
+                    "#%s<%s>%s\n[%s...]"
+                    "#%s<%s>%s\n[%s]")
+               typename
+               (name datatype)
+               [n-items]
+               reader-data))))
   (^String [buffer]
    (buffer->string buffer (.getCanonicalName (.getClass ^Object buffer)))))
 

@@ -4,12 +4,27 @@ package tech.v3.datatype;
 import java.util.function.DoubleConsumer;
 import java.util.function.LongConsumer;
 import java.util.function.IntConsumer;
+import java.util.function.Consumer;
 import java.util.function.DoublePredicate;
 import java.util.List;
 import clojure.lang.IDeref;
 
 
 public class Consumers {
+  public interface CombinedConsumer extends DoubleConsumer,
+					    LongConsumer,
+					    IntConsumer,
+					    Consumer
+  {
+    public default void accept(double val) { acceptDouble(val); }
+    public default void accept(long val) { acceptLong(val); }
+    public default void accept(int val) { acceptInt(val); }
+    public default void accept(Object val) { acceptObject(val); }
+    public void acceptDouble(double val);
+    public void acceptLong(long val);
+    public void acceptInt(int val);
+    public void acceptObject(Object val);
+  }
   //Consumers are created per in thread-independent contexts at each stage of
   //the reduction.
   public interface StagedConsumer extends IDeref
