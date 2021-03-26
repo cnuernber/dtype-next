@@ -19,6 +19,10 @@ public class DoubleConsumers
       value = 0.0;
       nElems = 0;
     }
+    public ScalarReduceBase(double _value, long _nElems) {
+      value = _value;
+      nElems = _nElems;
+    }
     public static Object valueMap(Keyword valueKwd, double value, long nElems ){
       HashMap hm = new HashMap();
       hm.put( valueKwd, value );
@@ -32,14 +36,16 @@ public class DoubleConsumers
     public Sum() {
       super();
     }
+    public Sum(double value, long nElems) {
+      super(value,nElems);
+    }
     public void accept(double data) {
       value += data;
       nElems++;
     }
-    public void inplaceCombine(Consumers.StagedConsumer _other) {
+    public Consumers.StagedConsumer combine(Consumers.StagedConsumer _other) {
       ScalarReduceBase other = (ScalarReduceBase)_other;
-      value += other.value;
-      nElems += other.nElems;
+      return new Sum( value + other.value, nElems + other.nElems);
     }
     public Object value() {
       return valueMap(valueKwd,value,nElems);
@@ -64,9 +70,8 @@ public class DoubleConsumers
     public static final Keyword defaultValueKwd = Keyword.intern(null, "value");
     public final BinaryOperator op;
     public final Keyword valueKwd;
-    public BinaryOp(BinaryOperator _op, double initValue, Keyword _valueKwd) {
-      super();
-      value = initValue;
+    public BinaryOp(BinaryOperator _op, double initValue, long initnElems, Keyword _valueKwd) {
+      super(initValue, initnElems);
       op = _op;
       if (_valueKwd == null) {
 	valueKwd = defaultValueKwd;
@@ -75,16 +80,19 @@ public class DoubleConsumers
       }
     }
     public BinaryOp(BinaryOperator _op, double initValue) {
-      this(_op, initValue, null);
+      this(_op, initValue, 0, null);
+    }
+    public BinaryOp(BinaryOperator _op, double initValue, long nElems) {
+      this(_op, initValue, nElems, null);
     }
     public void accept(double data) {
       value = op.binaryDouble(value, data);
       nElems++;
     }
-    public void inplaceCombine(Consumers.StagedConsumer _other) {
+    public Consumers.StagedConsumer combine(Consumers.StagedConsumer _other) {
       BinaryOp other = (BinaryOp)_other;
-      value = op.binaryDouble(value, other.value);
-      nElems += other.nElems;
+      return new BinaryOp(op, op.binaryDouble(value, other.value),
+			  nElems + other.nElems, valueKwd);
     }
     public Object value() {
       return valueMap(valueKwd,value,nElems);
@@ -123,13 +131,16 @@ public class DoubleConsumers
       return max;
     }
 
-    public void inplaceCombine(Consumers.StagedConsumer _other) {
+    public Consumers.StagedConsumer combine(Consumers.StagedConsumer _other) {
       MinMaxSum other = (MinMaxSum)_other;
-      sum += other.sum;
-      min = Math.min(getMin(), other.min);
-      max = Math.max(getMax(), other.max);
-      nElems += other.nElems;
+      MinMaxSum retval = new MinMaxSum();
+      retval.sum = sum + other.sum;
+      retval.min = Math.min(getMin(), other.getMin());
+      retval.max = Math.max(getMax(), other.getMax());
+      retval.nElems = nElems + other.nElems;
+      return retval;
     }
+
     public Object value() {
       HashMap retval = new HashMap();
       retval.put(sumKwd, sum);
@@ -166,12 +177,14 @@ public class DoubleConsumers
       m4 += md4;
       nElems++;
     }
-    public void inplaceCombine(Consumers.StagedConsumer _other) {
+    public Consumers.StagedConsumer combine(Consumers.StagedConsumer _other) {
       Moments other = (Moments)_other;
-      m2 += other.m2;
-      m3 += other.m3;
-      m4 += other.m4;
-      nElems += other.nElems;
+      Moments retval = new Moments(mean);
+      retval.m2 = m2 + other.m2;
+      retval.m3 = m3 + other.m3;
+      retval.m4 = m4 + other.m4;
+      retval.nElems = nElems + other.nElems;
+      return retval;
     }
     public Object value() {
       HashMap retval = new HashMap();
