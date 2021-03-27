@@ -30,39 +30,96 @@ public class DoubleConsumers
       return hm;
     }
   }
-  public static class Sum extends ScalarReduceBase
+  //High quality summation with code taken from Collectors.
+  //Implements
+  public static final class Sum implements Consumers.StagedConsumer,
+					   DoubleConsumer
   {
+    //Low order summation bits
+    public double d0;
+    //High order summation bits
+    public double d1;
+    public double simpleSum;
+    public long nElems;
     public static final Keyword valueKwd = Keyword.intern(null, "sum");
-    public Sum() {
-      super();
+
+    /**
+     * Incorporate a new double value using Kahan summation /
+     * compensation summation.
+     *
+     * High-order bits of the sum are in intermediateSum[0], low-order
+     * bits of the sum are in intermediateSum[1], any additional
+     * elements are application-specific.
+     *
+     * @param intermediateSum the high-order and low-order words of the intermediate sum
+     * @param value the name value to be included in the running sum
+     */
+    public void sumWithCompensation(double value) {
+      double tmp = value - d1;
+      double sum = d0;
+      double velvel = sum + tmp; // Little wolf of rounding error
+      d1 =  (velvel - sum) - tmp;
+      d0 = velvel;
     }
-    public Sum(double value, long nElems) {
-      super(value,nElems);
+
+    public double computeFinalSum() {
+      // Better error bounds to add both terms as the final sum
+      double tmp = d0 + d1;
+      if (Double.isNaN(tmp) && Double.isInfinite(simpleSum))
+	return simpleSum;
+      else
+	return tmp;
+    }
+
+    public Sum(double _d0, double _d1, double _simpleSum, long _nElems) {
+      d0 = _d0;
+      d1 = _d1;
+      simpleSum = _simpleSum;
+      nElems = _nElems;
+    }
+    public Sum() {
+      this(0, 0, 0, 0);
     }
     public void accept(double data) {
-      value += data;
+      sumWithCompensation(data);
+      simpleSum += data;
       nElems++;
     }
+
     public Consumers.StagedConsumer combine(Consumers.StagedConsumer _other) {
-      ScalarReduceBase other = (ScalarReduceBase)_other;
-      return new Sum( value + other.value, nElems + other.nElems);
+      Sum other = (Sum)_other;
+      Sum accum = new Sum(d0, d1, simpleSum, nElems);
+      accum.sumWithCompensation(other.d0);
+      accum.sumWithCompensation(other.d1);
+      accum.simpleSum += other.simpleSum;
+      accum.nElems += other.nElems;
+      return accum;
     }
+
     public Object value() {
-      return valueMap(valueKwd,value,nElems);
+      return ScalarReduceBase.valueMap(valueKwd,computeFinalSum(),nElems);
     }
   }
-  public static class UnaryOpSum extends Sum
+  public static class UnaryOpSum implements Consumers.StagedConsumer,
+					    DoubleConsumer
   {
     public final UnaryOperator op;
-    public UnaryOpSum(UnaryOperator _op) {
-      super();
+    public final Sum sum;
+    public UnaryOpSum(UnaryOperator _op, Sum _sum) {
       op = _op;
+      sum = _sum;
+    }
+    public UnaryOpSum(UnaryOperator _op) {
+      this(_op, new Sum());
     }
     public void accept(double data) {
-      super.accept(op.unaryDouble(data));
+      sum.accept(op.unaryDouble(data));
+    }
+    public Consumers.StagedConsumer combine(Consumers.StagedConsumer _other) {
+      return new UnaryOpSum(op, (Sum)sum.combine(((UnaryOpSum)_other).sum));
     }
     public Object value() {
-      return valueMap(Sum.valueKwd,value,nElems);
+      return sum.value();
     }
   }
   public static class BinaryOp extends ScalarReduceBase
@@ -100,53 +157,47 @@ public class DoubleConsumers
   }
   public static class MinMaxSum implements Consumers.StagedConsumer, DoubleConsumer
   {
-    public static final Keyword sumKwd = Keyword.intern(null, "sum");
     public static final Keyword minKwd = Keyword.intern(null, "min");
     public static final Keyword maxKwd = Keyword.intern(null, "max");
-    public double sum;
+    public Sum sum;
     public double min;
     public double max;
-    public long nElems;
+    public MinMaxSum(Sum _sum, double _min, double _max) {
+      sum = _sum;
+      max = _max;
+      min = _min;
+    }
     public MinMaxSum() {
-      sum = 0.0;
-      max = -Double.MAX_VALUE;
-      min = Double.MAX_VALUE;
-      nElems = 0;
+      this(new Sum(), Double.MAX_VALUE, -Double.MAX_VALUE );
     }
     public void accept(double val) {
-      sum += val;
+      sum.accept(val);
       min = Math.min(val, min);
       max = Math.max(val, max);
-      nElems++;
     }
     double getMin() {
-      if (nElems == 0)
+      if (sum.nElems == 0)
 	return Double.NaN;
       return min;
     }
 
     double getMax() {
-      if (nElems == 0)
+      if (sum.nElems == 0)
 	return Double.NaN;
       return max;
     }
 
     public Consumers.StagedConsumer combine(Consumers.StagedConsumer _other) {
       MinMaxSum other = (MinMaxSum)_other;
-      MinMaxSum retval = new MinMaxSum();
-      retval.sum = sum + other.sum;
-      retval.min = Math.min(getMin(), other.getMin());
-      retval.max = Math.max(getMax(), other.getMax());
-      retval.nElems = nElems + other.nElems;
-      return retval;
+      return new MinMaxSum((Sum)sum.combine(other.sum),
+			   Math.min(getMin(), other.getMin()),
+			   Math.max(getMax(), other.getMax()));
     }
 
     public Object value() {
-      HashMap retval = new HashMap();
-      retval.put(sumKwd, sum);
+      HashMap retval = (HashMap)sum.value();
       retval.put(minKwd, getMin());
       retval.put(maxKwd, getMax());
-      retval.put(ScalarReduceBase.nElemsKwd, nElems);
       return retval;
     }
   }
