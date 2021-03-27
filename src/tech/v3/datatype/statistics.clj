@@ -375,9 +375,10 @@
 (define-descriptive-stats)
 
 
-;;Hand coded because these should be damn fast.
+
 (defn sum
-  "double sum of data"
+  "Double sum of data using
+  [Kahan compensated summation](https://en.wikipedia.org/wiki/Kahan_summation_algorithm)."
   (^double [data options]
    (dtype-reductions/double-summation options data))
   (^double [data]

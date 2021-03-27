@@ -147,7 +147,8 @@
 
 
 (defn double-summation
-  "As fast as possible, sum a reader into a single double."
+  "Double sum of data using
+  [Kahan compensated summation](https://en.wikipedia.org/wiki/Kahan_summation_algorithm)."
   (^double [options rdr]
    (double (:sum (staged-double-consumer-reduction
                   (reducer-value->consumer-fn :tech.numerics/+)
