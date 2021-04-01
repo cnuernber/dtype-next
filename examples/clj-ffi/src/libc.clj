@@ -27,6 +27,7 @@
 (dt-ffi/define-library-functions
   libc/fn-defs
   #(dt-ffi/library-singleton-find-fn lib %)
-  ;;Check-error is caled with the function defintion as the first argument allowing
-  ;;you to put specific error checking information into the fn definition above.
+  ;;Check-error is called with the function defintion as the first argument allowing
+  ;;you to do both pre/post error checking according to information in the fn defintion
+  ;;above.  The fn defintion must have also have :check-errors? set to truthy
   check-error)

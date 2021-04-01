@@ -29,15 +29,19 @@
   of this type.  For scalars, return your elemental datatype."
   [item]
   ;;false has a datatype in this world.
-  (if-not (nil? item)
-    (dtype-proto/elemwise-datatype item)
-    :object))
+  (cond
+    (nil? item) :object
+    (instance? Double item) :float64
+    (instance? Integer item) :int32
+    (instance? Long item) :int64
+    :else
+    (dtype-proto/elemwise-datatype item)))
 
 
 (defn datatype
   "Return this object's actual datatype.
-  **This is not the same as the DEPRECATED get-datatype.  That is function maps
-  to elemwise-datatype.**
+  **This is not the same as the DEPRECATED get-datatype.  That function maps
+  to `elemwise-datatype`.**
   This maps to the parameterization of the object, so for instance a list of ints
   might be:
 ```clojure
@@ -45,9 +49,13 @@
 ```
   Defaults to this object's elemwise-datatype."
   [item]
-  (if-not (nil? item)
-    (dtype-proto/datatype item)
-    :object))
+  (cond
+    (nil? item) :object
+    (instance? Double item) :float64
+    (instance? Integer item) :int32
+    (instance? Long item) :int64
+    :else
+    (dtype-proto/datatype item)))
 
 
 (defn elemwise-cast
