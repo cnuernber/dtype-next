@@ -175,7 +175,7 @@
 (defn consume!
   "Consume (terminate) a sequence or stream.  If the stream is parallel
   then the consumer had better be threadsafe.
-  Returns nil."
+  Returns the consumer."
   [consumer item]
   (let [consumer (->consumer consumer)]
     (if-let [spliterator (as-spliterator item)]
@@ -183,7 +183,8 @@
       (if (convertible-to-iterator? item)
         (doiter
          value item
-         (.accept consumer value))))))
+         (.accept consumer value))))
+    consumer))
 
 
 (defn spliterator-map-reduce
