@@ -42,7 +42,6 @@ public class DoubleConsumers
     public double simpleSum;
     public long nElems;
     public static final Keyword valueKwd = Keyword.intern(null, "sum");
-
     /**
      * Incorporate a new double value using Kahan summation /
      * compensation summation.
@@ -155,7 +154,7 @@ public class DoubleConsumers
       return valueMap(valueKwd,value,nElems);
     }
   }
-  public static class MinMaxSum implements Consumers.StagedConsumer, DoubleConsumer
+  public static final class MinMaxSum implements Consumers.StagedConsumer, DoubleConsumer
   {
     public static final Keyword minKwd = Keyword.intern(null, "min");
     public static final Keyword maxKwd = Keyword.intern(null, "max");
@@ -201,6 +200,87 @@ public class DoubleConsumers
       return retval;
     }
   }
+
+  //Welford's algorithm for numerically accurate single pass variance/means.
+  public static final class MeanVariance implements Consumers.StagedConsumer, DoubleConsumer
+  {
+    public static final Keyword meanKwd = Keyword.intern(null, "mean");
+    public static final Keyword varKwd = Keyword.intern(null, "variance");
+    public static final Keyword stdKwd = Keyword.intern(null, "standard-deviation");
+    public long nElems;
+    public double mu;
+    //Summation using Kahan's algorithm
+    public Sum sq;
+    public MeanVariance(double _mu, Sum _sq, long _nElems) {
+      mu = _mu;
+      sq = _sq;
+      nElems = _nElems;
+    }
+    public MeanVariance() {
+      this(0,new Sum(),0);
+    }
+    public void accept(double x) {
+      ++nElems;
+      double muNew = mu + (x - mu)/nElems;
+      sq.accept((x - mu) * (x - muNew));
+      mu = muNew;
+    }
+    public double mean() {
+      if(nElems == 0) {
+	return Double.NaN;
+      }
+      else {
+	return mu;
+      }
+    }
+    public double variance() {
+      if (nElems == 0) {
+	return Double.NaN;
+      } else if (nElems == 1) {
+	return 0.0;
+      } else {
+	return sq.computeFinalSum()/(nElems - 1);
+      }
+    }
+    public double popVariance() {
+      if (nElems == 0) {
+	return Double.NaN;
+      } else if (nElems == 1) {
+	return 0.0;
+      } else {
+	return sq.computeFinalSum()/nElems;
+      }
+    }
+    public double standardDeviation() {
+      return Math.sqrt(variance());
+    }
+    public double popStandardDeviation() {
+      return Math.sqrt(popVariance());
+    }
+    public Consumers.StagedConsumer combine(Consumers.StagedConsumer _other) {
+      MeanVariance other = (MeanVariance)_other;
+      long total_n_elems = nElems + other.nElems;
+      double fract_n_elems = ((double)nElems)/((double)total_n_elems);
+      double one_minus_fract = 1.0 - fract_n_elems;
+      //standard deviations add normally
+      double std_dev = popStandardDeviation() + other.popStandardDeviation();
+      Sum varSum = new Sum();
+      //Manipulate the var sum such that it's final value returns std_dev*std_dev
+      varSum.accept(std_dev * std_dev * total_n_elems);
+      return new MeanVariance((mu*fract_n_elems) + (other.mu * one_minus_fract),
+			      varSum,
+			      total_n_elems);
+    }
+    public Object value() {
+      HashMap retval = new HashMap();
+      retval.put(ScalarReduceBase.nElemsKwd, nElems);
+      retval.put(meanKwd, mean());
+      retval.put(varKwd, variance());
+      retval.put(stdKwd, standardDeviation());
+      return retval;
+    }
+  }
+  //Numerically inaccurate method for calculating moments but fairly unused.
   public static class Moments implements Consumers.StagedConsumer, DoubleConsumer
   {
     public static final Keyword m2Kwd = Keyword.intern(null, "moment-2");
@@ -218,6 +298,7 @@ public class DoubleConsumers
       m4 = 0.0;
       nElems = 0;
     }
+    //Squaring them like this is unstable but OK for now.
     public void accept(double val) {
       double meanDiff = val - mean;
       double md2 = meanDiff * meanDiff;
