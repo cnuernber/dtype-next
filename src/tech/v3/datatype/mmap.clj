@@ -12,7 +12,6 @@
   mmap directory -
   * `mmodel` - Use the JDK-16 memory model.  You have to have the module enabled.
   * `larray` - Use LArray mmap - default if available.
-  * `nio` - Use FileChannel mmap and be limited to mmap under 2GB of size.
 
   If unset then the system will try to load the jdk-16 namespace, then larray,
   and finally nio."
@@ -25,13 +24,14 @@
   (swap! mmap-fn* (fn [existing-fn]
                     (if existing-fn
                       existing-fn
-                      (try
-                        (if (.startsWith (System/getProperty "java.version") "16-")
-                          (requiring-resolve 'tech.v3.datatype.mmap.mmodel/mmap-file)
-                          (requiring-resolve 'tech.v3.datatype.mmap.larray/mmap-file))
-                        (catch Exception e
-                          (log/debug "Falling back to nio mmap.")
-                          (requiring-resolve 'tech.v3.datatype.mmap.nio/mmap-file)))))))
+                      (let [jdk-16-fn (when (.startsWith (System/getProperty "java.version") "16-")
+                                        (try
+                                          (requiring-resolve 'tech.v3.datatype.mmap.mmodel/mmap-file)
+                                          (catch Throwable e
+                                            (log/warn "Failed to activate JDK-16 mmodel pathway; falling back to larray."))))]
+                        (if jdk-16-fn
+                          jdk-16-fn
+                          (requiring-resolve 'tech.v3.datatype.mmap.larray/mmap-file)))))))
 
 
 (defn mmap-file

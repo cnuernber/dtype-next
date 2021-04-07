@@ -3,7 +3,6 @@
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.mmap-writer :as mmap-writer]
             [tech.v3.datatype.mmap :as mmap]
-            [tech.v3.datatype.mmap.nio :as mmap-nio]
             [tech.v3.resource :as resource]))
 
 (deftest test-add-read
@@ -14,19 +13,6 @@
            (is (= 12 (.lsize mmap-file)))
            (is (= "testtesttest" (String. (dtype/->array
                                    (dtype/->buffer mmap-file)))))
-           (.fpath mmap-file)))]
-    (is (= false (.delete (java.io.File. fpath))))))
-
-
-(deftest nio-add-read
-  (mmap/set-mmap-impl! mmap-nio/mmap-file)
-  (let [fpath
-        (resource/stack-resource-context
-         (let [mmap-file (mmap-writer/temp-mmap-writer)]
-           (.writeData mmap-file "testtesttest")
-           (is (= 12 (.lsize mmap-file)))
-           (is (= "testtesttest" (String. (dtype/->array
-                                           (dtype/->buffer mmap-file)))))
            (.fpath mmap-file)))]
     (is (= false (.delete (java.io.File. fpath))))))
 
