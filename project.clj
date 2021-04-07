@@ -3,7 +3,7 @@
   :url "http://github.com/cnuernber/dtype-next"
   :license {:name "EPL-2.0"
             :url "https://www.eclipse.org/legal/epl-2.0/"}
-  :dependencies [[org.clojure/clojure              "1.10.2"]
+  :dependencies [[org.clojure/clojure              "1.10.2" :scope "provided"]
                  [org.ow2.asm/asm                  "9.0"]
                  [insn                             "0.5.2"]
                  [camel-snake-kebab                "0.4.2"]
@@ -19,7 +19,7 @@
   :profiles {:dev
              {:dependencies [[criterium "0.4.5"]
                              [uncomplicate/neanderthal "0.35.0"]
-                             [com.taoensso/nippy "3.1.0-RC1"]
+                             [com.taoensso/nippy "3.1.1"]
                              [ch.qos.logback/logback-classic "1.1.3"]]
               :test-paths ["neanderthal" "test"]}
              :jdk-16 {:jvm-opts ["--add-modules" "jdk.incubator.foreign" "-Dforeign.restricted=permit" "--add-opens" "java.base/java.lang=ALL-UNNAMED"]}

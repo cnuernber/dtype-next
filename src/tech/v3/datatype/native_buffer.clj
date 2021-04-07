@@ -567,6 +567,15 @@
                    (.resource-type nb) (meta nb) nil item)))
 
 
+(defn set-parent
+  "Return a new native-buffer that references the same data but with a different
+  parent object."
+  ^NativeBuffer [^NativeBuffer buf new-parent]
+  (NativeBuffer. (.address buf) (.n-elems buf) (.elemwise-datatype buf)
+                 (.endianness buf)
+                 (.resource-type buf) (meta buf) nil new-parent))
+
+
 (defn set-endianness
   "Convert a native buffer to simple hashmap for printing or logging purposes."
   ^NativeBuffer [item endianness]
