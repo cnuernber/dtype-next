@@ -1,10 +1,12 @@
 (ns tech.v3.datatype.mmap
   (:require [tech.v3.datatype.native-buffer]
+            [tech.v3.datatype.graal-native :as graal-native]
+            [tech.v3.datatype.errors :as errors]
             [clojure.tools.logging :as log])
   (:import [tech.v3.datatype.native_buffer NativeBuffer]))
 
 
-(def ^:private mmap-fn* (atom nil))
+(defonce ^:private mmap-fn* (atom nil))
 
 
 (defn set-mmap-impl!
@@ -13,8 +15,7 @@
   * `mmodel` - Use the JDK-16 memory model.  You have to have the module enabled.
   * `larray` - Use LArray mmap - default if available.
 
-  If unset then the system will try to load the jdk-16 namespace, then larray,
-  and finally nio."
+  If unset then the system will try to load the jdk-16 namespace, then larray."
   [mmap-fn]
   (reset! mmap-fn* mmap-fn))
 
@@ -24,14 +25,26 @@
   (swap! mmap-fn* (fn [existing-fn]
                     (if existing-fn
                       existing-fn
-                      (let [jdk-16-fn (when (.startsWith (System/getProperty "java.version") "16-")
-                                        (try
-                                          (requiring-resolve 'tech.v3.datatype.mmap.mmodel/mmap-file)
-                                          (catch Throwable e
-                                            (log/warn "Failed to activate JDK-16 mmodel pathway; falling back to larray."))))]
-                        (if jdk-16-fn
-                          jdk-16-fn
-                          (requiring-resolve 'tech.v3.datatype.mmap.larray/mmap-file)))))))
+                      (graal-native/if-defined-graal-native
+                       (errors/throwf "Automatic resolution of mmap pathways is disabled for graal native.
+Please use 'tech.3.datatype.mmap/set-mmap-impl!' prior to calling mmap-file.")
+                       (let [jdk-16-fn
+                             (when (.startsWith (System/getProperty "java.version") "16-")
+                               (try
+                                 (requiring-resolve 'tech.v3.datatype.mmap.mmodel/mmap-file)
+                                 (catch Throwable e
+                                   (log/warn "Failed to activate JDK-16 mmodel pathway; falling back to larray."))))]
+                         (if jdk-16-fn
+                           jdk-16-fn
+                           (requiring-resolve 'tech.v3.datatype.mmap.larray/mmap-file))))))))
+
+
+(defn mmap-enabled?
+  []
+  (graal-native/if-defined-graal-native
+   (not (nil? @mmap-fn*))
+   (do (resolve-mmap-fn)
+       (not (nil? @mmap-fn*)))))
 
 
 (defn mmap-file

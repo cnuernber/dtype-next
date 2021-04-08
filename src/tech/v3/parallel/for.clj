@@ -177,13 +177,13 @@
   then the consumer had better be threadsafe.
   Returns the consumer."
   [consumer item]
-  (let [consumer (->consumer consumer)]
+  (let [local-consumer (->consumer consumer)]
     (if-let [spliterator (as-spliterator item)]
-      (.forEachRemaining ^Spliterator spliterator consumer)
+      (.forEachRemaining ^Spliterator spliterator local-consumer)
       (if (convertible-to-iterator? item)
         (doiter
          value item
-         (.accept consumer value))))
+         (.accept local-consumer value))))
     consumer))
 
 
