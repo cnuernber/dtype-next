@@ -1,7 +1,8 @@
 (ns tech.v3.parallel.for
   "Serial and parallel iteration strategies across iterators and index spaces."
   (:import [java.util.concurrent ForkJoinPool Callable Future ForkJoinTask]
-           [java.util ArrayDeque PriorityQueue Comparator Spliterator Iterator]
+           [java.util ArrayDeque PriorityQueue Comparator Spliterator Iterator
+            ArrayList List]
            [java.util.stream Stream]
            [java.util.function Consumer IntConsumer LongConsumer DoubleConsumer]
            [clojure.lang IFn]))
@@ -20,6 +21,20 @@
   "Integer number of threads used in the ForkJoinPool's common pool"
   ^long []
   (ForkJoinPool/getCommonPoolParallelism))
+
+
+(defn cpu-pool-map-reduce
+  "Execute map-fn in the separate threads of ForkJoinPool's common pool"
+  [map-fn reduce-fn]
+  (if (ForkJoinTask/inForkJoinPool)
+    (reduce-fn (map-fn 0))
+    (let [parallelism (ForkJoinPool/getCommonPoolParallelism)
+          pool (ForkJoinPool/commonPool)]
+      (->> (repeatedly parallelism #(.submit pool ^Callable map-fn))
+           ;;force all submissions to start
+           (doall)
+           (map deref)
+           (reduce-fn)))))
 
 
 (defn indexed-map-reduce
@@ -120,6 +135,8 @@
   "Convert a stream or an iterable into an iterator."
   ^Iterator [item]
   (cond
+    (instance? Iterator item)
+    item
     (instance? Iterable item)
     (.iterator ^Iterable item)
     (instance? Stream item)
@@ -127,6 +144,31 @@
     :else
     (throw (Exception. (format "Item type %s has no iterator"
                                (type item))))))
+
+
+(defn rest-iter
+  "Mutable update the iterator calling 'next' and return iterator."
+  ^java.util.Iterator [item]
+  (let [iterator (->iterator item)]
+    (when (.hasNext iterator)
+      (.next iterator))
+    iterator))
+
+
+(defn batch-iter
+  "Given an iterator, batch it up into an implementation of `java.util.List` that
+  contains batches of the data.  Return a sequence of batches."
+  [^long batch-size item]
+  (let [iter (->iterator item)
+        next-batch (ArrayList. batch-size)]
+    (when (.hasNext iter)
+      (loop [continue? (and (.hasNext iter)
+                            (< (count next-batch) batch-size))]
+        (if continue?
+          (do
+            (.add next-batch (.next iter))
+            (recur (.hasNext iter)))
+          (cons next-batch (lazy-seq (batch-iter batch-size iter))))))))
 
 
 (defmacro doiter
