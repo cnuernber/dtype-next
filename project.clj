@@ -1,4 +1,4 @@
-(defproject cnuernber/dtype-next "7.10-SNAPSHOT"
+(defproject cnuernber/dtype-next "7.10"
   :description "A Clojure library designed to aid in the implementation of high performance algorithms and systems."
   :url "http://github.com/cnuernber/dtype-next"
   :license {:name "EPL-2.0"
@@ -12,7 +12,7 @@
                  [org.xerial.larray/larray-mmap    "0.4.1"]
                  [org.apache.commons/commons-math3 "3.6.1"]
                  [org.roaringbitmap/RoaringBitmap  "0.9.0"]
-                 [techascent/tech.resource         "5.03"]
+                 [techascent/tech.resource         "5.04"]
                  [techascent/tech.jna "4.05" :scope "provided"]]
   :java-source-paths ["java"]
   :source-paths ["src"]
