@@ -1,9 +1,9 @@
-(defproject cnuernber/dtype-next "7.09-SNAPSHOT"
+(defproject cnuernber/dtype-next "7.09"
   :description "A Clojure library designed to aid in the implementation of high performance algorithms and systems."
   :url "http://github.com/cnuernber/dtype-next"
   :license {:name "EPL-2.0"
             :url "https://www.eclipse.org/legal/epl-2.0/"}
-  :dependencies [[org.clojure/clojure              "1.10.2" :scope "provided"]
+  :dependencies [[org.clojure/clojure              "1.10.3" :scope "provided"]
                  [org.ow2.asm/asm                  "9.0"]
                  [insn                             "0.5.2"]
                  [camel-snake-kebab                "0.4.2"]
@@ -12,7 +12,7 @@
                  [org.xerial.larray/larray-mmap    "0.4.1"]
                  [org.apache.commons/commons-math3 "3.6.1"]
                  [org.roaringbitmap/RoaringBitmap  "0.9.0"]
-                 [techascent/tech.resource         "5.02"]
+                 [techascent/tech.resource         "5.03"]
                  [techascent/tech.jna "4.05" :scope "provided"]]
   :java-source-paths ["java"]
   :source-paths ["src"]
@@ -61,9 +61,7 @@
                                    tech.v3.libs.neanderthal]}
               :clean-targets [:target-path "docs"]}
              :travis
-             {:test-paths ["test"]
-              :dependencies [[org.clojure/core.async "1.3.610"]
-                             [com.taoensso/nippy "3.1.0-RC1"]]}
+             {:test-paths ["test"]}
              :uberjar
              {:aot [tech.v3.datatype.main tech.v3.datatype.expose-fn]
               :source-paths ["src" "native_test" "generated_classes"]
