@@ -1,5 +1,6 @@
 (ns tech.v3.parallel.for
   "Serial and parallel iteration strategies across iterators and index spaces."
+  (:require [tech.v3.datatype.errors :as errors])
   (:import [java.util.concurrent ForkJoinPool Callable Future ForkJoinTask]
            [java.util ArrayDeque PriorityQueue Comparator Spliterator Iterator
             ArrayList List]
@@ -225,8 +226,24 @@
       (if (convertible-to-iterator? item)
         (doiter
          value item
-         (.accept local-consumer value))))
+         (.accept local-consumer value))
+        (errors/throwf "Item is not iterable thus it cannot be consumed")))
     consumer))
+
+
+(defn indexed-consume!
+  "Consume (terminate) a sequence or stream.  If the stream is parallel
+  then the consumer had better be threadsafe.  Consumer in this case is
+  expected to be an clojure IFn and it will receive two arguments, a long
+  and the value."
+  [consumer item]
+  (let [iter (->iterator item)]
+    (loop [continue? (.hasNext iter)
+           idx 0]
+      (when continue?
+        (consumer idx (.next iter))
+        (recur (.hasNext iter) (unchecked-inc idx)))))
+  consumer)
 
 
 (defn spliterator-map-reduce
