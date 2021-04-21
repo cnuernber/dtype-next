@@ -1,7 +1,7 @@
 (ns tech.v3.tensor
   "ND bindings for the tech.v3.datatype system.  A Tensor is conceptually just a tuple
   of a buffer and an index operator that is capable of converting indexes in ND space
-  into a single long index into the buffer.  Tensors implementent the
+  into a single long index into the buffer.  Tensors implement the
   tech.v3.datatype.NDBuffer interface and outside this file ND objects are expected to
   simply implement that interface.
 

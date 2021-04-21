@@ -232,8 +232,7 @@
 
 
 (defn indexed-consume!
-  "Consume (terminate) a sequence or stream.  If the stream is parallel
-  then the consumer had better be threadsafe.  Consumer in this case is
+  "Consume (terminate) an iterable.  Consumer in this case is
   expected to be an clojure IFn and it will receive two arguments, a long
   and the value."
   [consumer item]

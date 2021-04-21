@@ -1,7 +1,7 @@
 (ns tech.v3.datatype.argtypes
   (:require [tech.v3.datatype.protocols :as dtype-proto])
   (:import [tech.v3.datatype.protocols PToReader]
-           [java.util RandomAccess]))
+           [java.util RandomAccess Map]))
 
 
 (defn arg-type
@@ -14,6 +14,7 @@
   (cond
     (or (instance? Number arg)
         (instance? Boolean arg)
+        (instance? Map arg)
         (string? arg)
         (nil? arg))
     :scalar
