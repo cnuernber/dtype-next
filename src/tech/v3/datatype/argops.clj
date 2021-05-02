@@ -324,7 +324,7 @@
                 (.compare comp lhs-value rhs-value)))))))))
 
 
-(defn- find-base-comparator
+(defn find-base-comparator
   [comparator val-dtype]
   (or (if (keyword? comparator)
         (binary-pred/builtin-ops comparator)
