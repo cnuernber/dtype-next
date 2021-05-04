@@ -4,7 +4,8 @@
             [tech.v3.datatype.native-buffer :as native-buffer]
             [tech.v3.datatype.casting :as casting])
   (:import [jdk.incubator.foreign MemorySegment MemoryAddress]
-           [tech.v3.datatype.native_buffer NativeBuffer]))
+           [tech.v3.datatype.native_buffer NativeBuffer]
+           [java.nio ByteBuffer]))
 
 
 (set! *warn-on-reflection* true)

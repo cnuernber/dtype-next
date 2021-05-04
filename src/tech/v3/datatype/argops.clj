@@ -396,10 +396,15 @@
                       (not= mid# low#))
                (recur mid# high#)
                (recur low# mid#))))
-         (let [buf-data# (~read-fn data# low#)]
-           (if (<= (~compare-fn ~comparator target# buf-data#) 0)
-             low#
-             (unchecked-inc low#)))))))
+         (loop [low# low#]
+           (let [buf-data# (~read-fn data# low#)
+                 comp# (~compare-fn ~comparator target# buf-data#)]
+             (cond
+               (or (< comp# 0) (== 0 low#)) low#
+               (> comp# 0) (unchecked-inc low#)
+               ;;When values are equal, track backward to first non-equal member.
+               :else
+               (recur (unchecked-dec low#)))))))))
 
 
 (defn binary-search
@@ -412,7 +417,14 @@
   * `:comparator` - a specific comparator to use; defaults to `comparator`."
   (^long [data target options]
    (let [opt-dtype (:datatype options (dtype-base/elemwise-datatype data))
-         dtype (casting/simple-operation-space opt-dtype)]
+         dtype (casting/simple-operation-space opt-dtype)
+         ;;If any special comparator is passed in then default to object
+         ;;space binary search.  Else we have fastpaths for natural ordering
+         ;;for doubles and longs
+         dtype (if (identical? :tech.numerics/<
+                               (:comparator options :tech.numerics/<))
+                 dtype
+                 :object)]
      (case dtype
        :float64 (binary-search-impl data target double .readDouble nil
                                     double-compare)

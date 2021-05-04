@@ -10,10 +10,12 @@
 
 (defn direct-buffer-constructor
   ^ByteBuffer [nbuf ^long address ^long nbytes options]
-  (let [retval (-> (MemoryAddress/ofLong address)
-                   (.asSegmentRestricted nbytes nil nbuf)
-                   (.share)
-                   (.asByteBuffer))
+  (let [retval (if-not (== 0 nbytes)
+                 (-> (MemoryAddress/ofLong address)
+                     (.asSegmentRestricted nbytes nil nbuf)
+                     (.share)
+                     (.asByteBuffer))
+                 (ByteBuffer/allocateDirect 0))
         endianness (dtype-proto/endianness nbuf)]
     (case endianness
       :little-endian (.order retval ByteOrder/LITTLE_ENDIAN)
