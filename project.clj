@@ -61,7 +61,10 @@
                                    tech.v3.libs.neanderthal]}
               :clean-targets [:target-path "docs"]}
              :travis
-             {:test-paths ["test"]}
+             {:dependencies [[uncomplicate/neanderthal "0.35.0"]
+                             [com.taoensso/nippy "3.1.1"]
+                             [ch.qos.logback/logback-classic "1.1.3"]]
+              :test-paths ["test"]}
              :uberjar
              {:aot [tech.v3.datatype.main tech.v3.datatype.expose-fn]
               :source-paths ["src" "native_test" "generated_classes"]
