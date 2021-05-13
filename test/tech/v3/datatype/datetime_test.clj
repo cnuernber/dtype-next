@@ -15,7 +15,8 @@
              (vec data-list)))
       (is (= [ld]
              (vec (dtype/->array data-list)))))
-    (let [data-buf (dtype/make-container :jvm-heap :packed-local-date 5)]
+    (let [data-buf (dtype/make-container :jvm-heap :packed-local-date
+                                         (repeat 5 nil))]
       (is (= (vec (repeat 5 nil))
              (vec data-buf)))
       (dtype/set-value! data-buf 1 ld)
