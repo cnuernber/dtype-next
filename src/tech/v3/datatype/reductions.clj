@@ -304,7 +304,32 @@
   Each bucket's results end up ordered by index iteration order.  The original parallel pass
   goes through each index in order and then the reduction goes through the thread groups in order
   so if your index reduction merger just does (.addAll lhs rhs) then the final result ends up
-  ordered."
+  ordered.
+
+Example:
+
+```clojure
+user> (import '[tech.v3.datatype IndexReduction])
+tech.v3.datatype.IndexReduction
+user> (require '[tech.v3.datatype :as dtype])
+nil
+user> (require '[tech.v3.datatype.reductions :as dt-reduce])
+nil
+user> (def key-col [:a :b :a :a :c :d])
+
+#'user/key-col
+user> (def val-col (mapv name key-col))
+#'user/val-col
+user> (dt-reduce/ordered-group-by-reduce
+       (reify IndexReduction
+         (reduceIndex [this batch ctx idx]
+           (conj ctx (val-col idx)))
+         (reduceReductions [this lhs rhs]
+           (vec (concat lhs rhs))))
+       key-col)
+{:a (\"a\" \"a\" \"a\"), :b (\"b\"), :c (\"c\"), :d (\"d\")}
+user>
+```"
   (^Map [^IndexReduction reducer batch-data rdr]
    (let [rdr (dtype-base/->reader rdr)
          n-elems (.lsize rdr)

@@ -53,4 +53,26 @@ public class ArrayHelpers
   public static void accumPlus(double[] data, int idx, double val) {
     data[idx] += val;
   }
+
+  public static void accumMul(byte[] data, int idx, byte val) {
+    data[idx] *= val;
+  }
+  public static void accumMul(short[] data, int idx, short val) {
+    data[idx] *= val;
+  }
+  public static void accumMul(char[] data, int idx, char val) {
+    data[idx] *= val;
+  }
+  public static void accumMul(int[] data, int idx, int val) {
+    data[idx] *= val;
+  }
+  public static void accumMul(long[] data, int idx, long val) {
+    data[idx] *= val;
+  }
+  public static void accumMul(float[] data, int idx, float val) {
+    data[idx] *= val;
+  }
+  public static void accumMul(double[] data, int idx, double val) {
+    data[idx] *= val;
+  }
 }
