@@ -83,4 +83,18 @@
       (is (= [3 3 3 3] (vec between-epoch)))
       (is (= (vec later-vec)
              (vec (dtype-dt-ops/epoch->datetime
-                   :packed-local-date later-epoch)))))))
+                   :packed-local-date later-epoch))))))
+  (let [insts (dtype/make-container :packed-instant
+                                    (repeat 20 (dtype-dt/instant)))
+        offset-insts (dtype-dt-ops/plus-temporal-amount
+                      insts (dfn/* 20 (range 20)) :seconds)
+        windows (-> (dtype-dt-ops/variable-rolling-window
+                     offset-insts 50 :seconds)
+                    vec)
+        tweener (dtype-dt-ops/between-op :packed-instant :seconds)]
+    (is (= 20 (count windows)))
+    (is (every? (fn [window]
+                  (< (long (tweener (offset-insts (first window))
+                                    (offset-insts (last window))))
+                     50))
+                windows))))

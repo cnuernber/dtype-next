@@ -16,7 +16,7 @@
            [java.time.temporal ChronoUnit Temporal ChronoField
             WeekFields TemporalAmount TemporalField
             TemporalAccessor]
-           [java.util Locale]))
+           [java.util Locale Iterator]))
 
 
 (set! *warn-on-reflection* true)
@@ -350,14 +350,22 @@
    :hours ChronoUnit/HOURS
    :minutes ChronoUnit/MINUTES
    :seconds ChronoUnit/SECONDS
-   :milliseconds ChronoUnit/MILLIS})
+   :milliseconds ChronoUnit/MILLIS
+   :microseconds ChronoUnit/MICROS})
+
+
+(defn- get-chrono-unit
+  [kwd]
+  (if-let [retval (keyword->chrono-unit kwd)]
+    retval
+    (errors/throwf "Unrecognized chrono unit kwd %s" kwd)))
 
 
 (defn- ensure-temporal-amount
   ^TemporalAmount [tf]
   (cond
     (keyword? tf)
-    (if-let [retval (get keyword->chrono-unit tf)]
+    (if-let [retval (get-chrono-unit tf)]
       retval
       (errors/throwf "Unrecognized temporal unit %s" tf))
     (instance? TemporalAmount tf)
@@ -480,7 +488,7 @@
     (case (dt-base/classify-datatype dtype)
       :temporal (let [^ChronoUnit chrono-unit (if (instance? ChronoUnit units)
                                                 units
-                                                (get keyword->chrono-unit units))]
+                                                (get-chrono-unit units))]
                   (reify BinaryOperators$ObjectBinaryOperator
                     (binaryObject [this lhs rhs]
                       (.between chrono-unit ^Temporal lhs ^Temporal rhs))))
@@ -535,3 +543,48 @@
      nil
      lhs
      rhs)))
+
+
+(deftype ObjectRollingIterator [^{:unsynchronized-mutable true
+                                  :tag long} start-idx
+                                ^{:unsynchronized-mutable true
+                                  :tag long} end-idx
+                                ^long window-length
+                                ^long n-elems
+                                ^long n-windows
+                                ^BinaryOperator tweener
+                                ^Buffer data]
+  Iterator
+  (hasNext [this] (not= start-idx n-windows))
+  (next [this]
+    (let [start-val (data start-idx)
+          next-end-idx
+          (long
+           (loop [eidx end-idx]
+             (if (or (>= eidx n-elems)
+                     (>= (long (tweener start-val (data eidx))) window-length))
+               eidx
+               (recur (unchecked-inc eidx)))))
+          retval (range start-idx next-end-idx)]
+      (set! start-idx (unchecked-inc start-idx))
+      (set! end-idx next-end-idx)
+      retval)))
+
+
+(defn variable-rolling-window
+  "Given a reader of monotonically increasing source datetime data, return an
+  iterable of ranges that describe the windows in index space.  There will be one
+  window per source input and windows are applied in int64 microsecond space.  Be
+  aware that windows near the end cannot possibly satisfy the windowing requirement."
+  ([src-data window-length units options]
+   (let [^BinaryOperator tweener (between-op (dtype-base/elemwise-datatype src-data)
+                                             units)
+         src-data (dtype-base/->buffer src-data)
+         n-windows (long (:n-windows options (.lsize src-data)))]
+     (reify Iterable
+       (iterator [this]
+         (ObjectRollingIterator.  0 1 (long window-length)
+                                  n-windows (.lsize src-data)
+                                  tweener src-data)))))
+  ([src-data window-length units]
+   (variable-rolling-window src-data window-length units nil)))
