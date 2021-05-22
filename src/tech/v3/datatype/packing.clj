@@ -96,12 +96,10 @@
              (elemwiseDatatype [rdr] packed-datatype)
              (lsize [rdr] (.lsize item))
              (readLong [rdr idx]
-               (unchecked-long (pack-fn (.readObject item idx)))))
-           (reify ObjectReader
-             (elemwiseDatatype [rdr] packed-datatype)
-             (lsize [rdr] (.lsize item))
+               (unchecked-long (pack-fn (.readObject item idx))))
              (readObject [rdr idx]
-               (pack-fn (.readObject item idx)))))))
+               (.readObject item idx)))
+           (errors/throwf "Packed primitive datatypes must be integers"))))
      item)
     item))
 

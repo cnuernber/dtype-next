@@ -1,18 +1,26 @@
 (ns tech.v3.datatype.datetime.operations
   (:require [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.datatype.base :as dtype-base]
+            [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.datetime.packing :as dt-packing]
             [tech.v3.datatype.datetime.base :as dt-base]
             [tech.v3.datatype.functional :as dfn]
+            [tech.v3.datatype.binary-op :as bin-op]
             [tech.v3.datatype.argops :as argops]
             [tech.v3.datatype.errors :as errors]
             [clojure.set :as set])
-  (:import [tech.v3.datatype LongReader ObjectReader Buffer]
+  (:import [tech.v3.datatype LongReader ObjectReader Buffer
+            BinaryOperator BinaryOperators$ObjectBinaryOperator
+            BinaryOperators$LongBinaryOperator]
            [java.time.temporal ChronoUnit Temporal ChronoField
             WeekFields TemporalAmount TemporalField
             TemporalAccessor]
            [java.util Locale]))
+
+
+(set! *warn-on-reflection* true)
+(set! *unchecked-math* :warn-on-boxed)
 
 
 (def datetime-datatypes (set/union dt-packing/datatypes
@@ -361,86 +369,169 @@
 
 
 (defn- temporal-dispatch
-  [convert-fn lhs rhs]
-  (let [lhs (packing/unpack lhs)
-        dtype (dtype-base/elemwise-datatype lhs)
-        _ (errors/when-not-errorf
-           (or (= :object dtype)
-               (datetime-datatype? dtype))
-           "Data datatype (%s) is not a date time datatype."
-           (dtype-base/elemwise-datatype lhs))]
-    (dispatch/vectorized-dispatch-2
-     convert-fn
-     #(dispatch/typed-map-2 convert-fn dtype %2 %3)
-     (fn [_ lhs rhs]
-       (let [^Buffer lhs (argops/ensure-reader lhs)
-             ^Buffer rhs (argops/ensure-reader rhs)]
-         (reify ObjectReader
-           (elemwiseDatatype [rdr] dtype)
-           (lsize [rdr] (dtype-base/ecount lhs))
-           (readObject [rdr idx]
-             (if-let [data (.readObject lhs idx)]
-               (convert-fn data (.readLong rhs idx))
-               nil)))))
-     nil
-     lhs
-     rhs)))
+  [op-space convert-fn lhs rhs]
+  (dispatch/vectorized-dispatch-2
+   convert-fn
+   #(dispatch/typed-map-2 convert-fn op-space %2 %3)
+   #(bin-op/reader convert-fn op-space %2 %3)
+   nil
+   lhs
+   rhs))
+
+
+(defn plus-temporal-operator
+  "Returns an binary that expects the temporal quantity as
+  the lhs and the amount as the rhs.
+
+  Returns the space of the operation and boolean operator that can perform the
+  operation."
+  [dtype tf]
+  (let [dtype (packing/unpack-datatype dtype)]
+    (case (dt-base/classify-datatype dtype)
+      :temporal (let [tf (ensure-temporal-amount tf)]
+                  (reify BinaryOperators$ObjectBinaryOperator
+                    (binaryObject [this lhs rhs]
+                      (.plus ^Temporal lhs (unchecked-long rhs) tf))))
+      :epoch (let [epoch-conv (long (dt-base/epoch->microseconds dtype))
+                   tf-conv (long (dt-base/relative->microseconds tf))]
+               (reify BinaryOperators$LongBinaryOperator
+                 (binaryLong [this lhs rhs]
+                   ;;perform operation in microsecond space and round back.
+                   (quot (+ (* lhs epoch-conv)
+                            (* rhs tf-conv))
+                         epoch-conv))))
+      :relative (let [lhs-conv (long (dt-base/epoch->microseconds dtype))
+                      rhs-conv (long (dt-base/relative->microseconds tf))]
+                  (reify BinaryOperators$LongBinaryOperator
+                    (binaryLong [this lhs rhs]
+                      ;;perform operation in microsecond space and round back.
+                      (quot (+ (* lhs lhs-conv)
+                               (* rhs rhs-conv))
+                            lhs-conv)))))))
 
 
 (defn plus-temporal-amount
   "Add a given temporal amount (in integers) to a temporal dataset.
   Valid temporal amounts are:
   #{:months :days :seconds :hours :years :milliseconds :minutes :weeks}"
-  [datetime-data long-data tf]
-  (let [tf (ensure-temporal-amount tf)
-        convert-fn (fn [^Temporal arg ^long amt]
-                     (.plus arg amt tf))]
-    (temporal-dispatch convert-fn datetime-data long-data)))
+  ([datetime-data long-data tf]
+   (let [res-dtype (packing/unpack-datatype
+                    (dtype-base/elemwise-datatype datetime-data))
+         binop (plus-temporal-operator
+                res-dtype
+                tf)]
+     (temporal-dispatch res-dtype binop datetime-data long-data)))
+  ([datetime-data long-data]
+   (plus-temporal-amount datetime-data long-data (dtype-base/elemwise-datatype
+                                                  long-data))))
+
+
+(defn minus-temporal-operator
+  "Returns an binary that expects the temporal quantity as
+  the lhs and the amount as the rhs.
+
+  Returns the space of the operation and boolean operator that can perform the
+  operation."
+  [dtype tf]
+  (let [dtype (packing/unpack-datatype dtype)]
+    (case (dt-base/classify-datatype dtype)
+      :temporal (let [tf (ensure-temporal-amount tf)]
+                  (reify BinaryOperators$ObjectBinaryOperator
+                    (binaryObject [this lhs rhs]
+                      (.minus ^Temporal lhs (unchecked-long rhs) tf))))
+      :epoch (let [epoch-conv (long (dt-base/epoch->microseconds dtype))
+                   tf-conv (long (dt-base/relative->microseconds tf))]
+               (reify BinaryOperators$LongBinaryOperator
+                 (binaryLong [this lhs rhs]
+                   ;;perform operation in microsecond space and round back.
+                   (quot (- (* lhs epoch-conv)
+                            (* rhs tf-conv))
+                         epoch-conv))))
+      :relative (let [lhs-conv (long (dt-base/epoch->microseconds dtype))
+                      rhs-conv (long (dt-base/relative->microseconds tf))]
+                  (reify BinaryOperators$LongBinaryOperator
+                    (binaryLong [this lhs rhs]
+                      ;;perform operation in microsecond space and round back.
+                      (quot (- (* lhs lhs-conv)
+                               (* rhs rhs-conv))
+                            lhs-conv)))))))
 
 
 (defn minus-temporal-amount
   "Subtract a given temporal amount (in integers) to a temporal dataset.
   Valid temporal amounts are:
   #{:months :days :seconds :hours :years :milliseconds :minutes :weeks}"
-  [datetime-data long-data tf]
-  (let [tf (ensure-temporal-amount tf)
-        convert-fn (fn [^Temporal arg ^long amt]
-                     (.minus arg amt tf))]
-    (temporal-dispatch convert-fn datetime-data long-data)))
+  ([datetime-data long-data tf]
+   (let [res-dtype (packing/unpack-datatype
+                    (dtype-base/elemwise-datatype datetime-data))
+         binop (minus-temporal-operator
+                res-dtype
+                tf)]
+     (temporal-dispatch res-dtype binop datetime-data long-data)))
+  ([datetime-data long-data]
+   (minus-temporal-amount datetime-data long-data (dtype-base/elemwise-datatype
+                                                   long-data))))
+
+
+(defn between-op
+  "between always results in a long or long object"
+  [src-dt-type units]
+  (let [dtype (packing/unpack-datatype src-dt-type)]
+    (case (dt-base/classify-datatype dtype)
+      :temporal (let [^ChronoUnit chrono-unit (if (instance? ChronoUnit units)
+                                                units
+                                                (get keyword->chrono-unit units))]
+                  (reify BinaryOperators$ObjectBinaryOperator
+                    (binaryObject [this lhs rhs]
+                      (.between chrono-unit ^Temporal lhs ^Temporal rhs))))
+      :epoch (let [epoch-conv (long (dt-base/epoch->microseconds src-dt-type))
+                   unit-conv (long (dt-base/relative->microseconds units))]
+               (reify BinaryOperators$LongBinaryOperator
+                 (binaryLong [this lhs rhs]
+                   (let [rel (* (- rhs lhs) epoch-conv)]
+                     (quot rel unit-conv)))))
+      :relative (let [src-conv (long (dt-base/relative->microseconds src-dt-type))
+                      unit-conv (long (dt-base/relative->microseconds units))]
+                  (reify BinaryOperators$LongBinaryOperator
+                    (binaryLong [this lhs rhs]
+                      (let [rel (* (- rhs lhs) src-conv)]
+                        (quot rel unit-conv))))))))
 
 
 (defn between
-  "Find the time unit between two datetime objects.  Must have the same datatype.  Units
-  may be a chronounit or one of `#{:milliseconds :seconds :minutes :hours :days :weeks
-  :months :years}` Returns longs or long readers.  Note that support for the various
-  units across java.time the datatypes partial."
+  "Find the time unit between two datetime objects.  Must have the same datatype.
+  Units may be a chronounit or one of `#{:milliseconds :seconds :minutes :hours :days
+  :weeks :months :years}` Returns longs or long readers.  Note that support for the
+  various units across java.time the datatypes is partial."
   [lhs rhs units]
   (let [lhs-dtype (packing/unpack-datatype (dtype-base/elemwise-datatype lhs))
         rhs-dtype (packing/unpack-datatype (dtype-base/elemwise-datatype rhs))
         _ (errors/when-not-errorf
-           (and (or (= :object lhs-dtype) (datetime-datatype? lhs-dtype))
-                (or (= :object rhs-dtype) (datetime-datatype? rhs-dtype)))
-           "Datatype (%s) are not datetime datatypes"
-           lhs-dtype)
-        ^ChronoUnit chrono-unit (if (instance? ChronoUnit units)
-                                  units
-                                  (get keyword->chrono-unit units))
-        _ (errors/when-not-errorf
-           chrono-unit
-           "Unrecognized chrono unit %s" units)
-        convert-fn (fn ^long [^Temporal lhs ^Temporal rhs]
-                    (.between chrono-unit lhs rhs))]
+           (identical? lhs-dtype rhs-dtype)
+           "lhs,rhs must have identical datatypes.")
+        ^BinaryOperator convert-op (between-op lhs-dtype units)]
     (dispatch/vectorized-dispatch-2
-     convert-fn
-     #(dispatch/typed-map-2 convert-fn :int64 %2 %3)
+     convert-op
+     #(dispatch/typed-map-2 convert-op :int64 %2 %3)
      (fn [_ lhs rhs]
        (let [^Buffer lhs (argops/ensure-reader lhs)
              ^Buffer rhs (argops/ensure-reader rhs)]
-         (reify LongReader
-           (lsize [rdr] (dtype-base/ecount lhs))
-           (readObject [rdr idx]
-             (convert-fn (.readObject lhs idx)
-                         (.readObject rhs idx))))))
+         (if (= :object (casting/flatten-datatype lhs-dtype))
+           (reify LongReader
+             (elemwiseDatatype [rdr] units)
+             (lsize [rdr] (dtype-base/ecount lhs))
+             (readLong [rdr idx]
+               (long
+                (.binaryObject convert-op
+                               (.readObject lhs idx)
+                               (.readObject rhs idx)))))
+           (reify LongReader
+             (elemwiseDatatype [rdr] units)
+             (lsize [rdr] (dtype-base/ecount lhs))
+             (readLong [rdr idx]
+               (.binaryLong convert-op
+                            (.readLong lhs idx)
+                            (.readLong rhs idx)))))))
      nil
      lhs
      rhs)))

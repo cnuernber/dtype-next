@@ -68,3 +68,19 @@
                         (into {}))]))
          (into {}))]
     (is (= 4 (count epoch-data)))))
+
+
+(deftest plus-minus-temporal-amount
+  (let [ld-vec (dtype/make-container :local-date
+                                     (repeat 4 (dtype-dt/local-date)))
+        later-vec (dtype-dt-ops/plus-temporal-amount ld-vec 3 :days)
+        days-vec (dtype-dt-ops/between ld-vec later-vec :days)]
+    (is (= [3 3 3 3] (vec days-vec)))
+    (is (= :days (dtype/elemwise-datatype days-vec)))
+    (let [ld-epoch (dtype-dt-ops/datetime->epoch ld-vec)
+          later-epoch (dtype-dt-ops/plus-temporal-amount ld-epoch 3 :days)
+          between-epoch (dtype-dt-ops/between ld-epoch later-epoch :days)]
+      (is (= [3 3 3 3] (vec between-epoch)))
+      (is (= (vec later-vec)
+             (vec (dtype-dt-ops/epoch->datetime
+                   :packed-local-date later-epoch)))))))
