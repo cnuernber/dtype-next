@@ -8,6 +8,14 @@ Next generation high performance Clojure toolkit.
 [![Build Status](https://travis-ci.com/cnuernber/dtype-next.svg?branch=master)](https://travis-ci.com/cnuernber/dtype-next)
 
 
+## New Functionality
+
+ * [Efficient 1d convolutions, correlations, gaussian correlations](https://cnuernber.github.io/dtype-next/tech.v3.datatype.convolve.html)
+ * [Numeric gradient, elemwise difference](https://cnuernber.github.io/dtype-next/tech.v3.datatype.gradient.html)
+ * [Variable rolling windows](https://cnuernber.github.io/dtype-next/tech.v3.datatype.rolling.html#var-variable-rolling-window-indexes)
+ 
+## Description
+
 `dtype-next` provides a unified pathway for dealing with contiguous containers of primitive datatypes such as 
 ints and floats.  In addition it defines the basis for `array` programming as found in APL or numpy and
 a deep Java interface hierarchy with default methods to allow implementing new `array`s painless.  This 
