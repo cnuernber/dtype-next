@@ -3,7 +3,8 @@
             [tech.v3.datatype.dispatch :refer [vectorized-dispatch-1]]
             [tech.v3.datatype.casting :as casting]
             [primitive-math :as pmath])
-  (:import [tech.v3.datatype Buffer DoubleBuffer LongBuffer ObjectBuffer]))
+  (:import [tech.v3.datatype Buffer DoubleBuffer LongBuffer ObjectBuffer]
+           [java.util Iterator]))
 
 
 (set! *warn-on-reflection* true)
@@ -53,7 +54,7 @@
        (pmath/min ~last-index)))
 
 
-(defn- windowed-data-reader
+(defn windowed-data-reader
   ^Buffer [window-size offset item]
   (let [item (dtype-base/->buffer item)
         item-dtype (dtype-base/elemwise-datatype item)
@@ -150,3 +151,127 @@ user>
     item))
   ([item window-size window-fn]
    (fixed-rolling-window item window-size window-fn nil)))
+
+
+(deftype ObjectRollingIterator [^{:unsynchronized-mutable true
+                                  :tag long} start-idx
+                                ^{:unsynchronized-mutable true
+                                  :tag long} end-idx
+                                ^double window-length
+                                ^double stepsize
+                                ^long n-elems
+                                ^long n-subset
+                                tweener
+                                ^Buffer data]
+  Iterator
+  (hasNext [this] (< start-idx n-subset))
+  (next [this]
+    (let [start-val (data start-idx)
+          next-end-idx
+          (long
+           (loop [eidx end-idx]
+             (if (or (>= eidx n-elems)
+                     (>= (double (tweener start-val (data eidx))) window-length))
+               eidx
+               (recur (unchecked-inc eidx)))))
+          retval (range start-idx next-end-idx)
+          next-start-idx (unchecked-inc start-idx)
+          next-start-idx
+          (long (if (== 0.0 stepsize)
+                  next-start-idx
+                  (loop [eidx (unchecked-inc next-start-idx)]
+                    (if (or (>= eidx n-elems)
+                            (>= (double (tweener start-val (data eidx))) stepsize))
+                      eidx
+                      (recur (unchecked-inc eidx))))))]
+      (set! start-idx next-start-idx)
+      (set! end-idx next-end-idx)
+      retval)))
+
+
+(defn variable-rolling-window-indexes
+    "Given a reader of monotonically increasing source data, a double window
+  length and a comparison function that takes two elements of the src-data
+  and returns a double return an iterable of ranges that describe the windows in
+  index space.  Once a window is found start index will be incremented by
+  stepsize amount as according to comp-fn or 1 if stepsize is not provided or
+  0.0.
+
+  * src-data - convertible to reader.
+  * window-length - double window length amount in the space of comp-fn.
+
+
+  Returns an iterable of clojure ranges.  Note the last N ranges will not be
+  window-size in length; you can filter these out if you require exactly window-size
+  windows.
+
+  Options:
+
+  * `:stepsize` - double stepsize amount in the space of comp-fn.
+  * `:comp-fn` - defaults to (- rhs lhs), must return a double result that will be
+     used to figure out the next window indexes and the amount to increment the
+     start index in between windows.
+  * `:n-subset` - defaults to n-elems, used when parallelizing rolling windows over
+     a single buffer this will exit the iteration prematurely and must be less than
+     src-data n-elems.
+
+  Examples:
+
+```clojure
+
+tech.v3.datatype.rolling> (vec (variable-rolling-window-indexes
+                                (range 20) 5))
+[(0 1 2 3 4)
+ (1 2 3 4 5)
+ (2 3 4 5 6)
+ (3 4 5 6 7)
+ (4 5 6 7 8)
+ (5 6 7 8 9)
+ (6 7 8 9 10)
+ (7 8 9 10 11)
+ (8 9 10 11 12)
+ (9 10 11 12 13)
+ (10 11 12 13 14)
+ (11 12 13 14 15)
+ (12 13 14 15 16)
+ (13 14 15 16 17)
+ (14 15 16 17 18)
+ (15 16 17 18 19)
+ (16 17 18 19)
+ (17 18 19)
+ (18 19)
+  (19)]
+
+tech.v3.datatype.rolling> (vec (variable-rolling-window-indexes
+                           (range 20) 5 {:stepsize 2}))
+[(0 1 2 3 4)
+ (2 3 4 5 6)
+ (4 5 6 7 8)
+ (6 7 8 9 10)
+ (8 9 10 11 12)
+ (10 11 12 13 14)
+ (12 13 14 15 16)
+ (14 15 16 17 18)
+ (16 17 18 19)
+ (18 19)]
+```"
+  (^Iterable [src-data window-length {:keys [stepsize
+                                             comp-fn
+                                             n-subset]
+                                      :or {stepsize 0.0}}]
+   (let [comp-fn (or comp-fn (fn [lhs rhs]
+                               (double (- (double rhs)
+                                          (double lhs)))))
+         src-data (dtype-base/->buffer src-data)
+         n-elems (.lsize src-data)
+         n-subset (long (or n-subset n-elems))]
+     (reify
+       Iterable
+       (iterator [this]
+         (ObjectRollingIterator. 0 1
+                                 (double window-length)
+                                 (double stepsize)
+                                 n-elems n-subset
+                                 comp-fn src-data)))))
+  (^Iterable [src-data window-length]
+   (variable-rolling-window-indexes src-data window-length nil)))

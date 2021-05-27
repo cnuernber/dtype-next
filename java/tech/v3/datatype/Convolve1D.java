@@ -13,24 +13,34 @@ public final class Convolve1D {
     Same,
     Valid,
   };
+  public static enum EdgeMode {
+    Clamp,
+    Zero,
+  }
   //Precondition is that ndata is <= nwindow
-  public static double[] convolve
+  //The difference between convolve and correlate is convolve reverses
+  //the window.  Callers can reverse the window before passing it in.
+  //The reason this works with double-arrays is because it is an inherently
+  //n^2 operation so we want to minimize indexing costs.
+  public static double[] correlate
     (BiFunction<Long,BiFunction<Long,Long,Object>,Object> parallelizer,
-     Buffer data,
-     Buffer rev_window,
+     double[] data,
+     double[] window,
+     int stepsize,
      DoubleUnaryOperator in_finalize,
-     Mode mode) {
+     Mode mode,
+     EdgeMode edgeMode) {
 
-    final int nData = data.size();
-    final int nWin = rev_window.size();
+    final int nData = data.length;
+    final int nWin = window.length;
     if (nData < nWin)
       throw new RuntimeException("Data size must be <= window size");
     final int nWinDec = nWin - 1;
     final int nResult;
     switch (mode) {
-    case Full: nResult = nData + nWinDec; break;
-    case Same: nResult = nData; break;
-    case Valid: nResult = nData - nWin + 1; break;
+    case Full: nResult = (nData + nWinDec)/stepsize; break;
+    case Same: nResult = nData/stepsize; break;
+    case Valid: nResult = (nData - nWin + 1)/stepsize; break;
     default: throw new RuntimeException("Unrecognized mode.");
     }
 
@@ -40,31 +50,46 @@ public final class Convolve1D {
 	};
     }
     final DoubleUnaryOperator finalize = in_finalize;
-    double[] window = new double[nWin];
-    for (int idx = 0; idx < nWin; ++idx) {
-      window[idx] = rev_window.readDouble(nWinDec - idx);
+
+
+    final int windowOffset;
+    switch(mode) {
+    case Full: windowOffset = nWinDec; break;
+    case Same: windowOffset = (nWinDec / 2); break;
+    case Valid: windowOffset = 0; break;
+    default: throw new RuntimeException("Unrecognized mode.");
     }
+
+
+    final double left_edge;
+    final double right_edge;
+    switch(edgeMode) {
+    case Clamp: left_edge=data[0]; right_edge=data[nData-1]; break;
+    case Zero: left_edge=0.0; right_edge=0.0; break;
+    default: throw new RuntimeException("Unrecognized edge mode");
+    }
+
+
     double[] retval = new double[nResult];
     parallelizer.apply( new Long(nResult), new BiFunction<Long,Long,Object> () {
 	public Object apply(Long sidx, Long glen) {
 	  int start_idx = RT.intCast(sidx);
 	  int group_len = RT.intCast(glen);
 	  int end_idx = start_idx + group_len;
-	  final int windowOffset;
-	  switch(mode) {
-	  case Full: windowOffset = nWinDec; break;
-	  case Same: windowOffset = (nWinDec / 2); break;
-	  case Valid: windowOffset = 0; break;
-	  default: throw new RuntimeException("Unrecognized mode.");
-	  }
+
+	  //This loop is an interesting case for a blog post on the vectorization API.
 	  for(int idx = start_idx; idx < end_idx; ++idx ) {
-	    int data_start_idx = idx - windowOffset;
+	    int data_start_idx = (idx*stepsize) - windowOffset;
 	    double sum = 0.0;
 	    for (int win_idx = 0; win_idx < nWin; ++win_idx) {
 	      int data_idx = data_start_idx + win_idx;
-	      double data_val = 0.0;
-	      if (data_idx < nData && data_idx >= 0)
-		data_val = data.readDouble(data_idx);
+	      double data_val;
+	      if (data_idx < 0)
+		data_val = left_edge;
+	      else if (data_idx >= nData)
+		data_val = right_edge;
+	      else
+		data_val = data[data_idx];
 	      sum += data_val * window[win_idx];
 	    }
 	    retval[idx] = finalize.applyAsDouble(sum);

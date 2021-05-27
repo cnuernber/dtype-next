@@ -5,6 +5,7 @@
             [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.datetime.packing :as dt-packing]
             [tech.v3.datatype.datetime.base :as dt-base]
+            [tech.v3.datatype.rolling :as dt-rolling]
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.binary-op :as bin-op]
             [tech.v3.datatype.argops :as argops]
@@ -571,20 +572,18 @@
       retval)))
 
 
-(defn variable-rolling-window
+(defn variable-rolling-window-indexes
   "Given a reader of monotonically increasing source datetime data, return an
   iterable of ranges that describe the windows in index space.  There will be one
   window per source input and windows are applied in int64 microsecond space.  Be
-  aware that windows near the end cannot possibly satisfy the windowing requirement."
+  aware that windows near the end cannot possibly satisfy the windowing requirement.
+
+  See options for tech.v3.datatype.rolling/variable-rolling-window-indexes for further
+  options, of which stepsize may be of interest."
   ([src-data window-length units options]
    (let [^BinaryOperator tweener (between-op (dtype-base/elemwise-datatype src-data)
-                                             units)
-         src-data (dtype-base/->buffer src-data)
-         n-windows (long (:n-windows options (.lsize src-data)))]
-     (reify Iterable
-       (iterator [this]
-         (ObjectRollingIterator.  0 1 (long window-length)
-                                  n-windows (.lsize src-data)
-                                  tweener src-data)))))
+                                             units)]
+     (dt-rolling/variable-rolling-window-indexes
+      src-data window-length (merge {:comp-fn tweener} options))))
   ([src-data window-length units]
-   (variable-rolling-window src-data window-length units nil)))
+   (variable-rolling-window-indexes src-data window-length units nil)))

@@ -388,7 +388,7 @@
 (defn min
   (^double [data options]
    (dtype-reductions/commutative-binary-double
-    (:min binary-op/builtin-ops) options data))
+    (:tech.numerics/min binary-op/builtin-ops) options data))
   (^double [data]
    (min data nil)))
 
@@ -396,7 +396,7 @@
 (defn max
   (^double [data options]
    (dtype-reductions/commutative-binary-double
-    (:max binary-op/builtin-ops) options data))
+    (:tech.numerics/max binary-op/builtin-ops) options data))
   (^double [data]
    (max data nil)))
 

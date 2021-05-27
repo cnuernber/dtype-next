@@ -7,6 +7,7 @@
             [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.datatype.errors :as errors])
   (:import  [java.util.concurrent ConcurrentHashMap]
+            [java.util Map]
             [tech.v3.datatype ObjectReader LongReader Buffer]))
 
 (set! *warn-on-reflection* true)
@@ -51,7 +52,10 @@
 (defn pack-datatype
   "Returns the packed datatype for this unpacked datatype."
   [datatype]
-  (get-in pack-table [datatype :packed-datatype] datatype))
+  (when datatype
+    (if-let [^Map pack-entry (.get pack-table datatype)]
+      (.get pack-entry :packed-datatype)
+      datatype)))
 
 (defn unpack
   "Unpack a scalar, iterable, or a reader.  If the item is not a packed datatype

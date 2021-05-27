@@ -55,11 +55,14 @@
 
 (defn- reduce-consumer-results
   [consumer-results]
-  (let [^Consumers$StagedConsumer first-consumer (first consumer-results)
-        rest-list (vec (rest consumer-results))]
-    (if (>= (count rest-list) 0)
-      (.combineList first-consumer rest-list)
-      first-consumer)))
+  (if (== 1 (count consumer-results))
+    (consumer-results 0)
+    (let [^Consumers$StagedConsumer first-consumer (first consumer-results)
+          rest-list (vec (rest consumer-results))]
+      (if (>= (count rest-list) 0)
+        (.combineList first-consumer rest-list)
+        first-consumer))))
+
 
 (defn reducer-value->consumer-fn
   "Produce a consumer from a generic reducer value."
