@@ -2,8 +2,11 @@
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.dispatch :refer [vectorized-dispatch-1]]
             [tech.v3.datatype.casting :as casting]
+            [tech.v3.datatype.packing :as packing]
+            [tech.v3.datatype.emap :as emap]
             [primitive-math :as pmath])
-  (:import [tech.v3.datatype Buffer DoubleBuffer LongBuffer ObjectBuffer]
+  (:import [tech.v3.datatype Buffer DoubleBuffer LongBuffer ObjectBuffer
+            LongReader DoubleReader ObjectReader]
            [java.util Iterator]))
 
 
@@ -47,63 +50,117 @@
                                    (drop n-skip item-sequence)))))))
 
 
-(defmacro ^:private window-idx
-  [idx offset last-index]
-  `(-> (pmath/+ ~idx ~offset)
-       (pmath/max 0)
-       (pmath/min ~last-index)))
+(deftype WindowRange [^long start-idx ^long n-elems]
+  LongReader
+  (lsize [this] n-elems)
+  (readLong [this idx]
+    (+ start-idx idx)))
 
 
-(defn windowed-data-reader
-  ^Buffer [window-size offset item]
-  (let [item (dtype-base/->buffer item)
-        item-dtype (dtype-base/elemwise-datatype item)
-        window-size (long window-size)
-        last-index (dec (.lsize item))
-        offset (long offset)]
-    (reify Buffer
-      (elemwiseDatatype [rdr] item-dtype)
-      (lsize [rdr] window-size)
-      (readBoolean [this idx] (.readBoolean item (window-idx idx offset last-index)))
-      (readByte [this idx] (.readByte item (window-idx idx offset last-index)))
-      (readShort [this idx] (.readShort item (window-idx idx offset last-index)))
-      (readChar [this idx] (.readChar item (window-idx idx offset last-index)))
-      (readInt [this idx] (.readInt item (window-idx idx offset last-index)))
-      (readLong [this idx] (.readLong item (window-idx idx offset last-index)))
-      (readFloat [this idx] (.readFloat item (window-idx idx offset last-index)))
-      (readDouble [this idx] (.readDouble item (window-idx idx offset last-index)))
-      (readObject [this idx] (.readObject item (window-idx idx offset last-index)))
-      (allowsRead [this] true)
-      (allowsWrite [this] false))))
-
-
-(defn ^:no-doc windowed-reader
-  (^Buffer [window-size window-fn item rel-position]
-   (let [window-size (long window-size)
-         n-pad (long (case rel-position
-                       :center (quot (long window-size) 2)
-                       :left (dec window-size)
-                       :right 0))
-         elem-dtype (dtype-base/elemwise-datatype item)
-         n-elems (dtype-base/ecount item)]
+(defmacro ^:private padded-read
+  [src-data idx win-start n-src left-pad-val right-pad-val read-fn]
+  `(let [idx# (+ ~idx ~win-start)]
      (cond
-       (casting/integer-type? elem-dtype)
-       (reify LongBuffer
-         (lsize [rdr] n-elems)
-         (readLong [rdr idx]
-           (unchecked-long
-            (window-fn (windowed-data-reader window-size (- idx n-pad) item)))))
-       (casting/float-type? elem-dtype)
-       (reify DoubleBuffer
-         (lsize [rdr] n-elems)
-         (readDouble [rdr idx]
-           (unchecked-double
-            (window-fn (windowed-data-reader window-size (- idx n-pad) item)))))
-       :else
-       (reify ObjectBuffer
-         (lsize [rdr] n-elems)
-         (readObject [rdr idx]
-           (window-fn (windowed-data-reader window-size (- idx n-pad) item))))))))
+       (< idx# 0) ~left-pad-val
+       (>= idx# ~n-src) ~right-pad-val
+       :else (~read-fn ~src-data idx#))))
+
+
+(defn window-ranges->window-reader
+  "Given src data, reader of window ranges and an edge mode return
+  a reader that when read returns a reader of src-data appropriately padded
+  depending on edge mode.
+
+  * src-data - buffer of source data
+  * win-ranges - reader of WindowRange.
+  * edge-mode - one of `:zero` pad with 0/nil or `:clamp` in which case the padding
+    is the first/last values in src data, respectively.
+
+  Example:
+```clojure
+tech.v3.datatype.rolling> (window-ranges->window-reader
+                           (range 10) (fixed-rolling-window-ranges 10 3 :center)
+                           :clamp)
+[[0 0 1] [0 1 2] [1 2 3] [2 3 4] [3 4 5] [4 5 6] [5 6 7] [6 7 8] [7 8 9] [8 9 9]]
+tech.v3.datatype.rolling> (window-ranges->window-reader
+                           (range 10) (fixed-rolling-window-ranges 10 3 :center)
+                           :zero)
+[[0 0 1] [0 1 2] [1 2 3] [2 3 4] [3 4 5] [4 5 6] [5 6 7] [6 7 8] [7 8 9] [8 9 0]]
+```"
+  [src-data win-ranges edge-mode]
+  (let [src-data (dtype-base/->buffer src-data)
+        win-ranges (dtype-base/->buffer win-ranges)
+        n-src (.lsize src-data)
+        n-win (.lsize win-ranges)
+        src-dt (dtype-base/elemwise-datatype src-data)
+        [left-pad-val right-pad-val]
+        (if (casting/numeric-type? (packing/unpack-datatype src-dt))
+          (case edge-mode
+            :zero [(casting/cast 0 src-dt) (casting/cast 0 src-dt)]
+            :clamp [(src-data 0) (src-data (dec n-src))])
+          (case edge-mode
+            :zero [nil nil]
+            :clamp [(src-data 0) (src-data (dec n-src))]))
+        src-unpack-dtype (packing/unpack-datatype src-dt)]
+    (reify ObjectReader
+      (lsize [this] n-win)
+      (readObject [this idx]
+        (let [^WindowRange range (.readObject win-ranges idx)
+              win-start (.start-idx range)
+              win-n-elems (.n-elems range)
+              win-end (+ win-start (.n-elems range))]
+          ;;Sub-buffer will always be faster than anything else and allows
+          ;;conversion of src-data back into array/native buffer
+          (if (and (>= win-start 0)
+                   (<= win-end n-src))
+            (dtype-base/sub-buffer src-data win-start win-n-elems)
+            (case (casting/simple-operation-space src-unpack-dtype)
+              :int64 (reify LongReader
+                       (elemwiseDatatype [rdr] src-unpack-dtype)
+                       (lsize [rdr] win-n-elems)
+                       (readLong [rdr idx]
+                         (unchecked-long
+                          (padded-read src-data idx win-start n-src
+                                       left-pad-val right-pad-val .readLong))))
+              :float64 (reify DoubleReader
+                         (elemwiseDatatype [rdr] src-unpack-dtype)
+                         (lsize [rdr] win-n-elems)
+                         (readDouble [rdr idx]
+                           (unchecked-double
+                            (padded-read src-data idx win-start n-src
+                                         left-pad-val right-pad-val .readDouble))))
+              (reify ObjectReader
+                (elemwiseDatatype [rdr] src-unpack-dtype)
+                (lsize [rdr] win-n-elems)
+                (readObject [rdr idx]
+                  (padded-read src-data idx win-start n-src
+                               left-pad-val right-pad-val .readObject))))))))))
+
+
+(defn fixed-rolling-window-ranges
+  "Return a reader of window-ranges of n-elems length.
+
+  Example:
+
+```clojure
+tech.v3.datatype.rolling> (fixed-rolling-window-ranges 10 3 :left)
+[[-2 -1 0] [-1 0 1] [0 1 2] [1 2 3] [2 3 4] [3 4 5] [4 5 6] [5 6 7] [6 7 8] [7 8 9]]
+tech.v3.datatype.rolling> (fixed-rolling-window-ranges 10 3 :center)
+[[-1 0 1] [0 1 2] [1 2 3] [2 3 4] [3 4 5] [4 5 6] [5 6 7] [6 7 8] [7 8 9] [8 9 10]]
+tech.v3.datatype.rolling> (fixed-rolling-window-ranges 10 3 :right)
+[[0 1 2] [1 2 3] [2 3 4] [3 4 5] [4 5 6] [5 6 7] [6 7 8] [7 8 9] [8 9 10] [9 10 11]]
+```"
+  [n-elems window-size relative-window-position]
+  (let [n-elems (long n-elems)
+        window-size (long window-size)
+        padding (long (case relative-window-position
+                        :center (- (quot (long window-size) 2))
+                        :left (- (dec window-size))
+                        :right 0))]
+    (reify ObjectReader
+      (lsize [this] n-elems)
+      (readObject [this idx]
+        (WindowRange. (+ idx padding) window-size)))))
 
 
 (defn fixed-rolling-window
@@ -137,7 +194,12 @@ user> (rolling/fixed-rolling-window (range 20) 5 dfn/sum {:relative-window-posit
 [10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 89 92 94 95]
 user>
 ```"
-  ([item window-size window-fn options]
+  ([item window-size window-fn {:keys [relative-window-position
+                                       edge-mode
+                                       datatype]
+                                :or {relative-window-position :center
+                                     edge-mode :clamp}
+                                :as options}]
    (vectorized-dispatch-1
     (fn [_] (throw (ex-info "Rolling windows aren't defined on scalars" {})))
     (fn [_res-dtype item]
@@ -145,8 +207,15 @@ user>
            (fixed-window-sequence window-size 1)
            (map window-fn)))
     (fn [_result-dtype item]
-      (windowed-reader window-size window-fn item
-                       (:relative-window-position options :center)))
+      (let [n-elems (dtype-base/ecount item)]
+        (->> (window-ranges->window-reader
+              item (fixed-rolling-window-ranges n-elems window-size
+                                                relative-window-position)
+              edge-mode)
+             (emap/emap window-fn
+                        (:datatype options
+                                   (packing/unpack-datatype
+                                    (dtype-base/elemwise-datatype item)))))))
     nil
     item))
   ([item window-size window-fn]
@@ -174,7 +243,7 @@ user>
                      (>= (double (tweener start-val (data eidx))) window-length))
                eidx
                (recur (unchecked-inc eidx)))))
-          retval (range start-idx next-end-idx)
+          retval (WindowRange. start-idx (- next-end-idx start-idx))
           next-start-idx (unchecked-inc start-idx)
           next-start-idx
           (long (if (== 0.0 stepsize)
@@ -189,7 +258,7 @@ user>
       retval)))
 
 
-(defn variable-rolling-window-indexes
+(defn variable-rolling-window-ranges
     "Given a reader of monotonically increasing source data, a double window
   length and a comparison function that takes two elements of the src-data
   and returns a double return an iterable of ranges that describe the windows in
@@ -218,42 +287,41 @@ user>
   Examples:
 
 ```clojure
-
-tech.v3.datatype.rolling> (vec (variable-rolling-window-indexes
+tech.v3.datatype.rolling> (vec (variable-rolling-window-ranges
                                 (range 20) 5))
-[(0 1 2 3 4)
- (1 2 3 4 5)
- (2 3 4 5 6)
- (3 4 5 6 7)
- (4 5 6 7 8)
- (5 6 7 8 9)
- (6 7 8 9 10)
- (7 8 9 10 11)
- (8 9 10 11 12)
- (9 10 11 12 13)
- (10 11 12 13 14)
- (11 12 13 14 15)
- (12 13 14 15 16)
- (13 14 15 16 17)
- (14 15 16 17 18)
- (15 16 17 18 19)
- (16 17 18 19)
- (17 18 19)
- (18 19)
-  (19)]
+[[0 1 2 3 4]
+ [1 2 3 4 5]
+ [2 3 4 5 6]
+ [3 4 5 6 7]
+ [4 5 6 7 8]
+ [5 6 7 8 9]
+ [6 7 8 9 10]
+ [7 8 9 10 11]
+ [8 9 10 11 12]
+ [9 10 11 12 13]
+ [10 11 12 13 14]
+ [11 12 13 14 15]
+ [12 13 14 15 16]
+ [13 14 15 16 17]
+ [14 15 16 17 18]
+ [15 16 17 18 19]
+ [16 17 18 19]
+ [17 18 19]
+ [18 19]
+ [19]]
 
-tech.v3.datatype.rolling> (vec (variable-rolling-window-indexes
+tech.v3.datatype.rolling> (vec (variable-rolling-window-ranges
                            (range 20) 5 {:stepsize 2}))
-[(0 1 2 3 4)
- (2 3 4 5 6)
- (4 5 6 7 8)
- (6 7 8 9 10)
- (8 9 10 11 12)
- (10 11 12 13 14)
- (12 13 14 15 16)
- (14 15 16 17 18)
- (16 17 18 19)
- (18 19)]
+[[0 1 2 3 4]
+ [2 3 4 5 6]
+ [4 5 6 7 8]
+ [6 7 8 9 10]
+ [8 9 10 11 12]
+ [10 11 12 13 14]
+ [12 13 14 15 16]
+ [14 15 16 17 18]
+ [16 17 18 19]
+ [18 19]]
 ```"
   (^Iterable [src-data window-length {:keys [stepsize
                                              comp-fn
@@ -274,4 +342,4 @@ tech.v3.datatype.rolling> (vec (variable-rolling-window-indexes
                                  n-elems n-subset
                                  comp-fn src-data)))))
   (^Iterable [src-data window-length]
-   (variable-rolling-window-indexes src-data window-length nil)))
+   (variable-rolling-window-ranges src-data window-length nil)))

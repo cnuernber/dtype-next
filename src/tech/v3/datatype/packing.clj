@@ -47,15 +47,15 @@
 (defn unpacked-datatype?
   "Returns true if this is a datatype that could be packed."
   [datatype]
-  (.containsKey pack-table datatype))
+  (and datatype
+       (.containsKey pack-table datatype)))
 
 (defn pack-datatype
   "Returns the packed datatype for this unpacked datatype."
   [datatype]
-  (when datatype
-    (if-let [^Map pack-entry (.get pack-table datatype)]
-      (.get pack-entry :packed-datatype)
-      datatype)))
+  (if-let [^Map pack-entry (when datatype (.get pack-table datatype))]
+    (.get pack-entry :packed-datatype)
+    datatype))
 
 (defn unpack
   "Unpack a scalar, iterable, or a reader.  If the item is not a packed datatype
@@ -131,3 +131,21 @@
                        (unpack-fn (.readLong buffer idx)))
      :packing-write (fn [^Buffer buffer ^long idx obj]
                       (.writeLong buffer idx (pack-fn obj)))}))
+
+
+(defn pack-scalar
+  "Pack a scalar value.  Dtype is provided so nil can be packed.
+
+  Example:
+
+```clojure
+tech.v3.datatype.packing> (pack-scalar nil :local-date)
+-2147483648
+tech.v3.datatype.packing> (pack-scalar (java.time.LocalDate/now) :local-date)
+18775
+```"
+  [value dtype]
+  (if-let [{:keys [pack-fn]}
+           (when dtype (.get pack-table dtype))]
+    (pack-fn value)
+    value))
