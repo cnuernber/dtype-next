@@ -375,7 +375,8 @@
 (casting/alias-datatype! :epoch-microseconds :int64)
 (casting/alias-datatype! :epoch-seconds :int64)
 (casting/alias-datatype! :epoch-hours :int64)
-(casting/alias-datatype! :epoch-days :int64)
+;;For compatibility with arrow and parquet datatypes
+(casting/alias-datatype! :epoch-days :int32)
 (casting/alias-datatype! :milliseconds :int64)
 (casting/alias-datatype! :microseconds :int64)
 (casting/alias-datatype! :nanoseconds :int64)
