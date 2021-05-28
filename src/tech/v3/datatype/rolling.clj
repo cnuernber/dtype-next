@@ -173,8 +173,12 @@ tech.v3.datatype.rolling> (fixed-rolling-window-ranges 10 3 :right)
 
   :Options
 
-  * `:relative-window-position` - Defaults to `:center` - controls the window's relative positioning
-  in the sequence.
+  * `:relative-window-position` - Defaults to `:center` - controls the window's
+  relative positioning in the sequence.
+  * `:edge-mode` - Defaults to `:clamp` - either `:zero` in which case window values
+  off the edge are zero for numeric types or nil for object types or `:clamp` - in
+  which case window values off the edge of the data are bound to the first or last
+  values respectively.
 
 
   Example (all results are same length):

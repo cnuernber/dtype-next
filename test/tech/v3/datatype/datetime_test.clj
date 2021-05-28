@@ -88,7 +88,7 @@
                                     (repeat 20 (dtype-dt/instant)))
         offset-insts (dtype-dt-ops/plus-temporal-amount
                       insts (dfn/* 20 (range 20)) :seconds)
-        windows (-> (dtype-dt-ops/variable-rolling-window-indexes
+        windows (-> (dtype-dt-ops/variable-rolling-window-ranges
                      offset-insts 50 :seconds)
                     vec)
         tweener (dtype-dt-ops/between-op :packed-instant :seconds)]
