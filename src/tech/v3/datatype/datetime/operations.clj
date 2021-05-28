@@ -400,7 +400,8 @@
       :temporal (let [tf (ensure-temporal-amount tf)]
                   (reify BinaryOperators$ObjectBinaryOperator
                     (binaryObject [this lhs rhs]
-                      (.plus ^Temporal lhs (unchecked-long rhs) tf))))
+                      (when lhs
+                        (.plus ^Temporal lhs (unchecked-long rhs) tf)))))
       :epoch (let [epoch-conv (long (dt-base/epoch->microseconds dtype))
                    tf-conv (long (dt-base/relative->microseconds tf))]
                (reify BinaryOperators$LongBinaryOperator
@@ -447,7 +448,8 @@
       :temporal (let [tf (ensure-temporal-amount tf)]
                   (reify BinaryOperators$ObjectBinaryOperator
                     (binaryObject [this lhs rhs]
-                      (.minus ^Temporal lhs (unchecked-long rhs) tf))))
+                      (when lhs
+                        (.minus ^Temporal lhs (unchecked-long rhs) tf)))))
       :epoch (let [epoch-conv (long (dt-base/epoch->microseconds dtype))
                    tf-conv (long (dt-base/relative->microseconds tf))]
                (reify BinaryOperators$LongBinaryOperator
