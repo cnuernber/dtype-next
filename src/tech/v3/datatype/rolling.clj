@@ -347,3 +347,13 @@ tech.v3.datatype.rolling> (vec (variable-rolling-window-ranges
                                  comp-fn src-data)))))
   (^Iterable [src-data window-length]
    (variable-rolling-window-ranges src-data window-length nil)))
+
+
+(defn expanding-window-ranges
+  "Return a reader of expanding window ranges used for cumsum type operations."
+  [n-elems]
+  (let [n-elems (long n-elems)]
+    (reify ObjectReader
+      (lsize [this] n-elems)
+      (readObject [this idx]
+        (WindowRange. 0 (inc idx))))))
