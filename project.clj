@@ -12,6 +12,7 @@
                  [org.xerial.larray/larray-mmap    "0.4.1"]
                  [org.apache.commons/commons-math3 "3.6.1"]
                  [org.roaringbitmap/RoaringBitmap  "0.9.0"]
+                 [com.github.wendykierp/JTransforms "3.1"]
                  [techascent/tech.resource         "5.04"]
                  [techascent/tech.jna "4.05" :scope "provided"]]
   :java-source-paths ["java"]
