@@ -460,6 +460,16 @@
   (perform-cast @*cast-table* value datatype))
 
 
+(defn cast-fn
+  [datatype cast-table]
+  (let [datatype (un-alias-datatype datatype)]
+    (if-let [cast-fn (get cast-table datatype)]
+      cast-fn
+      (if (identical? (flatten-datatype datatype) :object)
+        identity
+        (throw (ex-info "No cast available" {:datatype datatype}))))))
+
+
 (defn unchecked-cast
   "Perform an unchecked cast of a value to specific datatype."
   [value datatype]

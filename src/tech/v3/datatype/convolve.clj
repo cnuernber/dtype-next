@@ -7,7 +7,7 @@
             [tech.v3.parallel.for :as pfor]
             [primitive-math :as pmath])
   (:import [tech.v3.datatype Convolve1D Convolve1D$Mode ArrayHelpers DoubleReader
-            Convolve1D$EdgeMode Complex DoubleReader]
+            Convolve1D$EdgeMode Complex]
            [java.util.function BiFunction]
            [java.util Arrays]
            [org.apache.commons.math3.distribution NormalDistribution]

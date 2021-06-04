@@ -21,9 +21,14 @@
              {:dependencies [[criterium "0.4.5"]
                              [uncomplicate/neanderthal "0.35.0"]
                              [com.taoensso/nippy "3.1.1"]
-                             [ch.qos.logback/logback-classic "1.1.3"]]
+                             [ch.qos.logback/logback-classic "1.1.3"]
+                             [com.clojure-goes-fast/clj-memory-meter "0.1.0"]
+                             [techascent/tech.viz "6.00-beta-16"]]
               :test-paths ["neanderthal" "test"]}
-             :jdk-16 {:jvm-opts ["--add-modules" "jdk.incubator.foreign" "-Dforeign.restricted=permit" "--add-opens" "java.base/java.lang=ALL-UNNAMED"]}
+             :jdk-16 {:jvm-opts ["--add-modules" "jdk.incubator.foreign"
+                                 "-Dforeign.restricted=permit"
+                                 "--add-opens" "java.base/java.lang=ALL-UNNAMED"
+                                 "-Djdk.attach.allowAttachSelf"]}
              :codox
              {:dependencies [[codox-theme-rdash "0.1.2"]
                              [codox "0.10.7"
