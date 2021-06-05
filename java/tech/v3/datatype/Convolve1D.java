@@ -118,7 +118,6 @@ public final class Convolve1D {
      double[] data,
      double[] window,
      int stepsize,
-     DoubleUnaryOperator in_finalize,
      Mode mode,
      Edging edging) {
 
@@ -132,13 +131,6 @@ public final class Convolve1D {
     case Valid: nResult = (nData - nWin + 1)/stepsize; break;
     default: throw new RuntimeException("Unrecognized mode.");
     }
-
-    if (in_finalize == null) {
-      in_finalize = new DoubleUnaryOperator () {
-	  public double applyAsDouble(double val) { return val; }
-	};
-    }
-    final DoubleUnaryOperator finalize = in_finalize;
 
 
     double[] conv_data = edging.apply(data, nWin, mode);
@@ -159,7 +151,7 @@ public final class Convolve1D {
 	      //			       idx, win_idx, data_idx, conv_len));
 	      sum += conv_data[data_idx] * window[win_idx];
 	    }
-	    retval[idx] = finalize.applyAsDouble(sum);
+	    retval[idx] = sum;
 	  }
 	  return null;
 	}

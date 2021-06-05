@@ -13,20 +13,34 @@ user&gt; (dt-conv/convolve1d [1, 2, 3], [0, 1, 0.5] {:mode :same})
 user&gt; (dt-conv/convolve1d [1, 2, 3], [0, 1, 0.5] {:mode :valid})
 #array-buffer&lt;float64&gt;[1]
 [2.500]
-</code></pre></div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/convolve.clj#L180">view source</a></div></div><div class="public anchor" id="var-correlate1d"><h3>correlate1d</h3><div class="usage"><code>(correlate1d data win {:keys [mode finalizer force-serial edge-mode stepsize algorithm], :or {mode :full, edge-mode :zero, stepsize 1}, :as options})</code><code>(correlate1d data win)</code></div><div class="doc"><div class="markdown"><p>Convolve window over data. Window must be smaller than data.  Returns result in <code>:float64</code> space. Convolutions outside the valid  space of data are supplied zeros to match numpy conventions.</p>
+</code></pre></div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/convolve.clj#L184">view source</a></div></div><div class="public anchor" id="var-correlate1d"><h3>correlate1d</h3><div class="usage"><code>(correlate1d data win {:keys [mode force-serial edge-mode stepsize algorithm], :or {mode :full, edge-mode :zero, stepsize 1}, :as options})</code><code>(correlate1d data win)</code></div><div class="doc"><div class="markdown"><p>Convolve window over data. Window must be smaller than data.  Returns result in <code>:float64</code> space. Convolutions outside the valid  space of data are supplied zeros to match numpy conventions.</p>
 <p>Options:</p>
 <ul>
-  <li><code>:mode</code> - One of :full, :same, or :valid.</li>
-  <li><code>:edge-mode</code> - One of :zero or :clamp. Clamp clamps the edge value to the start or end respectively. Defaults to :zero.</li>
-  <li><code>:finalizer</code> - A java.util.function.DoubleUnaryOperator that performs  one more operation on the data after summation but before assigned to  result.</li>
-  <li><code>:force-serial</code> - For serial execution of the convolution. Unnecessary except  for profiling and comparison purposes.</li>
+  <li><code>:mode</code> - defaults to <code>:full</code> - one of:
+    <ul>
+      <li>:full - Result size is ndata + 2 * (nwin - 1)</li>
+      <li>:same - Result size is ndata</li>
+      <li>:valid - Result size is ndata - nwin + 1</li>
+    </ul>
+  </li>
+  <li><code>:edge-mode</code> - defaults to <code>:zero</code>- one of:
+    <ul>
+      <li><code>:zero</code> - pad zero</li>
+      <li><code>:clamp</code> - Clamp to edge values.</li>
+      <li><code>:nearest</code> - Same as clamp, python compat.</li>
+      <li><code>:reflect</code> - reflect the data - abcddcba|abcd|dcbaabcd</li>
+      <li><code>:wrap</code> - wrap data repeating - abcdabcd|abcd|abcdabcd</li>
+      <li>number - pad with constant number.</li>
+    </ul>
+  </li>
+  <li><code>:force-serial</code> - For serial execution of the naive convolution. Unnecessary except  for profiling and comparison purposes.</li>
   <li><code>:stepsize</code> - Defaults to 1, this steps across the input data in stepsize increments. <code>:fft</code> alorithm cannot be used if stepsize is not 1.</li>
   <li><code>:algorithm</code> - <code>:naive</code>, <code>:auto</code>, or <code>:fft</code>. Defaults to <code>:auto</code> which will choose  either <code>:naive</code> or <code>:fft</code> depending on input data size. ```</li>
 </ul></div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/convolve.clj#L112">view source</a></div></div><div class="public anchor" id="var-gaussian1d"><h3>gaussian1d</h3><div class="usage"><code>(gaussian1d data sigma {:keys [truncate mode edge-mode], :or {truncate 4, mode :same, edge-mode :reflect}, :as options})</code><code>(gaussian1d data window-len)</code></div><div class="doc"><div class="markdown"><p>1-D Gaussian filter.</p>
-<p>data : convertible to reader. sigma : scalar - standard deviation for Gaussian kernel. This relates to</p>
+<p>data : convertible to reader. sigma : scalar - standard deviation for Gaussian kernel. See <code>:truncate</code>  for how this relates to window width.</p>
 <p>Options:</p>
 <ul>
   <li><code>:mode</code> - defaults to <code>:same</code>, see options for correlate1d.</li>
   <li><code>:edge-mode</code> - defaults to <code>:reflect</code>, see options for correlate1d.</li>
   <li><code>:truncate</code> - Defaults to 4. Truncate the filter at this  many standard deviations. Convolution window is equal to  <code>(long (+ (* truncate sigma) 0.5))</code></li>
-</ul></div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/convolve.clj#L228">view source</a></div></div></div></body></html>
+</ul></div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/convolve.clj#L232">view source</a></div></div></div></body></html>

@@ -116,20 +116,25 @@
 
   Options:
 
-  * `:mode` - One of :full, :same, or :valid.
-  * `:edge-mode` - One of :zero or :clamp.  Clamp clamps the edge value to the start
-    or end respectively. Defaults to :zero.
-  * `:finalizer` - A java.util.function.DoubleUnaryOperator that performs
-  one more operation on the data after summation but before assigned to
-  result.
-  * `:force-serial` - For serial execution of the convolution.  Unnecessary except
+  * `:mode` - defaults to `:full` - one of:
+    - :full - Result size is ndata + 2 * (nwin - 1)
+    - :same - Result size is ndata
+    - :valid - Result size is ndata - nwin + 1
+  * `:edge-mode` - defaults to `:zero`- one of:
+    - `:zero` - pad zero
+    - `:clamp` - Clamp to edge values.
+    - `:nearest` - Same as clamp, python compat.
+    - `:reflect` - reflect the data - abcddcba|abcd|dcbaabcd
+    - `:wrap` - wrap data repeating - abcdabcd|abcd|abcdabcd
+    - number - pad with constant number.
+  * `:force-serial` - For serial execution of the naive convolution.  Unnecessary except
   for profiling and comparison purposes.
   * `:stepsize` - Defaults to 1, this steps across the input data in stepsize
     increments.  `:fft` alorithm cannot be used if stepsize is not 1.
   * `:algorithm` - `:naive`, `:auto`, or `:fft`.  Defaults to `:auto` which will choose
      either `:naive` or `:fft` depending on input data size.
 ```"
-  ([data win {:keys [mode finalizer force-serial edge-mode stepsize algorithm]
+  ([data win {:keys [mode force-serial edge-mode stepsize algorithm]
               :or {mode :full
                    edge-mode :zero
                    stepsize 1}
@@ -166,7 +171,6 @@
             data
             win
             (int stepsize)
-            finalizer
             (case mode
               :full Convolve1D$Mode/Full
               :same Convolve1D$Mode/Same
@@ -229,7 +233,8 @@ user> (dt-conv/convolve1d [1, 2, 3], [0, 1, 0.5] {:mode :valid})
   "1-D Gaussian filter.
 
   data : convertible to reader.
-  sigma : scalar - standard deviation for Gaussian kernel.  This relates to
+  sigma : scalar - standard deviation for Gaussian kernel.  See `:truncate`
+    for how this relates to window width.
 
   Options:
 
