@@ -28,7 +28,7 @@
    elem-seq-or-count
    "nil elem-seq-or-count passed into make-container")
   (if (or (number? elem-seq-or-count)
-          (dtype-base/as-reader elem-seq-or-count))
+          (dtype-proto/convertible-to-buffer? elem-seq-or-count))
     (let [n-elems (long (if (number? elem-seq-or-count)
                           elem-seq-or-count
                           (dtype-base/ecount elem-seq-or-count)))
