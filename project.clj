@@ -49,6 +49,7 @@
                                    tech.v3.datatype.datetime
                                    tech.v3.datatype.mmap
                                    tech.v3.datatype.convolve
+                                   tech.v3.datatype.wavelet
                                    tech.v3.datatype.gradient
                                    tech.v3.datatype.mmap-writer
                                    tech.v3.datatype.native-buffer
