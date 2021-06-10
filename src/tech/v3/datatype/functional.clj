@@ -360,11 +360,11 @@
         result (double-array n-elems)
         filter (dtype-reductions/nan-strategy->double-predicate
                 (:nan-strategy options :remove))]
-    (when-not (== 0 n-elems)
+    (when-not (pmath/== 0 n-elems)
       (loop [idx 0
              any-valid? false
              sum (.readDouble data 0)]
-        (when (< idx n-elems)
+        (when (pmath/< idx n-elems)
           (let [next-elem (.readDouble data idx)
                 valid? (boolean (if filter (.test filter next-elem) true))
                 sum (double (if valid?
@@ -375,7 +375,7 @@
             (if valid?
               (ArrayHelpers/aset result idx sum)
               (ArrayHelpers/aset result idx next-elem))
-            (recur (unchecked-inc idx) (or any-valid? valid?) sum)))))
+            (recur (unchecked-inc idx) (clojure.core/or any-valid? valid?) sum)))))
     (array-buffer/array-buffer result)))
 
 
