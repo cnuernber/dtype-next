@@ -657,3 +657,8 @@
 (deftest really-ordered-group-by
   (let [groups (argops/arggroup-by #(mod % 13) (range 200))]
     (is (dfn/eq (range 13) (vec (keys groups))))))
+
+
+(deftest elemwise-cast-vec-of-vec
+  (is (= [[2 3]]
+         (dtype/elemwise-cast [[2 3]] :persistent-vector))))
