@@ -163,6 +163,19 @@ tech.v3.datatype.rolling> (fixed-rolling-window-ranges 10 3 :right)
         (WindowRange. (+ idx padding) window-size)))))
 
 
+(defn- fixed-reader-rolling-window
+  [item window-size relative-window-position edge-mode window-fn options]
+  (let [n-elems (dtype-base/ecount item)]
+    (->> (window-ranges->window-reader
+          item (fixed-rolling-window-ranges n-elems window-size
+                                            relative-window-position)
+          edge-mode)
+         (emap/emap window-fn
+                    (:datatype options
+                               (packing/unpack-datatype
+                                (dtype-base/elemwise-datatype item)))))))
+
+
 (defn fixed-rolling-window
   "Return a lazily evaluated rolling window of window-fn applied to each window.  The
   iterable or sequence is padded such that there are the same number of values in the
@@ -207,19 +220,11 @@ user>
    (vectorized-dispatch-1
     (fn [_] (throw (ex-info "Rolling windows aren't defined on scalars" {})))
     (fn [_res-dtype item]
-      (->> (pad-sequence (quot (long window-size) 2) item)
-           (fixed-window-sequence window-size 1)
-           (map window-fn)))
+      (fixed-reader-rolling-window (vec item) window-size relative-window-position
+                                   edge-mode window-fn options))
     (fn [_result-dtype item]
-      (let [n-elems (dtype-base/ecount item)]
-        (->> (window-ranges->window-reader
-              item (fixed-rolling-window-ranges n-elems window-size
-                                                relative-window-position)
-              edge-mode)
-             (emap/emap window-fn
-                        (:datatype options
-                                   (packing/unpack-datatype
-                                    (dtype-base/elemwise-datatype item)))))))
+      (fixed-reader-rolling-window item window-size relative-window-position
+                                   edge-mode window-fn options))
     nil
     item))
   ([item window-size window-fn]
