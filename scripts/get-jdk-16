@@ -1,6 +1,6 @@
 #!/bin/bash
 
 
-wget https://download.java.net/java/early_access/jdk16/32/GPL/openjdk-16-ea+32_linux-x64_bin.tar.gz
-tar -xvzf openjdk-16-ea+32_linux-x64_bin.tar.gz
-rm openjdk-16-ea+32_linux-x64_bin.tar.gz
+wget https://download.java.net/java/GA/jdk16.0.1/7147401fd7354114ac51ef3e1328291f/9/GPL/openjdk-16.0.1_linux-x64_bin.tar.gz
+tar -xvzf openjdk-16.0.1_linux-x64_bin.tar.gz
+rm openjdk-16.0.1_linux-x64_bin.tar.gz

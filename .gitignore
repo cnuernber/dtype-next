@@ -14,4 +14,5 @@ graalvm*
 tech.v3.datatype.main
 resources
 jdk-16
+jdk-16.0.1
 library_test
