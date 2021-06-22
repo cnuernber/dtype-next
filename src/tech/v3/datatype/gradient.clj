@@ -85,6 +85,32 @@ user> (dt-grad/diff1d (dt-grad/diff1d [1 2 4 7 0]))
                (.readObject reader idx))))))))
 
 
+(defn downsample
+  "Downsample to n-elems using nearest algorithm.  If data is less than n-elems it is returned
+  unchanged."
+  ^Buffer [data n-elems]
+  (let [data (dt-base/->reader (or (dt-base/as-reader data) (vec data)))
+        data-size (.lsize data)
+        new-n (min n-elems data-size)
+        multiple (/ (double (dec data-size)) (double (dec new-n)))]
+    (case (casting/simple-operation-space (.elemwiseDatatype data))
+      :int64 (reify LongReader
+               (elemwiseDatatype [rdr] (.elemwiseDatatype data))
+               (lsize [rdr] new-n)
+               (readLong [rdr idx]
+                 (.readLong data (Math/round (* multiple idx)))))
+      :float64 (reify DoubleReader
+                 (elemwiseDatatype [rdr] (.elemwiseDatatype data))
+                 (lsize [rdr] new-n)
+                 (readDouble [rdr idx]
+                   (.readDouble data (Math/round (* multiple idx)))))
+      (reify ObjectReader
+        (elemwiseDatatype [rdr] (.elemwiseDatatype data))
+        (lsize [rdr] new-n)
+        (readObject [rdr idx]
+          (.readObject data (Math/round (* multiple idx))))))))
+
+
 (comment
   (gradient1d [1 2 4 7 11 16])
   (gradient1d [1 2 4 7 11 16] 2)
