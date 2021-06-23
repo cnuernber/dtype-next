@@ -6,6 +6,7 @@ import clojure.lang.IPersistentVector;
 import clojure.lang.IPersistentCollection;
 import clojure.lang.IPersistentStack;
 import clojure.lang.Indexed;
+import clojure.lang.RT;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -40,5 +41,10 @@ public class ListPersistentVector extends APersistentVector
   }
   public Object nth(int idx) {
     return data.get(idx);
+  }
+  public Object invoke(Object arg) {
+    long var = RT.uncheckedIntCast(arg);
+    var = var < 0 ? size() + var : var;
+    return nth((int)var);
   }
 }
