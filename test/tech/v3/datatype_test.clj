@@ -678,3 +678,11 @@
 (deftest elemwise-cast-vec-of-vec
   (is (= [[2 3]]
          (dtype/elemwise-cast [[2 3]] :persistent-vector))))
+
+
+(deftest indexed-reader-range-sub-buffer
+  (let [ary-data (dtype/make-container :float32 (range 100))
+        idx-rdr (dtype/indexed-buffer (range 5 20) ary-data)]
+    ;;This conversion relies on a specific optimization that uses sub-buffer
+    ;;if the indexes passed to indexed-rdr are a range
+    (is (not (nil? (dtype/as-array-buffer idx-rdr))))))

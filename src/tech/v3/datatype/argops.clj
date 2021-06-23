@@ -32,6 +32,7 @@
             Buffer
             UnaryOperator BinaryOperator
             UnaryPredicate BinaryPredicate]
+           [tech.v3.datatype.unary_pred IndexList]
            [java.util Comparator Arrays List Map Iterator Collections Random]
            [org.roaringbitmap RoaringBitmap]))
 
@@ -485,12 +486,15 @@
       (reduceIndex [this batch-data ctx idx]
         (let [^PrimitiveList ctx (if ctx
                                    ctx
-                                   (dtype-list/make-list storage-datatype))]
+                                   (unary-pred/make-index-list storage-datatype))]
           (.addLong ctx idx)
           ctx))
       (reduceReductions [this lhs-ctx rhs-ctx]
-        (.addAll ^List lhs-ctx rhs-ctx)
-        lhs-ctx))
+        (let [lhs-ctx (if (instance? IndexList lhs-ctx) @lhs-ctx lhs-ctx)
+              rhs-ctx (if (instance? IndexList rhs-ctx) @rhs-ctx rhs-ctx)]
+          (unary-pred/merge-index-list-results storage-datatype lhs-ctx rhs-ctx)))
+      (finalize [this ctx]
+        (if (instance? IndexList ctx) @ctx ctx)))
     (reify IndexReduction
       (reduceIndex [this batch-data ctx idx]
         (let [^RoaringBitmap  ctx (if ctx
@@ -523,7 +527,11 @@
                       unordered?)
          reducer (index-reducer storage-datatype)]
      (if-not unordered?
-       (reductions/ordered-group-by-reduce reducer rdr)
+       (let [retval (reductions/ordered-group-by-reduce reducer rdr)]
+         (.replaceAll retval (reify java.util.function.BiFunction
+                               (apply [this k v]
+                                 (.finalize reducer v))))
+         retval)
        (reductions/unordered-group-by-reduce reducer rdr))))
   (^Map [rdr]
    (arggroup nil rdr)))
