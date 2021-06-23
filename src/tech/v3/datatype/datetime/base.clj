@@ -1,5 +1,6 @@
 (ns tech.v3.datatype.datetime.base
   (:require [tech.v3.datatype.casting :as casting]
+            [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.datetime.constants :refer [nanoseconds-in-millisecond]
              :as constants])
   (:import [java.time LocalDate LocalDateTime
@@ -373,9 +374,60 @@
 (casting/alias-datatype! :epoch-milliseconds :int64)
 (casting/alias-datatype! :epoch-microseconds :int64)
 (casting/alias-datatype! :epoch-seconds :int64)
+(casting/alias-datatype! :epoch-hours :int64)
+;;For compatibility with arrow and parquet datatypes
 (casting/alias-datatype! :epoch-days :int32)
 (casting/alias-datatype! :milliseconds :int64)
 (casting/alias-datatype! :microseconds :int64)
 (casting/alias-datatype! :nanoseconds :int64)
+(casting/alias-datatype! :seconds :int64)
+(casting/alias-datatype! :hours :int64)
+(casting/alias-datatype! :days :int64)
+(casting/alias-datatype! :weeks :int64)
+(casting/alias-datatype! :years :int64)
 
 (def datatypes #{:instant :zoned-date-time :local-date :local-date-time :duration})
+(def epoch-datatypes #{:epoch-milliseconds :epoch-microseconds :epoch-seconds
+                       :epoch-hours :epoch-days})
+(def relative-datatypes #{:milliseconds :microseconds :nanoseconds :seconds
+                          :hours :days :weeks :years})
+
+
+(defn classify-datatype
+  "Classify the datatype into a few classes:
+  :temporal - objects derive from java.time.temoral.Temporal.
+  :epoch - :integer epoch time.
+  :duration - duration.
+  :relative - one of the relatively datatypes.
+  :unknown - not a datetime datatype"
+  [dtype]
+  (let [dtype (packing/unpack-datatype dtype)]
+    (cond
+      (datatypes dtype) (if (= dtype :duration)
+                          :duration
+                          :temporal)
+      (epoch-datatypes dtype) :epoch
+      (relative-datatypes dtype) :relative
+      :else :unknown)))
+
+
+(defn epoch->microseconds
+  [epoch-dt]
+  (case epoch-dt
+    :epoch-microseconds 1
+    :epoch-milliseconds constants/microseconds-in-millisecond
+    :epoch-seconds constants/microseconds-in-second
+    :epoch-hours constants/microseconds-in-hour
+    :epoch-days constants/microseconds-in-day))
+
+
+(defn relative->microseconds
+  [epoch-dt]
+  (case epoch-dt
+    :microseconds 1
+    :milliseconds constants/microseconds-in-millisecond
+    :seconds constants/microseconds-in-second
+    :hours constants/microseconds-in-hour
+    :days constants/microseconds-in-day
+    :weeks constants/microseconds-in-week
+    :years constants/microseconds-in-year))

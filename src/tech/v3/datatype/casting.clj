@@ -116,6 +116,13 @@
 (def primitive-types (set (concat numeric-types [:boolean])))
 
 
+(defn- set->hash-set
+  ^HashSet [data]
+  (let [retval (HashSet. )]
+    (.addAll retval ^Collection data)
+    retval))
+
+
 (def base-host-datatypes (set (concat host-numeric-types
                                       [:object :boolean])))
 
@@ -123,6 +130,9 @@
 (def base-datatypes (set (concat host-numeric-types
                                  unsigned-int-types
                                  [:boolean :char :object])))
+
+(def ^{:tag HashSet} base-host-datatypes-hashset
+  (set->hash-set base-host-datatypes))
 
 
 (defn int-width
@@ -438,10 +448,12 @@
 
 (defn host-flatten
   [dtype]
-  (-> dtype
-      un-alias-datatype
-      datatype->host-datatype
-      flatten-datatype))
+  (if (.contains base-host-datatypes-hashset dtype)
+    dtype
+    (-> dtype
+        un-alias-datatype
+        datatype->host-datatype
+        flatten-datatype)))
 
 
 (defn- perform-cast
@@ -458,6 +470,16 @@
   "Perform a checked cast of a value to specific datatype."
   [value datatype]
   (perform-cast @*cast-table* value datatype))
+
+
+(defn cast-fn
+  [datatype cast-table]
+  (let [datatype (un-alias-datatype datatype)]
+    (if-let [cast-fn (get cast-table datatype)]
+      cast-fn
+      (if (identical? (flatten-datatype datatype) :object)
+        identity
+        (throw (ex-info "No cast available" {:datatype datatype}))))))
 
 
 (defn unchecked-cast

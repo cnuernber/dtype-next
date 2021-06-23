@@ -596,7 +596,7 @@
         (= new-dtype (packing/unpack-datatype src-dtype))
         (packing/unpack item)
         :else
-        (let [cast-fn #(casting/cast % new-dtype)]
+        (let [cast-fn (casting/cast-fn new-dtype @casting/*cast-table*)]
           (dispatch/vectorized-dispatch-1
            cast-fn
            (fn [op-dtype item]

@@ -83,7 +83,10 @@
 
 (extend-type Range
   dtype-proto/PElemwiseDatatype
-  (elemwise-datatype [rng] (dtype-proto/elemwise-datatype (first rng)))
+  (elemwise-datatype [rng] (dtype-proto/elemwise-datatype
+                            (if (> (.count rng) 1)
+                              (second rng)
+                              (first rng))))
   dtype-proto/PECount
   (ecount [rng] (.count rng))
   dtype-proto/PClone
@@ -110,7 +113,7 @@
                                    :float32 :float64}
                                  (dtype-proto/elemwise-datatype rng)))
   (->reader [rng]
-    (let [dtype  (dtype-proto/elemwise-datatype (first rng))]
+    (let [dtype  (dtype-proto/elemwise-datatype rng)]
       (if (casting/integer-type? dtype)
         (let [start (casting/datatype->cast-fn :unknown :int64 (first rng))
               step (casting/datatype->cast-fn :unknown :int64

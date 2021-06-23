@@ -82,7 +82,7 @@
                           group-len (- group-end group-start)
                           callable #(indexed-map-fn group-start group-len)]
                       (.submit common-pool ^Callable callable))))
-            (map #(.get ^Future %))
+            (mapv #(.get ^Future %))
             (reduce-fn)))))
   ([num-iters indexed-map-fn reduce-fn]
    (indexed-map-reduce num-iters indexed-map-fn reduce-fn default-max-batch-size))

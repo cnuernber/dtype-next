@@ -1,4 +1,4 @@
-(defproject cnuernber/dtype-next "7.15-SNAPSHOT"
+(defproject cnuernber/dtype-next "8.015-SNAPSHOT"
   :description "A Clojure library designed to aid in the implementation of high performance algorithms and systems."
   :url "http://github.com/cnuernber/dtype-next"
   :license {:name "EPL-2.0"
@@ -12,6 +12,7 @@
                  [org.xerial.larray/larray-mmap    "0.4.1"]
                  [org.apache.commons/commons-math3 "3.6.1"]
                  [org.roaringbitmap/RoaringBitmap  "0.9.0"]
+                 [com.github.wendykierp/JTransforms "3.1"]
                  [techascent/tech.resource         "5.04"]
                  [techascent/tech.jna "4.05" :scope "provided"]]
   :java-source-paths ["java"]
@@ -20,9 +21,14 @@
              {:dependencies [[criterium "0.4.5"]
                              [uncomplicate/neanderthal "0.35.0"]
                              [com.taoensso/nippy "3.1.1"]
-                             [ch.qos.logback/logback-classic "1.1.3"]]
+                             [ch.qos.logback/logback-classic "1.1.3"]
+                             [com.clojure-goes-fast/clj-memory-meter "0.1.0"]
+                             [techascent/tech.viz "6.00-beta-16-1"]]
               :test-paths ["neanderthal" "test"]}
-             :jdk-16 {:jvm-opts ["--add-modules" "jdk.incubator.foreign,jdk.incubator.vector" "-Dforeign.restricted=permit" "--add-opens" "java.base/java.lang=ALL-UNNAMED"]}
+             :jdk-16 {:jvm-opts ["--add-modules" "jdk.incubator.foreign"
+                                 "-Dforeign.restricted=permit"
+                                 "--add-opens" "java.base/java.lang=ALL-UNNAMED"
+                                 "-Djdk.attach.allowAttachSelf"]}
              :codox
              {:dependencies [[codox-theme-rdash "0.1.2"]
                              [codox "0.10.7"
@@ -42,6 +48,9 @@
                                    tech.v3.datatype.bitmap
                                    tech.v3.datatype.datetime
                                    tech.v3.datatype.mmap
+                                   tech.v3.datatype.convolve
+                                   tech.v3.datatype.wavelet
+                                   tech.v3.datatype.gradient
                                    tech.v3.datatype.mmap-writer
                                    tech.v3.datatype.native-buffer
                                    tech.v3.datatype.sampling

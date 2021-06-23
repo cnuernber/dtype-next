@@ -72,7 +72,9 @@ public interface Buffer extends DatatypeBase, Iterable, IFn,
     return new BufferIter(this);
   }
   default Object invoke(Object arg) {
-    return readObject(RT.uncheckedLongCast(arg));
+    long val = RT.uncheckedLongCast(arg);
+    val = val < 0 ? lsize() + val : val;
+    return readObject(val);
   }
   default Object invoke(Object arg, Object arg2) {
     writeObject(RT.uncheckedLongCast(arg), arg2);

@@ -105,4 +105,5 @@ A general outline is:
                 millisecond-descriptive-statistics
                 datetime->epoch
                 epoch->datetime
-                between)
+                between
+                variable-rolling-window-ranges)

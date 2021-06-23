@@ -5,7 +5,8 @@
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.list :as dtype-list]
             [tech.v3.datatype.dispatch :as dispatch]
-            [tech.v3.parallel.for :as parallel-for])
+            [tech.v3.parallel.for :as parallel-for]
+            [tech.v3.datatype.monotonic-range :as mono-range])
   (:import [tech.v3.datatype UnaryPredicate Buffer
             UnaryPredicates$BooleanUnaryPredicate
             UnaryPredicates$DoubleUnaryPredicate
@@ -13,9 +14,10 @@
             UnaryPredicates$ObjectUnaryPredicate
             BooleanReader LongReader DoubleReader ObjectReader
             PrimitiveList]
+           [tech.v3.datatype.monotonic_range Int64Range]
            [java.util List]
            [java.util.function DoublePredicate Predicate]
-           [clojure.lang IFn]))
+           [clojure.lang IFn IDeref]))
 
 
 (set! *warn-on-reflection* true)
@@ -213,6 +215,54 @@
     :int32
     :int64))
 
+(deftype IndexList [^PrimitiveList list
+                    ^{:unsynchronized-mutable true
+                      :tag long} last-value
+                    ^{:unsynchronized-mutable true
+                      :tag long} increment]
+  PrimitiveList
+  (addLong [this lval]
+    (when-not (== last-value -1)
+      (let [new-incr (- lval last-value)]
+        (if (== increment -1)
+          (set! increment new-incr)
+          (when-not (== new-incr increment)
+            (set! increment Long/MAX_VALUE)))))
+    (set! last-value lval)
+    (.addLong list lval))
+  IDeref
+  (deref [this]
+    (if (== 1 increment)
+      (let [lstart (unchecked-long (list 0))]
+        (mono-range/make-range lstart (+ lstart (.lsize list))))
+      list))
+  dtype-proto/PRange
+  (range-increment [this] increment))
+
+
+(defn make-index-list
+  ^PrimitiveList [dtype]
+  (let [list (dtype-list/make-list dtype)]
+    (IndexList. list -1 -1)))
+
+
+(defn merge-index-list-results
+  [index-space lhs rhs]
+  (cond
+    (== 0 (.size ^List lhs)) rhs
+    (== 0 (.size ^List rhs)) lhs
+    :else
+    (let [^Int64Range lrange (when (instance? Int64Range lhs) lhs)
+          ^Int64Range rrange (when (instance? Int64Range rhs) rhs)]
+      (if (and lrange rrange (== (.start rrange) (+ (.start lrange) (.n-elems lrange))))
+        (Int64Range. (.start lrange) 1 (+ (.n-elems lrange) (.n-elems rrange)) nil)
+        (let [^PrimitiveList llist (if (instance? PrimitiveList lhs)
+                                     lhs
+                                     (doto (dtype-list/make-list index-space)
+                                       (.addAll lrange)))]
+          (.addAll llist rhs)
+          llist)))))
+
 
 (defn bool-reader->indexes
   "Given a reader, produce a filtered list of indexes filtering out 'false' values."
@@ -227,16 +277,14 @@
         (let [start-idx (long start-idx)
               len (long len)
               ^PrimitiveList idx-data (case storage-type
-                                        :int32 (dtype-list/make-list :int32)
+                                        :int32 (make-index-list :int32)
                                         ;; :bitmap `(RoaringBitmap.)
-                                        :int64 (dtype-list/make-list :int64))]
+                                        :int64 (make-index-list :int64))]
           (dotimes [iter len]
             (let [iter-idx (unchecked-add start-idx iter)]
               (when (.readBoolean reader iter-idx)
-                (.addLong idx-data (unchecked-add start-idx iter)))))
-          idx-data))
-      (partial reduce (fn [^List lhs ^List rhs]
-                        (.addAll lhs rhs)
-                        lhs)))))
+                (.addLong idx-data iter-idx))))
+          @idx-data))
+      (partial reduce #(merge-index-list-results storage-type %1 %2)))))
   (^PrimitiveList [bool-item]
    (bool-reader->indexes nil bool-item)))

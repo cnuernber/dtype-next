@@ -1,6 +1,7 @@
 (ns tech.v3.datatype.argtypes
   (:require [tech.v3.datatype.protocols :as dtype-proto])
   (:import [tech.v3.datatype.protocols PToReader]
+           [tech.v3.datatype NDBuffer]
            [java.util RandomAccess Map]))
 
 
@@ -21,9 +22,12 @@
     (or (instance? PToReader arg)
         (instance? RandomAccess arg)
         (dtype-proto/convertible-to-reader? arg))
-    (if (= 1 (count (dtype-proto/shape arg)))
-      :reader
-      :tensor)
+    ;;I thought this was clever but we need to just ask if this
+    ;;is a tensor directly
+    (if (and (instance? NDBuffer arg)
+             (not= 1 (count (dtype-proto/shape arg))))
+      :tensor
+      :reader)
     (instance? Iterable arg)
     :iterable
     :else

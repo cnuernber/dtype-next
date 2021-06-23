@@ -15,7 +15,8 @@
              (vec data-list)))
       (is (= [ld]
              (vec (dtype/->array data-list)))))
-    (let [data-buf (dtype/make-container :jvm-heap :packed-local-date 5)]
+    (let [data-buf (dtype/make-container :jvm-heap :packed-local-date
+                                         (repeat 5 nil))]
       (is (= (vec (repeat 5 nil))
              (vec data-buf)))
       (dtype/set-value! data-buf 1 ld)
@@ -67,3 +68,33 @@
                         (into {}))]))
          (into {}))]
     (is (= 4 (count epoch-data)))))
+
+
+(deftest plus-minus-temporal-amount
+  (let [ld-vec (dtype/make-container :local-date
+                                     (repeat 4 (dtype-dt/local-date)))
+        later-vec (dtype-dt-ops/plus-temporal-amount ld-vec 3 :days)
+        days-vec (dtype-dt-ops/between ld-vec later-vec :days)]
+    (is (= [3 3 3 3] (vec days-vec)))
+    (is (= :days (dtype/elemwise-datatype days-vec)))
+    (let [ld-epoch (dtype-dt-ops/datetime->epoch ld-vec)
+          later-epoch (dtype-dt-ops/plus-temporal-amount ld-epoch 3 :days)
+          between-epoch (dtype-dt-ops/between ld-epoch later-epoch :days)]
+      (is (= [3 3 3 3] (vec between-epoch)))
+      (is (= (vec later-vec)
+             (vec (dtype-dt-ops/epoch->datetime
+                   :packed-local-date later-epoch))))))
+  (let [insts (dtype/make-container :packed-instant
+                                    (repeat 20 (dtype-dt/instant)))
+        offset-insts (dtype-dt-ops/plus-temporal-amount
+                      insts (dfn/* 20 (range 20)) :seconds)
+        windows (-> (dtype-dt-ops/variable-rolling-window-ranges
+                     offset-insts 50 :seconds)
+                    vec)
+        tweener (dtype-dt-ops/between-op :packed-instant :seconds)]
+    (is (= 20 (count windows)))
+    (is (every? (fn [window]
+                  (< (long (tweener (offset-insts (first window))
+                                    (offset-insts (last window))))
+                     50))
+                windows))))

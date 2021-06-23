@@ -16,6 +16,7 @@
             [tech.v3.datatype.binary-op :as binary-op]
             [tech.v3.datatype.unary-pred :as unary-pred]
             [tech.v3.datatype.binary-pred :as binary-pred]
+            [tech.v3.datatype.array-buffer :as array-buffer]
             [tech.v3.datatype.argops :as argops]
             [tech.v3.datatype.reductions :as dtype-reductions]
             [tech.v3.datatype.export-symbols :refer [export-symbols]]
@@ -31,7 +32,7 @@
             LongReader DoubleReader ObjectReader
             UnaryOperator BinaryOperator
             UnaryPredicate BinaryPredicate
-            PrimitiveList]
+            PrimitiveList ArrayHelpers]
            [org.roaringbitmap RoaringBitmap]
            [java.util List])
   (:refer-clojure :exclude [+ - / *
@@ -348,3 +349,79 @@
         ^List result (:result retval)]
     (.add result (.readDouble num-reader (unchecked-dec (.lsize num-reader))))
     (assoc retval :result result)))
+
+
+(defn ^:no-doc cumop
+  [options ^BinaryOperator op data]
+  (let [^Buffer data (if (dtype-base/reader? data)
+                       (dtype-base/as-reader data :float64)
+                       (dtype-base/as-reader (vec data) :float64))
+        n-elems (.lsize data)
+        result (double-array n-elems)
+        filter (dtype-reductions/nan-strategy->double-predicate
+                (:nan-strategy options :remove))]
+    (when-not (pmath/== 0 n-elems)
+      (loop [idx 0
+             any-valid? false
+             sum (.readDouble data 0)]
+        (when (pmath/< idx n-elems)
+          (let [next-elem (.readDouble data idx)
+                valid? (boolean (if filter (.test filter next-elem) true))
+                sum (double (if valid?
+                              (if any-valid?
+                                (.binaryDouble op sum next-elem)
+                                next-elem)
+                              sum))]
+            (if valid?
+              (ArrayHelpers/aset result idx sum)
+              (ArrayHelpers/aset result idx next-elem))
+            (recur (unchecked-inc idx) (clojure.core/or any-valid? valid?) sum)))))
+    (array-buffer/array-buffer result)))
+
+
+(defn cumsum
+  "Cumulative running summation; returns result in double space.
+
+  Options:
+
+  * `:nan-strategy` - one of `:keep`, `:remove`, `:exception`.  Defaults to `:remove`."
+  ([options data]
+   (cumop options (binary-op/builtin-ops :tech.numerics/+) data))
+  ([data]
+   (cumsum nil data)))
+
+
+(defn cummin
+  "Cumulative running min; returns result in double space.
+
+  Options:
+
+  * `:nan-strategy` - one of `:keep`, `:remove`, `:exception`.  Defaults to `:remove`."
+  ([options data]
+   (cumop options (binary-op/builtin-ops :tech.numerics/min) data))
+  ([data]
+   (cummin nil data)))
+
+
+(defn cummax
+  "Cumulative running max; returns result in double space.
+
+  Options:
+
+  * `:nan-strategy` - one of `:keep`, `:remove`, `:exception`.  Defaults to `:remove`."
+  ([options data]
+   (cumop options (binary-op/builtin-ops :tech.numerics/max) data))
+  ([data]
+   (cummax nil data)))
+
+
+(defn cumprod
+  "Cumulative running product; returns result in double space.
+
+  Options:
+
+  * `:nan-strategy` - one of `:keep`, `:remove`, `:exception`.  Defaults to `:remove`."
+  ([options data]
+   (cumop options (binary-op/builtin-ops :tech.numerics/*) data))
+  ([data]
+   (cumprod nil data)))
