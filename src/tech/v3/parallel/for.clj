@@ -6,7 +6,8 @@
             ArrayList List]
            [java.util.stream Stream]
            [java.util.function Consumer IntConsumer LongConsumer DoubleConsumer]
-           [clojure.lang IFn]))
+           [clojure.lang IFn]
+           [java.util.concurrent ForkJoinPool]))
 
 
 (set! *unchecked-math* :warn-on-boxed)
@@ -25,13 +26,15 @@
 
 
 (defn cpu-pool-map-reduce
-  "Execute map-fn in the separate threads of ForkJoinPool's common pool"
-  [map-fn reduce-fn]
+  "Execute map-fn in the separate threads of ForkJoinPool's common pool.
+  Map-fn takes a single long which is it's task index."
+  [map-fn reduce-fn fork-join-pool]
   (if (ForkJoinTask/inForkJoinPool)
     (reduce-fn (map-fn 0))
-    (let [parallelism (ForkJoinPool/getCommonPoolParallelism)
-          pool (ForkJoinPool/commonPool)]
-      (->> (repeatedly parallelism #(.submit pool ^Callable map-fn))
+    (let [^ForkJoinPool pool (or fork-join-pool (ForkJoinPool/commonPool))
+          parallelism (.getParallelism pool)]
+      (->> (range parallelism)
+           (map (fn [idx] (.submit pool ^Callable #(map-fn idx))))
            ;;force all submissions to start
            (doall)
            (map deref)
@@ -59,31 +62,36 @@
 
   If the current thread is already in the common pool, this function executes in the
   current thread."
-  ([^long num-iters indexed-map-fn reduce-fn max-batch-size]
-   (if (or (< num-iters (* 2 (ForkJoinPool/getCommonPoolParallelism)))
-           (ForkJoinTask/inForkJoinPool))
-     (reduce-fn [(indexed-map-fn 0 num-iters)])
-     (let [num-iters (long num-iters)
-           max-batch-size (long max-batch-size)
-           parallelism (ForkJoinPool/getCommonPoolParallelism)
-           group-size (quot num-iters parallelism)
-           ;;max batch size is setup so that we can play nice with garbage collection
-           ;;safepoint mechanisms
-           group-size (min group-size max-batch-size)
-           n-groups (quot (+ num-iters (dec group-size))
-                          group-size)
-           ;;Get pairs of (start-idx, len) to launch callables
-           common-pool (ForkJoinPool/commonPool)]
-       (->> (range n-groups)
-            ;;Force start of execution with mapv
-            (mapv (fn [^long callable-idx]
-                    (let [group-start (* callable-idx group-size)
-                          group-end (min (+ group-start group-size) num-iters)
-                          group-len (- group-end group-start)
-                          callable #(indexed-map-fn group-start group-len)]
-                      (.submit common-pool ^Callable callable))))
-            (mapv #(.get ^Future %))
-            (reduce-fn)))))
+  ([^long num-iters indexed-map-fn reduce-fn options]
+   (let [max-batch-size (if (number? options)
+                          options
+                          (get options :max-batch-size default-max-batch-size))
+         ^ForkJoinPool pool (get options :fork-join-pool (ForkJoinPool/commonPool))
+         parallelism (.getParallelism pool)]
+     (if (or (< num-iters (* 2 parallelism))
+             (ForkJoinTask/inForkJoinPool))
+       (reduce-fn [(indexed-map-fn 0 num-iters)])
+       (let [num-iters (long num-iters)
+             max-batch-size (long max-batch-size)
+             parallelism parallelism
+             group-size (quot num-iters parallelism)
+             ;;max batch size is setup so that we can play nice with garbage collection
+             ;;safepoint mechanisms
+             group-size (min group-size max-batch-size)
+             n-groups (quot (+ num-iters (dec group-size))
+                            group-size)
+             ;;Get pairs of (start-idx, len) to launch callables
+             common-pool pool]
+         (->> (range n-groups)
+              ;;Force start of execution with mapv
+              (mapv (fn [^long callable-idx]
+                      (let [group-start (* callable-idx group-size)
+                            group-end (min (+ group-start group-size) num-iters)
+                            group-len (- group-end group-start)
+                            callable #(indexed-map-fn group-start group-len)]
+                        (.submit common-pool ^Callable callable))))
+              (mapv #(.get ^Future %))
+              (reduce-fn))))))
   ([num-iters indexed-map-fn reduce-fn]
    (indexed-map-reduce num-iters indexed-map-fn reduce-fn default-max-batch-size))
   ([num-iters indexed-map-fn]

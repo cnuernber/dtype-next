@@ -1,4 +1,5 @@
 (ns tech.v3.datatype.statistics
+  "Nan-aware, high quality and reasonably efficient summation and descriptive statistics."
   (:require [tech.v3.datatype.binary-op :as binary-op]
             [tech.v3.datatype.reductions :as dtype-reductions]
             [tech.v3.datatype.base :as dtype-base]

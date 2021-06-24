@@ -16,7 +16,7 @@
                  [techascent/tech.resource         "5.04"]
                  [techascent/tech.jna "4.05" :scope "provided"]]
   :java-source-paths ["java"]
-  :source-paths ["src"]
+  :source-paths ["src" "classes"]
   :profiles {:dev
              {:dependencies [[criterium "0.4.5"]
                              [uncomplicate/neanderthal "0.35.0"]
@@ -25,10 +25,9 @@
                              [com.clojure-goes-fast/clj-memory-meter "0.1.0"]
                              [techascent/tech.viz "6.00-beta-16-1"]]
               :test-paths ["neanderthal" "test"]}
-             :jdk-16 {:jvm-opts ["--add-modules" "jdk.incubator.foreign"
+             :jdk-16 {:jvm-opts ["--add-modules" "jdk.incubator.foreign,jdk.incubator.vector"
                                  "-Dforeign.restricted=permit"
-                                 "--add-opens" "java.base/java.lang=ALL-UNNAMED"
-                                 "-Djdk.attach.allowAttachSelf"]}
+                                 "--add-opens" "java.base/java.lang=ALL-UNNAMED"]}
              :codox
              {:dependencies [[codox-theme-rdash "0.1.2"]
                              [codox "0.10.7"

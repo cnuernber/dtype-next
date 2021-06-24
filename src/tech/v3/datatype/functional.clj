@@ -23,10 +23,14 @@
             [tech.v3.datatype.dispatch :refer [vectorized-dispatch-1
                                                vectorized-dispatch-2]
              :as dispatch]
+            ;;optimized operations
+            [tech.v3.datatype.functional.opt :as fn-opt]
             [tech.v3.datatype.rolling]
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.list :as dtype-list]
+            [tech.v3.datatype.graal-native :as graal-native]
             [primitive-math :as pmath]
+            [clojure.tools.logging :as log]
             [clojure.set :as set])
   (:import [tech.v3.datatype BinaryOperator Buffer
             LongReader DoubleReader ObjectReader
@@ -162,9 +166,6 @@
    (:tech.numerics/+ binary-op/builtin-ops) rdr))
 
 
-(defn sum [rdr] (reduce-+ rdr))
-
-
 (defn reduce-*
   [rdr]
   (dtype-reductions/commutative-binary-reduce
@@ -183,34 +184,71 @@
    (:tech.numerics/min binary-op/builtin-ops) rdr))
 
 
+(defonce ^:private optimized-opts* (atom {:sum fn-opt/sum
+                                          :dot-product fn-opt/dot-product
+                                          :magnitude-squared fn-opt/magnitude-squared
+                                          :distance-squared fn-opt/distance-squared}))
+
+
+
+(defn ^:no-doc register-optimized-operations!
+  "Register one more more optimized operations.  Only specific operations are optimized
+  via vectorization - sum dot-product magnitude-squared and distance-squared"
+  [opt-map]
+  (swap! optimized-opts* merge opt-map)
+  (keys opt-map))
+
+
+(graal-native/when-not-defined-graal-native
+ (try
+   (register-optimized-operations!
+    ((requiring-resolve 'tech.v3.datatype.functional.vecopt/optimized-operations)))
+   (catch Throwable e
+     (log/debug "JDK16 vector ops are not available: %s" (.getMessage e)))))
+
+
+(defn sum
+  "Find the sum of the data.  This operation is neither nan-aware nor does it implement
+  kahans compensation although via parallelization it implements pairwise summation
+  compensation.  For nan-aware and extremely correct summations please see the
+  [[tech.v3.datatype.statistics]] namespace."
+  ^double [data]
+  (double ((:sum @optimized-opts*) data)))
+
+
+(defn mean
+  "Take the mean of the data.  This operation doesn't know anything about nan - for nan-aware
+  operations use the statistics namespace."
+  ^double [data]
+  (/ (sum data) (dtype-base/ecount data)))
+
+
 (defn magnitude-squared
-  [item]
-  (-> (sq item)
-      (reduce-+)))
+  ^double [data]
+  (double ((:magnitude-squared @optimized-opts*) data)))
+
+
+(defn dot-product
+  ^double [lhs rhs]
+  (double ((:dot-product @optimized-opts*) lhs rhs)))
+
+
+(defn distance-squared
+  ^double [lhs rhs]
+  (double ((:distance-squared @optimized-opts*) lhs rhs)))
 
 
 (defn magnitude
   (^double [item options]
-   (->> (sq item {:operation-space :float64})
-        ;;nan-aware and parallelized
-        (dtype-reductions/double-summation options)
-        (Math/sqrt)))
+   (-> (magnitude-squared item)
+       (Math/sqrt)))
   (^double [item]
    (magnitude item nil)))
 
 
-(defn dot-product
-  [lhs rhs]
-  (-> (* lhs rhs)
-      (reduce-+)))
-
-(defn distance-squared
-  [lhs rhs]
-  (magnitude-squared (- lhs rhs)))
-
 (defn distance
   ^double [lhs rhs]
-  (magnitude (- lhs rhs)))
+  (Math/sqrt (distance-squared lhs rhs)))
 
 
 (defn equals
@@ -278,7 +316,6 @@
                 median
                 skew
                 mean
-                sum
                 kurtosis
                 quartile-1
                 quartile-3
