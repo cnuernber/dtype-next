@@ -123,7 +123,7 @@
      (throw (Exception. (format "Arg (%s) is not an instance of IFn"
                                 ifn))))
    (reify
-     UnaryPredicates$LongUnaryPredicate
+     UnaryPredicates$ObjectUnaryPredicate
      (unaryObject [this arg]
        (boolean (ifn arg)))
      dtype-proto/POperator
@@ -195,7 +195,7 @@
      dtype-proto/POperator
      (op-name [this] :neg?))
    :tech.numerics/even? (ifn->long-unary-predicate even? :even?)
-   :tech.numerics/odd? (ifn->long-unary-predicate even? :odd?)
+   :tech.numerics/odd? (ifn->long-unary-predicate odd? :odd?)
    :tech.numerics/zero?
    (reify
      UnaryPredicates$ObjectUnaryPredicate

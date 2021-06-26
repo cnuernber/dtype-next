@@ -204,7 +204,7 @@
    (register-optimized-operations!
     ((requiring-resolve 'tech.v3.datatype.functional.vecopt/optimized-operations)))
    (catch Throwable e
-     (log/debug "JDK16 vector ops are not available: %s" (.getMessage e)))))
+     (log/debugf "JDK16 vector ops are not available: %s" (.getMessage e)))))
 
 
 (defn sum

@@ -686,3 +686,10 @@
     ;;This conversion relies on a specific optimization that uses sub-buffer
     ;;if the indexes passed to indexed-rdr are a range
     (is (not (nil? (dtype/as-array-buffer idx-rdr))))))
+
+
+(deftest custom-reader-booleans-26
+  (is (= [false true false true false]
+         (-> (dtype/make-reader :int32 5 idx)
+             (dfn/odd?)
+             vec))))
