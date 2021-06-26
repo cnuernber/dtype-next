@@ -4,7 +4,11 @@
   (:require [tech.v3.datatype.convolve :as dt-conv]
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.base :as dt-base]
-            [tech.v3.tensor :as dtt]))
+            [tech.v3.tensor :as dtt]
+            [primitive-math :as pmath])
+  (:import [tech.v3.datatype DoubleReader]))
+
+(set! *warn-on-reflection* true)
 
 
 (defn ricker
@@ -13,11 +17,15 @@
          a (double a)
          A (/ 2.0  (* (Math/sqrt (* 3 a)) (Math/pow Math/PI 0.25)))
          wsq (* a a)
-         vec (dfn/- (range 0 points) (/ (- points 1.0) 2))
-         xsq (dfn/sq vec)
-         mod (dfn/- 1  (dfn// xsq wsq))
-         gauss (dfn/exp (dfn// (dfn/- 0 xsq) (dfn/* 2 wsq)))]
-     (dfn/* (dfn/* A mod) gauss)))
+         offset (/ (- points 1.0) 2.0)]
+     (reify DoubleReader
+       (lsize [rdr] points)
+       (readDouble [rdr idx]
+         (let [vec (pmath/- (double idx) offset)
+               xsq (* vec vec)
+               mod (pmath/- 1.0 (pmath// xsq wsq))
+               gauss (Math/exp (pmath// (pmath/- 0.0 xsq) (pmath/* 2.0 wsq)))]
+           (pmath/* (pmath/* A mod) gauss))))))
   ([points a]
    (ricker points a nil)))
 
@@ -31,7 +39,8 @@
               (let [width (double width)
                     N (long (Math/min (* 10 width) (double dlen)))
                     window (wavelet-fn N width options)]
-                (dt-conv/convolve1d data window (merge {:mode :same}options))))
+                ;;correlate doesn' involve reversing the window
+                (dt-conv/correlate1d data window (merge {:mode :same} options))))
             widths)
       (dtt/->tensor :datatype :float64))))
   ([data wavelet-fn widths]
