@@ -3,7 +3,8 @@
   Contains simplified versions of numpy.gradient and numpy.diff."
   (:require [tech.v3.datatype.base :as dt-base]
             [tech.v3.datatype.casting :as casting]
-            [primitive-math :as pmath])
+            [primitive-math :as pmath]
+            [tech.v3.datatype.protocols :as dtype-proto])
   (:import [tech.v3.datatype Buffer DoubleReader LongReader ObjectReader]))
 
 
@@ -127,7 +128,7 @@ user> (dt-grad/diff1d (dt-grad/diff1d [1 2 4 7 0]))
             (let [start-idx (Math/round (* idx window-size))
                   end-idx (min data-size (+ start-idx (Math/round window-size)))]
               (window-fn (dt-base/sub-buffer data start-idx (- end-idx start-idx)))))))
-      (dtype/clone)))))
+      (dtype-proto/clone)))))
 
 
 (comment
