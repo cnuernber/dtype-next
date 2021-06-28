@@ -4,7 +4,8 @@
             [tech.v3.datatype.functional :as dfn]
             [clojure.test :refer [deftest is]]
             [clojure.data :as cdata]
-            [clojure.pprint :as pp]))
+            [clojure.pprint :as pp]
+            [clojure.edn :as edn]))
 
 
 (deftest descriptive-statistics
@@ -33,3 +34,9 @@
     (let [test-fn (stats/quartile-outlier-fn test-data)]
       (is (= [true false false true]
              (mapv test-fn [-100 15 50 100]))))))
+
+(deftest nan-min-max
+  (let [test-data (double-array (edn/read-string (slurp "test/data/double-data.edn")))
+        {dmin :min dmax :max} (stats/descriptive-statistics [:min :max] test-data)]
+    (is (not (Double/isNaN dmin)))
+    (is (not (Double/isNaN dmax)))))

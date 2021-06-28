@@ -301,6 +301,7 @@
                           :max (rdr (unchecked-dec n-elems))
                           :median (rdr (quot n-elems 2))}))
                      stats-data)
+
          calculate-stats-set (set/difference stats-set (set (keys stats-data)))
          dependency-set (reduce set/union (map node-dependencies calculate-stats-set))
          calculated-dependency-set (reduce set/union

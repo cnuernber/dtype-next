@@ -188,9 +188,14 @@ public class DoubleConsumers
 
     public Consumers.StagedConsumer combine(Consumers.StagedConsumer _other) {
       MinMaxSum other = (MinMaxSum)_other;
-      return new MinMaxSum((Sum)sum.combine(other.sum),
-			   Math.min(getMin(), other.getMin()),
-			   Math.max(getMax(), other.getMax()));
+      if (sum.nElems == 0)
+	return _other;
+      else if (other.sum.nElems == 0)
+	return this;
+      else
+	return new MinMaxSum((Sum)sum.combine(other.sum),
+			     Math.min(getMin(), other.getMin()),
+			     Math.max(getMax(), other.getMax()));
     }
 
     public Object value() {

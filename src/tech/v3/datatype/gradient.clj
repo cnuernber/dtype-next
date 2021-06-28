@@ -88,27 +88,46 @@ user> (dt-grad/diff1d (dt-grad/diff1d [1 2 4 7 0]))
 (defn downsample
   "Downsample to n-elems using nearest algorithm.  If data is less than n-elems it is returned
   unchanged."
-  ^Buffer [data n-elems]
-  (let [data (dt-base/->reader (or (dt-base/as-reader data) (vec data)))
-        data-size (.lsize data)
-        new-n (min n-elems data-size)
-        multiple (/ (double (dec data-size)) (double (dec new-n)))]
-    (case (casting/simple-operation-space (.elemwiseDatatype data))
-      :int64 (reify LongReader
-               (elemwiseDatatype [rdr] (.elemwiseDatatype data))
-               (lsize [rdr] new-n)
-               (readLong [rdr idx]
-                 (.readLong data (Math/round (* multiple idx)))))
-      :float64 (reify DoubleReader
-                 (elemwiseDatatype [rdr] (.elemwiseDatatype data))
-                 (lsize [rdr] new-n)
-                 (readDouble [rdr idx]
-                   (.readDouble data (Math/round (* multiple idx)))))
-      (reify ObjectReader
-        (elemwiseDatatype [rdr] (.elemwiseDatatype data))
-        (lsize [rdr] new-n)
-        (readObject [rdr idx]
-          (.readObject data (Math/round (* multiple idx))))))))
+  (^Buffer [data n-elems]
+   (let [data (dt-base/->reader (or (dt-base/as-reader data) (vec data)))
+         data-size (.lsize data)
+         new-n (min n-elems data-size)
+         multiple (/ (double (dec data-size)) (double (dec new-n)))]
+     (case (casting/simple-operation-space (.elemwiseDatatype data))
+       :int64 (reify LongReader
+                (elemwiseDatatype [rdr] (.elemwiseDatatype data))
+                (lsize [rdr] new-n)
+                (readLong [rdr idx]
+                  (.readLong data (Math/round (* multiple idx)))))
+       :float64 (reify DoubleReader
+                  (elemwiseDatatype [rdr] (.elemwiseDatatype data))
+                  (lsize [rdr] new-n)
+                  (readDouble [rdr idx]
+                    (.readDouble data (Math/round (* multiple idx)))))
+       (reify ObjectReader
+         (elemwiseDatatype [rdr] (.elemwiseDatatype data))
+         (lsize [rdr] new-n)
+         (readObject [rdr idx]
+           (.readObject data (Math/round (* multiple idx))))))))
+  (^Buffer [data n-elems window-fn]
+   (let [data-size (dt-base/ecount data)
+         new-n (min n-elems data-size)
+         window-size (/ (double data-size) (double n-elems))]
+     (->
+      (if (casting/numeric-type? (dt-base/elemwise-datatype data))
+        (reify DoubleReader
+          (lsize [rdr] new-n)
+          (readDouble [rdr idx]
+            (let [start-idx (Math/round (* idx window-size))
+                  end-idx (min data-size (+ start-idx (Math/round window-size)))]
+              (double (window-fn (dt-base/sub-buffer data start-idx (- end-idx start-idx)))))))
+        (reify ObjectReader
+          (lsize [rdr] new-n)
+          (readObject [rdr idx]
+            (let [start-idx (Math/round (* idx window-size))
+                  end-idx (min data-size (+ start-idx (Math/round window-size)))]
+              (window-fn (dt-base/sub-buffer data start-idx (- end-idx start-idx)))))))
+      (dtype/clone)))))
 
 
 (comment
