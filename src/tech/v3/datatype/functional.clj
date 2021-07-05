@@ -38,7 +38,8 @@
             UnaryPredicate BinaryPredicate
             PrimitiveList ArrayHelpers]
            [org.roaringbitmap RoaringBitmap]
-           [java.util List])
+           [java.util List]
+           [org.apache.commons.math3.stat.regression SimpleRegression])
   (:refer-clojure :exclude [+ - / *
                             <= < >= >
                             identity
@@ -462,3 +463,42 @@
    (cumop options (binary-op/builtin-ops :tech.numerics/*) data))
   ([data]
    (cumprod nil data)))
+
+
+(defn linear-regressor
+  "Create a simple linear regressor.  Returns a function that given a (double) 'x'
+  predicts a (double) 'y'.  The function has metadata that contains the regressor and
+  some regressor info, notably slope and intercept.
+
+  Example:
+
+```clojure
+tech.v3.datatype.functional> (def regressor (linear-regressor [1 2 3] [4 5 6]))
+#'tech.v3.datatype.functional/regressor
+tech.v3.datatype.functional> (regressor 1)
+4.0
+tech.v3.datatype.functional> (regressor 2)
+5.0
+tech.v3.datatype.functional> (meta regressor)
+{:regressor
+  #object[org.apache.commons.math3.stat.regression.SimpleRegression 0x52091e82 \"org.apache.commons.math3.stat.regression.SimpleRegression@52091e82\"],
+ :intercept 3.0,
+ :slope 1.0,
+ :mean-squared-error 0.0}
+```"
+  [x y]
+  (let [reg (SimpleRegression.)
+        x (dtype-base/->reader x :float64)
+        y (dtype-base/->reader y :float64)]
+    (errors/when-not-errorf
+     (== (.lsize x) (.lsize y))
+     "x length (%d) doesn't match y length (%d)"
+     (.lsize x) (.lsize y))
+    (dotimes [idx (.size x)]
+      (.addData reg (.readDouble x idx) (.readDouble y idx)))
+    (with-meta
+      #(.predict reg (double %))
+      {:regressor reg
+       :intercept (.getIntercept reg)
+       :slope (.getSlope reg)
+       :mean-squared-error (.getMeanSquareError reg)})))

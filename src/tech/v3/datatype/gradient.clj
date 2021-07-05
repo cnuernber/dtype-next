@@ -112,18 +112,18 @@ user> (dt-grad/diff1d (dt-grad/diff1d [1 2 4 7 0]))
            (.readObject data (Math/round (* multiple idx))))))))
   (^Buffer [data n-elems window-fn]
    (let [data-size (dt-base/ecount data)
-         new-n (min n-elems data-size)
+         n-elems (min n-elems data-size)
          window-size (/ (double data-size) (double n-elems))]
      (->
       (if (casting/numeric-type? (dt-base/elemwise-datatype data))
         (reify DoubleReader
-          (lsize [rdr] new-n)
+          (lsize [rdr] n-elems)
           (readDouble [rdr idx]
             (let [start-idx (Math/round (* idx window-size))
                   end-idx (min data-size (+ start-idx (Math/round window-size)))]
               (double (window-fn (dt-base/sub-buffer data start-idx (- end-idx start-idx)))))))
         (reify ObjectReader
-          (lsize [rdr] new-n)
+          (lsize [rdr] n-elems)
           (readObject [rdr idx]
             (let [start-idx (Math/round (* idx window-size))
                   end-idx (min data-size (+ start-idx (Math/round window-size)))]

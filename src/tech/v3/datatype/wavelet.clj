@@ -52,6 +52,6 @@
            '[tech.viz.pyplot :as pyplot])
 
   (-> (pyplot/figure {:figsize [6 4.5]})
-      (pyplot/plot (range 100) (ricker 100 4))
+      (pyplot/plot (range (* 5 240)) (ricker (* 5 240) (/ (* 5 240) 5)))
       (pyplot/show))
   )
