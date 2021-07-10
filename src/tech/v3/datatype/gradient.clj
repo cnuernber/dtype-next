@@ -49,7 +49,12 @@ user> (dt-grad/gradient1d [1 2 4 7 11 16] 2)
 
 (defn diff1d
   "Returns a lazy reader of each successive element minus the previous element of length
-  input-len - 1.
+  input-len - 1 unless the `:prepend` option is used.
+
+  Options:
+
+  * `:prepend` - prepend a value to the returned sequence making it the same length
+  as the passed in sequence.
 
   Examples:
 
@@ -58,32 +63,72 @@ user> (dt-grad/diff1d [1 2 4 7 0])
 [1 2 3 -7]
 user> (dt-grad/diff1d (dt-grad/diff1d [1 2 4 7 0]))
 [1 1 -10]
+user> (dt-grad/diff1d [1 2 4] {:prepend 2})
+[2 1 2]
+user> (dt-grad/diff1d [1 2 4])
+[1 2]
 ```"
-  [data]
+  [data & [options]]
   (let [reader (dt-base/->buffer data)
         n-data (.lsize reader)
         n-data-dec (dec n-data)
-        n-result (max 0 n-data-dec)]
-    (case (casting/simple-operation-space (.elemwiseDatatype reader))
-      :int64 (reify LongReader
-               (lsize [this] n-result)
-               (readLong [this idx]
-                 (let [next-idx (min n-data-dec (unchecked-inc idx))]
-                   (pmath/- (.readLong reader next-idx)
-                            (.readLong reader idx)))))
-      :float64 (reify DoubleReader
+        op-space (casting/simple-operation-space (.elemwiseDatatype reader))
+        prepend (when-let [data (:prepend options)]
+                  (casting/cast data op-space))
+        n-result (long
+                  (if prepend
+                    n-data
+                    (max 0 n-data-dec)))]
+    (if prepend
+      (case op-space
+        :int64 (reify LongReader
                  (lsize [this] n-result)
-                 (readDouble [this idx]
+                 (readLong [this idx]
+                   (if (== 0 idx)
+                     (unchecked-long prepend)
+                     (let [idx (unchecked-dec idx)
+                           next-idx (min n-data-dec (unchecked-inc idx))]
+                       (pmath/- (.readLong reader next-idx)
+                                (.readLong reader idx))))))
+        :float64 (reify DoubleReader
+                   (lsize [this] n-result)
+                   (readDouble [this idx]
+                     (if (== 0 idx)
+                       (unchecked-double prepend)
+                       (let [idx (unchecked-dec idx)
+                             next-idx (min n-data-dec (unchecked-inc idx))]
+                         (pmath/- (.readDouble reader next-idx)
+                                  (.readDouble reader idx))))))
+        (reify ObjectReader
+          (lsize [this] n-result)
+          (readObject [this idx]
+            (if (== 0 idx)
+              prepend
+              (let [idx (unchecked-dec idx)
+                    next-idx (min n-data-dec (unchecked-inc idx))]
+                ;;Specifically using clojure's number tower here.
+                (- (.readObject reader next-idx)
+                   (.readObject reader idx)))))))
+      (case op-space
+        :int64 (reify LongReader
+                 (lsize [this] n-result)
+                 (readLong [this idx]
                    (let [next-idx (min n-data-dec (unchecked-inc idx))]
-                     (pmath/- (.readDouble reader next-idx)
-                              (.readDouble reader idx)))))
-      (reify ObjectReader
-        (lsize [this] n-result)
-        (readObject [this idx]
-          (let [next-idx (min n-data-dec (unchecked-inc idx))]
-            ;;Specifically using clojure's number tower here.
-            (- (.readObject reader next-idx)
-               (.readObject reader idx))))))))
+                     (pmath/- (.readLong reader next-idx)
+                              (.readLong reader idx)))))
+        :float64 (reify DoubleReader
+                   (lsize [this] n-result)
+                   (readDouble [this idx]
+                     (let [next-idx (min n-data-dec (unchecked-inc idx))]
+                       (pmath/- (.readDouble reader next-idx)
+                                (.readDouble reader idx)))))
+        (reify ObjectReader
+          (lsize [this] n-result)
+          (readObject [this idx]
+            (let [next-idx (min n-data-dec (unchecked-inc idx))]
+              ;;Specifically using clojure's number tower here.
+              (- (.readObject reader next-idx)
+                 (.readObject reader idx)))))))))
 
 
 (defn downsample
