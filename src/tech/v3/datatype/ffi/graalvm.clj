@@ -1,4 +1,7 @@
 (ns tech.v3.datatype.ffi.graalvm
+  "Graalvm-specific namespace that implements the dtype-next ffi system and allows users
+  to build stand-alone shared libraries that other languages can use to call Clojure code via
+  a binary C interface."
   (:require [tech.v3.datatype.ffi.base :as ffi-base]
             [tech.v3.datatype.errors :as errors]
             [insn.core :as insn]
@@ -167,7 +170,8 @@
 
 
 (defn define-library
-  "Define a graal-native set functions bound to a particular native library."
+  "Define a graal-native set functions bound to a particular native library.  See the
+  documentation for [[tech.v3.datatype.ffi/define-library]]."
   [fn-defs symbols
    {:keys [classname
            instantiate?] :as options}]
@@ -361,15 +365,28 @@ public final class %s {
   "Expose a set of clojure functions as graal library entry points.  In this case,
   the keys of fn-defs are the full namespaced symbols that point to the
   fns you want to define. These will be defined to a class named 'classname' and the
-  resuling class file will be output to *compile-path*.
+  resuling class file will be output to `*compile-path*`.
 
   One caveat - strings are passed as tech.v3.datatype.ffi.Pointer classes and you
   will have to use tech.v3.datatype.ffi/c->string in order to process them.
 
-  Another caveat - You cannot have any 'def,defonce' variables defined in your export
-  file.  Any persistent state must be referenced also from your main class in your
+  Any persistent state must be referenced also from your main class in your
   jarfile so it will have to reference systems used in your libfile.  'def', 'defonce'
   variables will show up as uninitialized exceptions at runtime when objects call
-  into your library."
+  into your library if they are not referenced in some manner from you jar's main
+  function.  This can be achieved via several ways, one of which is to have your exposed
+  namespace referenced from your main namespace or to have your library export file
+  share a common namespace with your main namespace.
+
+
+  * [avclj symbol export example](https://github.com/cnuernber/avclj/blob/master/native_test/avclj/libavclj.clj).
+  * [calling exposed functions from c++](https://github.com/cnuernber/avclj/blob/master/library/testencode.cpp) - note they take an extra parameter, the 'thread isolate'.
+  * [calling libsci from rust, c++, python](https://github.com/borkdude/sci/blob/master/doc/libsci.md).
+
+
+  Once you have exposed a set of clojure functions you can then make those functions
+  actual C pointers via the [CEntryPointLiteral class](https://www.graalvm.org/truffle/javadoc/org/graalvm/nativeimage/c/function/CEntryPointLiteral.html).  Please see [issue 28](https://github.com/cnuernber/dtype-next/issues/28) for an excellent walkthrough of how to do this.  Please
+  note the exposed function will have an extra parameter, the thread isolate, that your C
+  system will have to take care of."
   [fn-defs classname options]
   (generate-assembly fn-defs classname options))
