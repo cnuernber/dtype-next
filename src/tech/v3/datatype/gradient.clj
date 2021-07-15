@@ -3,9 +3,13 @@
   Contains simplified versions of numpy.gradient and numpy.diff."
   (:require [tech.v3.datatype.base :as dt-base]
             [tech.v3.datatype.casting :as casting]
+            [tech.v3.datatype.errors :as errors]
             [primitive-math :as pmath]
             [tech.v3.datatype.protocols :as dtype-proto])
   (:import [tech.v3.datatype Buffer DoubleReader LongReader ObjectReader]))
+
+
+(set! *unchecked-math* true)
 
 
 (defn gradient1d
@@ -47,6 +51,44 @@ user> (dt-grad/gradient1d [1 2 4 7 11 16] 2)
    (gradient1d data 1)))
 
 
+(defmacro ^:private append-diff
+  [rtype n-elems read-fn cast-fn append reader]
+  `(let [boundary# (dec ~n-elems)]
+     (reify ~rtype
+       (lsize [this] ~n-elems)
+       (~read-fn [this idx#]
+         (if (== boundary# idx#)
+           (~cast-fn ~append)
+           (let [next-idx# (unchecked-inc idx#)]
+             (- (. ~reader ~read-fn next-idx#)
+                (. ~reader ~read-fn idx#))))))))
+
+
+(defmacro ^:private prepend-diff
+  [rtype n-elems read-fn cast-fn append reader]
+  `(let [boundary# 0]
+     (reify ~rtype
+       (lsize [this] ~n-elems)
+       (~read-fn [this idx#]
+         (if (== boundary# idx#)
+           (~cast-fn ~append)
+           (let [next-idx# idx#
+                 idx# (unchecked-dec idx#)]
+             (- (. ~reader ~read-fn next-idx#)
+                (. ~reader ~read-fn idx#))))))))
+
+
+(defmacro ^:private basic-diff
+  [rtype n-elems read-fn reader]
+  `(let [n-elems# (unchecked-dec ~n-elems)]
+     (reify ~rtype
+       (lsize [this] n-elems#)
+       (~read-fn [this idx#]
+        (let [next-idx# (unchecked-inc idx#)]
+          (- (. ~reader ~read-fn next-idx#)
+             (. ~reader ~read-fn idx#)))))))
+
+
 (defn diff1d
   "Returns a lazy reader of each successive element minus the previous element of length
   input-len - 1 unless the `:prepend` option is used.
@@ -55,6 +97,8 @@ user> (dt-grad/gradient1d [1 2 4 7 11 16] 2)
 
   * `:prepend` - prepend a value to the returned sequence making it the same length
   as the passed in sequence.
+  * `:append` - append a value to the end of the returned sequence making it the same
+  length as the passsed in sequence.
 
   Examples:
 
@@ -71,70 +115,34 @@ user> (dt-grad/diff1d [1 2 4])
   [data & [options]]
   (let [reader (dt-base/->buffer data)
         n-data (.lsize reader)
-        n-data-dec (dec n-data)
         op-space (casting/simple-operation-space (.elemwiseDatatype reader))
-        prepend (when-let [data (:prepend options)]
-                  (casting/cast data op-space))
-        n-result (long
-                  (if prepend
-                    n-data
-                    (max 0 n-data-dec)))]
-    (if prepend
+        options (or options {})
+        addval (or (options :prepend) (options :append))]
+    (errors/when-not-errorf
+     (not (and (options :prepend) (options :append)))
+     "prepend and append options cannot be used simultaneously")
+    (cond
+      (options :append)
       (case op-space
-        :int64 (reify LongReader
-                 (lsize [this] n-result)
-                 (readLong [this idx]
-                   (if (== 0 idx)
-                     (unchecked-long prepend)
-                     (let [idx (unchecked-dec idx)
-                           next-idx (min n-data-dec (unchecked-inc idx))]
-                       (pmath/- (.readLong reader next-idx)
-                                (.readLong reader idx))))))
-        :float64 (reify DoubleReader
-                   (lsize [this] n-result)
-                   (readDouble [this idx]
-                     (if (== 0 idx)
-                       (unchecked-double prepend)
-                       (let [idx (unchecked-dec idx)
-                             next-idx (min n-data-dec (unchecked-inc idx))]
-                         (pmath/- (.readDouble reader next-idx)
-                                  (.readDouble reader idx))))))
-        (reify ObjectReader
-          (lsize [this] n-result)
-          (readObject [this idx]
-            (if (== 0 idx)
-              prepend
-              (let [idx (unchecked-dec idx)
-                    next-idx (min n-data-dec (unchecked-inc idx))]
-                ;;Specifically using clojure's number tower here.
-                (- (.readObject reader next-idx)
-                   (.readObject reader idx)))))))
+        :int64 (append-diff LongReader n-data readLong unchecked-long addval reader)
+        :float64 (append-diff DoubleReader n-data readDouble unchecked-double addval reader)
+        (append-diff ObjectReader n-data readObject identity addval reader))
+      (options :prepend)
       (case op-space
-        :int64 (reify LongReader
-                 (lsize [this] n-result)
-                 (readLong [this idx]
-                   (let [next-idx (min n-data-dec (unchecked-inc idx))]
-                     (pmath/- (.readLong reader next-idx)
-                              (.readLong reader idx)))))
-        :float64 (reify DoubleReader
-                   (lsize [this] n-result)
-                   (readDouble [this idx]
-                     (let [next-idx (min n-data-dec (unchecked-inc idx))]
-                       (pmath/- (.readDouble reader next-idx)
-                                (.readDouble reader idx)))))
-        (reify ObjectReader
-          (lsize [this] n-result)
-          (readObject [this idx]
-            (let [next-idx (min n-data-dec (unchecked-inc idx))]
-              ;;Specifically using clojure's number tower here.
-              (- (.readObject reader next-idx)
-                 (.readObject reader idx)))))))))
+        :int64 (prepend-diff LongReader n-data readLong unchecked-long addval reader)
+        :float64 (prepend-diff DoubleReader n-data readDouble unchecked-double addval reader)
+        (prepend-diff ObjectReader n-data readObject identity addval reader))
+      :else
+      (case op-space
+        :int64 (basic-diff LongReader n-data readLong reader)
+        :float64 (basic-diff DoubleReader n-data readDouble reader)
+        (basic-diff ObjectReader n-data readObject reader)))))
 
 
 (defn downsample
   "Downsample to n-elems using nearest algorithm.  If data is less than n-elems it is returned
   unchanged."
-  (^Buffer [data n-elems]
+  (^Buffer [data ^long n-elems]
    (let [data (dt-base/->reader (or (dt-base/as-reader data) (vec data)))
          data-size (.lsize data)
          new-n (min n-elems data-size)
@@ -155,7 +163,7 @@ user> (dt-grad/diff1d [1 2 4])
          (lsize [rdr] new-n)
          (readObject [rdr idx]
            (.readObject data (Math/round (* multiple idx))))))))
-  (^Buffer [data n-elems window-fn]
+  (^Buffer [data ^long n-elems window-fn]
    (let [data-size (dt-base/ecount data)
          n-elems (min n-elems data-size)
          window-size (/ (double data-size) (double n-elems))]
