@@ -693,3 +693,7 @@
          (-> (dtype/make-reader :int32 5 idx)
              (dfn/odd?)
              vec))))
+
+
+(deftest iterator-pathway-fails-count-29
+  (is (= 3 (count (dfn/+ 3 (repeat 3 3))))))

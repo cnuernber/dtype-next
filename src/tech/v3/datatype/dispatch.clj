@@ -5,7 +5,7 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.const-reader :refer [const-reader]])
   (:import [tech.v3.datatype ElemwiseDatatype]
-           [clojure.lang Seqable]))
+           [clojure.lang Seqable Counted]))
 
 
 (defn typed-map
@@ -17,6 +17,8 @@
   (reify
     ElemwiseDatatype
     (elemwiseDatatype [this] res-dtype)
+    Counted
+    (count [this] (apply min (map count args)))
     Iterable
     (iterator [this]
       (.iterator ^Iterable (apply map map-fn args)))
@@ -82,6 +84,8 @@
     ;;not the most efficient but will work.
     (let [item-dtype (dtype-proto/elemwise-datatype item)]
       (reify
+        Counted
+        (count [it] Integer/MAX_VALUE)
         Iterable
         (iterator [it]
           (.iterator ^Iterable (repeat item)))
