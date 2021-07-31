@@ -1,9 +1,9 @@
 #!/bin/bash
 
 
-GRAAL_VERSION="21.0.0.2"
-JDK_VERSION="8"
-
+GRAAL_VERSION="21.2.0"
+JDK_VERSION="11"
+     
 wget https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-$GRAAL_VERSION/graalvm-ce-java$JDK_VERSION-linux-amd64-$GRAAL_VERSION.tar.gz
 tar -xvzf graalvm-ce-java$JDK_VERSION-linux-amd64-$GRAAL_VERSION.tar.gz
 ln -s "$(pwd)/graalvm-ce-java$JDK_VERSION-$GRAAL_VERSION" "$(pwd)/graalvm"
