@@ -5,6 +5,7 @@
             [tech.v3.datatype.ffi.clang :as ffi-clang]
             [tech.v3.datatype.struct :as dt-struct]
             [tech.v3.datatype.native-buffer :as native-buffer]
+            [tech.v3.datatype.nio-buffer]
             [clojure.test :refer [deftest is]]
             [clojure.tools.logging :as log])
   (:import [tech.v3.datatype.ffi Pointer]))

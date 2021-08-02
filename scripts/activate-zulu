@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -e
+
+if [ ! -e zulu-jdk ]; then
+    scripts/get-zulu
+fi
+
+export PATH="$(pwd)/zulu-jdk/bin:$PATH"
+export JAVA_HOME="$(pwd)/zulu-jdk"

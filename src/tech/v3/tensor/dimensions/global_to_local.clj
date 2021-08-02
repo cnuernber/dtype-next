@@ -23,56 +23,61 @@
 (defn elem-idx->addr-fn
   "Generic implementation of global->local transformation."
   ^Buffer [reduced-dims]
-  (let [^objects shape (object-array (:shape reduced-dims))
-        ^longs strides (long-array (:strides reduced-dims))
-        ^longs offsets (when-not (every? #(== 0 (long %)) (:offsets reduced-dims))
-                         (long-array (:offsets reduced-dims)))
-        ^longs max-shape (long-array (:shape-ecounts reduced-dims))
-        ^longs max-shape-strides (long-array (:shape-ecount-strides reduced-dims))
-        n-dims (alength shape)
-        n-elems (pmath/* (aget max-shape-strides 0)
-                         (aget max-shape 0))]
-    ;;With everything typed correctly, this pathway is actually amazingly fast.
-    (if offsets
-      (reify LongReader
-        (lsize [rdr] n-elems)
-        (readLong [rdr idx]
-          (loop [dim 0
-                 result 0]
-            (if (< dim n-dims)
-              (let [shape-val (aget shape dim)
-                    offset (aget offsets dim)
-                    idx (pmath/+
-                         (pmath// idx (aget max-shape-strides dim))
-                         offset)
-                    stride (aget strides dim)
-                    local-val (if (number? shape-val)
-                                (-> (pmath/rem idx (long shape-val))
-                                    (pmath/* stride))
-                                (-> (.readLong ^Buffer shape-val
-                                               (pmath/rem idx
-                                                          (.lsize ^Buffer shape-val)))
-                                    (pmath/* stride)))]
-                (recur (pmath/inc dim) (pmath/+ result local-val)))
-              result))))
-      (reify LongReader
-        (lsize [rdr] n-elems)
-        (readLong [rdr idx]
-          (loop [dim 0
-                 result 0]
-            (if (< dim n-dims)
-              (let [shape-val (aget shape dim)
-                    idx (pmath// idx (aget max-shape-strides dim))
-                    stride (aget strides dim)
-                    local-val (if (number? shape-val)
-                                (-> (pmath/rem idx (long shape-val))
-                                    (pmath/* stride))
-                                (-> (.readLong ^Buffer shape-val
-                                               (pmath/rem idx
-                                                          (.lsize ^Buffer shape-val)))
-                                    (pmath/* stride)))]
-                (recur (pmath/inc dim) (pmath/+ result local-val)))
-              result)))))))
+  (try
+    (let [^objects shape (object-array (:shape reduced-dims))
+          ^longs strides (long-array (:strides reduced-dims))
+          ^longs offsets (when-not (every? #(== 0 (long %)) (:offsets reduced-dims))
+                           (long-array (:offsets reduced-dims)))
+          ^longs max-shape (long-array (:shape-ecounts reduced-dims))
+          ^longs max-shape-strides (long-array (:shape-ecount-strides reduced-dims))
+          n-dims (alength shape)
+          n-elems (pmath/* (aget max-shape-strides 0)
+                           (aget max-shape 0))]
+      ;;With everything typed correctly, this pathway is actually amazingly fast.
+      (if offsets
+        (reify LongReader
+          (lsize [rdr] n-elems)
+          (readLong [rdr idx]
+            (loop [dim 0
+                   result 0]
+              (if (< dim n-dims)
+                (let [shape-val (aget shape dim)
+                      offset (aget offsets dim)
+                      idx (pmath/+
+                           (pmath// idx (aget max-shape-strides dim))
+                           offset)
+                      stride (aget strides dim)
+                      local-val (if (number? shape-val)
+                                  (-> (pmath/rem idx (long shape-val))
+                                      (pmath/* stride))
+                                  (-> (.readLong ^Buffer shape-val
+                                                 (pmath/rem idx
+                                                            (.lsize ^Buffer shape-val)))
+                                      (pmath/* stride)))]
+                  (recur (pmath/inc dim) (pmath/+ result local-val)))
+                result))))
+        (reify LongReader
+          (lsize [rdr] n-elems)
+          (readLong [rdr idx]
+            (loop [dim 0
+                   result 0]
+              (if (< dim n-dims)
+                (let [shape-val (aget shape dim)
+                      idx (pmath// idx (aget max-shape-strides dim))
+                      stride (aget strides dim)
+                      local-val (if (number? shape-val)
+                                  (-> (pmath/rem idx (long shape-val))
+                                      (pmath/* stride))
+                                  (-> (.readLong ^Buffer shape-val
+                                                 (pmath/rem idx
+                                                            (.lsize ^Buffer shape-val)))
+                                      (pmath/* stride)))]
+                  (recur (pmath/inc dim) (pmath/+ result local-val)))
+                result))))))
+    (catch Throwable e
+      (log/errorf e "Failed to produce idx->addr fn for reduced dimensions %s"
+                  (pr-str reduced-dims))
+      (throw e))))
 
 
 (defn reduced-dims->signature
@@ -99,7 +104,7 @@
    (log/debug "insn custom indexing enabled!")
    (defonce ^ConcurrentHashMap defined-classes (ConcurrentHashMap.))
 
-   (defonce sig->constructor-fn
+   (def sig->constructor-fn
      (try
        (let [insn-fn
              (requiring-resolve 'tech.v3.tensor.dimensions.gtol-insn/generate-constructor)]

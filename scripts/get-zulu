@@ -1,0 +1,9 @@
+#!/bin/bash
+
+rm -rf zulu-jdk
+
+wget https://cdn.azul.com/zulu/bin/zulu15.34.17-ca-jdk15.0.4-linux_x64.tar.gz
+
+tar -xvzf zulu15.34.17-ca-jdk15.0.4-linux_x64.tar.gz
+
+mv zulu15.34.17-ca-jdk15.0.4-linux_x64 zulu-jdk

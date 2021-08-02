@@ -37,7 +37,8 @@
             [tech.v3.datatype.export-symbols :as export-symbols]
             [tech.v3.parallel.for :as parallel-for]
             [primitive-math :as pmath]
-            [tech.v3.resource :as resource])
+            [tech.v3.resource :as resource]
+            [clojure.tools.logging :as log])
   (:import [clojure.lang IObj]
            [tech.v3.datatype LongNDReader Buffer NDBuffer
             ObjectReader LongReader DoubleReader
@@ -469,32 +470,38 @@
   "Construct an implementation of tech.v3.datatype.NDBuffer from a buffer and
   a dimensions object.  See dimensions/dimensions."
   ^Tensor [buffer dimensions & [metadata]]
-  (let [nd-desc  (dims/->global->local dimensions)]
-    (if (dims/direct? dimensions)
-      (let [strides (:strides dimensions)
-            n-strides (count strides)
-            y (if (>= n-strides 3)
-                (nth strides 0)
-                0)
-            x (if (>= n-strides 2)
-                (nth strides (- n-strides 2))
-                0)
-            c (last strides)]
-        (DirectTensor. buffer dimensions
-                       (.rank nd-desc)
-                       nd-desc
-                       (if (dtype-proto/convertible-to-buffer? buffer)
-                         (dtype-proto/->buffer buffer)
-                         (dtype-base/->reader buffer))
-                       y x c
-                       metadata))
-      (Tensor. buffer dimensions
-               (.rank nd-desc)
-               nd-desc
-               (if (dtype-proto/convertible-to-buffer? buffer)
-                 (dtype-proto/->buffer buffer)
-                 (dtype-base/->reader buffer))
-               metadata))))
+  (try
+    (let [nd-desc  (dims/->global->local dimensions)]
+      (if (dims/direct? dimensions)
+        (let [strides (:strides dimensions)
+              n-strides (count strides)
+              y (if (>= n-strides 3)
+                  (nth strides 0)
+                  0)
+              x (if (>= n-strides 2)
+                  (nth strides (- n-strides 2))
+                  0)
+              c (last strides)]
+          (DirectTensor. buffer dimensions
+                         (.rank nd-desc)
+                         nd-desc
+                         (if (dtype-proto/convertible-to-buffer? buffer)
+                           (dtype-proto/->buffer buffer)
+                           (dtype-base/->reader buffer))
+                         y x c
+                         metadata))
+        (Tensor. buffer dimensions
+                 (.rank nd-desc)
+                 nd-desc
+                 (if (dtype-proto/convertible-to-buffer? buffer)
+                   (dtype-proto/->buffer buffer)
+                   (dtype-base/->reader buffer))
+                 metadata)))
+    (catch Throwable e
+      (log/errorf "Failed to produce tensor for dimensions %s, (reduced) %s"
+                  (pr-str (select-keys dimensions [:shape :strides]))
+                  (pr-str (dims-analytics/reduce-dimensionality dimensions)))
+      (throw e))))
 
 
 (defn tensor?
