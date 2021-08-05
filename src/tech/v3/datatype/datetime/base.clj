@@ -336,6 +336,37 @@
    (instant->local-date instant (utc-zone-id))))
 
 
+(defn local-date->epoch-months
+  ^long [^LocalDate ld]
+  (+ (* (- (.getYear ld) 1970) 12)
+     (unchecked-dec (.getMonthValue ld))))
+
+
+(def ^{:tag LocalDate} epoch-local-date (milliseconds-since-epoch->local-date 0))
+
+
+(defn epoch-months->local-date
+  ^LocalDate [^long em]
+  (.plus epoch-local-date em java.time.temporal.ChronoUnit/MONTHS))
+
+
+(defn epoch-days->local-date
+  ^LocalDate [^long ed]
+  (.plus epoch-local-date ed java.time.temporal.ChronoUnit/DAYS))
+
+
+(defn epoch-days->epoch-months
+  ^long [^long ed]
+  (-> (days-since-epoch->local-date ed)
+      (local-date->epoch-months)))
+
+
+(defn epoch-months->epoch-days
+  ^long [^long em]
+  (-> (epoch-months->local-date em)
+      (local-date->days-since-epoch)))
+
+
 (defn duration
   ([]
    (Duration/ofNanos 0))

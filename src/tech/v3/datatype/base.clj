@@ -578,6 +578,7 @@
             (aget ^"[Ljava.lang.Object;" barray chan)))))))
 
 
+
 ;;Datatype library Object defaults.  Here lie dragons.
 (extend-type Object
   dtype-proto/PElemwiseDatatype

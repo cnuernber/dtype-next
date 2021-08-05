@@ -21,6 +21,8 @@
             [tech.v3.datatype.binary-op :as binary-op]
             [tech.v3.datatype.binary-pred :as binary-pred]
             [tech.v3.datatype.emap :as emap]
+            ;;import in clone for jvm maps
+            [tech.v3.datatype.jvm-map]
             [tech.v3.datatype.export-symbols :refer [export-symbols]])
   (:import [tech.v3.datatype.array_buffer ArrayBuffer]
            [tech.v3.datatype ListPersistentVector BooleanReader

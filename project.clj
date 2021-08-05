@@ -65,6 +65,7 @@
                                    tech.v3.datatype.packing
                                    tech.v3.datatype.ffi.graalvm
                                    tech.v3.parallel.for
+                                   tech.v3.datatype.jvm-map
                                    tech.v3.libs.buffered-image
                                    tech.v3.libs.neanderthal]}
               :clean-targets [:target-path "docs"]}

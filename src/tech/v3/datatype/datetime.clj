@@ -81,6 +81,10 @@ A general outline is:
                 local-date-time->local-date
                 local-date->local-date-time
                 local-date->days-since-epoch
+                local-date->epoch-months
+                epoch-months->local-date
+                epoch-days->epoch-months
+                epoch-months->epoch-days
                 days-since-epoch->local-date
                 local-date->instant
                 local-date->zoned-date-time
