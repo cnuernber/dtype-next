@@ -5,36 +5,48 @@
   (:import [java.util Map HashMap Map$Entry Set HashSet]
            [java.util.concurrent ConcurrentHashMap]
            [java.util.function BiConsumer BiFunction Function])
-  (:refer-clojure :exclude [hash-map get set]))
+  (:refer-clojure :exclude [hash-map get set contains?]))
 
 
 (set! *warn-on-reflection* true)
 
 
 (defn hash-map
+  "Create a java.util.HashMap.  Note the only optional argument is for
+  the initial size of the underlying hashtable."
   (^HashMap []
    (HashMap.))
-  (^HashMap [init-size]
-   (HashMap. (int init-size))))
-
-
-(defn set
-  ^Set [] (HashSet. ))
+  (^HashMap [init]
+   (cond
+     (number? init )
+     (HashMap. (int init))
+     (instance? Map init)
+     (HashMap. ^Map init)
+     :else
+     (throw (Exception. "Unrecognized argument type for init")))))
 
 
 (defn concurrent-hash-map
   (^ConcurrentHashMap []
    (ConcurrentHashMap.))
-  (^ConcurrentHashMap [init-size]
-   (ConcurrentHashMap. (int init-size))))
+  (^ConcurrentHashMap
+   [init]
+   (cond
+     (number? init )
+     (ConcurrentHashMap. (int init))
+     (instance? Map init)
+     (ConcurrentHashMap. ^Map init)
+     :else
+     (throw (Exception. "Unrecognized argument type for init")))))
 
 
 (defn concurrent-set
+  "Create a concurrent-safe set.  Wraps (.. (ConcurrentHashMap.) keySet)"
   (^Set [] (.keySet (concurrent-hash-map))))
 
 
 (defn put!
-  "Put a value into a map"
+  "Put a value into a map returning the map."
   [^Map map k v]
   (.put map k v)
   map)
@@ -47,14 +59,26 @@
   set)
 
 
+(defn contains?
+  "Much faster version of contains? if you are dealing with java.util sets or maps."
+  [item v]
+  (cond
+    (instance? Map item)
+    (.containsKey ^Map item v)
+    (instance? Set item)
+    (.contains ^Set item v)
+    :else
+    (clojure.core/contains? item v)))
+
+
 (defn entry-key
-  "Given a map$Entry, return the key"
+  "Given a java.util.Map$Entry, return the key"
   [^Map$Entry v]
   (when v (.getKey v)))
 
 
 (defn entry-value
-  "Given a map$Entry, return the key"
+  "Given a java.util.Map$Entry, return the value"
   [^Map$Entry v]
   (when v (.getValue v)))
 
@@ -164,6 +188,14 @@
     #(.compute ^Map map % val-fn)))
 
 
+(defn compute!
+  "Compute a new value in-place.  val-fn gets passed the key and existing value (if any).
+  It is more efficient to pre-convert val-fn to a bi-function than to force this function
+  to do it during execution."
+  [map k val-fn]
+  (.compute ^Map map k (->bi-function val-fn)))
+
+
 (defn compute-if-absent-fn!
     "Given a map and a function to call if the value is not in the map, return a function that
   takes a k and returns the result of calling `(.compute map k (->function val-fn))`.
@@ -171,6 +203,14 @@
   [map val-fn]
   (let [val-fn (->function val-fn)]
     #(.computeIfAbsent ^Map map % val-fn)))
+
+
+(defn compute-if-absent!
+  "Compute a new value in-place.  val-fn gets passed the key.
+  It is more efficient to pre-convert val-fn to a java.util.function.Function than to force
+  this function to do it during its execution."
+  [map k val-fn]
+  (.computeIfAbsent ^Map map k (->function val-fn)))
 
 
 (defn compute-if-present-fn!
@@ -181,6 +221,14 @@
   [map val-fn]
   (let [val-fn (->bi-function val-fn)]
     #(.computeIfPresent ^Map map % val-fn)))
+
+
+(defn compute-if-present!
+  "Compute a new value in-place.  val-fn gets passed the key.
+  It is more efficient to pre-convert val-fn to a java.util.function.BiFunction than to force
+  this function to do it during its execution."
+  [map k val-fn]
+  (.computeIfAbsent ^Map map k (->bi-function val-fn)))
 
 
 (extend-protocol dt-proto/PClone
