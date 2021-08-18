@@ -299,7 +299,7 @@
   "Get a value from an object via conversion to a reader."
   [item idx]
   (cond
-    (number? item)
+    (number? idx)
     ((->reader item) idx)
     (sequential? idx)
     (dtype-proto/select item idx)
