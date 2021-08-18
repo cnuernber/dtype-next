@@ -226,3 +226,35 @@
                    into-array)]
     (println "nested array of tensor shape" (dtype/shape d10000))
     (time (dtt/->tensor d10000))))
+
+
+(deftest set-value-mset-constant
+  (let [test-tens (dtt/->tensor (->> (range 27)
+                                     (partition 3)
+                                     (partition 3))
+                                :datatype :float64)
+        sv-tens (dtt/reshape (double-array [1 2 3]) [3 1])
+        tt1 (dtype/set-value! (dtype/clone test-tens) [:all :all (range 2)] 0)
+        ;;broadcast test
+        tt2 (dtype/set-value! (dtype/clone test-tens) [:all :all (range 2)] sv-tens)]
+
+    (is (= (dtt/->jvm tt1)
+           [[[0.000 0.000 2.000]
+             [0.000 0.000 5.000]
+             [0.000 0.000 8.000]]
+            [[0.000 0.000 11.00]
+             [0.000 0.000 14.00]
+             [0.000 0.000 17.00]]
+            [[0.000 0.000 20.00]
+             [0.000 0.000 23.00]
+             [0.000 0.000 26.00]]]))
+    (is (= (dtt/->jvm tt2)
+           [[[1.000 1.000 2.000]
+             [2.000 2.000 5.000]
+             [3.000 3.000 8.000]]
+            [[1.000 1.000 11.00]
+             [2.000 2.000 14.00]
+             [3.000 3.000 17.00]]
+            [[1.000 1.000 20.00]
+             [2.000 2.000 23.00]
+             [3.000 3.000 26.00]]]))))
