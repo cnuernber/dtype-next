@@ -471,6 +471,15 @@
            (vec new-data)))))
 
 
+(deftest argsort-nan
+  (let [data (dtype/make-container :float64 [##NaN 2 5 ##NaN 1 6 3 4 ##NaN])
+        idx-first (argops/argsort nil {:nan-strategy :first} data)
+        idx-last (argops/argsort nil {:nan-strategy :last} data)]
+    (is (= [0 3 8] (vec (take 3 idx-first))))
+    (is (= [0 3 8] (vec (take-last 3 idx-last))))
+    (is (thrown? Exception (argops/argsort nil {:nan-strategy :exception} data)))))
+
+
 (deftest reader-as-persistent-vector-test
   (let [src-data (range 20)
         ldata (long-array src-data)

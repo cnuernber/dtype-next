@@ -49,11 +49,11 @@
        (= argtype :scalar)
        (const-reader/const-reader item n-const-elems)
        (= argtype :iterable)
-       (-> (dtype-cmc/make-container :list (dtype-base/elemwise-datatype item) {}
+       (-> (dtype-cmc/make-container :list (dtype-base/operational-elemwise-datatype item) {}
                                      item)
            (dtype-base/->reader))
        :else
-       (dtype-base/->reader item))))
+       (dtype-base/->reader item (dtype-base/operational-elemwise-datatype item)))))
   (^Buffer [item]
    (ensure-reader item Long/MAX_VALUE)))
 
@@ -271,8 +271,8 @@
   "Given a reader of values an a source comparator, return either an
   IntComparator or a LongComparator depending on the number of indexes
   in the reader that compares the values using the passed in comparator."
-  [src-comparator values]
-  (let [src-dtype (dtype-base/elemwise-datatype values)
+  [src-comparator nan-strategy values]
+  (let [src-dtype (dtype-base/operational-elemwise-datatype values)
         values (ensure-reader values)
         n-values (.lsize values)
         src-comparator (if-let [bin-pred (:binary-predicate (meta src-comparator))]
@@ -292,8 +292,18 @@
           (reify Comparators$IntComp
             (compareInts [this lhs rhs]
               (let [lhs-value (.readDouble values lhs)
-                    rhs-value (.readDouble values rhs)]
-                (.compare comp lhs-value rhs-value)))))
+                    rhs-value (.readDouble values rhs)
+                    lhs-nan? (Double/isNaN lhs-value)
+                    rhs-nan? (Double/isNaN rhs-value)]
+                (if (or lhs-nan? rhs-nan?)
+                  (if (identical? nan-strategy :exception)
+                    (throw (Exception. "##NaN value detected"))
+                    (if (and lhs-nan? rhs-nan?)
+                      0
+                      (if (identical? nan-strategy :first)
+                        (long (if lhs-nan? -1 1))
+                        (long (if lhs-nan? 1 -1)))))
+                  (.compare comp lhs-value rhs-value))))))
         :else
         (let [^Comparator comp (->comparator src-comparator)]
           (reify Comparators$IntComp
@@ -337,13 +347,15 @@
 
 (defn argsort
   "Sort values in index space.  By default uses a parallelized quicksort algorithm."
-  ([comparator {:keys [parallel?]
-           :or {parallel? true}}
+  ([comparator {:keys [parallel?
+                       nan-strategy]
+                :or {parallel? true
+                     nan-strategy :last}}
     values]
    (let [n-elems (dtype-base/ecount values)
-         val-dtype (dtype-base/elemwise-datatype values)
+         val-dtype (dtype-base/operational-elemwise-datatype values)
          comparator (-> (find-base-comparator comparator val-dtype)
-                        (index-comparator values))]
+                        (index-comparator nan-strategy values))]
      (cond
        (== n-elems 0)
        (int-array 0)

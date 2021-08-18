@@ -38,6 +38,22 @@
     (dtype-proto/elemwise-datatype item)))
 
 
+(defn operational-elemwise-datatype
+  "Return the datatype one would expect when iterating through a container
+  of this type and performing a numeric operation on it.  For integer types, when a column
+  has missing values they get promoted to floating point numbers and ##NaN is substituted
+  in.  For scalars, return your elemental datatype."
+  [item]
+  ;;false has a datatype in this world.
+  (cond
+    (nil? item) :object
+    (instance? Double item) :float64
+    (instance? Integer item) :int32
+    (instance? Long item) :int64
+    :else
+    (dtype-proto/operational-elemwise-datatype item)))
+
+
 (defn datatype
   "Return this object's actual datatype.
   **This is not the same as the DEPRECATED get-datatype.  That function maps
