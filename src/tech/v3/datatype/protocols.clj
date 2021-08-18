@@ -20,6 +20,21 @@
   (elemwise-datatype [item] (.elemwiseDatatype item)))
 
 
+(defprotocol POperationalElemwiseDatatype
+  (operational-elemwise-datatype [item]
+    "Some contains of a logical datatype represent themselves as a different
+datatype for generic iteration.  For instance an `:int32` column with missing
+values will represent itself as a `:float64` column.  This is a low-level
+generic addition designed to enable safer naive uses of dataset columns
+with missing values."))
+
+
+(extend-type Object
+  POperationalElemwiseDatatype
+  (operational-elemwise-datatype [item]
+    (elemwise-datatype item)))
+
+
 (defprotocol PElemwiseCast
   (elemwise-cast [item new-dtype]))
 

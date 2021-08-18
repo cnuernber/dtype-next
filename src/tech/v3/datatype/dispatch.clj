@@ -36,6 +36,7 @@
   [scalar-fn res-dtype lhs rhs]
   (typed-map scalar-fn res-dtype lhs rhs))
 
+
 (defn- checked-elemwise-reader-cast
   [item new-dtype]
   (if (= new-dtype (dtype-proto/elemwise-datatype item))
@@ -56,7 +57,7 @@
    (let [arg1-type (arg-type arg1)]
      (if (= arg1-type :scalar)
        (scalar-fn arg1)
-       (let [res-dtype (dtype-proto/elemwise-datatype arg1)
+       (let [res-dtype (dtype-proto/operational-elemwise-datatype arg1)
              res-dtype (if-let [op-space (:operation-space options)]
                          (casting/widest-datatype res-dtype op-space)
                          res-dtype)]
@@ -82,7 +83,7 @@
     item
     (= :scalar argtype)
     ;;not the most efficient but will work.
-    (let [item-dtype (dtype-proto/elemwise-datatype item)]
+    (let [item-dtype (dtype-proto/operational-elemwise-datatype item)]
       (reify
         Counted
         (count [it] Integer/MAX_VALUE)
@@ -121,8 +122,9 @@
          arg2-type (arg-type arg2)]
      (if (and (= arg1-type :scalar) (= arg2-type :scalar))
        (scalar-fn arg1 arg2)
-       (let [res-dtype (casting/widest-datatype (dtype-proto/elemwise-datatype arg1)
-                                                (dtype-proto/elemwise-datatype arg2))
+       (let [res-dtype (casting/widest-datatype
+                        (dtype-proto/operational-elemwise-datatype arg1)
+                        (dtype-proto/operational-elemwise-datatype arg2))
              res-dtype (if-let [op-space (:operation-space options)]
                          (casting/widest-datatype res-dtype op-space)
                          res-dtype)]
