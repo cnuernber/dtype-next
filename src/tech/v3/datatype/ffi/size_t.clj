@@ -3,7 +3,7 @@
            [java.util.function Function]))
 
 
-(def arch64-set #{"x86_64" "amd64"})
+(def arch64-set #{"x86_64" "amd64" "arm64"})
 
 
 (defn platform-size-t-size
