@@ -678,6 +678,10 @@ Example:
                      library-fns#)))
 
            initialize# (delay
+                         ;; load libraries
+                         (doseq [library# ~libraries]
+                           (find-library library#))
+
                          (dt-ffi/library-singleton-set! lib# nil)
 
                          (graal-native/when-defined-graal-native
@@ -690,10 +694,6 @@ Example:
            find-fn# (fn [fn-kwd#]
                       @initialize#
                       (dt-ffi/library-singleton-find-fn lib# fn-kwd#))]
-
-       ;; load libraries
-       (doseq [library# ~libraries]
-         (find-library library#))
 
        (let [~'find-fn find-fn#]
          ~@(->> library-fns-val
