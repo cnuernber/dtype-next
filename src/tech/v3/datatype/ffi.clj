@@ -562,6 +562,42 @@ clojure.lang.IFn that takes only the specific arguments.")
   ([library-def-var]
    (library-singleton library-def-var (delay nil) nil)))
 
+(defn ^:private library-function-def* [[fn-name fn-data] find-fn check-error]
+  (let [{:keys [rettype argtypes check-error?]} fn-data
+        fn-symbol (symbol (name fn-name))
+        requires-resctx? (first (filter #(= :string %)
+                                        (concat (map second argtypes)
+                                                [rettype])))
+        fn-def `(~'ifn ~@(map
+                          (fn [[argname argtype]]
+                            (cond
+                              (#{:int8 :int16 :int32 :int64} argtype)
+                              `(long ~argname)
+                              (#{:float32 :float64} argtype)
+                              `(double ~argname)
+                              (= :string argtype)
+                              `(string->c ~argname)
+                              :else
+                              argname))
+                          argtypes))]
+    `(defn ~fn-symbol
+       ~(:doc fn-data "No documentation!")
+       ~(mapv first argtypes)
+       (let [~'ifn (~'find-fn ~fn-name)]
+         (do
+           ~(if requires-resctx?
+              `(resource/stack-resource-context
+                (let [~'retval ~(if (and check-error check-error?)
+                                  `(~check-error ~fn-data ~fn-def)
+                                  `~fn-def)]
+                  ~(if (= :string rettype)
+                     `(c->string ~'retval)
+                     `~'retval)))
+              `(let [~'retval ~(if (and check-error check-error?)
+                                 `(~check-error ~fn-data ~fn-def)
+                                 `~fn-def)]
+                 ~'retval)))))))
+
 
 (defmacro define-library-functions
   "Define public callable vars that will call library functions marshaling strings
@@ -583,43 +619,86 @@ Example:
   [library-def-symbol find-fn check-error]
   `(do
      (let [~'find-fn ~find-fn]
-       ~@(->>
-          @(resolve library-def-symbol)
-          (map
-           (fn [[fn-name {:keys [rettype argtypes check-error?] :as fn-data}]]
-             (let [fn-symbol (symbol (name fn-name))
-                   requires-resctx? (first (filter #(= :string %)
-                                                   (concat (map second argtypes)
-                                                           [rettype])))
-                   fn-def `(~'ifn ~@(map
-                                     (fn [[argname argtype]]
-                                       (cond
-                                         (#{:int8 :int16 :int32 :int64} argtype)
-                                         `(long ~argname)
-                                         (#{:float32 :float64} argtype)
-                                         `(double ~argname)
-                                         (= :string argtype)
-                                         `(string->c ~argname)
-                                         :else
-                                         argname))
-                                     argtypes))]
-               `(defn ~fn-symbol
-                  ~(:doc fn-data "No documentation!")
-                  ~(mapv first argtypes)
-                  (let [~'ifn (~'find-fn ~fn-name)]
-                    (do
-                      ~(if requires-resctx?
-                         `(resource/stack-resource-context
-                           (let [~'retval ~(if (and check-error check-error?)
-                                             `(~check-error ~fn-data ~fn-def)
-                                             `~fn-def)]
-                             ~(if (= :string rettype)
-                                `(c->string ~'retval)
-                                `~'retval)))
-                         `(let [~'retval ~(if (and check-error check-error?)
-                                             `(~check-error ~fn-data ~fn-def)
-                                             `~fn-def)]
-                            ~'retval))))))))))))
+       ~@(->> @(resolve library-def-symbol)
+              (map #(library-function-def* % 'find-fn check-error))))))
+
+
+(defmacro if-class
+  ([class-name then]
+   `(if-class ~class-name
+      ~then
+      nil))
+  ([class-name then else?]
+   (let [class-exists (try
+                        (Class/forName (name class-name))
+                        true
+                        (catch ClassNotFoundException e
+                          false))]
+     (if class-exists
+       then
+       else?))))
+
+(defmacro define-library-interface [library-fns
+                                    & {:keys [classname
+                                              check-error
+                                              symbols
+                                              libraries
+                                              header-files]
+                                       :as opts}]
+  (let [classname (:classname opts (symbol (str (ns-name *ns* ) ".Bindings")))
+        library-fns-val (eval library-fns)
+
+        library-options (-> (select-keys opts [:libraries :header-files])
+                            (assoc :classname (list 'quote classname)))]
+
+    ;; Must compile class before returning macro response,
+    ;; otherwise (new ~classname) will not succeed.
+    ;; Also, cannot create instance dynamically
+    ;; because of graalvm restrictions
+    (graal-native/if-defined-graal-native
+     (if *compile-files*
+       ((requiring-resolve 'tech.v3.datatype.ffi.graalvm/define-library)
+        library-fns-val
+        (eval symbols)
+        (eval library-options))
+       (try
+         (Class/forName ~(name classname))
+         (catch ClassNotFoundException e#
+           nil)))
+     (define-library
+       library-fns-val
+       (eval symbols)
+       (eval library-options)))
+
+    `(let [library-fns# (quote ~library-fns-val)
+           lib# (dt-ffi/library-singleton
+                 (reify
+                   IDeref
+                   (deref [_#]
+                     library-fns#)))
+
+           initialize# (delay
+                         (dt-ffi/library-singleton-set! lib# nil)
+
+                         (graal-native/when-defined-graal-native
+                          (if-class ~classname
+                            (do
+                              (dt-ffi/library-singleton-set-instance! lib# (new ~classname)))
+                            (do
+                              (throw (Exception. "Library class does not exist"))))))
+
+           find-fn# (fn [fn-kwd#]
+                      @initialize#
+                      (dt-ffi/library-singleton-find-fn lib# fn-kwd#))]
+
+       ;; load libraries
+       (doseq [library# ~libraries]
+         (find-library library#))
+
+       (let [~'find-fn find-fn#]
+         ~@(->> library-fns-val
+                (map #(library-function-def* % 'find-fn check-error)))))))
+
 
 
 (defn ptr->struct
