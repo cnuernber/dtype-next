@@ -1,9 +1,17 @@
 (ns tech.v3.datatype.graal-native)
 
+(defmacro ^:private in-image-buildtime-code? []
+  (try
+    (import 'org.graalvm.nativeimage.ImageInfo)
+    `(org.graalvm.nativeimage.ImageInfo/inImageBuildtimeCode)
+    (catch ClassNotFoundException e
+      false)))
 
 (defn graal-native?
   []
-  (= "true" (System/getProperty "tech.v3.datatype.graal-native")))
+  (if-let [graal-native-prop (System/getProperty "tech.v3.datatype.graal-native")]
+    (= "true" graal-native-prop)
+    (in-image-buildtime-code?)))
 
 
 (defmacro when-defined-graal-native
