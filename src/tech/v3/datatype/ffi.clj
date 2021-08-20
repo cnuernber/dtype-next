@@ -638,19 +638,86 @@ Example:
        then
        else?))))
 
-(defmacro define-library-interface [library-fns
-                                    & {:keys [classname
-                                              check-error
-                                              symbols
-                                              libraries
-                                              header-files]
-                                       :as opts}]
-  (let [classname (:classname opts (symbol (str (ns-name *ns* ) ".Bindings")))
-        library-fns-val (eval library-fns)
+(defmacro define-library-interface
+  "Define public callable vars that will call library functions marshaling strings
+  back and forth. Returns a library singleton.
+
+  * `fn-defs` - map of fn-name -> {:rettype :argtypes}
+     * `argtypes` -
+       * `:void` - return type only.
+       * `:int8` `:int16` `:int32` `:int64`
+       * `:float32` `:float64`
+       * `:size-t` - int32 or int64 depending on cpu architecture.
+       * `:pointer` `:pointer?` - Something convertible to a Pointer type.  Potentially
+          exception when nil.
+     * `rettype` - any argtype plus :void
+     * `doc` - docstring for the function
+     * `check-error?` apply pre/post checks with `check-error`. default: false
+
+  Options:
+
+  * `:classname` - If classname (a symbol) is provided a .class file is saved to
+  *compile-path* after which `(import classname)` will be a validcall meaning that
+  after AOT no further reflection or class generation is required to access the
+  class explicitly.  That being said 'import' does not reload classes that are
+  already on the classpath so this option is best used after library has stopped
+  changing.
+
+  * `:check-error` - A function or macro that receives two arguments - the fn definition
+    from above and the actual un-evaluated function call allowing you to insert pre/post
+    checks.
+
+  * `:symbols` - A sequence of symbols in the shared library that should be available
+    for use with `find-symbol`
+
+  * `:libraries` - (graalvm only) A sequence of dependent shared libraries that should be loaded.
+
+  * `:header-files` - (graalvm only) A sequence of header files.
+
+  Example:
+
+  ```clojure
+
+  user> (dt-ffi/define-library-interface
+          {:memset {:rettype :pointer
+                    :argtypes [['p :pointer]
+                               ['x :int32]
+                               ['len :size-t]]}})
+  user> (def test-buf (dtype/make-container :native-heap :float32 (range 10)))
+  #'user/test-buf
+  user> test-buf
+  #native-buffer@0x00007F4E28CE56D0<float32>[10]
+  [0.000, 1.000, 2.000, 3.000, 4.000, 5.000, 6.000, 7.000, 8.000, 9.000, ]
+  user> (memset test-buf 0 40)
+  #object[tech.v3.datatype.ffi.Pointer 0x33013c57 \"{:address 0x00007F4E28CE56D0 }\"]
+  user> test-buf
+  #native-buffer@0x00007F4E28CE56D0<float32>[10]
+  [0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, ]
+  ```
+  "
+  [fn-defs
+   & {:keys [classname
+             check-error
+             symbols
+             libraries
+             header-files]
+      :as opts}]
+  (let [fn-defs-val (eval fn-defs)
+        classname-form (:classname opts
+                                   (list
+                                    'quote
+                                    ;; For graalvm, we want a consistent classname to make
+                                    ;;    it easy to create reflection configurations.
+                                    ;; For non graalvm, we want a unique classname
+                                    ;;    to support repl redefinition.
+                                    (graal-native/if-defined-graal-native
+                                     (symbol (str (ns-name *ns* ) ".Bindings"))
+                                     (symbol (str "tech.v3.datatype.ffi." (name (gensym)))))))
 
         library-options (-> (select-keys opts [:libraries :header-files])
-                            (assoc :classname (list 'quote classname)))]
-
+                            (assoc :classname classname-form))
+        library-options-val (eval library-options)
+        classname (:classname library-options-val)]
     ;; Must compile class before returning macro response,
     ;; otherwise (new ~classname) will not succeed.
     ;; Also, cannot create instance dynamically
@@ -658,24 +725,24 @@ Example:
     (graal-native/if-defined-graal-native
      (if *compile-files*
        ((requiring-resolve 'tech.v3.datatype.ffi.graalvm/define-library)
-        library-fns-val
+        fn-defs-val
         (eval symbols)
-        (eval library-options))
+        library-options-val)
        (try
          (Class/forName ~(name classname))
          (catch ClassNotFoundException e#
            nil)))
      (define-library
-       library-fns-val
+       fn-defs-val
        (eval symbols)
-       (eval library-options)))
+       library-options-val))
 
-    `(let [library-fns# (quote ~library-fns-val)
+    `(let [fn-defs# (quote ~fn-defs-val)
            lib# (dt-ffi/library-singleton
                  (reify
                    IDeref
                    (deref [_#]
-                     library-fns#)))
+                     fn-defs#)))
 
            initialize# (delay
                          ;; load libraries
@@ -696,7 +763,7 @@ Example:
                       (dt-ffi/library-singleton-find-fn lib# fn-kwd#))]
 
        (let [~'find-fn find-fn#]
-         ~@(->> library-fns-val
+         ~@(->> fn-defs-val
                 (map #(library-function-def* % 'find-fn check-error)))
          lib#))))
 
