@@ -697,7 +697,8 @@ Example:
 
        (let [~'find-fn find-fn#]
          ~@(->> library-fns-val
-                (map #(library-function-def* % 'find-fn check-error)))))))
+                (map #(library-function-def* % 'find-fn check-error)))
+         lib#))))
 
 
 
