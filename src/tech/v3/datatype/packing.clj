@@ -62,7 +62,8 @@
   this is a no-op."
   [item]
   (if-let [{:keys [unpack-fn object-datatype primitive-datatype]}
-           (.get unpack-table (dtype-proto/elemwise-datatype item))]
+           (.get unpack-table (dtype-proto/operational-elemwise-datatype item))]
+    ;;vec dispatch works in operational elemwise datatype space.
     (dispatch/vectorized-dispatch-1
      unpack-fn
      nil
@@ -81,7 +82,11 @@
                (unpack-fn (.readObject item idx)))))))
      nil
      item)
-    item))
+    (if (= (dtype-proto/elemwise-datatype item)
+           (dtype-proto/operational-elemwise-datatype item))
+      item
+      (dtype-proto/elemwise-reader-cast item
+                                        (dtype-proto/operational-elemwise-datatype item)))))
 
 
 (defn pack
@@ -89,7 +94,8 @@
   If this isn't a packable datatype this is a no-op."
   [item]
   (if-let [{:keys [pack-fn packed-datatype primitive-datatype]}
-           (.get pack-table (dtype-proto/elemwise-datatype item))]
+           (.get pack-table (dtype-proto/operational-elemwise-datatype item))]
+    ;;vec dispatch works in operational elemwise datatype space.
     (dispatch/vectorized-dispatch-1
      pack-fn
      nil
@@ -105,7 +111,11 @@
                (.readObject item idx)))
            (errors/throwf "Packed primitive datatypes must be integers"))))
      item)
-    item))
+    (if (= (dtype-proto/elemwise-datatype item)
+           (dtype-proto/operational-elemwise-datatype item))
+      item
+      (dtype-proto/elemwise-reader-cast item
+                                        (dtype-proto/operational-elemwise-datatype item)))))
 
 (defn wrap-with-packing
   [datatype src-fn]
