@@ -202,7 +202,9 @@
   writing."
   [item]
   (when item
-    (dtype-proto/convertible-to-writer? item)))
+    (if (instance? Buffer item)
+      (.allowsWrite ^Buffer item)
+      (dtype-proto/convertible-to-writer? item))))
 
 
 (defn as-writer
@@ -839,7 +841,9 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
 
 (extend-type APersistentVector
   dtype-proto/PDatatype
-  (datatype [item] :persistent-vector))
+  (datatype [item] :persistent-vector)
+  dtype-proto/PToWriter
+  (convertible-to-writer? [buf] false))
 
 (casting/add-object-datatype! :persistent-vector APersistentVector false)
 

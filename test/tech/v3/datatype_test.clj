@@ -706,3 +706,10 @@
 
 (deftest iterator-pathway-fails-count-29
   (is (= 3 (count (dfn/+ 3 (repeat 3 3))))))
+
+
+(deftest basic-can-write-queries
+  (is (not (dtype/writer? (dtype/->reader [1 2 3] :int32))))
+  (is (not (dtype/writer? (dtype/make-reader :int32 4 idx))))
+  (is (dtype/writer? (dtype/make-container :int32 4)))
+  (is (dtype/writer? (int-array 5))))
