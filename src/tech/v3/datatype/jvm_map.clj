@@ -1,7 +1,9 @@
 (ns tech.v3.datatype.jvm-map
   "Creation and higher-level  manipulation for `java.util.HashMap` and
   `java.util.concurrent.ConcurrentHashMap`."
-  (:require [tech.v3.datatype.protocols :as dt-proto])
+  (:require [tech.v3.datatype.protocols :as dt-proto]
+            [tech.v3.parallel.for :as pfor]
+            [tech.v3.datatype.errors :as errors])
   (:import [java.util Map HashMap Map$Entry Set HashSet]
            [java.util.concurrent ConcurrentHashMap]
            [java.util.function BiConsumer BiFunction Function])
@@ -10,10 +12,25 @@
 
 (set! *warn-on-reflection* true)
 
+(defn into-map!
+  "put a sequence of pairs into a jvm map."
+  [^Map item data]
+  (pfor/consume!
+   (fn [val]
+     (.put item (first val) (second val)))
+   data)
+  item)
+
 
 (defn hash-map
   "Create a java.util.HashMap.  Note the only optional argument is for
-  the initial size of the underlying hashtable."
+  the initial size of the underlying hashtable.
+
+  Init can be of several forms:
+
+  * number? - Used to initializes the hashtable size.
+  * instance? `java.util.Map` - Hash map is copied.
+  * sequential? - Used like 'into' without xform."
   (^HashMap []
    (HashMap.))
   (^HashMap [init]
@@ -22,6 +39,9 @@
      (HashMap. (int init))
      (instance? Map init)
      (HashMap. ^Map init)
+     ;;sequential items work like into
+     (sequential? init)
+     (into-map! (HashMap.) init)
      :else
      (throw (Exception. "Unrecognized argument type for init")))))
 
@@ -36,6 +56,8 @@
      (ConcurrentHashMap. (int init))
      (instance? Map init)
      (ConcurrentHashMap. ^Map init)
+     (sequential? init)
+     (into-map! (ConcurrentHashMap.) init)
      :else
      (throw (Exception. "Unrecognized argument type for init")))))
 
@@ -224,7 +246,7 @@
 
 
 (defn compute-if-present!
-  "Compute a new value in-place.  val-fn gets passed the key.
+  "Compute a new value in-place.  val-fn gets passed the key and existing value.
   It is more efficient to pre-convert val-fn to a java.util.function.BiFunction than to force
   this function to do it during its execution."
   [map k val-fn]

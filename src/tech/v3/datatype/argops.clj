@@ -34,6 +34,7 @@
             UnaryPredicate BinaryPredicate]
            [tech.v3.datatype.unary_pred IndexList]
            [java.util Comparator Arrays List Map Iterator Collections Random]
+           [com.google.common.collect MinMaxPriorityQueue MinMaxPriorityQueue$Builder]
            [org.roaringbitmap RoaringBitmap]))
 
 
@@ -375,6 +376,27 @@
    (argsort comparator {} values))
   ([values]
    (argsort nil {} values)))
+
+
+(defn arg-min-n
+  "Return the indexes of the top minimum items.  Values must be countable and random access.
+  Same options,arguments as [[argsort]]."
+  ([N comparator {:keys [nan-strategy]
+                  :or {nan-strategy :last}}
+    values]
+   (let [val-dtype (dtype-base/operational-elemwise-datatype values)
+         comparator (-> (find-base-comparator comparator val-dtype)
+                        (index-comparator nan-strategy values))
+         queue (-> (MinMaxPriorityQueue/orderedBy ^Comparator comparator)
+                   (.maximumSize (int N))
+                   (.create))
+         n-elems (dtype-base/ecount values)]
+     (if (instance? IntComparator comparator)
+       (dotimes [idx n-elems] (.add queue (unchecked-int idx)))
+       (dotimes [idx n-elems] (.add queue idx)))
+     (int-array queue)))
+  ([N comparator values] (arg-min-n N comparator nil values))
+  ([N values] (arg-min-n N nil nil values)))
 
 
 (defmacro ^:private double-compare
