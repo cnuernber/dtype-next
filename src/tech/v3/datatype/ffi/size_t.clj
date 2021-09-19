@@ -74,6 +74,6 @@
 (defn ^:no-doc lower-ptr-type
   "Downcast size-t and pointers to their integer equivalents"
   [argtype]
-  (if (#{:size-t :string :pointer} argtype)
+  (if (#{:size-t :string :pointer :pointer?} argtype)
     (offset-t-type)
     argtype))
