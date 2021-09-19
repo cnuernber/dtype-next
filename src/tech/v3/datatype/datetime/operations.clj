@@ -11,7 +11,7 @@
             [tech.v3.datatype.argops :as argops]
             [tech.v3.datatype.errors :as errors]
             [clojure.set :as set])
-  (:import [tech.v3.datatype LongReader ObjectReader Buffer
+  (:import [tech.v3.datatype DoubleReader LongReader ObjectReader Buffer
             BinaryOperator BinaryOperators$ObjectBinaryOperator
             BinaryOperators$LongBinaryOperator]
            [java.time.temporal ChronoUnit Temporal ChronoField
@@ -40,14 +40,20 @@
   (boolean (millisecond-datatypes dtype)))
 
 
+
 (defn- millisecond-reader
-  ^LongReader [convert-fn datatype data]
+  ;; Because we are converting from object data to a numeric representation we have to account
+  ;; for the fact that objects may be nil (in the case of missing data) which leads us to
+  ;; have to use doubles even though milliseconds are long quantities throughout the system.
+  ^DoubleReader [convert-fn datatype data]
   (let [data (dtype-base/->reader data)]
-    (reify LongReader
+    (reify DoubleReader
       (elemwiseDatatype [rdr] datatype)
       (lsize [rdr] (.lsize data))
-      (readLong [rdr idx]
-        (unchecked-long (convert-fn (.readObject data idx)))))))
+      (readDouble [rdr idx]
+        (if-let [obj-data (.readObject data idx)]
+          (double (convert-fn obj-data))
+          Double/NaN)))))
 
 
 (defn- vectorized-dispatch-millisecond-reader
@@ -260,8 +266,7 @@
                        #{:min :max :mean :median :standard-deviation
                          :quartile-1 :quartile-3}
                        #{:min :max :mean :median :quartile-1 :quartile-3})
-         stats-data (dfn/descriptive-statistics stats-set (assoc options :nan-strategy :keep)
-                                                numeric-data)]
+         stats-data (dfn/descriptive-statistics stats-set options numeric-data)]
      (->> stats-data
           (map (fn [[k v]]
                  [k
