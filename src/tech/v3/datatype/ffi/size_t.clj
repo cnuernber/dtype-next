@@ -47,7 +47,7 @@
 
 
 (defn offset-t-type
-  "the size-t datatype - either `:int32` or `:int64`."
+  "the offset-t datatype - either `:int32` or `:int64`."
   []
   (if (= (size-t-size) 8)
     :int64
@@ -55,7 +55,7 @@
 
 
 (defn ptr-t-type
-  "the size-t datatype - either `:uint32` or `:uint64`."
+  "the ptr-t-type datatype - either `:uint32` or `:uint64`."
   []
   (if (= (size-t-size) 8)
     :uint64
