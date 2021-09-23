@@ -713,3 +713,7 @@
   (is (not (dtype/writer? (dtype/make-reader :int32 4 idx))))
   (is (dtype/writer? (dtype/make-container :int32 4)))
   (is (dtype/writer? (int-array 5))))
+
+
+(deftest ->reader-bad-dtype
+  (is (thrown? Throwable (dtype/->reader [1 2 3] :foo))))
