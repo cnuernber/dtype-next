@@ -43,7 +43,7 @@ user> *2
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
-            [primitive-math :as pmath])
+            [com.github.ztellman.primitive-math :as pmath])
   (:import [tech.v3.datatype BinaryBuffer Buffer ObjectBuffer]
            [java.util.concurrent ConcurrentHashMap]
            [java.util RandomAccess List Map LinkedHashSet Collection]

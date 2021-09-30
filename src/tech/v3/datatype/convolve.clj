@@ -7,7 +7,7 @@
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.parallel.for :as pfor]
-            [primitive-math :as pmath])
+            [com.github.ztellman.primitive-math :as pmath])
   (:import [tech.v3.datatype Convolve1D Convolve1D$Mode ArrayHelpers DoubleReader
             Convolve1D$EdgeMode Convolve1D$Edging Complex]
            [java.util.function BiFunction]

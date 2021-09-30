@@ -4,7 +4,7 @@
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.datatype.errors :as errors]
-            [primitive-math :as pmath])
+            [com.github.ztellman.primitive-math :as pmath])
   (:import [tech.v3.datatype BinaryPredicate Buffer
             BinaryPredicates$BooleanBinaryPredicate
             BinaryPredicates$DoubleBinaryPredicate

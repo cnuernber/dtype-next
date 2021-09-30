@@ -1,4 +1,4 @@
-package primitive_math;
+package com.github.ztellman.primitive_math;
 
 public class Primitives {
 

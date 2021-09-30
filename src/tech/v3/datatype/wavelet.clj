@@ -5,7 +5,7 @@
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.base :as dt-base]
             [tech.v3.tensor :as dtt]
-            [primitive-math :as pmath])
+            [com.github.ztellman.primitive-math :as pmath])
   (:import [tech.v3.datatype DoubleReader]))
 
 (set! *warn-on-reflection* true)

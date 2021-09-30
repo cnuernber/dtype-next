@@ -11,7 +11,7 @@
             [tech.v3.datatype.graal-native :as graal-native]
             [tech.v3.parallel.for :as parallel-for]
             [clojure.tools.logging :as log]
-            [primitive-math :as pmath])
+            [com.github.ztellman.primitive-math :as pmath])
   (:import [tech.v3.datatype UnsafeUtil]
            [sun.misc Unsafe]
            [tech.v3.datatype Buffer BufferCollection BinaryBuffer]

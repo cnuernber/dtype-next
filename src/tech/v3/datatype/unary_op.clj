@@ -4,7 +4,7 @@
             [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.double-ops :refer [get-significand]]
-            [primitive-math :as pmath])
+            [com.github.ztellman.primitive-math :as pmath])
   (:import [tech.v3.datatype LongReader DoubleReader ObjectReader
             UnaryOperator Buffer
             UnaryOperators$DoubleUnaryOperator

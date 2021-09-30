@@ -1,8 +1,8 @@
-(ns primitive-math
+(ns com.github.ztellman.primitive-math
   (:refer-clojure
     :exclude [* + - / < > <= >= == rem bit-or bit-and bit-xor bit-not bit-shift-left bit-shift-right unsigned-bit-shift-right byte short int float long double inc dec zero? min max true? false?])
   (:import
-    [primitive_math Primitives]
+    [com.github.ztellman.primitive_math Primitives]
     [java.nio ByteBuffer]))
 
 ;;;
@@ -39,28 +39,28 @@
           ([x# y#]
              (list '~fn x# y#))
           ([x# y# ~'& rest#]
-             (list 'primitive_math.Primitives/and (list '~name x# y#) (list* '~name y# rest#)))))))
+             (list 'com.github.ztellman.primitive_math.Primitives/and (list '~name x# y#) (list* '~name y# rest#)))))))
 
-(variadic-proxy +             primitive_math.Primitives/add)
-(variadic-proxy -             primitive_math.Primitives/subtract "A primitive macro version of `-`" (fn [x] `(list 'primitive_math.Primitives/negate ~x)))
-(variadic-proxy *             primitive_math.Primitives/multiply)
-(variadic-proxy /             primitive_math.Primitives/divide)
-(variadic-proxy div           primitive_math.Primitives/divide)
-(variadic-proxy bit-and       primitive_math.Primitives/bitAnd)
-(variadic-proxy bit-or        primitive_math.Primitives/bitOr)
-(variadic-proxy bit-xor       primitive_math.Primitives/bitXor)
-(variadic-proxy bool-and      primitive_math.Primitives/and)
-(variadic-proxy bool-or       primitive_math.Primitives/or)
-(variadic-proxy bool-xor      primitive_math.Primitives/xor)
-(variadic-proxy min           primitive_math.Primitives/min)
-(variadic-proxy max           primitive_math.Primitives/max)
+(variadic-proxy +             com.github.ztellman.primitive_math.Primitives/add)
+(variadic-proxy -             com.github.ztellman.primitive_math.Primitives/subtract "A primitive macro version of `-`" (fn [x] `(list 'com.github.ztellman.primitive_math.Primitives/negate ~x)))
+(variadic-proxy *             com.github.ztellman.primitive_math.Primitives/multiply)
+(variadic-proxy /             com.github.ztellman.primitive_math.Primitives/divide)
+(variadic-proxy div           com.github.ztellman.primitive_math.Primitives/divide)
+(variadic-proxy bit-and       com.github.ztellman.primitive_math.Primitives/bitAnd)
+(variadic-proxy bit-or        com.github.ztellman.primitive_math.Primitives/bitOr)
+(variadic-proxy bit-xor       com.github.ztellman.primitive_math.Primitives/bitXor)
+(variadic-proxy bool-and      com.github.ztellman.primitive_math.Primitives/and)
+(variadic-proxy bool-or       com.github.ztellman.primitive_math.Primitives/or)
+(variadic-proxy bool-xor      com.github.ztellman.primitive_math.Primitives/xor)
+(variadic-proxy min           com.github.ztellman.primitive_math.Primitives/min)
+(variadic-proxy max           com.github.ztellman.primitive_math.Primitives/max)
 
-(variadic-predicate-proxy >   primitive_math.Primitives/gt)
-(variadic-predicate-proxy <   primitive_math.Primitives/lt)
-(variadic-predicate-proxy <=  primitive_math.Primitives/lte)
-(variadic-predicate-proxy >=  primitive_math.Primitives/gte)
-(variadic-predicate-proxy ==  primitive_math.Primitives/eq)
-(variadic-predicate-proxy not==  primitive_math.Primitives/neq "A primitive macro complement of `==`")
+(variadic-predicate-proxy >   com.github.ztellman.primitive_math.Primitives/gt)
+(variadic-predicate-proxy <   com.github.ztellman.primitive_math.Primitives/lt)
+(variadic-predicate-proxy <=  com.github.ztellman.primitive_math.Primitives/lte)
+(variadic-predicate-proxy >=  com.github.ztellman.primitive_math.Primitives/gte)
+(variadic-predicate-proxy ==  com.github.ztellman.primitive_math.Primitives/eq)
+(variadic-predicate-proxy not==  com.github.ztellman.primitive_math.Primitives/neq "A primitive macro complement of `==`")
 
 (defmacro inc
   "A primitive macro version of `inc`."
@@ -144,7 +144,7 @@
   '[* + - / < > <= >= == rem bit-or bit-and bit-xor bit-not bit-shift-left bit-shift-right byte short int float long double inc dec zero? true? false? min max])
 
 (defn- using-primitive-operators? []
-  (= #'primitive-math/+ (resolve '+)))
+  (= #'com.github.ztellman.primitive-math/+ (resolve '+)))
 
 (defonce ^:private hijacked? (atom false))
 
@@ -190,25 +190,25 @@
 
 (defn byte
   "Truncates a number to a byte, will not check for overflow."
-  {:inline (fn [x] `(primitive_math.Primitives/toByte ~x))}
+  {:inline (fn [x] `(com.github.ztellman.primitive_math.Primitives/toByte ~x))}
   ^long [^long x]
   (unchecked-long (Primitives/toByte x)))
 
 (defn short
   "Truncates a number to a short, will not check for overflow."
-  {:inline (fn [x] `(primitive_math.Primitives/toShort ~x))}
+  {:inline (fn [x] `(com.github.ztellman.primitive_math.Primitives/toShort ~x))}
   ^long [^long x]
   (unchecked-long (Primitives/toShort x)))
 
 (defn int
   "Truncates a number to an int, will not check for overflow."
-  {:inline (fn [x] `(primitive_math.Primitives/toInteger ~x))}
+  {:inline (fn [x] `(com.github.ztellman.primitive_math.Primitives/toInteger ~x))}
   ^long [^long x]
   (unchecked-long (Primitives/toInteger x)))
 
 (defn float
   "Truncates a number to a float, will not check for overflow."
-    {:inline (fn [x] `(primitive_math.Primitives/toFloat ~x))}
+    {:inline (fn [x] `(com.github.ztellman.primitive_math.Primitives/toFloat ~x))}
   ^double [^double x]
   (unchecked-double (Primitives/toFloat x)))
 

@@ -9,7 +9,7 @@
             [tech.v3.datatype.array-buffer :as array-buffer]
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.list]
-            [primitive-math :as pmath]
+            [com.github.ztellman.primitive-math :as pmath]
             [clojure.set :as set])
   (:import [tech.v3.datatype DoubleReduction UnaryOperator BufferIterator
             Buffer
