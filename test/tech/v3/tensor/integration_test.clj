@@ -3,7 +3,7 @@
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.argops :as argops]
             [tech.v3.tensor :as dtt]
-            [primitive-math :as pmath]
+            [com.github.ztellman.primitive-math :as pmath]
             [clojure.test :refer [deftest is]])
   (:import [tech.v3.datatype NDBuffer]))
 
