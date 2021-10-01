@@ -6,7 +6,7 @@
             [tech.v3.datatype.index-algebra :as idx-alg]
             [tech.v3.datatype.graal-native :as graal-native]
             [tech.v3.datatype.errors :as errors]
-            [primitive-math :as pmath]
+            [com.github.ztellman.primitive-math :as pmath]
             [camel-snake-kebab.core :as csk]
             [clojure.tools.logging :as log])
   (:import [tech.v3.datatype Buffer LongReader LongNDReader]

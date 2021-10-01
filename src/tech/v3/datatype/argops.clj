@@ -14,7 +14,7 @@
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.argtypes :as argtypes]
             [tech.v3.datatype.const-reader :as const-reader]
-            [primitive-math :as pmath])
+            [com.github.ztellman.primitive-math :as pmath])
   (:import [it.unimi.dsi.fastutil.bytes ByteComparator]
            [it.unimi.dsi.fastutil.shorts ShortComparator]
            [it.unimi.dsi.fastutil.ints IntArrays IntComparator]

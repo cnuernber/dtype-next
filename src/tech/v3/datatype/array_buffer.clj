@@ -4,7 +4,7 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.pprint :as dtype-pp]
-            [primitive-math :as pmath])
+            [com.github.ztellman.primitive-math :as pmath])
   (:import [clojure.lang IObj Counted Indexed IFn]
            [tech.v3.datatype Buffer ArrayHelpers BufferCollection BinaryBuffer
             ByteConversions]

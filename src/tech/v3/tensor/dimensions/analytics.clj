@@ -4,7 +4,7 @@
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.list :as dtype-list]
             [tech.v3.tensor.dimensions.shape :as shape]
-            [primitive-math :as pmath])
+            [com.github.ztellman.primitive-math :as pmath])
   (:import [tech.v3.datatype Buffer PrimitiveList]
            [java.util List]))
 

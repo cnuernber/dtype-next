@@ -3,7 +3,7 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.datatype.protocols :as dtype-proto]
-            [primitive-math :as pmath])
+            [com.github.ztellman.primitive-math :as pmath])
   (:import [tech.v3.datatype LongReader DoubleReader ObjectReader
             BinaryOperator Buffer
             BinaryOperators$LongBinaryOperator

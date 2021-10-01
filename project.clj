@@ -7,7 +7,6 @@
                  [org.ow2.asm/asm                  "9.0"]
                  [insn                             "0.5.2"]
                  [camel-snake-kebab                "0.4.2"]
-                 [primitive-math                   "0.1.6"]
                  [it.unimi.dsi/fastutil            "8.2.1"]
                  [org.xerial.larray/larray-mmap    "0.4.1"]
                  [org.apache.commons/commons-math3 "3.6.1"]
@@ -17,8 +16,8 @@
                  [techascent/tech.jna "4.05" :scope "provided"]
                  ;;Many things require guava, so we may as well have latest version
                  [com.google.guava/guava "30.1.1-jre"]]
-  :java-source-paths ["java"]
-  :source-paths ["src" "classes"]
+  :java-source-paths ["java" "third-party"]
+  :source-paths ["src" "classes" "third-party"]
   :profiles {:dev
              {:dependencies [[criterium "0.4.5"]
                              [uncomplicate/neanderthal "0.35.0"]

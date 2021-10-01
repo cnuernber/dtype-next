@@ -36,7 +36,7 @@
             [tech.v3.tensor.tensor-copy :as tens-cpy]
             [tech.v3.datatype.export-symbols :as export-symbols]
             [tech.v3.parallel.for :as parallel-for]
-            [primitive-math :as pmath]
+            [com.github.ztellman.primitive-math :as pmath]
             [tech.v3.resource :as resource]
             [clojure.tools.logging :as log])
   (:import [clojure.lang IObj]

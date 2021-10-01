@@ -29,7 +29,7 @@
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.list :as dtype-list]
             [tech.v3.datatype.graal-native :as graal-native]
-            [primitive-math :as pmath]
+            [com.github.ztellman.primitive-math :as pmath]
             [clojure.tools.logging :as log]
             [clojure.set :as set])
   (:import [tech.v3.datatype BinaryOperator Buffer

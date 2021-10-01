@@ -4,7 +4,7 @@
   has any missing values."
   (:require [tech.v3.datatype.base :as dt-base]
             [tech.v3.parallel.for :as pfor]
-            [primitive-math :as pmath]
+            [com.github.ztellman.primitive-math :as pmath]
             [tech.v3.datatype.errors :as errors])
   (:import [tech.v3.datatype Buffer]))
 

@@ -3,7 +3,7 @@
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.errors :as errors]
-            [primitive-math :as pmath])
+            [com.github.ztellman.primitive-math :as pmath])
   (:import [java.util List]
            [tech.v3.datatype Buffer]))
 
