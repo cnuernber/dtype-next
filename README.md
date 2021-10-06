@@ -44,7 +44,7 @@ Additional targets of this library:
 *  Full native memory support.  Malloc, free, memset, memcpy.  Just the basics but
    guaranteed to be available.
 *  Graal Native support.
-*  Support for JDK-8 through JDK-14.
+*  Support for JDK-8 through JDK-16+.
 *  [Blogpost](https://techascent.com/blog/next-gen-native.html), [example](examples/clj-ffi) and [involved example](https://github.com/cnuernber/avclj) of using the FFI architecture across JNA, JDK-16 and GraalNative.
 
 Checkout the [Overview](https://cnuernber.github.io/dtype-next/overview.html), [API Documentation](https://cnuernber.github.io/dtype-next/), and 
