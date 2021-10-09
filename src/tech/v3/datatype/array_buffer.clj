@@ -240,7 +240,7 @@
         :int64 (Arrays/fill ^longs ary-data offset end-offset (unchecked-long value))
         :float32 (Arrays/fill ^floats ary-data offset
                               end-offset (unchecked-float value))
-        :float64 (Arrays/fill ^longs ary-data offset end-offset (unchecked-long value))
+        :float64 (Arrays/fill ^doubles ary-data offset end-offset (unchecked-double value))
         (Arrays/fill ^"[Ljava.lang.Object;" ary-data  offset end-offset value))))
   dtype-proto/PClone
   (clone [this]

@@ -717,3 +717,18 @@
 
 (deftest ->reader-bad-dtype
   (is (thrown? Throwable (dtype/->reader [1 2 3] :foo))))
+
+
+(deftest set-constant-all-numeric-dtypes
+  (let [dtypes [:int8 :uint8
+                :int16 :uin16
+                :int32 :uint32
+                :int64 :uint64
+                :float32 :float64]
+        containers [:jvm-heap :native-heap]]
+    (for [dtype dtypes
+          container containers]
+      (let [data (dtype/make-container container dtype 10)]
+        (dtype/set-constant! data 1)
+        (is (= (mapv long (dtype/->reader data))
+               (vec (repeat 10 1))))))))
