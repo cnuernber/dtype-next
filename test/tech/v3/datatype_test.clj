@@ -732,3 +732,18 @@
         (dtype/set-constant! data 1)
         (is (= (mapv long (dtype/->reader data))
                (vec (repeat 10 1))))))))
+
+
+(deftest nth-neg-indexes
+  (let [data (dtype/make-container :int64 (range 10))]
+    (is (thrown? Throwable (nth data 10)))
+    (is (= :a (nth data 10 :a)))
+    (is (thrown? Throwable (nth data -11)))
+    (is (= :a (nth data -11 :a)))
+    (is (= 0 (nth data -10 :a))))
+  (let [data (dtype/make-list :int64 (range 10))]
+    (is (thrown? Throwable (nth data 10)))
+    (is (= :a (nth data 10 :a)))
+    (is (thrown? Throwable (nth data -11)))
+    (is (= :a (nth data -11 :a)))
+    (is (= 0 (nth data -10 :a)))))

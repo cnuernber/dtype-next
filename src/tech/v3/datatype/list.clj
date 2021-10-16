@@ -137,14 +137,14 @@
     (ListImpl. buffer capacity ptr cached-io metadata))
   Counted
   (count [item] (int ptr))
-  Indexed
   (nth [item idx]
-    (check-idx idx ptr)
-    (.readObject item idx))
+    (let [idx (if (< idx 0) (+ (.size item) idx) idx)]
+      (.readObject item idx)))
   (nth [item idx def-val]
-    (if (and (>= idx 0) (< idx (.count item)))
-      (.readObject item idx)
-      def-val))
+    (let [idx (long (if (< idx 0) (+ (.size item) idx) idx))]
+      (if (and (>= idx 0) (< idx (.size item)))
+        (.readObject item idx)
+        def-val)))
   IFn
   (invoke [item idx]
     (.nth item (int idx)))

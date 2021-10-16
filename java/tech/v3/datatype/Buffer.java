@@ -90,9 +90,11 @@ public interface Buffer extends DatatypeBase, Iterable, IFn,
     else
       throw new RuntimeException("Too many arguments to applyTo");
   }
-  default Object nth(int idx) { return readObject(idx); }
+  default Object nth(int idx) { return invoke(idx); }
   default Object nth(int idx, Object notFound) {
-    if (idx >= 0 && idx <= size()) {
+    int nelts = size();
+    idx = idx < 0 ? nelts + idx : idx;
+    if (idx >= 0 && idx < nelts) {
       return readObject(idx);
     } else {
       return notFound;

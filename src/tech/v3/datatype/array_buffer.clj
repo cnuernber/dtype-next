@@ -269,11 +269,9 @@
   (count [item] (int (dtype-proto/ecount item)))
   Indexed
   (nth [item idx]
-    ((dtype-proto/->buffer item) idx))
+    (nth (dtype-proto/->buffer item) idx))
   (nth [item idx def-val]
-    (if (and (>= idx 0) (< idx (.count item)))
-      ((dtype-proto/->buffer item) idx)
-      def-val))
+    (nth (dtype-proto/->buffer item) idx def-val))
   IFn
   (invoke [item idx]
     (nth item (int idx)))

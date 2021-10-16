@@ -502,3 +502,37 @@ tech.v3.datatype.functional> (meta regressor)
        :intercept (.getIntercept reg)
        :slope (.getSlope reg)
        :mean-squared-error (.getMeanSquareError reg)})))
+
+
+(defn shift
+  "Shift by n and fill in with the first element for n>0 or last element for n<0.
+
+  Examples:
+
+```clojure
+user> (dfn/shift (range 10) 2)
+[0 0 0 1 2 3 4 5 6 7]
+user> (dfn/shift (range 10) -2)
+[2 3 4 5 6 7 8 9 9 9]
+```"
+  ^Buffer [rdr n]
+  (let [rdr (dtype-base/->reader rdr)
+        dtype (casting/simple-operation-space (.elemwiseDatatype rdr))
+        n-elems (.lsize rdr)
+        max-idx (dec n-elems)
+        n (long n)]
+    (case dtype
+      :int64
+      (reify LongReader
+        (elemwiseDatatype [r] (.elemwiseDatatype rdr))
+        (lsize [r] (.lsize rdr))
+        (readLong [r idx] (.readLong rdr (max 0 (min max-idx (- idx n))))))
+      :float64
+      (reify DoubleReader
+        (elemwiseDatatype [r] (.elemwiseDatatype rdr))
+        (lsize [r] (.lsize rdr))
+        (readDouble [r idx] (.readDouble rdr (max 0 (min max-idx (- idx n))))))
+      (reify ObjectReader
+        (elemwiseDatatype [r] (.elemwiseDatatype rdr))
+        (lsize [r] (.lsize rdr))
+        (readObject [r idx] (.readObject rdr (max 0 (min max-idx (- idx n)))))))))
