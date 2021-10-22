@@ -26,9 +26,8 @@
                              [com.clojure-goes-fast/clj-memory-meter "0.1.0"]
                              [techascent/tech.viz "6.00-beta-16-1"]]
               :test-paths ["neanderthal" "test"]}
-             :jdk-16 {:jvm-opts ["--add-modules" "jdk.incubator.foreign,jdk.incubator.vector"
-                                 "-Dforeign.restricted=permit"
-                                 "--add-opens" "java.base/java.lang=ALL-UNNAMED"]}
+             :jdk-17 {:jvm-opts ["--add-modules" "jdk.incubator.foreign,jdk.incubator.vector"
+                                 "--enable-native-access=ALL-UNNAMED"]}
              :codox
              {:dependencies [[codox-theme-rdash "0.1.2"]
                              [codox "0.10.7"

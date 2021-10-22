@@ -4,9 +4,9 @@
             [tech.v3.datatype.ffi.size-t :as ffi-size-t]
             [tech.v3.datatype.ffi.ptr-value :as ptr-value]
             [tech.v3.datatype.ffi.base :as ffi-base])
-  (:import [jdk.incubator.foreign LibraryLookup CLinker FunctionDescriptor
-            MemoryLayout LibraryLookup$Symbol]
-           [jdk.incubator.foreign MemoryAddress Addressable MemoryLayout]
+  (:import [jdk.incubator.foreign CLinker FunctionDescriptor MemoryLayout
+            MemoryAddress Addressable MemoryLayout SymbolLookup
+            ResourceScope]
            [java.lang.invoke MethodHandle MethodType MethodHandles]
            [java.nio.file Path Paths]
            [java.util ArrayList]
@@ -59,26 +59,28 @@
 
 
 (defn load-library
-  ^LibraryLookup [libname]
+  ^SymbolLookup [libname]
   (cond
-    (instance? LibraryLookup libname)
-    libname
     (instance? Path libname)
-    (LibraryLookup/ofPath libname)
+    (do
+      (System/load (.toString ^Path libname))
+      (SymbolLookup/loaderLookup))
     (string? libname)
-    (let [libname (str libname)]
-      (if (or (.contains libname "/")
-              (.contains libname "\\"))
-        (LibraryLookup/ofPath (Paths/get libname (into-array String [])))
-        (LibraryLookup/ofLibrary libname)))
+    (do
+      (let [libname (str libname)]
+        (if (or (.contains libname "/")
+                (.contains libname "\\"))
+          (System/load libname)
+          (System/loadLibrary libname)))
+      (SymbolLookup/loaderLookup))
     (nil? libname)
-    (LibraryLookup/ofDefault)
+    (CLinker/systemLookup)
     :else
     (errors/throwf "Unrecognized libname type %s" (type libname))))
 
 
 (defn find-symbol
-  (^LibraryLookup$Symbol [libname symbol-name]
+  (^MemoryAddress [libname symbol-name]
    (let [symbol-name (cond
                        (symbol? symbol-name)
                        (name symbol-name)
@@ -89,7 +91,7 @@
      (-> (load-library libname)
          (.lookup symbol-name)
          (.get))))
-  (^LibraryLookup$Symbol [symbol-name]
+  (^MemoryAddress [symbol-name]
    (find-symbol nil symbol-name)))
 
 
@@ -173,8 +175,8 @@
      [:aload 1]
      [:invokestatic 'tech.v3.datatype.ffi.mmodel$load_library
       'invokeStatic [Object Object]]
-     [:checkcast LibraryLookup]
-     [:putfield :this "libraryImpl" LibraryLookup]]
+     [:checkcast SymbolLookup]
+     [:putfield :this "libraryImpl" SymbolLookup]]
     ;;Load all the method handles.
     (mapcat
      (fn [[fn-name {:keys [rettype argtypes]}]]
@@ -214,7 +216,7 @@
 (defn emit-find-symbol
   []
   [[:aload 0]
-   [:getfield :this "libraryImpl" LibraryLookup]
+   [:getfield :this "libraryImpl" SymbolLookup]
    [:aload 1]
    [:invokestatic 'tech.v3.datatype.ffi.mmodel$find_symbol
     'invokeStatic [Object Object Object]]
@@ -267,7 +269,7 @@
                     :type Object
                     :flags #{:public :final}}
                    {:name "libraryImpl"
-                    :type LibraryLookup
+                    :type SymbolLookup
                     :flags #{:public :final}}]
                   (map (fn [[fn-name _fn-args]]
                          {:name (str (name fn-name) "_hdl")
@@ -350,7 +352,8 @@
   [iface-def inst]
   (let [linker (CLinker/getInstance)
         new-hdn (.bindTo ^MethodHandle (:method-handle iface-def) inst)
-        mem-seg (.upcallStub linker new-hdn ^FunctionDescriptor (:fndesc iface-def))]
+        mem-seg (.upcallStub linker new-hdn ^FunctionDescriptor (:fndesc iface-def)
+                             (ResourceScope/globalScope))]
     (ffi/->pointer mem-seg)))
 
 

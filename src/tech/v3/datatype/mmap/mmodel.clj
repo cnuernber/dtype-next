@@ -2,8 +2,8 @@
   "Mmap based on the MemorySegment jdk16 memory model pathway"
   (:require [tech.v3.datatype.ffi.native-buffer-mmodel :as nbuf-mmodel]
             [tech.v3.resource :as resource])
-  (:import [jdk.incubator.foreign LibraryLookup CLinker FunctionDescriptor
-            MemoryLayout LibraryLookup$Symbol MemorySegment]
+  (:import [jdk.incubator.foreign CLinker FunctionDescriptor
+            MemoryLayout MemorySegment ResourceScope]
            [java.nio.channels FileChannel$MapMode]
            [java.nio.file Path Paths]
            [tech.v3.datatype.native_buffer NativeBuffer]))
@@ -33,15 +33,16 @@
                               mmap-mode :read-only}
                          :as options}]
    (let [flen (long (:map-len options (.length (java.io.File. (str fpath)))))
-         mseg (-> (MemorySegment/mapFile (->path fpath) 0 flen
-                                         (case mmap-mode
-                                           :read-only FileChannel$MapMode/READ_ONLY
-                                           :read-write FileChannel$MapMode/READ_WRITE
-                                           :private FileChannel$MapMode/PRIVATE))
-                  (.share))
+         rscope (ResourceScope/newSharedScope)
+         mseg (MemorySegment/mapFile (->path fpath) 0 flen
+                                     (case mmap-mode
+                                       :read-only FileChannel$MapMode/READ_ONLY
+                                       :read-write FileChannel$MapMode/READ_WRITE
+                                       :private FileChannel$MapMode/PRIVATE)
+                                     rscope)
          nbuf (nbuf-mmodel/memory-segment->native-buffer mseg options)]
      (when resource-type
        (resource/track nbuf {:track-type resource-type
-                             :dispose-fn #(.close mseg)}))
+                             :dispose-fn #(.close rscope)}))
      nbuf))
   (^NativeBuffer [fpath] (mmap-file fpath {})))

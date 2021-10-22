@@ -3,7 +3,7 @@
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.native-buffer :as native-buffer]
             [tech.v3.datatype.casting :as casting])
-  (:import [jdk.incubator.foreign MemorySegment MemoryAddress]
+  (:import [jdk.incubator.foreign MemorySegment MemoryAddress ResourceScope]
            [tech.v3.datatype.native_buffer NativeBuffer]
            [java.nio ByteBuffer]))
 
@@ -44,5 +44,4 @@
         n-bytes (* (dtype-proto/ecount nbuf)
                    (casting/numeric-byte-width
                     (dtype-proto/elemwise-datatype nbuf)))]
-    (-> (.asSegmentRestricted addr n-bytes nil nbuf)
-        (.share))))
+    (.asSegment addr n-bytes (ResourceScope/globalScope))))
