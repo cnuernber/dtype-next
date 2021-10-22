@@ -13,12 +13,12 @@ Next generation high performance Clojure toolkit.
  * [Efficient 1d convolutions, correlations, gaussian correlations](https://cnuernber.github.io/dtype-next/tech.v3.datatype.convolve.html)
  * [Numeric gradient, elemwise difference](https://cnuernber.github.io/dtype-next/tech.v3.datatype.gradient.html)
  * [Variable rolling windows](https://cnuernber.github.io/dtype-next/tech.v3.datatype.rolling.html#var-variable-rolling-window-indexes)
- 
+
 ## Description
 
-`dtype-next` provides a unified pathway for dealing with contiguous containers of primitive datatypes such as 
+`dtype-next` provides a unified pathway for dealing with contiguous containers of primitive datatypes such as
 ints and floats.  In addition it defines the basis for `array` programming as found in APL or numpy and
-a deep Java interface hierarchy with default methods to allow implementing new `array`s painless.  This 
+a deep Java interface hierarchy with default methods to allow implementing new `array`s painless.  This
 interface hierarchy integrates with Java Streams, Spliterators, and various members of the java.util.function
 package.  In addition it extends these concepts to native-heap based containers.
 
@@ -30,7 +30,7 @@ an index space.
 
 This library forms the numeric basis that underlies the ['tech.ml.dataset'](https://github.com/techascent/tech.ml.dataset)
 system.  It also defines a language independent ABI which allows zerocopy to C-based systems
-such as [numpy](https://github.com/clj-python/libpython-clj), [OpenCV](https://github.com/techascent/tech.opencv), 
+such as [numpy](https://github.com/clj-python/libpython-clj), [OpenCV](https://github.com/techascent/tech.opencv),
 [Julia](https://github.com/cnuernber/libjulia-clj), [TVM](https://github.com/techascent/tvm-clj)
 and [neanderthal](https://github.com/uncomplicate/neanderthal).
 
@@ -44,10 +44,11 @@ Additional targets of this library:
 *  Full native memory support.  Malloc, free, memset, memcpy.  Just the basics but
    guaranteed to be available.
 *  Graal Native support.
-*  Support for JDK-8 through JDK-16+.
+*  Support for JDK-8 through JDK-17+ - JDK-16 is *no longer* supported.  For jdk-17 usage, please see
+   project.clj for required flags.
 *  [Blogpost](https://techascent.com/blog/next-gen-native.html), [example](examples/clj-ffi) and [involved example](https://github.com/cnuernber/avclj) of using the FFI architecture across JNA, JDK-16 and GraalNative.
 
-Checkout the [Overview](https://cnuernber.github.io/dtype-next/overview.html), [API Documentation](https://cnuernber.github.io/dtype-next/), and 
+Checkout the [Overview](https://cnuernber.github.io/dtype-next/overview.html), [API Documentation](https://cnuernber.github.io/dtype-next/), and
 [Cheatsheet](https://cnuernber.github.io/dtype-next/cheatsheet.html).
 
 
