@@ -337,6 +337,7 @@
     (let [retval (ffi-base/define-foreign-interface classname rettype argtypes
                    {:src-ns-str "tech.v3.datatype.ffi.mmodel"
                     :platform-ptr->ptr platform-ptr->ptr
+                    :ptr->platform-ptr (partial ffi-base/ptr->platform-ptr "tech.v3.datatype.ffi.mmodel" MemoryAddress)
                     :ptrtype MemoryAddress})
           iface-cls (:foreign-iface-class retval)
           lookup (MethodHandles/lookup)
