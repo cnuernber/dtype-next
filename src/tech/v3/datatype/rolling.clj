@@ -1,5 +1,6 @@
 (ns tech.v3.datatype.rolling
   (:require [tech.v3.datatype.base :as dtype-base]
+            [tech.v3.datatype.protocols :as dt-proto]
             [tech.v3.datatype.dispatch :refer [vectorized-dispatch-1]]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.packing :as packing]
@@ -88,8 +89,9 @@ tech.v3.datatype.rolling> (window-ranges->window-reader
 [[0 0 1] [0 1 2] [1 2 3] [2 3 4] [3 4 5] [4 5 6] [5 6 7] [6 7 8] [7 8 9] [8 9 0]]
 ```"
   [src-data win-ranges edge-mode]
-  (let [src-data (dtype-base/->buffer src-data)
-        win-ranges (dtype-base/->buffer win-ranges)
+  (let [op-type (dt-proto/operational-elemwise-datatype src-data)
+        src-data (dtype-base/->reader src-data op-type)
+        win-ranges (dtype-base/->reader win-ranges)
         n-src (.lsize src-data)
         n-win (.lsize win-ranges)
         src-dt (dtype-base/elemwise-datatype src-data)
@@ -126,9 +128,11 @@ tech.v3.datatype.rolling> (window-ranges->window-reader
                          (elemwiseDatatype [rdr] src-unpack-dtype)
                          (lsize [rdr] win-n-elems)
                          (readDouble [rdr idx]
-                           (unchecked-double
-                            (padded-read src-data idx win-start n-src
-                                         left-pad-val right-pad-val .readDouble))))
+                           (if-let [retval
+                                    (padded-read src-data idx win-start n-src
+                                                 left-pad-val right-pad-val .readDouble)]
+                             (unchecked-double retval)
+                             Double/NaN)))
               (reify ObjectReader
                 (elemwiseDatatype [rdr] src-unpack-dtype)
                 (lsize [rdr] win-n-elems)
