@@ -61,6 +61,8 @@
 (defn load-library
   ^SymbolLookup [libname]
   (cond
+    (instance? SymbolLookup libname)
+    libname
     (instance? Path libname)
     (do
       (System/load (.toString ^Path libname))

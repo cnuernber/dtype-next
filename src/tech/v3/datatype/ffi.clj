@@ -98,7 +98,7 @@ user> dbuf
   "Is the JDK foreign function interface available?"
   []
   (try
-    (boolean (Class/forName "jdk.incubator.foreign.LibraryLookup"))
+    (boolean (Class/forName "jdk.incubator.foreign.CLinker"))
     (catch Throwable e false)))
 
 
