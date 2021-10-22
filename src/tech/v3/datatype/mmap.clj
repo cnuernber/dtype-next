@@ -12,12 +12,21 @@
 (defn set-mmap-impl!
   "Set the system mmap implementation to use.  There are three provided under the
   mmap directory -
-  * `mmodel` - Use the JDK-16 memory model.  You have to have the module enabled.
+  * `mmodel` - Use the JDK-17 memory model.  You have to have the module enabled.
   * `larray` - Use LArray mmap - default if available.
 
-  If unset then the system will try to load the jdk-16 namespace, then larray."
+  If unset then the system will try to load the jdk-17 namespace, then larray."
   [mmap-fn]
   (reset! mmap-fn* mmap-fn))
+
+
+(defn jdk-major-version
+  ^long []
+  (let [jv (System/getProperty "java.version")]
+    (try
+      (-> (re-find #"^\d+" jv)
+          (Long/parseLong))
+      (catch Exception e 8))))
 
 
 (defn- resolve-mmap-fn
@@ -26,16 +35,15 @@
                     (if existing-fn
                       existing-fn
                       (graal-native/if-defined-graal-native
-                       (errors/throwf "Automatic resolution of mmap pathways is disabled for graal native.
-Please use 'tech.3.datatype.mmap/set-mmap-impl!' prior to calling mmap-file.")
-                       (let [jdk-16-fn
-                             (when (.startsWith (System/getProperty "java.version") "16-")
+                       (errors/throwf "Automatic resolution of mmap pathways is disabled for graal native. Please use 'tech.3.datatype.mmap/set-mmap-impl!' prior to calling mmap-file.")
+                       (let [jdk-17-fn
+                             (when (>= (jdk-major-version) 17)
                                (try
                                  (requiring-resolve 'tech.v3.datatype.mmap.mmodel/mmap-file)
                                  (catch Throwable e
-                                   (log/warn "Failed to activate JDK-16 mmodel pathway; falling back to larray."))))]
-                         (if jdk-16-fn
-                           jdk-16-fn
+                                   (log/warn "Failed to activate JDK-17 mmodel pathway; falling back to larray."))))]
+                         (if jdk-17-fn
+                           jdk-17-fn
                            (requiring-resolve 'tech.v3.datatype.mmap.larray/mmap-file))))))))
 
 
