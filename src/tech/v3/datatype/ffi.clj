@@ -333,9 +333,9 @@ Attempted both :jdk and :jna -- call set-ffi-impl! from the repl to see specific
 (defn find-symbol
   "Find a symbol in a library.  A library symbol is guaranteed to have a conversion to
   a pointer."
-  ([libname symbol-name]
+  (^Pointer [libname symbol-name]
    ((:find-symbol (ffi-impl)) libname symbol-name))
-  ([symbol-name]
+  (^Pointer [symbol-name]
    ((:find-symbol (ffi-impl)) nil symbol-name)))
 
 
