@@ -51,7 +51,7 @@
            ;;For integer types, everything implements readlong.
            ;;They also implement readX where X maps to exactly the datatype.
            ;;For example byte arrays implement readLong and readByte.
-           (casting/integer-type? cast-dtype)
+           (or (= cast-dtype :char) (casting/integer-type? cast-dtype))
            (concat
             [`(readLong [rdr# ~'idx]
                         (casting/datatype->unchecked-cast-fn
@@ -129,7 +129,7 @@
            (= :boolean cast-dtype)
            [`(writeBoolean [wtr# idx# val#]
                            (ArrayHelpers/aset ~'java-ary (pmath/+ ~offset idx#) val#))]
-           (casting/integer-type? cast-dtype)
+           (or (= :char cast-dtype) (casting/integer-type? cast-dtype))
            (concat
             [`(writeLong [rdr# ~'idx ~'value]
                          (ArrayHelpers/aset ~'java-ary (pmath/+ ~offset ~'idx)

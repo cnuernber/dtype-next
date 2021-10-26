@@ -174,7 +174,8 @@
                              :int64 ['.putLong '.getLong]
                              :float32 ['.putFloat '.getFloat]
                              :float64 ['.putDouble '.getDouble])
-        accum-type (if (casting/integer-type? datatype)
+        accum-type (if (or (= :char datatype)
+                           (casting/integer-type? datatype))
                      :int64
                      :float64)]
     `(do
@@ -267,7 +268,8 @@
              ;;For integer types, everything implements readlong.
              ;;They also implement readX where X maps to exactly the datatype.
              ;;For example byte arrays implement readLong and readByte.
-             (casting/integer-type? datatype)
+             (or (= :char datatype)
+                 (casting/integer-type? datatype))
              (concat
               [`(readLong [rdr# ~'idx]
                           (casting/datatype->unchecked-cast-fn
@@ -320,7 +322,8 @@
              (= :boolean datatype)
              [`(writeBoolean [wtr# idx# ~'value]
                              (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))]
-             (casting/integer-type? datatype)
+             (or (= :char datatype (casting/integer-type? datatype))
+                 (casting/integer-type? datatype))
              (concat
               [`(writeLong [rdr# ~'idx ~'value]
                            (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))]
@@ -354,7 +357,7 @@
               `(writeFloat [rdr# ~'idx ~'value]
                            (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))]
              :else
-             [`(writeObject [wtr# idx# val#]
+             [`(writeObject [wtr# ~'idx ~'value]
                             ;;Writing values is always checked, no options.
                             (write-value ~address ~swap? ~datatype ~byte-width ~n-elems))])))))
 

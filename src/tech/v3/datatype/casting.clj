@@ -74,7 +74,7 @@
 
 (def float-types #{:float32 :float64})
 
-(def int-types (set (concat (flatten (seq signed-unsigned)) [:char])))
+(def int-types (set (concat (flatten (seq signed-unsigned)))))
 
 (def signed-int-types (set (keys signed-unsigned)))
 
@@ -82,7 +82,7 @@
 
 (def host-numeric-types (set (concat signed-int-types float-types)))
 
-(def numeric-types (set (concat host-numeric-types unsigned-int-types [:char])))
+(def numeric-types (set (concat host-numeric-types unsigned-int-types)))
 
 
 (defonce valid-datatype-set (atom nil))
@@ -98,7 +98,7 @@
           (->> (concat (keys datatype->class-map)
                        (keys aliased-datatypes)
                        numeric-types
-                       [:object :boolean])
+                       [:object :boolean :char])
                (->hash-set))))
 
 
@@ -167,6 +167,9 @@
             (quot (int-width dtype) 8)
             (float-types dtype)
             (quot (float-width dtype) 8)
+            ;;char is a shitty uint16
+            (identical? dtype :char)
+            (int-width :uint16)
             :else
             (throw (ex-info (format "datatype is not numeric: %s" dtype)
                             {:datatype dtype}))))))

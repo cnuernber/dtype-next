@@ -69,7 +69,7 @@
     :boolean 'tech.v3.datatype.BooleanReader
     :int8 'tech.v3.datatype.LongReader
     :int16 'tech.v3.datatype.LongReader
-    :char 'tech.v3.datatype.LongReader
+    :char 'tech.v3.datatype.ObjectReader
     :int32 'tech.v3.datatype.LongReader
     :int64 'tech.v3.datatype.LongReader
     :float32 'tech.v3.datatype.DoubleReader
@@ -82,8 +82,8 @@
   (case (casting/safe-flatten dtype)
     :boolean 'tech.v3.datatype.BooleanWriter
     :int8 'tech.v3.datatype.LongWriter
-    :int16 'tech.v3.datatype.LongtWriter
-    :char 'tech.v3.datatype.LongWriter
+    :int16 'tech.v3.datatype.LongWriter
+    :char 'tech.v3.datatype.ObjectWriter
     :int32 'tech.v3.datatype.LongWriter
     :int64 'tech.v3.datatype.LongWriter
     :float32 'tech.v3.datatype.DoubleWriter

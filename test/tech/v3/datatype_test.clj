@@ -747,3 +747,21 @@
     (is (thrown? Throwable (nth data -11)))
     (is (= :a (nth data -11 :a)))
     (is (= 0 (nth data -10 :a)))))
+
+
+(deftest elemwise-cast-container
+  (let [c (dtype/make-container :float64 [1.2])
+        ic (dtype/elemwise-cast c :int32)]
+    (is (= 1 (ic 0))))
+  (let [c (dtype/make-container :float64 [155])
+        ic (dtype/elemwise-cast c :int8)]
+    (is (thrown? Throwable (ic 0))))
+  (let [c (dtype/make-container :float64 [155])
+        ic (dtype/elemwise-cast c :uint8)]
+    (is (= 155 (ic 0))))
+  ;;This one is tricky because the JVM is too stupid to cast
+  ;;an char, which is an unsigned short, to any numeric type without
+  ;;more magic.
+  (let [c (dtype/make-container :char [155])
+        ic (dtype/elemwise-cast c :uint8)]
+    (is (= 155 (ic 0)))))

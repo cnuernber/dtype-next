@@ -689,21 +689,26 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
            (fn [op-dtype item]
              (dispatch/typed-map-1 cast-fn new-dtype item))
            (fn [op-dtype item]
-             (case (casting/simple-operation-space new-dtype
-                                                   (elemwise-datatype item))
-               :int64
-               (let [src-rdr (dtype-proto/elemwise-reader-cast item :int64)]
+             (let [ewise-dtype (dtype-proto/operational-elemwise-datatype item)
+                   ^Buffer src-rdr (dtype-proto/elemwise-reader-cast
+                                    item
+                                    ewise-dtype)
+                   number? (casting/numeric-type? ewise-dtype)
+                   simp-op-space (casting/simple-operation-space new-dtype)]
+               (cond
+                 (and number? (identical? simp-op-space :int64))
                  (reify LongReader
                    (elemwiseDatatype [rdr] new-dtype)
                    (lsize [rdr] (.lsize src-rdr))
-                   (readLong [rdr idx] (.readLong src-rdr idx))))
-               :float64
-               (let [src-rdr (dtype-proto/elemwise-reader-cast item :float64)]
+                   ;;We have to call cast-fn here in order to correctly cache out-of-range
+                   ;;issues with types like uint8
+                   (readLong [rdr idx] (cast-fn (.readLong src-rdr idx))))
+                 (and number? (identical? simp-op-space :float64))
                  (reify DoubleReader
                    (elemwiseDatatype [rdr] new-dtype)
                    (lsize [rdr] (.lsize src-rdr))
-                   (readDouble [rdr idx] (.readDouble src-rdr idx))))
-               (let [src-rdr (->reader item)]
+                   (readDouble [rdr idx] (.readDouble src-rdr idx)))
+                 :else
                  (reify ObjectReader
                    (elemwiseDatatype [rdr] new-dtype)
                    (lsize [rdr] (.lsize src-rdr))
