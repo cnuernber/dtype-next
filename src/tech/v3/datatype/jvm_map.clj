@@ -253,6 +253,14 @@
   (.computeIfAbsent ^Map map k (->bi-function val-fn)))
 
 
+(defn replace-all!
+  "Replace all the values in the map with new values computed with val-fn.  val-fn gets passed
+  the key and the existing value and must return a new value."
+  [map val-fn]
+  (.replaceAll ^Map map (->bi-function val-fn))
+  map)
+
+
 (extend-protocol dt-proto/PClone
   HashMap
   (clone [item] (.clone item))
