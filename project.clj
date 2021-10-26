@@ -59,6 +59,7 @@
                                    tech.v3.datatype.ffi
                                    tech.v3.datatype.ffi.clang
                                    tech.v3.datatype.struct
+                                   tech.v3.datatype.locker
                                    tech.v3.tensor.dimensions
                                    tech.v3.tensor.color-gradients
                                    tech.v3.datatype.reductions
