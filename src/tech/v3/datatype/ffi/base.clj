@@ -301,6 +301,7 @@
 (defn object->exact-type-retval
   [rettype ptr->ptr]
   (case (ffi-size-t/lower-type rettype)
+    :void [[:return]]
     :int8 [[:invokestatic RT "uncheckedByteCast" [Object :byte]]
            [:ireturn]]
     :int16 [[:invokestatic RT "uncheckedShortCast" [Object :short]]
