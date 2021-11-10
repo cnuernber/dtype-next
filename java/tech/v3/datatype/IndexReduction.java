@@ -9,6 +9,7 @@ public interface IndexReduction
   //This allows us to handle sequences of readers as opposed to just a single reader
   //Or, when dealing with datasets, sequences of datasets.
   public default Object prepareBatch(Object batchData) { return batchData; }
+  public default boolean filterIndex(Object batchData, long idx) { return true; }
   public Object reduceIndex(Object batchData, Object ctx, long idx);
   public Object reduceReductions(Object lhsCtx, Object rhsCtx);
   public default Object reduceReductionList(List contexts) {
@@ -33,7 +34,7 @@ public interface IndexReduction
   {
     public long index;
     public Object batchData;
-    public IndexReduction reducer;
+    public final IndexReduction reducer;
     public IndexedBiFunction(IndexReduction rd, Object _batchData)
     {
       index = 0;

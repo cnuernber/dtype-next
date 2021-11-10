@@ -286,7 +286,8 @@
         (let [bifn (IndexReduction$IndexedBiFunction. reducer batch-data)
               end-idx (+ start-idx group-len)]
           (loop [idx start-idx]
-            (when (< idx end-idx)
+            (when (and (< idx end-idx)
+                       (.filterIndex reducer batch-data idx))
               (.setIndex bifn idx)
               (.compute result-map (.readObject rdr idx) bifn)
               (recur (unchecked-inc idx))))
@@ -347,7 +348,8 @@ user>
               bifn (IndexReduction$IndexedBiFunction. reducer batch-data)
               end-idx (+ start-idx group-len)]
           (loop [idx start-idx]
-            (when (< idx end-idx)
+            (when (and (< idx end-idx)
+                       (.filterIndex reducer batch-data idx))
               (.setIndex bifn idx)
               (.compute result-map (.readObject rdr idx) bifn)
               (recur (unchecked-inc idx))))
