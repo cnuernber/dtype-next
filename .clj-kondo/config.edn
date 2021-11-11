@@ -1,0 +1,2 @@
+{:hooks {:macroexpand {tech.v3.datatype.export-symbols/export-symbols
+                       hooks.export-symbols/export-symbols}}}
