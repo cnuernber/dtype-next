@@ -284,26 +284,57 @@
 (defmacro ^:private implement-binary-predicates
   []
   `(do
-     ~@(->> binary-pred/builtin-ops
-            (map (fn [[k v]]
+     ~@(->> [:tech.numerics/and
+             :tech.numerics/or
+             :tech.numerics/eq
+             :tech.numerics/not-eq]
+            (map (fn [k]
                    (let [fn-symbol (symbol (name k))]
                      `(let [v# (binary-pred/builtin-ops ~k)]
                         (defn ~(with-meta fn-symbol
                                  {:binary-predicate k})
-                          ([~'lhs ~'rhs ~'options]
+                          ([~'lhs ~'rhs]
                            (vectorized-dispatch-2
                             v#
                             (fn [op-dtype# lhs# rhs#]
                               (binary-pred/iterable v# lhs# rhs#))
                             (fn [op-dtype# lhs-rdr# rhs-rdr#]
                               (binary-pred/reader v# lhs-rdr# rhs-rdr#))
-                            (merge (meta v#) ~'options)
-                            ~'lhs ~'rhs))
-                          ([~'lhs ~'rhs]
-                           (~fn-symbol ~'lhs ~'rhs nil))))))))))
+                            (meta v#)
+                            ~'lhs ~'rhs))))))))))
 
 
 (implement-binary-predicates)
+
+
+(defmacro ^:private implement-compare-predicates
+  []
+  `(do
+     ~@(->> [:tech.numerics/>
+             :tech.numerics/>=
+             :tech.numerics/<
+             :tech.numerics/<=]
+            (map (fn [k]
+                   (let [fn-symbol (symbol (name k))]
+                     `(let [v# (binary-pred/builtin-ops ~k)]
+                        (defn ~(with-meta fn-symbol
+                                 {:binary-predicate k})
+                          ([~'lhs ~'mid ~'rhs]
+                           (and
+                            (~fn-symbol ~'lhs ~'mid)
+                            (~fn-symbol ~'mid ~'rhs)))
+                          ([~'lhs ~'rhs]
+                           (vectorized-dispatch-2
+                            v#
+                            (fn [op-dtype# lhs# rhs#]
+                              (binary-pred/iterable v# lhs# rhs#))
+                            (fn [op-dtype# lhs-rdr# rhs-rdr#]
+                              (binary-pred/reader v# lhs-rdr# rhs-rdr#))
+                            (meta v#)
+                            ~'lhs ~'rhs))))))))))
+
+
+(implement-compare-predicates)
 
 
 (export-symbols tech.v3.datatype.unary-pred

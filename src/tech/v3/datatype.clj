@@ -20,16 +20,18 @@
             [tech.v3.datatype.unary-pred :as unary-pred]
             [tech.v3.datatype.binary-op :as binary-op]
             [tech.v3.datatype.binary-pred :as binary-pred]
+            [tech.v3.datatype.monotonic-range :as dt-range]
             [tech.v3.datatype.emap :as emap]
             ;;import in clone for jvm maps
             [tech.v3.datatype.jvm-map]
             [tech.v3.datatype.export-symbols :refer [export-symbols]])
   (:import [tech.v3.datatype.array_buffer ArrayBuffer]
            [tech.v3.datatype ListPersistentVector BooleanReader
-            LongReader DoubleReader ObjectReader PrimitiveList]
+            LongReader DoubleReader ObjectReader PrimitiveList
+            Buffer]
            [org.roaringbitmap RoaringBitmap]
            [java.util List])
-  (:refer-clojure :exclude [cast]))
+  (:refer-clojure :exclude [cast reverse]))
 
 
 (export-symbols tech.v3.datatype.casting
@@ -151,6 +153,34 @@ user> (dtype/make-reader :float32 5 (* idx 2))
               (elemwiseDatatype [rdr#] ~advertised-datatype)
               (lsize [rdr#] ~'n-elems)
               (readObject [rdr# ~'idx] ~read-op)))))))
+
+
+(defn reverse
+  "Reverse an sequence, range or reader.
+  * If range, returns a new range.
+  * If sequence, uses clojure.core/reverse
+  * If reader, returns a new reader that performs an in-place reverse."
+  [item]
+  (if (dtype-proto/convertible-to-range? item)
+    (let [rng (dtype-proto/->range item nil)
+          rstart (dtype-proto/range-start rng)
+          rc (ecount rng)
+          rinc (dtype-proto/range-increment rng)
+          rend (+ rstart (* rinc rc))]
+      ;;unchecked math intentional
+      (dt-range/make-range (- rend rinc) (- rstart rinc) (- rinc)))
+    (let [rc (ecount item)
+          drc (dec rc)]
+      (dispatch/vectorized-dispatch-1
+       (constantly item)
+       (constantly (clojure.core/reverse item))
+       (fn [res-dt ^Buffer rdr]
+         (case (casting/simple-operation-space res-dt)
+           :int64 (make-reader res-dt rc (.readLong rdr (- drc idx)))
+           :float64 (make-reader res-dt rc (.readDouble rdr (- drc idx)))
+           :boolean (make-reader res-dt rc (.readBoolean rdr (- drc idx)))
+           (make-reader res-dt rc (.readObject rdr (- drc idx)))))
+       item))))
 
 
 (export-symbols tech.v3.datatype.io-indexed-buffer

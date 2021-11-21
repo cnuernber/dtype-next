@@ -765,3 +765,14 @@
   (let [c (dtype/make-container :char [155])
         ic (dtype/elemwise-cast c :uint8)]
     (is (= 155 (ic 0)))))
+
+
+(deftest issue-46-tri-bool-ops
+  (is (= [false false false true true true true false false false]
+         (vec (dfn/< 2 (range 10) 7))))
+  (is (= [false false true true true true true true false false]
+         (vec (dfn/<= 2 (range 10) 7))))
+  (is (= [false false true true true true true false false false]
+         (vec (dfn/> 7 (range 10) 1))))
+  (is (= [false true true true true true true true false false]
+         (vec (dfn/>= 7 (range 10) 1)))))
