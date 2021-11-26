@@ -203,7 +203,7 @@
   dtype-proto/PEndianness
   (endianness [_item] :little-endian)
   dtype-proto/PElemwiseReaderCast
-  (elemwise-reader-cast [_item _new-dtype]
+  (elemwise-reader-cast [item _new-dtype]
     (or cached-io (dtype-proto/->reader item)))
   dtype-proto/PToArrayBuffer
   (convertible-to-array-buffer? [_item] true)
@@ -217,7 +217,7 @@
     (-> (dtype-proto/->binary-buffer ary-data)
         (dtype-proto/sub-buffer offset n-elems)))
   dtype-proto/PSubBuffer
-  (sub-buffer [item off len]
+  (sub-buffer [_item off len]
     (ArrayBuffer. ary-data
                   (+ offset (int off))
                   (int len)
@@ -225,7 +225,7 @@
                   metadata
                   nil))
   dtype-proto/PSetConstant
-  (set-constant! [this off elem-count value]
+  (set-constant! [_this off elem-count value]
     (let [offset (+ offset (int off))
           elem-count (int elem-count)
           end-offset (+ elem-count offset)
@@ -246,7 +246,7 @@
   (clone [this]
     (dtype-proto/make-container :jvm-heap datatype {} this))
   dtype-proto/PToBuffer
-  (convertible-to-buffer? [item] true)
+  (convertible-to-buffer? [_item] true)
   (->buffer [item]
     (if cached-io cached-io
         (let [io
@@ -254,16 +254,16 @@
           (set! cached-io io)
           io)))
   dtype-proto/PToReader
-  (convertible-to-reader? [item] true)
+  (convertible-to-reader? [_item] true)
   (->reader [item]
     (dtype-proto/->buffer item))
   dtype-proto/PToWriter
-  (convertible-to-writer? [item] true)
+  (convertible-to-writer? [_item] true)
   (->writer [item]
     (dtype-proto/->buffer item))
   IObj
-  (meta [item] metadata)
-  (withMeta [item metadata]
+  (meta [_item] metadata)
+  (withMeta [_item metadata]
     (ArrayBuffer. ary-data offset n-elems datatype metadata cached-io))
   Counted
   (count [item] (int (dtype-proto/ecount item)))
