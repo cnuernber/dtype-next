@@ -19,3 +19,4 @@ jdk-17.0.1
 library_test
 zulu-jdk
 .clj-kondo/.cache
+.lsp
