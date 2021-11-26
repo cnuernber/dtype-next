@@ -19,7 +19,7 @@
   :source-paths ["src" "classes" "third-party"]
   :profiles {:dev
              {:dependencies [[criterium "0.4.5"]
-                             [net.java.dev.jna/jna :mvn/version "5.9.0"]
+                             [net.java.dev.jna/jna "5.9.0"]
                              [uncomplicate/neanderthal "0.35.0"]
                              [com.taoensso/nippy "3.1.1"]
                              [ch.qos.logback/logback-classic "1.1.3"]
