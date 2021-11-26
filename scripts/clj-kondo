@@ -1,0 +1,5 @@
+#!/bin/bash
+
+set -e
+
+clj-kondo --config-dir resources/clj-kondo.exports/cnuernber/dtype-next/ --lint src
