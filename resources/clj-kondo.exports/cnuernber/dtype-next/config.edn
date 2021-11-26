@@ -1,5 +1,5 @@
 {:hooks
  {:macroexpand {tech.v3.datatype/make-reader
-                hooks.datatype/make-reader
+                tech.v3.datatype/make-reader
                 tech.v3.datatype.export-symbols/export-symbols
-                hooks.export-symbols/export-symbols}}}
+                tech.v3.datatype.export-symbols/export-symbols}}}

@@ -1,4 +1,4 @@
-(ns hooks.export-symbols)
+(ns tech.v3.datatype.export-symbols)
 
 (defmacro export-symbols
   [src-ns & symbol-list]

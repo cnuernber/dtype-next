@@ -195,25 +195,25 @@
 (deftype ArrayBuffer [ary-data ^long offset ^long n-elems datatype metadata
                       ^:volatile-mutable ^Buffer cached-io]
   dtype-proto/PElemwiseDatatype
-  (elemwise-datatype [item] datatype)
+  (elemwise-datatype [_item] datatype)
   dtype-proto/PDatatype
-  (datatype [item] :array-buffer)
+  (datatype [_item] :array-buffer)
   dtype-proto/PECount
-  (ecount [item] n-elems)
+  (ecount [_item] n-elems)
   dtype-proto/PEndianness
-  (endianness [item] :little-endian)
+  (endianness [_item] :little-endian)
   dtype-proto/PElemwiseReaderCast
-  (elemwise-reader-cast [item new-dtype]
+  (elemwise-reader-cast [_item _new-dtype]
     (or cached-io (dtype-proto/->reader item)))
   dtype-proto/PToArrayBuffer
-  (convertible-to-array-buffer? [item] true)
+  (convertible-to-array-buffer? [_item] true)
   (->array-buffer [item] item)
   dtype-proto/PToBinaryBuffer
-  (convertible-to-binary-buffer? [item]
+  (convertible-to-binary-buffer? [_item]
     (and
      (= datatype :int8)
      (dtype-proto/convertible-to-binary-buffer? ary-data)))
-  (->binary-buffer [item]
+  (->binary-buffer [_item]
     (-> (dtype-proto/->binary-buffer ary-data)
         (dtype-proto/sub-buffer offset n-elems)))
   dtype-proto/PSubBuffer
