@@ -6,8 +6,6 @@
             [com.github.ztellman.primitive-math :as pmath])
   (:import [tech.v3.datatype LongReader DoubleReader ObjectReader
             BinaryOperator Buffer
-            BinaryOperators$LongBinaryOperator
-            BinaryOperators$DoubleBinaryOperator
             BinaryOperators$ObjectBinaryOperator]
            [clojure.lang IFn]))
 
@@ -16,7 +14,7 @@
 
 
 (defn ->operator
-  (^BinaryOperator [item opname]
+  (^BinaryOperator [item _opname]
    (cond
      (instance? BinaryOperator item)
      item

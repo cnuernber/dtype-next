@@ -2,4 +2,16 @@
  {:macroexpand {tech.v3.datatype/make-reader
                 tech.v3.datatype/make-reader
                 tech.v3.datatype.export-symbols/export-symbols
-                tech.v3.datatype.export-symbols/export-symbols}}}
+                tech.v3.datatype.export-symbols/export-symbols
+                tech.v3.datatype.binary-op/make-numeric-object-binary-op
+                tech.v3.datatype.binary-op/make-numeric-object-binary-op
+                tech.v3.datatype.binary-op/make-float-double-binary-op
+                tech.v3.datatype.binary-op/make-float-double-binary-op
+                tech.v3.datatype.binary-op/make-int-long-binary-op
+                tech.v3.datatype.binary-op/make-int-long-binary-op
+                tech.v3.datatype.binary-pred/make-boolean-predicate
+                tech.v3.datatype.binary-pred/make-boolean-predicate
+                tech.v3.datatype.binary-pred/make-numeric-binary-predicate
+                tech.v3.datatype.binary-pred/make-numeric-binary-predicate
+                tech.v3.parallel.for/doiter tech.v3.parallel.for/doiter
+                }}}

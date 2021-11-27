@@ -11,12 +11,11 @@
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.array-buffer])
-  (:import [it.unimi.dsi.fastutil.longs LongSet LongIterator]
-           [org.roaringbitmap RoaringBitmap ImmutableBitmapDataProvider]
+  (:import [org.roaringbitmap RoaringBitmap]
            [tech.v3.datatype SimpleLongSet LongReader LongBitmapIter BitmapMap
             PrimitiveList Buffer]
            [tech.v3.datatype.array_buffer ArrayBuffer]
-           [clojure.lang IFn LongRange]
+           [clojure.lang LongRange]
            [java.lang.reflect Field]))
 
 
@@ -126,32 +125,32 @@
 
 (deftype BitmapSet [^RoaringBitmap bitmap]
   SimpleLongSet
-  (getDatatype [item] :uin32)
-  (lsize [item] (.getLongCardinality bitmap))
-  (lcontains [item arg] (.contains bitmap (unchecked-int arg)))
-  (ladd [item arg] (.add bitmap (unchecked-int arg)) true)
-  (lremove [item arg] (.remove bitmap (unchecked-int arg)) true)
+  (getDatatype [_item] :uin32)
+  (lsize [_item] (.getLongCardinality bitmap))
+  (lcontains [_item arg] (.contains bitmap (unchecked-int arg)))
+  (ladd [_item arg] (.add bitmap (unchecked-int arg)) true)
+  (lremove [_item arg] (.remove bitmap (unchecked-int arg)) true)
   dtype-proto/PToReader
-  (convertible-to-reader? [item] true)
-  (->reader [item]
+  (convertible-to-reader? [_item] true)
+  (->reader [_item]
     (dtype-proto/->reader bitmap))
   dtype-proto/PClone
-  (clone [item] (BitmapSet. (dtype-proto/clone bitmap)))
+  (clone [_item] (BitmapSet. (dtype-proto/clone bitmap)))
   dtype-proto/PConstantTimeMinMax
-  (has-constant-time-min-max? [item] (not (.isEmpty bitmap)))
-  (constant-time-min [item] (.first bitmap))
-  (constant-time-max [item] (.last bitmap))
+  (has-constant-time-min-max? [_item] (not (.isEmpty bitmap)))
+  (constant-time-min [_item] (.first bitmap))
+  (constant-time-max [_item] (.last bitmap))
   dtype-proto/PToBitmap
-  (convertible-to-bitmap? [item] true)
-  (as-roaring-bitmap [item] bitmap)
+  (convertible-to-bitmap? [_item] true)
+  (as-roaring-bitmap [_item] bitmap)
   Iterable
-  (iterator [item] (.iterator ^Iterable (dtype-proto/->reader bitmap)))
+  (iterator [_item] (.iterator ^Iterable (dtype-proto/->reader bitmap)))
   dtype-proto/PBitmapSet
-  (set-and [lhs rhs] (BitmapSet. (dtype-proto/set-and bitmap rhs)))
-  (set-and-not [lhs rhs] (BitmapSet. (dtype-proto/set-and-not bitmap rhs)))
-  (set-or [lhs rhs] (BitmapSet. (dtype-proto/set-or bitmap rhs)))
-  (set-xor [lhs rhs] (BitmapSet. (dtype-proto/set-xor bitmap rhs)))
-  (set-offset [item offset] (BitmapSet. (dtype-proto/set-offset bitmap offset)))
+  (set-and [_lhs rhs] (BitmapSet. (dtype-proto/set-and bitmap rhs)))
+  (set-and-not [_lhs rhs] (BitmapSet. (dtype-proto/set-and-not bitmap rhs)))
+  (set-or [_lhs rhs] (BitmapSet. (dtype-proto/set-or bitmap rhs)))
+  (set-xor [_lhs rhs] (BitmapSet. (dtype-proto/set-xor bitmap rhs)))
+  (set-offset [_item offset] (BitmapSet. (dtype-proto/set-offset bitmap offset)))
   (set-add-range! [item start end]
     (dtype-proto/set-add-range! bitmap start end)
     item)
@@ -234,22 +233,22 @@
 (deftype BitmapPrimitiveList [^RoaringBitmap bitmap
                               ^:unsynchronized-mutable ^Buffer cached-io]
   PrimitiveList
-  (ensureCapacity [this cap])
-  (addLong [this arg]
+  (ensureCapacity [_this _cap])
+  (addLong [_this arg]
     (.add bitmap (unchecked-int arg))
     (set! cached-io nil))
   (addDouble [this arg]
     (.addLong this (unchecked-long arg)))
   (addObject [this arg]
     (.addLong this (long arg)))
-  (addAll [this other]
+  (addAll [_this other]
     (if (instance? BitmapPrimitiveList other)
       (.or bitmap (.bitmap ^BitmapPrimitiveList other))
       (parallel-for/doiter
        value other
        (.add bitmap (unchecked-int value))))
     true)
-  (lsize [this] (.getCardinality bitmap))
+  (lsize [_this] (.getCardinality bitmap))
   (readBoolean [this idx] (dtype-proto/->reader this) (.readBoolean cached-io idx))
   (readByte [this idx] (dtype-proto/->reader this) (.readByte cached-io idx))
   (readShort [this idx] (dtype-proto/->reader this) (.readShort cached-io idx))
@@ -260,14 +259,14 @@
   (readDouble [this idx] (dtype-proto/->reader this) (.readDouble cached-io idx))
   (readObject [this idx] (dtype-proto/->reader this) (.readObject cached-io idx))
   dtype-proto/PToReader
-  (convertible-to-reader? [this] true)
-  (->reader [this]
+  (convertible-to-reader? [_this] true)
+  (->reader [_this]
     (when-not cached-io
       (set! cached-io (dtype-proto/->reader bitmap)))
     cached-io)
   dtype-proto/PToBitmap
-  (convertible-to-bitmap? [item] true)
-  (as-roaring-bitmap [item] bitmap))
+  (convertible-to-bitmap? [_item] true)
+  (as-roaring-bitmap [_item] bitmap))
 
 
 (defn bitmap-as-primitive-list
