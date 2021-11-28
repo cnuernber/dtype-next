@@ -23,7 +23,7 @@
 
 
 (defmethod dtype-proto/make-container :jvm-heap
-  [container-type datatype options elem-seq-or-count]
+  [_container-type datatype options elem-seq-or-count]
   (errors/when-not-error
    elem-seq-or-count
    "nil elem-seq-or-count passed into make-container")
@@ -52,18 +52,18 @@
 
 
 (defmethod dtype-proto/make-container :java-array
-  [container-type datatype options elem-seq-or-count]
+  [_container-type datatype options elem-seq-or-count]
   (dtype-proto/make-container :jvm-heap datatype options elem-seq-or-count))
 
 
 ;;Backwards compatibility
 (defmethod dtype-proto/make-container :typed-buffer
-  [container-type datatype options elem-seq-or-count]
+  [_container-type datatype options elem-seq-or-count]
   (dtype-proto/make-container :jvm-heap datatype options elem-seq-or-count))
 
 
 (defmethod dtype-proto/make-container :native-heap
-  [container-type datatype options elem-seq-or-count]
+  [_container-type datatype options elem-seq-or-count]
   (let [n-elems (long (if (number? elem-seq-or-count)
                         elem-seq-or-count
                         (dtype-base/ecount elem-seq-or-count)))
@@ -77,21 +77,21 @@
 
 
 (defmethod dtype-proto/make-container :native-heap-LE
-  [container-type datatype options elem-seq-or-count]
+  [_container-type datatype options elem-seq-or-count]
   (dtype-proto/make-container :native-heap datatype
                               (assoc options :endianness :little-endian)
                               elem-seq-or-count))
 
 
 (defmethod dtype-proto/make-container :native-heap-BE
-  [container-type datatype options elem-seq-or-count]
+  [_container-type datatype options elem-seq-or-count]
   (dtype-proto/make-container :native-heap datatype
                               (assoc options :endianness :big-endian)
                               elem-seq-or-count))
 
 
 (defmethod dtype-proto/make-container :native-buffer
-  [container-type datatype options elem-seq-or-count]
+  [_container-type datatype _options elem-seq-or-count]
   (dtype-proto/make-container :native-heap datatype
                               nil
                               elem-seq-or-count))

@@ -64,7 +64,7 @@
 
 
 (defmacro throw-unimplemented
-  [& args]
+  [& _args]
   `(throw (UnsupportedOperationException. "Not implemented")))
 
 

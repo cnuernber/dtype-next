@@ -247,6 +247,13 @@
    (magnitude item nil)))
 
 
+(defn normalize
+  [item]
+  (let [mag (magnitude item)]
+    (-> (/ item mag)
+        (vary-meta assoc :magnitude mag))))
+
+
 (defn distance
   ^double [lhs rhs]
   (Math/sqrt (distance-squared lhs rhs)))

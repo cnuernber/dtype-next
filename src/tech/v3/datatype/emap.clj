@@ -4,9 +4,7 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.argtypes :as argtypes]
             [tech.v3.datatype.base :as dtype-base]
-            [tech.v3.datatype.argops :as argops]
-            [tech.v3.datatype.unary-pred :as unary-pred]
-            [tech.v3.datatype.binary-pred :as binary-pred])
+            [tech.v3.datatype.argops :as argops])
   (:import [java.util List]
            [tech.v3.datatype BooleanReader LongReader DoubleReader ObjectReader
             NumericConversions BooleanConversions]))
@@ -20,7 +18,7 @@
 
 
 (defn- emap-reader
-  [map-fn res-dtype cast-fn shapes args]
+  [map-fn res-dtype cast-fn args]
   (let [n-elems (long (dtype-base/ecount (first args)))
         ^List args (mapv #(argops/ensure-reader % n-elems) args)
         argcount (.size args)]
@@ -160,6 +158,6 @@
          (apply = shapes)
          "emap - shapes don't match: %s"
          (vec shapes))
-        (cond-> (emap-reader map-fn res-dtype cast-fn shapes args)
+        (cond-> (emap-reader map-fn res-dtype cast-fn args)
           (input-types :tensor)
           (dtype-base/reshape (first shapes)))))))

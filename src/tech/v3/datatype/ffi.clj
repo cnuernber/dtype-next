@@ -99,7 +99,7 @@ user> dbuf
   []
   (try
     (boolean (Class/forName "jdk.incubator.foreign.CLinker"))
-    (catch Throwable e false)))
+    (catch Throwable _e false)))
 
 
 (defn jna-ffi?
@@ -107,7 +107,7 @@ user> dbuf
   []
   (try
     (boolean (Class/forName "com.sun.jna.Pointer"))
-    (catch Throwable e false)))
+    (catch Throwable _e false)))
 
 
 (defn jdk-mmodel?
@@ -115,7 +115,7 @@ user> dbuf
   []
   (try
     (boolean (Class/forName "jdk.incubator.foreign.MemoryAddress"))
-    (catch Throwable e false)))
+    (catch Throwable _e false)))
 
 
 (defprotocol PToPointer
@@ -321,7 +321,7 @@ Attempted both :jdk and :jna -- call set-ffi-impl! from the repl to see specific
        (dechunk-map identity)
        (filter #(try ((:load-library (ffi-impl)) %)
                      true
-                     (catch Throwable e false)))
+                     (catch Throwable _e false)))
        (first)))
 
 
@@ -502,7 +502,7 @@ clojure.lang.IFn that takes only the specific arguments.")
                              :tag Library} library-instance
                            ^:unsynchronized-mutable library-path]
   IDeref
-  (deref [this] library-instance)
+  (deref [_this] library-instance)
   PLibrarySingleton
   (library-singleton-reset! [this]
     (graal-native/when-not-defined-graal-native
@@ -516,9 +516,9 @@ clojure.lang.IFn that takes only the specific arguments.")
   (library-singleton-set! [this libpath]
     (set! library-path {:libpath libpath})
     (library-singleton-reset! this))
-  (library-singleton-set-instance! [lib-singleton libinst]
+  (library-singleton-set-instance! [_lib-singleton libinst]
     (set! library-instance libinst))
-  (library-singleton-find-fn [this fn-kwd]
+  (library-singleton-find-fn [_this fn-kwd]
     (errors/when-not-errorf
      library-instance
      "Library instance not found.  Has initialize! been called?")
@@ -526,14 +526,14 @@ clojure.lang.IFn that takes only the specific arguments.")
     (if-let [retval (fn-kwd @library-instance)]
       retval
       (errors/throwf "Library function %s not found" (symbol (name fn-kwd)))))
-  (library-singleton-find-symbol [this sym-name]
+  (library-singleton-find-symbol [_this sym-name]
     (errors/when-not-errorf
      library-instance
      "Library instance not found.  Has initialize! been called?")
     (.findSymbol library-instance sym-name))
-  (library-singleton-library-path [lib-singleton] (:libpath library-path))
-  (library-singleton-definition [lib-singleton] library-definition)
-  (library-singleton-library [lib-singleton] library-instance))
+  (library-singleton-library-path [_lib-singleton] (:libpath library-path))
+  (library-singleton-definition [_lib-singleton] library-definition)
+  (library-singleton-library [_lib-singleton] library-instance))
 
 
 (defn library-singleton
@@ -562,7 +562,7 @@ clojure.lang.IFn that takes only the specific arguments.")
   ([library-def-var]
    (library-singleton library-def-var (delay nil) nil)))
 
-(defn ^:private library-function-def* [[fn-name fn-data] find-fn check-error]
+(defn ^:private library-function-def* [[fn-name fn-data] check-error]
   (let [{:keys [rettype argtypes check-error?]} fn-data
         fn-symbol (symbol (name fn-name))
         requires-resctx? (first (filter #(= :string %)
@@ -620,7 +620,7 @@ Example:
   `(do
      (let [~'find-fn ~find-fn]
        ~@(->> @(resolve library-def-symbol)
-              (map #(library-function-def* % 'find-fn check-error))))))
+              (map #(library-function-def* % check-error))))))
 
 
 (defmacro if-class
@@ -632,7 +632,7 @@ Example:
    (let [class-exists (try
                         (Class/forName (name class-name))
                         true
-                        (catch ClassNotFoundException e
+                        (catch ClassNotFoundException _e
                           false))]
      (if class-exists
        then
@@ -696,11 +696,11 @@ Example:
   ```
   "
   [fn-defs
-   & {:keys [classname
+   & {:keys [_classname
              check-error
              symbols
              libraries
-             header-files]
+             _header-files]
       :as opts}]
   (let [fn-defs-val (eval fn-defs)
         classname-form (:classname opts
@@ -730,7 +730,7 @@ Example:
         library-options-val)
        (try
          (Class/forName ~(name classname))
-         (catch ClassNotFoundException e#
+         (catch ClassNotFoundException _e#
            nil)))
      (define-library
        fn-defs-val
@@ -764,7 +764,7 @@ Example:
 
        (let [~'find-fn find-fn#]
          ~@(->> fn-defs-val
-                (map #(library-function-def* % 'find-fn check-error)))
+                (map #(library-function-def* % check-error)))
          lib#))))
 
 

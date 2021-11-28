@@ -14,6 +14,14 @@
                 tech.v3.datatype.binary-pred/make-numeric-binary-predicate
                 tech.v3.datatype.binary-pred/make-numeric-binary-predicate
                 tech.v3.parallel.for/doiter tech.v3.parallel.for/doiter
+                tech.v3.parallel.for/parallel-for tech.v3.parallel.for/parallel-for
                 tech.v3.datatype.functional/implement-arithmetic-operations
                 tech.v3.datatype.functional/implement-arithmetic-operations
+                tech.v3.datatype.functional/implement-unary-predicates
+                tech.v3.datatype.functional/implement-unary-predicates
+                tech.v3.datatype.functional/implement-binary-predicates
+                tech.v3.datatype.functional/implement-binary-predicates
+                tech.v3.datatype.functional/implement-compare-predicates
+                tech.v3.datatype.functional/implement-compare-predicates
+
                 }}}

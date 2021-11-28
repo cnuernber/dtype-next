@@ -19,13 +19,9 @@ A general outline is:
      - datetime->milliseconds, milliseconds->datetime
      - plus-temporal-amount, minus-temporal-amount, long-temporal-amount
      - between"
-  (:require [tech.v3.datatype.casting :as casting]
-            [tech.v3.datatype.datetime.constants]
+  (:require [tech.v3.datatype.datetime.constants]
             [tech.v3.datatype.datetime.operations]
-            [tech.v3.datatype.datetime.packing :as datetime-packing]
-            [tech.v3.datatype.datetime.base :as datetime-base]
-            [tech.v3.datatype.export-symbols :refer [export-symbols]]
-            [clojure.set :as set]))
+            [tech.v3.datatype.export-symbols :refer [export-symbols]]))
 
 
 
