@@ -3,7 +3,7 @@
             [tech.v3.datatype.ffi :as ffi]
             [tech.v3.datatype.ffi.size-t :as ffi-size-t]
             [insn.core :as insn])
-  (:import [clojure.lang IFn RT IDeref ISeq Keyword]
+  (:import [clojure.lang IFn RT Keyword]
            [tech.v3.datatype ClojureHelper NumericConversions]
            [tech.v3.datatype.ffi Pointer]
            [java.util HashMap]))
@@ -189,7 +189,7 @@
 
 
 (defn emit-library-symbol-table
-  [classname symbols find-symbol-fn]
+  [_classname symbols find-symbol-fn]
   {:name "buildSymbolTable"
    :desc [Object]
    :emit
@@ -249,7 +249,7 @@
 
 
 (defn emit-fi-constructor
-  [src-ns-str]
+  [_src-ns-str]
   [[:aload 0]
    [:invokespecial :super :init [:void]]
    [:aload 0]

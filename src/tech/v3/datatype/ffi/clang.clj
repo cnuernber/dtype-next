@@ -5,8 +5,7 @@
             [tech.v3.datatype.struct :as dt-struct]
             [tech.v3.datatype.errors :as errors]
             [camel-snake-kebab.core :as csk]
-            [clojure.string :as s])
-  (:import [java.util Map]))
+            [clojure.string :as s]))
 
 
 ;;Exactly three spaces, else we are into the inner stuff.

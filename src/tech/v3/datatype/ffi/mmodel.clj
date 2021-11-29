@@ -10,10 +10,8 @@
            [java.lang.invoke MethodHandle MethodType MethodHandles]
            [java.nio.file Path Paths]
            [java.util ArrayList]
-           [java.lang.reflect Constructor]
-           [tech.v3.datatype NumericConversions ClojureHelper]
            [tech.v3.datatype.ffi Pointer Library]
-           [clojure.lang IFn RT ISeq Var Keyword IDeref]))
+           [clojure.lang Keyword]))
 
 
 (set! *warn-on-reflection* true)
@@ -256,13 +254,13 @@
                                            rettype)])]]
         (ffi-base/exact-type-retval
          rettype
-         (fn [ptr-type]
+         (fn [_ptr-type]
            ptr-return)))
        (vec)))
 
 
 (defn define-mmodel-library
-  [classname fn-defs symbols options]
+  [classname fn-defs _symbols _options]
   [{:name classname
     :flags #{:public}
     :interfaces [Library]
@@ -333,22 +331,22 @@
   [rettype argtypes options]
   (let [classname (or (:classname options)
                       (symbol (str "tech.v3.datatype.ffi.mmodel.ffi_"
-                                   (name (gensym)))))]
-    (let [retval (ffi-base/define-foreign-interface classname rettype argtypes
-                   {:src-ns-str "tech.v3.datatype.ffi.mmodel"
-                    :platform-ptr->ptr platform-ptr->ptr
-                    :ptr->platform-ptr (partial ffi-base/ptr->platform-ptr "tech.v3.datatype.ffi.mmodel" MemoryAddress)
-                    :ptrtype MemoryAddress})
-          iface-cls (:foreign-iface-class retval)
-          lookup (MethodHandles/lookup)
-          sig {:rettype rettype
-               :argtypes argtypes}]
-      (assoc retval
-             :method-handle (.findVirtual lookup iface-cls "invoke"
-                                          (sig->method-type
-                                           {:rettype rettype
-                                            :argtypes argtypes}))
-             :fndesc (sig->fdesc sig)))))
+                                   (name (gensym)))))
+        retval (ffi-base/define-foreign-interface classname rettype argtypes
+                 {:src-ns-str "tech.v3.datatype.ffi.mmodel"
+                  :platform-ptr->ptr platform-ptr->ptr
+                  :ptr->platform-ptr (partial ffi-base/ptr->platform-ptr "tech.v3.datatype.ffi.mmodel" MemoryAddress)
+                  :ptrtype MemoryAddress})
+        iface-cls (:foreign-iface-class retval)
+        lookup (MethodHandles/lookup)
+        sig {:rettype rettype
+             :argtypes argtypes}]
+    (assoc retval
+           :method-handle (.findVirtual lookup iface-cls "invoke"
+                                        (sig->method-type
+                                         {:rettype rettype
+                                          :argtypes argtypes}))
+           :fndesc (sig->fdesc sig))))
 
 
 (defn foreign-interface-instance->c
