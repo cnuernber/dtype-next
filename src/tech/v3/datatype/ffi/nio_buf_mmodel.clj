@@ -1,7 +1,6 @@
 (ns tech.v3.datatype.ffi.nio-buf-mmodel
   (:require [tech.v3.datatype.protocols :as dtype-proto])
-  (:import [jdk.incubator.foreign MemoryAddress Addressable MemorySegment
-            ResourceScope]
+  (:import [jdk.incubator.foreign MemoryAddress ResourceScope]
            [java.nio ByteBuffer ByteOrder]))
 
 
@@ -9,7 +8,7 @@
 
 
 (defn direct-buffer-constructor
-  ^ByteBuffer [nbuf ^long address ^long nbytes options]
+  ^ByteBuffer [nbuf ^long address ^long nbytes _options]
   (let [retval (if-not (== 0 nbytes)
                  (-> (MemoryAddress/ofLong address)
                      (.asSegment nbytes (ResourceScope/globalScope))

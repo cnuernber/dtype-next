@@ -43,7 +43,6 @@
   :tech.numerics/next-down
   :tech.numerics/exp
   :tech.numerics/log1p
-  :tech.numerics/round
   :tech.numerics//
   :tech.numerics/asin
   :tech.numerics/sinh
@@ -75,13 +74,10 @@
           unary-ops
           (map
            (fn [opname]
-             (let [op opname
-                   op-meta (meta op)
-                   op-sym (vary-meta (symbol (name opname))
-                                     merge op-meta)]
-               `(defn ~(with-meta op-sym
-                         {:unary-operator opname})
+             (let [op-sym (symbol (name opname))]
+               `(defn ~op-sym
                   ([~'x ~'options]
+                   (apply + ~'options)
                    ~'x)
                   ([~'x]
                    ~'x))))))
@@ -89,22 +85,17 @@
           binary-ops
           (map
            (fn [opname]
-             (let [op opname
-                   op-meta (meta op)
-                   op-sym (vary-meta (symbol (name opname))
-                                     merge op-meta)
+             (let [op-sym (symbol (name opname))
                    dual-op? (dual-ops opname)]
                (if dual-op?
-                 `(defn ~(with-meta op-sym
-                           {:binary-operator opname})
+                 `(defn ~op-sym
                     ([~'x]
                      ~'x)
-                    ([~'x ~'y])
-                    [~'x ~'y]
+                    ([~'x ~'y]
+                     [~'x ~'y])
                     ([~'x ~'y & ~'args]
                      [~'x ~'y ~'args]))
-                 `(defn ~(with-meta op-sym
-                           {:binary-operator opname})
+                 `(defn ~op-sym
                     ([~'x ~'y]
                      [~'x ~'y])
                     ([~'x ~'y & ~'args]
@@ -127,15 +118,14 @@
 (defmacro implement-unary-predicates
   []
   `(do
-     (->> init-unary-pred-ops
-          (map (fn [pred-op]
-                 (let [fn-symbol (symbol (name pred-op))
-                       k pred-op]
-                   `(defn fn-symbol
-                      ([~'arg ~'options]
-                       ~'arg)
-                      ([~'arg]
-                       ~'arg))))))))
+     ~(->> init-unary-pred-ops
+           (map (fn [pred-op]
+                  (let [fn-symbol (symbol (name pred-op))]
+                    `(defn ~fn-symbol
+                       ([~'arg ~'options]
+                        ~'arg)
+                       ([~'arg]
+                        ~'arg))))))))
 
 
 (def init-binary-pred-ops
@@ -148,12 +138,11 @@
 (defmacro implement-binary-predicates
   []
   `(do
-     (->> init-binary-pred-ops
-          (map (fn [pred-op]
-                 (let [fn-symbol (symbol (name pred-op))
-                       k pred-op]
-                   `(defn ~fn-symbol
-                      [~'lhs ~'rhs]
+     ~(->> init-binary-pred-ops
+           (map (fn [pred-op]
+                  (let [fn-symbol (symbol (name pred-op))]
+                    `(defn ~fn-symbol
+                       [~'lhs ~'rhs]
                        ~'lhs)))))))
 
 
@@ -167,12 +156,12 @@
 (defmacro implement-compare-predicates
   []
   `(do
-     (->> init-binary-pred-comp-ops
-          (map (fn [pred-op]
-                 (let [fn-symbol (symbol (name pred-op))
-                       k pred-op]
-                   `(defn ~fn-symbol
-                      ([~'lhs ~'rhs]
-                       ~'lhs)
-                      ([~'lhs ~'mid ~'rhs]
-                       ~'lhs))))))))
+     ~(->> init-binary-pred-comp-ops
+           (map (fn [pred-op]
+                  (let [fn-symbol (symbol (name pred-op))
+                        k pred-op]
+                    `(defn ~fn-symbol
+                       ([~'lhs ~'rhs]
+                        ~'lhs)
+                       ([~'lhs ~'mid ~'rhs]
+                        ~'lhs))))))))

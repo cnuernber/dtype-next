@@ -26,7 +26,7 @@
     (try
       (-> (re-find #"^\d+" jv)
           (Long/parseLong))
-      (catch Exception e 8))))
+      (catch Exception _e 8))))
 
 
 (defn- resolve-mmap-fn
@@ -40,7 +40,7 @@
                              (when (>= (jdk-major-version) 17)
                                (try
                                  (requiring-resolve 'tech.v3.datatype.mmap.mmodel/mmap-file)
-                                 (catch Throwable e
+                                 (catch Throwable _e
                                    (log/warn "Failed to activate JDK-17 mmodel pathway; falling back to larray."))))]
                          (if jdk-17-fn
                            jdk-17-fn

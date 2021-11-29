@@ -2,9 +2,8 @@
   "Creation and higher-level  manipulation for `java.util.HashMap` and
   `java.util.concurrent.ConcurrentHashMap`."
   (:require [tech.v3.datatype.protocols :as dt-proto]
-            [tech.v3.parallel.for :as pfor]
-            [tech.v3.datatype.errors :as errors])
-  (:import [java.util Map HashMap Map$Entry Set HashSet]
+            [tech.v3.parallel.for :as pfor])
+  (:import [java.util Map HashMap Map$Entry Set]
            [java.util.concurrent ConcurrentHashMap]
            [java.util.function BiConsumer BiFunction Function])
   (:refer-clojure :exclude [hash-map get set contains?]))

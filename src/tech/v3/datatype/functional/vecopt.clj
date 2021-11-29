@@ -1,11 +1,9 @@
 (ns tech.v3.datatype.functional.vecopt
   "Vectorized operations.  Requires JDK-16 with the vector incubator module added:
   :jvm-opts [\"--add-modules\" \"jdk.incubator.vector\"]"
-  (:require [tech.v3.datatype.copy-make-container :as copy-cmc]
-            [tech.v3.datatype.base :as dt-base]
+  (:require [tech.v3.datatype.base :as dt-base]
             [tech.v3.datatype.array-buffer]
             [tech.v3.datatype.functional.opt :as fn-opt]
-            [tech.v3.datatype.functional :as dfn]
             [tech.v3.parallel.for :as pfor])
   (:import [tech.v3.datatype VecOps]
            [tech.v3.datatype.array_buffer ArrayBuffer]

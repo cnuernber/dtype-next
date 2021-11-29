@@ -5,7 +5,7 @@
             [tech.v3.datatype.nio-buffer :as nio-buffer]
             [tech.v3.datatype.native-buffer :as native-buffer]
             [tech.v3.datatype.base :as dtype-base])
-  (:import [java.io InputStream Reader]
+  (:import [java.io Reader]
            [java.nio.charset Charset CharsetDecoder CoderResult]
            [java.nio CharBuffer ByteBuffer]
            [java.nio.file Files Paths]
@@ -40,8 +40,8 @@
                                         :tag ByteBuffer} bbuf
                                       ^{:unsynchronized-mutable true} flushed]
   IOReader
-  (doClose [this])
-  (doRead [this char-ary off end]
+  (doClose [_this])
+  (doRead [_this char-ary off end]
     (let [len (- end off)]
       (cond
         (== 0 len)
@@ -93,8 +93,8 @@
                      ^{:unsynchronized-mutable true
                        :tag long} pos]
   IOReader
-  (doClose [this])
-  (doRead [this char-ary off end]
+  (doClose [_this])
+  (doRead [_this char-ary off end]
     (let [available (- (.n-elems nbuf) pos)
           len (min available (- end off))]
       (cond
@@ -133,6 +133,7 @@
 
 
 (comment
+  (require 'clojure.java.io)
   (defn test-read-file
     [^Reader rdr]
     (with-open [rdr rdr]

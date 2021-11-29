@@ -1,9 +1,7 @@
 (ns tech.v3.datatype.io-sub-buffer
   (:require [tech.v3.datatype.protocols :as dtype-proto]
-            [tech.v3.datatype.casting :as casting]
             [com.github.ztellman.primitive-math :as pmath])
-  (:import [tech.v3.datatype Buffer]
-           [clojure.lang IMeta]))
+  (:import [tech.v3.datatype Buffer]))
 
 
 (set! *warn-on-reflection* true)

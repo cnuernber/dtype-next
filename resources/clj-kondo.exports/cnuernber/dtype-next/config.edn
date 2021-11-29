@@ -23,5 +23,17 @@
                 tech.v3.datatype.functional/implement-binary-predicates
                 tech.v3.datatype.functional/implement-compare-predicates
                 tech.v3.datatype.functional/implement-compare-predicates
+                tech.v3.datatype.gradient/append-diff
+                tech.v3.datatype.gradient/append-diff
+                tech.v3.datatype.gradient/prepend-diff
+                tech.v3.datatype.gradient/prepend-diff
+                tech.v3.datatype.gradient/basic-diff
+                tech.v3.datatype.gradient/basic-diff
+                tech.v3.datatype.jvm-map/bi-consumer
+                tech.v3.datatype.jvm-map/bi-consumer
+                tech.v3.datatype.jvm-map/bi-function
+                tech.v3.datatype.jvm-map/bi-function
+                tech.v3.datatype.jvm-map/function
+                tech.v3.datatype.jvm-map/function
 
                 }}}

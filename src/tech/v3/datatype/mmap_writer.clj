@@ -12,7 +12,6 @@
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.resource :as resource]
-            [tech.v3.datatype.pprint :as pprint]
             [clojure.tools.logging :as log])
   (:import [java.nio ByteBuffer ByteOrder]
            [java.nio.channels FileChannel]

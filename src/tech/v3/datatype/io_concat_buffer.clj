@@ -1,7 +1,6 @@
 (ns tech.v3.datatype.io-concat-buffer
   (:require [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.protocols :as dtype-proto]
-            [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.errors :as errors]
             [com.github.ztellman.primitive-math :as pmath])
   (:import [java.util List]
@@ -122,7 +121,7 @@
 
 
 (defmacro ^:private gen-read-macro
-  [idx n-elems read-method n-buffers buffers]
+  [idx n-elems read-method _n-buffers buffers]
   `(do (errors/check-idx ~idx ~n-elems)
        (loop [buf-idx# 0
               idx# ~idx]
@@ -134,7 +133,7 @@
 
 
 (defmacro ^:private gen-write-macro
-  [idx n-elems write-method n-buffers buffers val]
+  [idx n-elems write-method _n-buffers buffers val]
   `(do (errors/check-idx ~idx ~n-elems)
        (loop [buf-idx# 0
               idx# ~idx]
