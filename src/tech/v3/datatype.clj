@@ -292,9 +292,3 @@ user> (dtype/make-reader :float32 5 (* idx 2))
                 retval
                 (errors/throwf "Unable create create tensor for nd object type: %s"
                                (type item))))))
-
-
-#_(defn incorrect-elemwise
-  []
-  (elemwise-datatype)
-  (elemwise-datatype 1 2 3))
