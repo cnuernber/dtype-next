@@ -124,17 +124,3 @@
   (when-not (bit-blit! src dst options)
     (dtype-cmc/copy! src dst options))
   dst)
-
-
-
-(comment
-  (def src-dims (dims/dimensions [256 256 4]))
-  (def dst-dims (dims/dimensions [256 256 4]
-                                 :strides [8192 4 1]))
-
-  (def src-tens (dtt/new-tensor [256 256 4] :datatype :int32))
-  (dtype/copy! (range (* 256 256 4)) src-tens {:unchecked? true})
-  (def dst-img-tens (dtt/new-tensor [2048 2048 4] :datatype :int32))
-  (def dst-tens (dtype-base/select dst-img-tens (range 256) (range 256) :all))
-  (def bit-blit-result (bit-blit! src-tens dst-tens))
-  )

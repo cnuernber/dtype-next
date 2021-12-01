@@ -3,8 +3,7 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.datatype.protocols :as dtype-proto]
-            [tech.v3.datatype.double-ops :refer [get-significand]]
-            [com.github.ztellman.primitive-math :as pmath])
+            [tech.v3.datatype.double-ops :refer [get-significand]])
   (:import [tech.v3.datatype LongReader DoubleReader ObjectReader
             UnaryOperator Buffer
             UnaryOperators$DoubleUnaryOperator
@@ -18,7 +17,7 @@
 
 
 (defn ->operator
-  (^UnaryOperator [item opname]
+  (^UnaryOperator [item _opname]
    (cond
      (instance? UnaryOperator item)
      item

@@ -15,8 +15,7 @@
              :as errors])
   (:import [tech.v3.datatype Buffer PrimitiveList ObjectReader
             LongReader LongNDReader ListPersistentVector]
-           [java.util List Map]
-           [clojure.lang IDeref]))
+           [java.util List]))
 
 
 (set! *unchecked-math* :warn-on-boxed)
@@ -50,9 +49,9 @@
                        ;;delay of global->local transformation
                        local->global]
   dtype-proto/PShape
-  (shape [item] shape-ecounts)
+  (shape [_item] shape-ecounts)
   dtype-proto/PECount
-  (ecount [item] overall-ecount))
+  (ecount [_item] overall-ecount))
 
 
 (defn dimensions
@@ -333,8 +332,8 @@
 
   is the identity operation."
   [{:keys [^List shape ^List strides
-           ^List shape-ecounts]
-    :as dims} reorder-vec]
+           ^List shape-ecounts]}
+   reorder-vec]
   (when-not-error (= (count (distinct reorder-vec))
                      (count shape))
     "Every dimension must be represented in the reorder vector")
@@ -370,14 +369,13 @@ https://cloojure.github.io/doc/core.matrix/clojure.core.matrix.html#var-select"
                                   "arg count (%d) cannot be greater than shape count (%d)"
                                   arg-count data-count)
         args (->> (concat args (repeat :all))
-                  (take (count data-shp)))]
-
-    (let [{shape :shape
-           strides :strides
-           offset :offset}
-          (dims-select/select args (:shape dims) (:strides dims))]
-      (assoc (dimensions shape strides)
-             :elem-offset offset))))
+                  (take (count data-shp)))
+        {shape :shape
+         strides :strides
+         offset :offset}
+        (dims-select/select args (:shape dims) (:strides dims))]
+    (assoc (dimensions shape strides)
+           :elem-offset offset)))
 
 
 (defn rotate

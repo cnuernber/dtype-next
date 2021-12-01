@@ -11,8 +11,7 @@
             FloatBuffer DoubleBuffer ByteOrder]
            [tech.v3.datatype UnsafeUtil]
            [tech.v3.datatype.native_buffer NativeBuffer]
-           [tech.v3.datatype.array_buffer ArrayBuffer]
-           [sun.misc Unsafe]))
+           [tech.v3.datatype.array_buffer ArrayBuffer]))
 
 
 (defn datatype->nio-buf-type
@@ -94,7 +93,7 @@
 
 (def buffer-constructor*
   (delay (if UnsafeUtil/directBufferConstructor
-           (fn [nbuf ^long address ^long nbytes options]
+           (fn [nbuf ^long address ^long nbytes _options]
              (let [retval
                    (UnsafeUtil/constructByteBufferFromAddress
                     address nbytes)]

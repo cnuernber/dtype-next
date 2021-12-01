@@ -3,7 +3,6 @@
   (:require [taoensso.nippy :as nippy]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.array-buffer :as array-buffer]
-            [tech.v3.datatype.native-buffer :as native-buffer]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.tensor :as dtt]
             [tech.v3.tensor.dimensions :as dims])

@@ -15,9 +15,9 @@
             [clojure.tools.logging :as log])
   (:import [java.nio ByteBuffer ByteOrder]
            [java.nio.channels FileChannel]
-           [java.nio.file Paths StandardOpenOption OpenOption]
+           [java.nio.file Paths StandardOpenOption]
            [tech.v3.datatype.array_buffer ArrayBuffer]
-           [tech.v3.datatype ObjectBuffer DataWriter]))
+           [tech.v3.datatype DataWriter]))
 
 
 (set! *warn-on-reflection* true)
@@ -67,9 +67,9 @@
                      mmap-file-options
                      close-ref*]
   DataWriter
-  (elemwiseDatatype [this] :int8)
-  (lsize [this] (.position file-channel))
-  (writeBytes [this byte-data off len]
+  (elemwiseDatatype [_this] :int8)
+  (lsize [_this] (.position file-channel))
+  (writeBytes [_this byte-data off len]
     (.write file-channel (ByteBuffer/wrap ^bytes byte-data (int off) (int len))))
   (writeData [this data]
     (when-not (== 0 (dtype/ecount data))
@@ -90,11 +90,11 @@
                          (.offset data-ary) (.n-elems data-ary)))))))
 
   java.lang.AutoCloseable
-  (close [this] @close-ref*)
+  (close [_this] @close-ref*)
 
   dtype-proto/PToNativeBuffer
-  (convertible-to-native-buffer? [this] true)
-  (->native-buffer [this]
+  (convertible-to-native-buffer? [_this] true)
+  (->native-buffer [_this]
     (.force file-channel true)
     (mmap/mmap-file fpath (merge {:endianness endianness}
                                  mmap-file-options))))
@@ -143,7 +143,7 @@
                        :or {resource-type :auto
                             endianness (dtype-proto/platform-endianness)
                             open-options :append}
-                       :as options}]
+                       :as _options}]
    (let [fpath (str fpath)
          file-channel
          (or file-channel

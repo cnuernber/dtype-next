@@ -4,10 +4,7 @@
   path."
   (:require [tech.v3.datatype.errors :refer [when-not-error]]
             [tech.v3.datatype.base :as dtype-base]
-            [tech.v3.datatype.index-algebra :as idx-alg])
-  (:import [tech.v3.datatype Buffer]
-           [java.util Map]
-           [clojure.lang MapEntry]))
+            [tech.v3.datatype.index-algebra :as idx-alg]))
 
 
 (set! *unchecked-math* :warn-on-boxed)

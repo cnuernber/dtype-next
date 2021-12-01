@@ -34,25 +34,25 @@
   (let [shape (make-symbol :shape dim-idx)
         stride (make-symbol :stride dim-idx)
         offset (make-symbol :offset dim-idx)
-        shape-ecount-stride (make-symbol :shape-ecount-stride dim-idx)]
-    (let [idx (if most-rapidly-changing-index?
-                `~'idx
-                `(~'quot ~'idx ~shape-ecount-stride))
-          offset-idx (if offsets?
-                       `(~'+ ~idx ~offset)
-                       `~idx)
-          shape-ecount (if direct?
-                           `~shape
-                           (ast-instance-const-fn-access :shape dim-idx :lsize))
-          idx-bcast (if (or offsets? broadcast? (not least-rapidly-changing-index?))
-                      `(~'rem ~offset-idx ~shape-ecount)
-                      `~offset-idx)
-          elem-idx (if direct?
-                     `~idx-bcast
-                     `(.read ~shape ~idx-bcast))]
-      (if trivial-stride?
-        `~elem-idx
-        `(~'* ~elem-idx ~stride)))))
+        shape-ecount-stride (make-symbol :shape-ecount-stride dim-idx)
+        idx (if most-rapidly-changing-index?
+              `~'idx
+              `(~'quot ~'idx ~shape-ecount-stride))
+        offset-idx (if offsets?
+                     `(~'+ ~idx ~offset)
+                     `~idx)
+        shape-ecount (if direct?
+                       `~shape
+                       (ast-instance-const-fn-access :shape dim-idx :lsize))
+        idx-bcast (if (or offsets? broadcast? (not least-rapidly-changing-index?))
+                    `(~'rem ~offset-idx ~shape-ecount)
+                    `~offset-idx)
+        elem-idx (if direct?
+                   `~idx-bcast
+                   `(.read ~shape ~idx-bcast))]
+    (if trivial-stride?
+      `~elem-idx
+      `(~'* ~elem-idx ~stride))))
 
 
 (defn signature->ast
@@ -152,7 +152,7 @@
 
 
 (defmulti apply-ast-fn!
-  (fn [ast ^Map fields ^List instructions]
+  (fn [ast ^Map _fields ^List _instructions]
     (first ast)))
 
 
@@ -225,7 +225,7 @@
   [ast ^Map fields ^List instructions]
   (when-not (= 3 (count ast))
     (throw (Exception. (format "Invalid .read ast: %s" ast))))
-  (let [[opname this-obj idx] ast]
+  (let [[_opname this-obj idx] ast]
     (.add instructions [:aload 0])
     (.add instructions [:getfield :this (ensure-field! this-obj fields) Buffer])
     (push-arg! idx fields instructions)
@@ -236,7 +236,7 @@
   [ast ^Map fields ^List instructions]
   (when-not (= 2 (count ast))
     (throw (Exception. (format "Invalid .read ast: %s" ast))))
-  (let [[opname this-obj] ast]
+  (let [[_opname this-obj] ast]
     (.add instructions [:aload 0])
     (.add instructions [:getfield :this (ensure-field! this-obj fields) Buffer])
     (.add instructions [:invokeinterface Buffer "lsize"])))
@@ -257,7 +257,7 @@
   (concat
    (->> (vals fields)
         (sort-by :name)
-        (mapv (fn [{:keys [name field-idx ary-name dim-idx fn-name]}]
+        (mapv (fn [{:keys [name _field-idx ary-name dim-idx fn-name]}]
                 (if (and (= ary-name :shape)
                          (not (shape-scalar-vec dim-idx)))
                   (if fn-name
@@ -285,7 +285,7 @@
 
 
 (defn load-constructor-arg
-  [shape-scalar-vec {:keys [ary-name field-idx name dim-idx fn-name]}]
+  [shape-scalar-vec {:keys [ary-name _field-idx name dim-idx fn-name]}]
   (let [carg-idx (carg-idx ary-name)]
     (if (= ary-name :shape)
       (if (not (shape-scalar-vec dim-idx))
@@ -399,8 +399,7 @@
         (throw (ex-info (format "Error generating ast object: %s\n%s"
                                 e
                                 (with-out-str
-                                  (println (:ast ast-data)))
-                                ast-data)
+                                  (println (:ast ast-data))))
                         {:error e
                          :class-def class-def
                          :signature signature}))))))

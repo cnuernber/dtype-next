@@ -1,7 +1,8 @@
 (ns tech.v3.datatype.ordered-consumer
+  "Consumer that keeps track of input so it can detect if, for instance, a range
+  can represent the result"
   (:require [tech.v3.datatype.argops :as argops])
-  (:import [tech.v3.datatype Consumers$StagedConsumer]
-           [java.util.function DoubleConsumer LongConsumer Consumer]
+  (:import [java.util.function DoubleConsumer LongConsumer Consumer]
            [java.util Comparator]
            [clojure.lang IDeref]))
 
@@ -15,18 +16,11 @@
       1 :tech.numerics/>
       0 :tech.numerics/==
       -1 :tech.numerics/<))
-  ([a b comparator comp-marker?]
+  ([a b comparator _comp-marker?]
    `(case (.compare ~comparator ~a ~b)
      1 :tech.numerics/>
      0 :tech.numerics/==
      -1 :tech.numerics/<)))
-
-
-(defmacro ^:private inline-combine-compare
-  [lfv llv rfv rlv comp-fn]
-  `(if (== (~comp-fn ~lfv ~rfv) 1)
-     (== (~comp-fn ~llv ~rlv) 1)
-     (== (~comp-fn ~rlv ~llv) 1)))
 
 
 
@@ -38,7 +32,7 @@
                               ^{:unsynchronized-mutable true
                                 :tag long} last-value]
   LongConsumer
-  (accept [this val]
+  (accept [_this val]
     (set! n-elems (unchecked-inc n-elems))
     (case n-elems
       1 (set! first-value val)
@@ -51,12 +45,12 @@
               (set! order :tech.numerics/unordered))))))
     (set! last-value val))
   IDeref
-  (deref [this] {:order order
-                 :last-value last-value}))
+  (deref [_this] {:order order
+           `      :last-value last-value}))
 
 
 (defn long-ordered-consumer
-  (^LongConsumer [options]
+  (^LongConsumer [_options]
    (LongOrderedConsumer. :tech.numerics/== 0 Long/MIN_VALUE Long/MIN_VALUE))
   (^LongConsumer [] (long-ordered-consumer nil)))
 
@@ -69,7 +63,7 @@
                               ^{:unsynchronized-mutable true
                                 :tag double} last-value]
   DoubleConsumer
-  (accept [this val]
+  (accept [_this val]
     (set! n-elems (unchecked-inc n-elems))
     (case n-elems
       1 (set! first-value val)
@@ -82,8 +76,8 @@
               (set! order :tech.numerics/unordered))))))
     (set! last-value val))
   IDeref
-  (deref [this] {:order order
-                 :last-value last-value}))
+  (deref [_this] {:order order
+                  :last-value last-value}))
 
 
 (defn double-ordered-consumer
@@ -98,7 +92,7 @@
                           ^{:unsynchronized-mutable true} last-value
                           ^Comparator comparator]
   Consumer
-  (accept [this val]
+  (accept [_this val]
     (set! n-elems (unchecked-inc n-elems))
     (case n-elems
       1 (set! first-value val)
@@ -111,8 +105,8 @@
               (set! order :tech.numerics/unordered))))))
     (set! last-value val))
   IDeref
-  (deref [this] {:order order
-                 :last-value last-value}))
+  (deref [_this] {:order order
+                  :last-value last-value}))
 
 
 (defn ordered-consumer

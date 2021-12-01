@@ -2,7 +2,7 @@
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.typecast :as typecast]
             [tech.v3.datatype.bitmap :as bitmap])
-  (:import [tech.v3.datatype Buffer ObjectReader]
+  (:import [tech.v3.datatype ObjectReader]
            [org.roaringbitmap RoaringBitmap]
            [java.util Map]))
 

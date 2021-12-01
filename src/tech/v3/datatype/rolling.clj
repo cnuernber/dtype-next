@@ -4,10 +4,8 @@
             [tech.v3.datatype.dispatch :refer [vectorized-dispatch-1]]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.packing :as packing]
-            [tech.v3.datatype.emap :as emap]
-            [com.github.ztellman.primitive-math :as pmath])
-  (:import [tech.v3.datatype Buffer DoubleBuffer LongBuffer ObjectBuffer
-            LongReader DoubleReader ObjectReader]
+            [tech.v3.datatype.emap :as emap])
+  (:import [tech.v3.datatype Buffer LongReader DoubleReader ObjectReader]
            [java.util Iterator]))
 
 
@@ -15,46 +13,11 @@
 (set! *unchecked-math* :warn-on-boxed)
 
 
-(defn- do-pad-last
-  [n-pad item-seq advanced-item-seq]
-  (let [n-pad (long n-pad)]
-    (if (seq advanced-item-seq)
-      (cons (first item-seq)
-            (lazy-seq (do-pad-last n-pad (rest item-seq)
-                                   (rest advanced-item-seq))))
-      (when (>= n-pad 0)
-        (cons (first item-seq)
-              (lazy-seq (do-pad-last (dec n-pad) item-seq nil)))))))
-
-
-(defn- pad-last
-  [n-pad item-seq]
-  (do-pad-last n-pad item-seq (rest item-seq)))
-
-
-(defn- pad-sequence
-  "Repeat the first and last members of the sequence pad times"
-  [n-pad item-seq]
-  (concat (repeat n-pad (first item-seq))
-          (pad-last n-pad item-seq)))
-
-
-(defn- fixed-window-sequence
-  "Return a sequence of fixed windows.  Stops when the next window cannot
-  be fulfilled."
-  [window-size n-skip item-sequence]
-  (let [window-size (long window-size)
-        next-window (vec (take window-size item-sequence))]
-    (when (= window-size (count next-window))
-      (cons next-window (lazy-seq (fixed-window-sequence
-                                   window-size n-skip
-                                   (drop n-skip item-sequence)))))))
-
 
 (deftype WindowRange [^long start-idx ^long n-elems]
   LongReader
-  (lsize [this] n-elems)
-  (readLong [this idx]
+  (lsize [_this] n-elems)
+  (readLong [_this idx]
     (+ start-idx idx)))
 
 
@@ -217,7 +180,7 @@ user>
 ```"
   ([item window-size window-fn {:keys [relative-window-position
                                        edge-mode
-                                       datatype]
+                                       _datatype]
                                 :or {relative-window-position :center
                                      edge-mode :clamp}
                                 :as options}]
@@ -246,8 +209,8 @@ user>
                                 tweener
                                 ^Buffer data]
   Iterator
-  (hasNext [this] (< start-idx n-subset))
-  (next [this]
+  (hasNext [_this] (< start-idx n-subset))
+  (next [_this]
     (let [start-val (data start-idx)
           next-end-idx
           (long

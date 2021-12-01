@@ -1,18 +1,14 @@
 (ns tech.v3.tensor.dimensions.global-to-local
   "Given a generic description object, return an interface that can efficiently
   transform indexes in global coordinates mapped to local coordinates."
-  (:require [tech.v3.tensor.dimensions.shape :as shape]
-            [tech.v3.tensor.dimensions.analytics :as dims-analytics]
+  (:require [tech.v3.tensor.dimensions.analytics :as dims-analytics]
             [tech.v3.datatype.index-algebra :as idx-alg]
             [tech.v3.datatype.graal-native :as graal-native]
-            [tech.v3.datatype.errors :as errors]
             [com.github.ztellman.primitive-math :as pmath]
-            [camel-snake-kebab.core :as csk]
             [clojure.tools.logging :as log])
   (:import [tech.v3.datatype Buffer LongReader LongNDReader]
-           [java.util List ArrayList Map HashMap]
-           [java.lang.reflect Constructor]
            [java.util.function Function]
+           [java.util List]
            [java.util.concurrent ConcurrentHashMap]))
 
 
@@ -81,7 +77,7 @@
 
 
 (defn reduced-dims->signature
-  ([{:keys [shape strides offsets shape-ecounts shape-ecount-strides]} broadcast?]
+  ([{:keys [shape strides offsets _shape-ecounts _shape-ecount-strides]} broadcast?]
    (let [n-dims (count shape)
          direct-vec (mapv idx-alg/direct-reader? shape)
          offsets? (boolean (some #(not= 0 %) offsets))
@@ -98,8 +94,7 @@
 
 
 (graal-native/if-defined-graal-native
- (do
-   (log/debug "Graal Native Defined -- insn custom indexing disabled!"))
+ (log/debug "Graal Native Defined -- insn custom indexing disabled!")
  (do
    (log/debug "insn custom indexing enabled!")
    (defonce ^ConcurrentHashMap defined-classes (ConcurrentHashMap.))
@@ -165,7 +160,7 @@
 
 
 (defn dims->global->local
-  ^LongNDReader [{:keys [reduced-dims] :as dims}]
+  ^LongNDReader [dims]
   (let [shape-ecounts (long-array (:shape-ecounts dims))
         shape-ecount-strides (long-array (:shape-ecount-strides dims))
         n-dims (alength shape-ecount-strides)
@@ -174,11 +169,6 @@
         n-dims-dec-2 (max 0 (dec n-dims-dec-1))
         elemwise-reader (dims->global->local-reader dims)
         n-elems (.lsize elemwise-reader)
-
-        ;;Bounds checking
-        max-height (aget shape-ecounts n-dims-dec-2)
-        max-row (aget shape-ecounts n-dims-dec-1)
-        max-col (aget shape-ecounts n-dims-dec)
 
         ;;xyz->global row major index calculation
         shape-ecount-strides-dec-1 (aget shape-ecount-strides n-dims-dec-1)
@@ -246,34 +236,3 @@
                                         (pmath/+ val))
                                     (pmath/inc idx)))
                            val)))))))))
-
-
-(comment
-  (require '[tech.v3.tensor.dimensions :as dims])
-  (require '[tech.v3.tensor.dimensions.gtol-insn :as gtol])
-
-  ;;Image dimensions when you have a 2048x2048 image and you
-  ;;want to crop a 256x256 sub-image out of it.
-  (def src-dims (-> (dims/dimensions [2 4 4] [32 4 1])
-                    (dims/rotate [0 0 1])
-                    (dims/broadcast [4 4 4])))
-  (def reduced-dims (dims-analytics/reduce-dimensionality src-dims))
-  (def method-sig (reduced-dims->signature reduced-dims))
-  (def test-ast (gtol/signature->ast method-sig))
-
-  (def class-def (gtol/gen-ast-class-def test-ast))
-
-  (def class-obj (insn/define class-def))
-
-  (def first-constructor (first (.getDeclaredConstructors class-obj)))
-
-  (def cargs (reduced-dims->constructor-args reduced-dims))
-
-  (def idx-obj (.newInstance first-constructor cargs))
-
-
-
-  ;;Due to striding, there is a discontinuity at index 1024
-  (def indexes (map idx-obj (range 1020 1030)))
-
-  )

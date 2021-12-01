@@ -5,7 +5,7 @@
   (:require [tech.v3.datatype.list :as dtype-list]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.copy-make-container :as dtype-cmc])
-  (:import [java.util.function LongSupplier DoubleToLongFunction DoubleConsumer]
+  (:import [java.util.function LongSupplier DoubleConsumer]
            [java.util Random]
            [org.apache.commons.math3.random MersenneTwister]
            [clojure.lang IDeref IObj]
@@ -63,7 +63,7 @@
                              :tag double} w
                            metadata]
   LongSupplier
-  (getAsLong [this]
+  (getAsLong [_this]
     (set! n-elems-seen (unchecked-inc n-elems-seen))
     (if (== n-skip 0)
       (do
@@ -73,11 +73,11 @@
       (do (set! n-skip (unchecked-dec n-skip))
           -1)))
   IObj
-  (withMeta [this metadata]
+  (withMeta [_this metadata]
     (ReservoirSampler. n-elems-seen n-skip reservoir-size random w metadata))
-  (meta [this] metadata)
+  (meta [_this] metadata)
   IDeref
-  (deref [this]
+  (deref [_this]
     {:n-elems-seen n-elems-seen
      :n-skip n-skip
      :reservoir-size reservoir-size

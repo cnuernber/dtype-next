@@ -2,7 +2,6 @@
   "Implementation of the scipy continuous wavelet transform.  See fastmath for
   implementations of the discrete wavelet transform."
   (:require [tech.v3.datatype.convolve :as dt-conv]
-            [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.base :as dt-base]
             [tech.v3.tensor :as dtt]
             [com.github.ztellman.primitive-math :as pmath])
@@ -12,7 +11,7 @@
 
 
 (defn ricker
-  ([points a options]
+  ([points a _options]
    (let [points (long points)
          a (double a)
          A (/ 2.0  (* (Math/sqrt (* 3 a)) (Math/pow Math/PI 0.25)))
@@ -48,8 +47,7 @@
 
 
 (comment
-  (require '[tech.viz.vega :as vega]
-           '[tech.viz.pyplot :as pyplot])
+  (require '[tech.viz.pyplot :as pyplot])
 
   (-> (pyplot/figure {:figsize [6 4.5]})
       (pyplot/plot (range (* 5 240)) (ricker (* 5 240) (/ (* 5 240) 5)))

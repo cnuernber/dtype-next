@@ -9,7 +9,7 @@
   (:import [tech.v3.datatype LongReader]
            [clojure.lang LongRange IObj IPersistentMap Range MapEntry]
            [java.lang.reflect Field]
-           [java.util Map Map$Entry]))
+           [java.util Map]))
 
 
 (set! *warn-on-reflection* true)
@@ -22,10 +22,10 @@
 (deftype Int64Range [^long start ^long increment ^long n-elems
                      ^IPersistentMap metadata]
   dtype-proto/PElemwiseDatatype
-  (elemwise-datatype [item] :int64)
+  (elemwise-datatype [_item] :int64)
   LongReader
-  (lsize [item] n-elems)
-  (readLong [item idx]
+  (lsize [_item] n-elems)
+  (readLong [_item idx]
     (errors/check-idx idx n-elems)
     (+ start (* increment idx)))
   dtype-proto/PSubBuffer
@@ -40,16 +40,16 @@
                      len
                      metadata))))
   dtype-proto/PConstantTimeMinMax
-  (has-constant-time-min-max? [item] true)
+  (has-constant-time-min-max? [_item] true)
   (constant-time-min [item] (dtype-proto/range-min item))
   (constant-time-max [item] (dtype-proto/range-max item))
   dtype-proto/PRangeConvertible
-  (convertible-to-range? [item] true)
-  (->range [item options] item)
+  (convertible-to-range? [_item] true)
+  (->range [item _options] item)
   dtype-proto/PClone
-  (clone [this] (Int64Range. start increment n-elems metadata))
+  (clone [_this] (Int64Range. start increment n-elems metadata))
   dtype-proto/PRange
-  (range-select [lhs rhs]
+  (range-select [_lhs rhs]
     (let [r-start (long (dtype-proto/range-start rhs))
           r-n-elems (long (dtype-proto/ecount rhs))
           r-inc (long (dtype-proto/range-increment rhs))
@@ -64,21 +64,21 @@
                                    [start increment n-elems]
                                    [r-start r-inc r-n-elems]))))
       (Int64Range. new-start new-inc r-n-elems {})))
-  (range-start [item] start)
-  (range-increment [item] increment)
-  (range-min [item]
+  (range-start [_item] start)
+  (range-increment [_item] increment)
+  (range-min [_item]
     (when (= 0 n-elems)
       (throw (Exception. "Range is empty")))
     (if (> increment 0)
       start
       (+ start (* (dec n-elems) increment))))
-  (range-max [item]
+  (range-max [_item]
     (when (= 0 n-elems)
       (throw (Exception. "Range is empty")))
     (if (> increment 0)
       (+ start (* (dec n-elems) increment))
       start))
-  (range-offset [item offset]
+  (range-offset [_item offset]
     (Int64Range. (+ start (long offset))
                  increment n-elems metadata))
   (range->reverse-map [item]
@@ -118,8 +118,8 @@
                      (<= arg (long (.range-max item))))
             (quot rel-arg increment))))))
   IObj
-  (meta [this] metadata)
-  (withMeta [this metadata]
+  (meta [_this] metadata)
+  (withMeta [_this metadata]
     (Int64Range. start increment n-elems metadata)))
 
 

@@ -35,5 +35,22 @@
                 tech.v3.datatype.jvm-map/bi-function
                 tech.v3.datatype.jvm-map/function
                 tech.v3.datatype.jvm-map/function
-
+                taoensso.nippy/extend-freeze
+                taoensso.nippy/extend-freeze
+                taoensso.nippy/extend-thaw
+                taoensso.nippy/extend-thaw
+                tech.v3.datatype.unary-op/make-double-unary-op
+                tech.v3.datatype.unary-op/make-double-unary-op
+                tech.v3.datatype.unary-op/make-numeric-object-unary-op
+                tech.v3.datatype.unary-op/make-numeric-object-unary-op
+                tech.v3.datatype.unary-op/make-float-double-unary-op
+                tech.v3.datatype.unary-op/make-float-double-unary-op
+                tech.v3.datatype.unary-op/make-numeric-unary-op
+                tech.v3.datatype.unary-op/make-numeric-unary-op
+                tech.v3.datatype.unary-op/make-long-unary-op
+                tech.v3.datatype.unary-op/make-long-unary-op
+                tech.v3.datatype.unary-op/make-all-datatype-unary-op
+                tech.v3.datatype.unary-op/make-all-datatype-unary-op
+                tech.v3.tensor/typed-compute-tensor
+                tech.v3.tensor/typed-compute-tensor
                 }}}

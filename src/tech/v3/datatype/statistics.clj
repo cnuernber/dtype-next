@@ -3,30 +3,21 @@
   (:require [tech.v3.datatype.binary-op :as binary-op]
             [tech.v3.datatype.reductions :as dtype-reductions]
             [tech.v3.datatype.base :as dtype-base]
-            [tech.v3.datatype.errors :as errors]
-            [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
-            [tech.v3.datatype.array-buffer :as array-buffer]
-            [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.list]
             [com.github.ztellman.primitive-math :as pmath]
             [clojure.set :as set])
-  (:import [tech.v3.datatype DoubleReduction UnaryOperator BufferIterator
+  (:import [tech.v3.datatype UnaryOperator
             Buffer
             DoubleConsumers$MinMaxSum
             DoubleConsumers$Moments
-            UnaryPredicate
             UnaryPredicates$DoubleUnaryPredicate]
-           [tech.v3.datatype.array_buffer ArrayBuffer]
-           [org.apache.commons.math3.stat.descriptive StorelessUnivariateStatistic]
            [org.apache.commons.math3.stat.descriptive.rank Percentile
             Percentile$EstimationType]
            [org.apache.commons.math3.stat.ranking NaNStrategy]
            [org.apache.commons.math3.stat.correlation
             KendallsCorrelation PearsonsCorrelation SpearmansCorrelation]
-           [clojure.lang IFn]
-           [java.util Arrays Map Iterator Spliterator Spliterator$OfDouble]
-           [java.util.function DoubleConsumer])
+           [java.util Arrays])
     (:refer-clojure :exclude [min max]))
 
 
@@ -135,7 +126,7 @@
           (filter #(get-in stats-tower [% :reduction]))
           (group-by reduction-rank)
           (sort-by first)
-          (map (fn [[rank kwds]]
+          (map (fn [[_rank kwds]]
                  {:reductions (->> kwds
                                    (map (fn [kwd]
                                           [kwd (get-in stats-tower
@@ -159,7 +150,7 @@
                                dependencies)
              stat-data
              (if reduction
-               (let [{:keys [n-elems data] :as result}
+               (let [{:keys [n-elems data]}
                      (dtype-reductions/double-reductions
                       {statname (reduction stat-data)}
                       rdr
@@ -250,13 +241,6 @@
   ([stats-names stats-data {:keys [nan-strategy]
                             :or {nan-strategy :remove}
                             :as options} rdr]
-   (if (== 0 (dtype-base/ecount rdr))
-     (->> stats-names
-          (map (fn [sname]
-                 [sname (if (= sname :n-values)
-                          0
-                          Double/NaN)]))
-          (into {})))
    (let [rdr (dtype-base/->reader
               (if (dtype-base/reader? rdr)
                 rdr
@@ -273,17 +257,17 @@
          percentile-set (set/intersection stats-set percentile-set)
          stats-set (set/difference stats-set percentile-set)
          ^Buffer rdr (if (or median? percentile?)
-                            (let [darray (dtype-cmc/->array-buffer
-                                          :float64 (assoc options :nan-strategy
-                                                          nan-strategy) rdr)]
+                       (let [darray (dtype-cmc/->array-buffer
+                                     :float64 (assoc options :nan-strategy
+                                                     nan-strategy) rdr)]
                               ;;arrays/sort is blindingly fast.
-                              (when median?
-                                (Arrays/sort ^doubles (.ary-data darray)
-                                             (.offset darray)
-                                             (+ (.offset darray)
-                                                (.n-elems darray))))
-                              (dtype-base/->reader darray))
-                            rdr)
+                         (when median?
+                           (Arrays/sort ^doubles (.ary-data darray)
+                                        (.offset darray)
+                                        (+ (.offset darray)
+                                           (.n-elems darray))))
+                         (dtype-base/->reader darray))
+                       rdr)
          ;;In this case we have already filtered out nans at the cost of copying the
          ;;entire array of data.
          options (if median?
@@ -348,7 +332,7 @@
    (descriptive-statistics stats-names nil nil rdr))
   ([rdr]
    (descriptive-statistics [:n-values :min :mean :max :standard-deviation]
-                            nil nil rdr)))
+                           nil nil rdr)))
 
 
 (defmacro define-descriptive-stats
@@ -519,79 +503,3 @@
       (unaryDouble [this x]
         (or (< x (- q1 (* range-mult iqr)))
             (> x (+ q3 (* range-mult iqr))))))))
-
-
-(comment
-
-  (do
-    (import '[org.apache.commons.math3.stat.descriptive DescriptiveStatistics])
-    (import '[tech.v3.datatype BufferDoubleSpliterator])
-    (import '[java.util.stream StreamSupport])
-    (import '[java.util.function DoubleBinaryOperator DoublePredicate])
-    (require '[criterium.core :as crit])
-    (def double-data (double-array (range 1000000))))
-
-
-  (defn benchmark-standard-stats-set
-    []
-    (crit/quick-bench
-     (descriptive-statistics [:min :max :mean :standard-deviation :skew]
-                             double-data)))
-
-
-  (defn benchmark-descriptive-stats-set
-    []
-    (crit/quick-bench
-     (let [desc-stats (DescriptiveStatistics. double-data)]
-       {:min (.getMin desc-stats)
-        :max (.getMax desc-stats)
-        :mean (.getMean desc-stats)
-        :standard-deviation (.getStandardDeviation desc-stats)
-        :skew (.getSkewness desc-stats)})))
-
-  (defn data->spliterator
-    [data]
-    (let [rdr (dtype-base/->reader data)
-          spliterator (BufferDoubleSpliterator. rdr 0
-                                                     (.lsize rdr)
-                                                     :remove)]
-      spliterator))
-
-  (defn benchmark-math3-data
-    []
-    (let [consumer (moment-consumer)
-          rdr (dtype-base/->reader double-data)]
-      (dotimes [idx (.lsize rdr)]
-        (.accept consumer (.readDouble rdr idx)))
-      (consumer)))
-
-  (defn spliterator-sum
-    [data]
-    (let [rdr (dtype-base/->reader data)
-          spliterator (BufferDoubleSpliterator. rdr 0
-                                                     (.lsize rdr)
-                                                     :keep)
-          stream (-> (StreamSupport/doubleStream spliterator true))]
-      (.reduce stream 0.0 (reify DoubleBinaryOperator
-                            (applyAsDouble [this lhs rhs]
-                              (pmath/+ lhs rhs))))))
-
-  (defn iterator-sum
-    [data nan-strategy]
-    (let [rdr (dtype-base/->reader data)]
-      (parallel-for/indexed-map-reduce
-       (dtype-base/ecount data)
-       (fn [^long start-idx ^long group-len]
-         (let [sub-buf (dtype-base/sub-buffer rdr start-idx group-len)
-               iterable (->nan-aware-iterable sub-buf {:nan-strategy nan-strategy})
-               ^BufferIterator iterator (.iterator iterable)]
-           (loop [continue? (.hasNext iterator)
-                  accum 0.0]
-             (if continue?
-               (let [accum (pmath/+ accum (.nextDouble iterator))]
-                 (recur (.hasNext iterator) accum))
-               accum))))
-       (partial reduce +))))
-
-
-  )

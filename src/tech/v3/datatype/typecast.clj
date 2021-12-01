@@ -1,7 +1,7 @@
 (ns tech.v3.datatype.typecast
   (:require [tech.v3.datatype.casting :as casting])
   (:import [tech.v3.datatype PrimitiveList]
-           [java.util ArrayList List Map]))
+           [java.util Map]))
 
 
 (defn datatype->array-cls
