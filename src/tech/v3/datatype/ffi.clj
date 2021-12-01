@@ -806,3 +806,29 @@ Example:
                           ;;offset-of returns a pair of offset,datatype
                           (first))]
     (Pointer. (+ (.address data-ptr) member-offset))))
+
+(comment
+  (def lib-symbols {:memset {:rettype :pointer
+                             :argtypes [['buffer :pointer]
+                                        ['byte-value :int32]
+                                        ['n-bytes :size-t]]}
+                    :memcpy {:rettype :pointer
+                               ;;dst src size-t
+                             :argtypes [['dst :pointer]
+                                        ['src :pointer]
+                                        ['n-bytes :size-t]]}})
+
+  (defonce lib (library-singleton #'lib-symbols))
+  (library-singleton-set! lib nil)
+  (library-singleton-reset! lib)
+  (defn find-lib-fn
+    [fn-kwd]
+    (library-singleton-find-fn lib fn-kwd))
+  (define-library-functions lib-symbols find-lib-fn nil)
+
+  (require '[tech.v3.datatype :as dtype])
+  (def container (dtype/make-container :native-heap :float64 (range 10)))
+  (apply + container) ;;45.0
+  (memset container 0 (* (dtype/ecount container) 8))
+  (apply + container) ;; 0.0
+  )
