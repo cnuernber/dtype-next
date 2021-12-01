@@ -821,10 +821,7 @@ Example:
   (defonce lib (library-singleton #'lib-symbols))
   (library-singleton-set! lib nil)
   (library-singleton-reset! lib)
-  (defn find-lib-fn
-    [fn-kwd]
-    (library-singleton-find-fn lib fn-kwd))
-  (define-library-functions lib-symbols find-lib-fn nil)
+  (define-library-functions lib-symbols #(library-singleton-find-fn lib %) nil)
 
   (require '[tech.v3.datatype :as dtype])
   (def container (dtype/make-container :native-heap :float64 (range 10)))
