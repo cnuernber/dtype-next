@@ -12,11 +12,6 @@ user> (require '[tech.v3.datatype :as dtype])
 nil
 user> (require '[tech.v3.datatype.struct :as dt-struct])
 nil
-user> (define-datatype! :vec3 [{:name :x :datatype :float32}
-                         {:name :y :datatype :float32}
-                         {:name :z :datatype :float32}])
-Syntax error compiling at (*cider-repl cnuernber/dtype-next:localhost:36129(clj)*:47:7).
-Unable to resolve symbol: define-datatype! in this context
 user> (dt-struct/define-datatype! :vec3 [{:name :x :datatype :float32}
                                          {:name :y :datatype :float32}
                                          {:name :z :datatype :float32}])

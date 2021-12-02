@@ -1,6 +1,8 @@
 (ns tech.v3.datatype.ffi.clang
   "General utilites to work with clang in order to define things like structs or
-  enumerations"
+  enumerations.
+
+  "
   (:require [tech.v3.datatype.ffi.size-t :as ffi-size-t]
             [tech.v3.datatype.struct :as dt-struct]
             [tech.v3.datatype.errors :as errors]
