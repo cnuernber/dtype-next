@@ -14,7 +14,8 @@
             [tech.v3.datatype.monotonic-range :as dt-range]
             ;;import in clone for jvm maps
             [tech.v3.datatype.jvm-map]
-            [tech.v3.datatype.export-symbols :refer [export-symbols]])
+            [tech.v3.datatype.export-symbols :refer [export-symbols]]
+            [tech.v3.datatype.base])
   (:import [tech.v3.datatype ListPersistentVector BooleanReader
             LongReader DoubleReader ObjectReader PrimitiveList
             Buffer]
