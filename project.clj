@@ -1,4 +1,4 @@
-(defproject cnuernber/dtype-next "8.043-SNAPSHOT"
+(defproject cnuernber/dtype-next "8.043"
   :description "A Clojure library designed to aid in the implementation of high performance algorithms and systems."
   :url "http://github.com/cnuernber/dtype-next"
   :license {:name "EPL-2.0"
@@ -30,7 +30,7 @@
                                  "--enable-native-access=ALL-UNNAMED"]}
              :codox
              {:dependencies [[codox-theme-rdash "0.1.2"]
-                             [com.cnuernber/codox {:mvn/version "1.000"}]]
+                             [com.cnuernber/codox "1.000"]]
               :codox {:project {:name "dtype-next"}
                       :metadata {:doc/format :markdown}
                       :themes [:rdash]

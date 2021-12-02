@@ -2,7 +2,7 @@
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.typecast :as typecast]
             [tech.v3.datatype.bitmap :as bitmap])
-  (:import [tech.v3.datatype ObjectReader]
+  (:import [tech.v3.datatype ObjectReader Buffer]
            [org.roaringbitmap RoaringBitmap]
            [java.util Map]))
 
@@ -16,7 +16,7 @@
   from the src-reader if the update map values do not exist."
   [src-reader update-map]
   (let [dtype (dtype-proto/elemwise-datatype src-reader)
-        src-reader (dtype-proto/->buffer src-reader)
+        ^Buffer src-reader (dtype-proto/->buffer src-reader)
         n-elems (.lsize src-reader)
         ^Map update-map (typecast/->java-map update-map)
         ^RoaringBitmap bitmap (if (dtype-proto/convertible-to-bitmap? update-map)
