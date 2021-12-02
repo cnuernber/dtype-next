@@ -1,7 +1,6 @@
 (ns tech.v3.tensor.pprint
   "Nicely print out a tensor of any size."
-  (:require [tech.v3.datatype.typecast :as typecast]
-            [tech.v3.datatype.base :as dtype-base]
+  (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.pprint :as dtype-pprint]
@@ -9,7 +8,6 @@
             ;;Base dtype implementation
             [tech.v3.datatype])
   (:import [java.lang StringBuilder]
-           [java.io Writer]
            [tech.v3.datatype NDBuffer]))
 
 

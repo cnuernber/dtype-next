@@ -2,8 +2,7 @@
   "Mmap based on the MemorySegment jdk16 memory model pathway"
   (:require [tech.v3.datatype.ffi.native-buffer-mmodel :as nbuf-mmodel]
             [tech.v3.resource :as resource])
-  (:import [jdk.incubator.foreign CLinker FunctionDescriptor
-            MemoryLayout MemorySegment ResourceScope]
+  (:import [jdk.incubator.foreign MemorySegment ResourceScope]
            [java.nio.channels FileChannel$MapMode]
            [java.nio.file Path Paths]
            [tech.v3.datatype.native_buffer NativeBuffer]))

@@ -8,8 +8,7 @@
             [tech.v3.datatype.errors :as errors])
   (:import [sun.misc Unsafe]
            [tech.v3.datatype.native_buffer NativeBuffer]
-           [tech.v3.datatype.array_buffer ArrayBuffer]
-           [tech.v3.datatype NDBuffer]))
+           [tech.v3.datatype.array_buffer ArrayBuffer]))
 
 
 (set! *warn-on-reflection* true)

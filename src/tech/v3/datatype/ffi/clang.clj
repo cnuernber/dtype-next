@@ -1,12 +1,13 @@
 (ns tech.v3.datatype.ffi.clang
   "General utilites to work with clang in order to define things like structs or
-  enumerations"
+  enumerations.
+
+  "
   (:require [tech.v3.datatype.ffi.size-t :as ffi-size-t]
             [tech.v3.datatype.struct :as dt-struct]
             [tech.v3.datatype.errors :as errors]
             [camel-snake-kebab.core :as csk]
-            [clojure.string :as s])
-  (:import [java.util Map]))
+            [clojure.string :as s]))
 
 
 ;;Exactly three spaces, else we are into the inner stuff.

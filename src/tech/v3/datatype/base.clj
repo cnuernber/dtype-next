@@ -1,7 +1,7 @@
 (ns tech.v3.datatype.base
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.array-buffer :as array-buffer]
-            [tech.v3.datatype.native-buffer :as native-buffer]
+            [tech.v3.datatype.native-buffer]
             [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.errors :as errors]
@@ -16,8 +16,7 @@
            [tech.v3.datatype.native_buffer NativeBuffer]
            [clojure.lang IPersistentCollection APersistentMap APersistentVector
             APersistentSet]
-           [java.util RandomAccess List
-            Spliterator Spliterator$OfDouble Spliterator$OfLong
+           [java.util RandomAccess List Spliterator$OfDouble Spliterator$OfLong
             Spliterator$OfInt]
            [java.util.stream Stream DoubleStream LongStream IntStream]))
 
@@ -686,9 +685,9 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
         (let [cast-fn (casting/cast-fn new-dtype @casting/*cast-table*)]
           (dispatch/vectorized-dispatch-1
            cast-fn
-           (fn [op-dtype item]
+           (fn [_op-dtype item]
              (dispatch/typed-map-1 cast-fn new-dtype item))
-           (fn [op-dtype item]
+           (fn [_op-dtype item]
              (let [ewise-dtype (dtype-proto/operational-elemwise-datatype item)
                    ^Buffer src-rdr (dtype-proto/elemwise-reader-cast
                                     item

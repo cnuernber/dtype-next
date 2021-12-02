@@ -195,29 +195,29 @@
 (deftype ArrayBuffer [ary-data ^long offset ^long n-elems datatype metadata
                       ^:volatile-mutable ^Buffer cached-io]
   dtype-proto/PElemwiseDatatype
-  (elemwise-datatype [item] datatype)
+  (elemwise-datatype [_item] datatype)
   dtype-proto/PDatatype
-  (datatype [item] :array-buffer)
+  (datatype [_item] :array-buffer)
   dtype-proto/PECount
-  (ecount [item] n-elems)
+  (ecount [_item] n-elems)
   dtype-proto/PEndianness
-  (endianness [item] :little-endian)
+  (endianness [_item] :little-endian)
   dtype-proto/PElemwiseReaderCast
-  (elemwise-reader-cast [item new-dtype]
+  (elemwise-reader-cast [item _new-dtype]
     (or cached-io (dtype-proto/->reader item)))
   dtype-proto/PToArrayBuffer
-  (convertible-to-array-buffer? [item] true)
+  (convertible-to-array-buffer? [_item] true)
   (->array-buffer [item] item)
   dtype-proto/PToBinaryBuffer
-  (convertible-to-binary-buffer? [item]
+  (convertible-to-binary-buffer? [_item]
     (and
      (= datatype :int8)
      (dtype-proto/convertible-to-binary-buffer? ary-data)))
-  (->binary-buffer [item]
+  (->binary-buffer [_item]
     (-> (dtype-proto/->binary-buffer ary-data)
         (dtype-proto/sub-buffer offset n-elems)))
   dtype-proto/PSubBuffer
-  (sub-buffer [item off len]
+  (sub-buffer [_item off len]
     (ArrayBuffer. ary-data
                   (+ offset (int off))
                   (int len)
@@ -225,7 +225,7 @@
                   metadata
                   nil))
   dtype-proto/PSetConstant
-  (set-constant! [this off elem-count value]
+  (set-constant! [_this off elem-count value]
     (let [offset (+ offset (int off))
           elem-count (int elem-count)
           end-offset (+ elem-count offset)
@@ -246,7 +246,7 @@
   (clone [this]
     (dtype-proto/make-container :jvm-heap datatype {} this))
   dtype-proto/PToBuffer
-  (convertible-to-buffer? [item] true)
+  (convertible-to-buffer? [_item] true)
   (->buffer [item]
     (if cached-io cached-io
         (let [io
@@ -254,16 +254,16 @@
           (set! cached-io io)
           io)))
   dtype-proto/PToReader
-  (convertible-to-reader? [item] true)
+  (convertible-to-reader? [_item] true)
   (->reader [item]
     (dtype-proto/->buffer item))
   dtype-proto/PToWriter
-  (convertible-to-writer? [item] true)
+  (convertible-to-writer? [_item] true)
   (->writer [item]
     (dtype-proto/->buffer item))
   IObj
-  (meta [item] metadata)
-  (withMeta [item metadata]
+  (meta [_item] metadata)
+  (withMeta [_item metadata]
     (ArrayBuffer. ary-data offset n-elems datatype metadata cached-io))
   Counted
   (count [item] (int (dtype-proto/ecount item)))
@@ -434,22 +434,22 @@
                                   ^long offset
                                   ^long n-elems]
   dtype-proto/PEndianness
-  (endianness [this] :little-endian)
+  (endianness [_this] :little-endian)
   BinaryBuffer
-  (lsize [this] n-elems)
-  (allowsBinaryRead [this] true)
-  (readBinByte [this byteOffset] (aget ary-data (+ offset byteOffset)))
-  (readBinShort [this byteOffset]
+  (lsize [_this] n-elems)
+  (allowsBinaryRead [_this] true)
+  (readBinByte [_this byteOffset] (aget ary-data (+ offset byteOffset)))
+  (readBinShort [_this byteOffset]
     (let [byteOffset (+ byteOffset offset)]
       (ByteConversions/shortFromBytesLE (aget ary-data byteOffset)
                                         (aget ary-data (+ byteOffset 1)))))
-  (readBinInt [this byteOffset]
+  (readBinInt [_this byteOffset]
     (let [byteOffset (+ byteOffset offset)]
       (ByteConversions/intFromBytesLE (aget ary-data byteOffset)
                                       (aget ary-data (+ byteOffset 1))
                                       (aget ary-data (+ byteOffset 2))
                                       (aget ary-data (+ byteOffset 3)))))
-  (readBinLong [this byteOffset]
+  (readBinLong [_this byteOffset]
     (let [byteOffset (+ byteOffset offset)]
       (ByteConversions/longFromBytesLE (aget ary-data byteOffset)
                                        (aget ary-data (+ byteOffset 1))
@@ -459,13 +459,13 @@
                                        (aget ary-data (+ byteOffset 5))
                                        (aget ary-data (+ byteOffset 6))
                                        (aget ary-data (+ byteOffset 7)))))
-  (readBinFloat [this byteOffset]
+  (readBinFloat [_this byteOffset]
     (let [byteOffset (+ byteOffset offset)]
       (ByteConversions/floatFromBytesLE (aget ary-data byteOffset)
                                         (aget ary-data (+ byteOffset 1))
                                         (aget ary-data (+ byteOffset 2))
                                         (aget ary-data (+ byteOffset 3)))))
-  (readBinDouble [this byteOffset]
+  (readBinDouble [_this byteOffset]
     (let [byteOffset (+ byteOffset offset)]
       (ByteConversions/doubleFromBytesLE (aget ary-data byteOffset)
                                          (aget ary-data (+ byteOffset 1))
@@ -476,27 +476,27 @@
                                          (aget ary-data (+ byteOffset 6))
                                          (aget ary-data (+ byteOffset 7)))))
 
-  (allowsBinaryWrite [this] true)
-  (writeBinByte [this byteOffset data]
+  (allowsBinaryWrite [_this] true)
+  (writeBinByte [_this byteOffset data]
     (aset ary-data (+ byteOffset offset) data))
-  (writeBinShort [this byteOffset data]
+  (writeBinShort [_this byteOffset data]
     (ByteConversions/shortToWriterLE data buffer (+ byteOffset offset)))
-  (writeBinInt [this byteOffset data]
+  (writeBinInt [_this byteOffset data]
     (ByteConversions/intToWriterLE data buffer (+ byteOffset offset)))
-  (writeBinLong [this byteOffset data]
+  (writeBinLong [_this byteOffset data]
     (ByteConversions/longToWriterLE data buffer (+ byteOffset offset)))
-  (writeBinFloat [this byteOffset data]
+  (writeBinFloat [_this byteOffset data]
     (ByteConversions/floatToWriterLE data buffer (+ byteOffset offset)))
-  (writeBinDouble [this byteOffset data]
+  (writeBinDouble [_this byteOffset data]
     (ByteConversions/doubleToWriterLE data buffer (+ byteOffset offset)))
   dtype-proto/PClone
-  (clone [this]
+  (clone [_this]
     (-> (dtype-proto/sub-buffer ary-data offset n-elems)
         (dtype-proto/clone)
         (dtype-proto/->binary-buffer)))
   dtype-proto/PToArrayBuffer
-  (convertible-to-array-buffer? [this] true)
-  (->array-buffer [this]
+  (convertible-to-array-buffer? [_this] true)
+  (->array-buffer [_this]
     (-> (dtype-proto/->array-buffer ary-data)
         (dtype-proto/sub-buffer offset n-elems)))
   dtype-proto/PSubBuffer

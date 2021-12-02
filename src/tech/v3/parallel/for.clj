@@ -2,8 +2,7 @@
   "Serial and parallel iteration strategies across iterators and index spaces."
   (:require [tech.v3.datatype.errors :as errors])
   (:import [java.util.concurrent ForkJoinPool Callable Future ForkJoinTask]
-           [java.util ArrayDeque PriorityQueue Comparator Spliterator Iterator
-            ArrayList List]
+           [java.util Spliterator Iterator ArrayList]
            [java.util.stream Stream]
            [java.util.function Consumer IntConsumer LongConsumer DoubleConsumer]
            [clojure.lang IFn]

@@ -9,12 +9,10 @@
             [tech.v3.datatype.monotonic-range :as dtype-range]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.io-indexed-buffer :as indexed-rdr]
-            [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.argops :as argops]
             [tech.v3.datatype.casting :as casting])
   (:import [tech.v3.datatype Buffer LongReader]
-           [tech.v3.datatype.monotonic_range Int64Range]
-           [clojure.lang IObj MapEntry]
+           [clojure.lang MapEntry]
            [java.util Map]))
 
 
@@ -166,19 +164,19 @@ back into Y global space indexes."))
 (deftype IndexAlg [^Buffer reader ^long n-reader-elems
                    ^long offset ^long repetitions]
   LongReader
-  (lsize [rdr] (* n-reader-elems repetitions))
-  (readLong [rdr idx] (.readLong reader (rem (+ idx offset)
+  (lsize [_rdr] (* n-reader-elems repetitions))
+  (readLong [_rdr idx] (.readLong reader (rem (+ idx offset)
                                              n-reader-elems)))
   dtype-proto/PRangeConvertible
   (convertible-to-range? [item]
     (and (dtype-proto/convertible-to-range? reader)
          (simple? item)))
-  (->range [item options] (dtype-proto/->range reader options))
+  (->range [_item options] (dtype-proto/->range reader options))
   dtype-proto/PConstantTimeMinMax
-  (has-constant-time-min-max? [item]
+  (has-constant-time-min-max? [_item]
     (dtype-proto/has-constant-time-min-max? reader))
-  (constant-time-min [item] (dtype-proto/constant-time-min reader))
-  (constant-time-max [item] (dtype-proto/constant-time-max reader))
+  (constant-time-min [_item] (dtype-proto/constant-time-min reader))
+  (constant-time-max [_item] (dtype-proto/constant-time-max reader))
   PIndexAlgebra
   (offset [item new-offset]
     (let [new-offset (rem (+ offset (long new-offset))
@@ -205,14 +203,14 @@ back into Y global space indexes."))
           (IndexAlg. reader n-reader-elems
                      offset
                      new-reps)))))
-  (offset? [item] (not= 0 offset))
-  (broadcast? [item] (not= 1 repetitions))
-  (simple? [item] (and (== 0 offset)
+  (offset? [_item] (not= 0 offset))
+  (broadcast? [_item] (not= 1 repetitions))
+  (simple? [_item] (and (== 0 offset)
                        (== 1 repetitions)))
-  (get-offset [item] offset)
-  (get-reader [item] (simplify-range->direct reader))
-  (get-n-repetitions [item] repetitions)
-  (reverse-index-map [item]
+  (get-offset [_item] offset)
+  (get-reader [_item] (simplify-range->direct reader))
+  (get-n-repetitions [_item] repetitions)
+  (reverse-index-map [_item]
     (let [^Map src-map (reverse-index-map reader)]
       (reify Map
         (size [m] (.size src-map))

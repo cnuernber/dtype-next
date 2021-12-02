@@ -10,10 +10,8 @@
   (:import [tech.v3.datatype UnaryPredicate Buffer
             UnaryPredicates$BooleanUnaryPredicate
             UnaryPredicates$DoubleUnaryPredicate
-            UnaryPredicates$LongUnaryPredicate
             UnaryPredicates$ObjectUnaryPredicate
-            BooleanReader LongReader DoubleReader ObjectReader
-            PrimitiveList]
+            BooleanReader PrimitiveList]
            [tech.v3.datatype.monotonic_range Int64Range]
            [java.util List]
            [java.util.function DoublePredicate Predicate]
@@ -221,7 +219,7 @@
                     ^{:unsynchronized-mutable true
                       :tag long} increment]
   PrimitiveList
-  (addLong [this lval]
+  (addLong [_this lval]
     (when-not (== last-value -1)
       (let [new-incr (- lval last-value)]
         (if (== increment -1)
@@ -231,13 +229,13 @@
     (set! last-value lval)
     (.addLong list lval))
   IDeref
-  (deref [this]
+  (deref [_this]
     (if (== 1 increment)
       (let [lstart (unchecked-long (list 0))]
         (mono-range/make-range lstart (+ lstart (.lsize list))))
       list))
   dtype-proto/PRange
-  (range-increment [this] increment))
+  (range-increment [_this] increment))
 
 
 (defn make-index-list

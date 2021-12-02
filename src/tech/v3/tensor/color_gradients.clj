@@ -12,8 +12,7 @@
             [clojure.edn :as edn]
             [tech.v3.parallel.for :as pfor]
             [tech.v3.libs.buffered-image :as bufimg])
-  (:import [java.awt.image BufferedImage]
-           [tech.v3.datatype Buffer NDBuffer]
+  (:import [tech.v3.datatype NDBuffer]
            [clojure.lang IFn]))
 
 (set! *warn-on-reflection* true)
@@ -225,106 +224,3 @@ function returned: %s"
           ;;2d.
           (dtt/reshape (concat src-dims [3]))
           (dtt/->jvm)))))
-
-
-(defn- update-or-append-gradient
-  [img-fname gradient-name]
-  (let [png-img (bufimg/load img-fname)
-        [height width n-chans] (dtype/shape png-img)
-        ;;ensure known color palette and such
-        png-img (bufimg/resize png-img 260 1 {:dst-img-type :byte-bgr})
-        existing-map @gradient-map
-        existing-tens @gradient-tens
-        new-entry (get existing-map gradient-name
-                       {:tensor-index (count existing-map)
-                        :gradient-shape [260 3]})
-        existing-map (assoc existing-map gradient-name new-entry)
-        new-img (bufimg/new-image (count existing-map) 260 :byte-bgr)
-        img-tens (dtt/ensure-tensor new-img)]
-    (doseq [[grad-n {:keys [tensor-index gradient-shape]}] existing-map]
-      (dtype/copy!
-       (if (= gradient-name grad-n)
-         (dtt/select png-img 0 :all :all)
-         (dtt/select existing-tens tensor-index :all :all))
-       (dtt/select img-tens tensor-index :all :all)))
-    (spit "resources/gradients.edn" existing-map)
-    (bufimg/save! new-img "resources/gradients.png")
-    :ok))
-
-
-(comment
-  (require '[clojure.java.io :as io])
-  (io/make-parents "gradient-demo/test.txt")
-
-  (def test-src-tens (dtt/->tensor (repeat 128 (range 0 512))))
-  (time (doseq [grad-name (keys @gradient-map)]
-          (bufimg/save! (colorize test-src-tens grad-name)
-                        "PNG"
-                        (format "gradient-demo/%s.png" (name grad-name)))
-          ))
-  (defn bad-range
-    [start end]
-    (->> (range start end)
-         (map (fn [item]
-                (if (> (rand) 0.5)
-                  Double/NaN
-                  item)))))
-  ;;Sometimes data has NAN's or INF's
-  (def test-nan-tens (dtt/->tensor (repeatedly 128 #(bad-range 0 512))))
-
-  (colorize test-nan-tens :temperature-map
-                                             :alpha? true
-                                             :check-invalid? true
-                                             :invert-gradient? true
-                                             :data-min 0
-                                             :data-max 512)
-
-  (bufimg/save! (colorize test-nan-tens :temperature-map
-                                             :alpha? true
-                                             :check-invalid? true
-                                             :invert-gradient? true
-                                             :data-min 0
-                                             :data-max 512)
-                                   "PNG"
-                                   (format "gradient-demo/%s-nan.png"
-                                           (name :temperature-map)))
-  (dotimes [iter 100]
-    (time (doseq [grad-name (keys @gradient-map)]
-            (comment (bufimg/save! (colorize test-nan-tens grad-name
-                                             :alpha? true
-                                             :check-invalid? true
-                                             :data-min 0
-                                             :data-max 512)
-                                   "PNG"
-                                   (format "gradient-demo/%s-nan.png"
-                                           (name grad-name))))
-            (colorize test-nan-tens grad-name
-                      :alpha? true
-                      :check-invalid? true
-                      :invert-gradient? true
-                      :data-min 0
-                      :data-max 512))))
-
-  (def custom-gradient-tens (dtt/->tensor
-                             (->> (range 100)
-                                  (map (fn [idx]
-                                         (let [p-value (/ (double idx)
-                                                          (double 100))]
-                                           [(* 255 p-value) 0 (* (- 1.0 p-value)
-                                                                 255)]))))))
-
-  (bufimg/save! (colorize test-src-tens custom-gradient-tens
-                          :invert-gradient? true)
-                "PNG"
-                "gradient-demo/custom-tensor-gradient.png")
-
-  (defn custom-gradient-fn
-    [^double p-value]
-    (let [one-m-p (- 1.0 p-value)]
-      [(* 255 one-m-p) (* 255 p-value) (* 255 one-m-p)]))
-
-  (bufimg/save! (colorize test-src-tens custom-gradient-fn
-                          :invert-gradient? true)
-                "PNG"
-                "gradient-demo/custom-ifn-gradient.png")
-  )

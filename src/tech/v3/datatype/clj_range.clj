@@ -66,7 +66,7 @@
 
 
 (defmacro range-reader-macro
-  [datatype rng options]
+  [datatype rng _options]
   `(let [rng# ~rng
          start# (casting/datatype->cast-fn :unknown ~datatype (first rng#))
          step# (casting/datatype->cast-fn :unknown ~datatype

@@ -4,10 +4,9 @@
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.casting :as casting]
-            [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.errors :as errors])
-  (:import [tech.v3.datatype BinaryOperator IndexReduction DoubleReduction
-            Buffer IndexReduction$IndexedBiFunction UnaryOperator
+  (:import [tech.v3.datatype BinaryOperator IndexReduction
+            IndexReduction$IndexedBiFunction UnaryOperator
             BufferIterator BufferDoubleSpliterator
             Consumers$StagedConsumer
             DoubleConsumers
@@ -15,9 +14,7 @@
             DoubleConsumers$UnaryOpSum
             DoubleConsumers$BinaryOp
             Consumers$MultiStagedConsumer]
-           [java.util List Map HashMap Map$Entry Spliterator$OfDouble Spliterator LinkedHashMap]
-           [java.util.concurrent ForkJoinPool Callable Future]
-           [java.util.stream StreamSupport]
+           [java.util Map Spliterator$OfDouble LinkedHashMap]
            [java.util.concurrent ConcurrentHashMap]
            [java.util.function BiFunction BiConsumer DoublePredicate DoubleConsumer]))
 

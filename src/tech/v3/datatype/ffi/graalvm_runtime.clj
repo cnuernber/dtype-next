@@ -1,9 +1,7 @@
 (ns tech.v3.datatype.ffi.graalvm-runtime
   (:require [tech.v3.datatype.ffi.ptr-value :as ptr-value]
             [tech.v3.datatype.errors :as errors])
-  (:import [org.graalvm.word WordFactory WordBase]
-           [org.graalvm.nativeimage.c.type VoidPointer]
-           [tech.v3.datatype.ffi Pointer]))
+  (:import [tech.v3.datatype.ffi Pointer]))
 
 
 

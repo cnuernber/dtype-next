@@ -1,9 +1,7 @@
 (ns tech.v3.datatype.io-indexed-buffer
   (:require [tech.v3.datatype.base :as dtype-base]
-            [tech.v3.datatype.protocols :as dtype-proto]
-            [tech.v3.datatype.casting :as casting])
-  (:import [tech.v3.datatype Buffer ObjectBuffer LongBuffer
-            DoubleBuffer BooleanBuffer]))
+            [tech.v3.datatype.protocols :as dtype-proto])
+  (:import [tech.v3.datatype Buffer]))
 
 
 (set! *warn-on-reflection* true)

@@ -7,17 +7,14 @@
   or to a reader implementation.  For tight loops or operations like map and filter,
   using the specific operators will result in far faster code than using the '+'
   function itself."
-  (:require [tech.v3.datatype.argtypes :refer [arg-type]]
-            [tech.v3.datatype.base :as dtype-base]
+  (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.errors :as errors]
-            [tech.v3.datatype.const-reader :refer [const-reader]]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.unary-op :as unary-op]
             [tech.v3.datatype.binary-op :as binary-op]
             [tech.v3.datatype.unary-pred :as unary-pred]
             [tech.v3.datatype.binary-pred :as binary-pred]
             [tech.v3.datatype.array-buffer :as array-buffer]
-            [tech.v3.datatype.argops :as argops]
             [tech.v3.datatype.reductions :as dtype-reductions]
             [tech.v3.datatype.export-symbols :refer [export-symbols]]
             [tech.v3.datatype.dispatch :refer [vectorized-dispatch-1
@@ -34,8 +31,7 @@
             [clojure.set :as set])
   (:import [tech.v3.datatype BinaryOperator Buffer
             LongReader DoubleReader ObjectReader
-            UnaryOperator BinaryOperator
-            UnaryPredicate BinaryPredicate
+            BinaryOperator
             PrimitiveList ArrayHelpers]
            [org.roaringbitmap RoaringBitmap]
            [java.util List]
@@ -148,8 +144,8 @@
   ([arg options]
    (vectorized-dispatch-1
     round-scalar
-    (fn [dtype arg] (dispatch/typed-map-1 round-scalar :int64 arg))
-    (fn [op-dtype ^Buffer src-rdr]
+    (fn [_dtype arg] (dispatch/typed-map-1 round-scalar :int64 arg))
+    (fn [_op-dtype ^Buffer src-rdr]
       (reify LongReader
         (lsize [rdr] (.lsize src-rdr))
         (readLong [rdr idx]
@@ -240,11 +236,18 @@
 
 
 (defn magnitude
-  (^double [item options]
+  (^double [item _options]
    (-> (magnitude-squared item)
        (Math/sqrt)))
   (^double [item]
    (magnitude item nil)))
+
+
+(defn normalize
+  [item]
+  (let [mag (magnitude item)]
+    (-> (/ item mag)
+        (vary-meta assoc :magnitude mag))))
 
 
 (defn distance
@@ -262,7 +265,7 @@
   []
   `(do
      ~@(->> unary-pred/builtin-ops
-            (map (fn [[k v]]
+            (map (fn [[k _v]]
                    (let [fn-symbol (symbol (name k))]
                      `(let [v# (unary-pred/builtin-ops ~k)]
                         (defn ~(with-meta fn-symbol
@@ -347,7 +350,6 @@
                 standard-deviation
                 median
                 skew
-                mean
                 kurtosis
                 quartile-1
                 quartile-3
@@ -375,7 +377,6 @@
         max-span (double max-span)
         n-elems (.lsize num-reader)
         n-spans (dec n-elems)
-        dec-max-span (dec max-span)
         retval
         (parallel-for/indexed-map-reduce
          n-spans
@@ -395,14 +396,14 @@
                          num-new-data (if (== num-new-data span-fract)
                                         (unchecked-dec num-new-data)
                                         num-new-data)
-                         divisor (Math/ceil span-fract)]
-                     (let [add-data (pmath// span-len divisor)]
-                       (dotimes [add-idx (long num-new-data)]
-                         (.addDouble new-data (pmath/+ lhs
-                                                       (pmath/* add-data
-                                                                (unchecked-inc
-                                                                 (double add-idx)))))
-                         (.add new-indexes (pmath/+ cur-new-idx add-idx))))))))
+                         divisor (Math/ceil span-fract)
+                         add-data (pmath// span-len divisor)]
+                     (dotimes [add-idx (long num-new-data)]
+                       (.addDouble new-data (pmath/+ lhs
+                                                     (pmath/* add-data
+                                                              (unchecked-inc
+                                                               (double add-idx)))))
+                       (.add new-indexes (pmath/+ cur-new-idx add-idx)))))))
              {:result new-data
               :missing new-indexes}))
          (partial reduce

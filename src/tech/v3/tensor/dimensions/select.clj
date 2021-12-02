@@ -4,8 +4,7 @@
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.list :as dtype-list])
-  (:import [tech.v3.datatype Buffer]
-           [java.util ArrayList List]))
+  (:import [java.util ArrayList List]))
 
 (set! *unchecked-math* :warn-on-boxed)
 (set! *warn-on-reflection* true)

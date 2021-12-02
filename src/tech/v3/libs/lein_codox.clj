@@ -2,7 +2,6 @@
   (:require [codox.main :as codox]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
-            [clojure.string :as str]
             [clojure.pprint :as pprint]
             [clojure.tools.logging :as log]))
 

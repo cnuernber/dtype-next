@@ -37,13 +37,10 @@
             [tech.v3.datatype.export-symbols :as export-symbols]
             [tech.v3.parallel.for :as parallel-for]
             [com.github.ztellman.primitive-math :as pmath]
-            [tech.v3.resource :as resource]
             [clojure.tools.logging :as log])
   (:import [clojure.lang IObj]
            [tech.v3.datatype LongNDReader Buffer NDBuffer
-            ObjectReader LongReader DoubleReader
-            LongTensorReader DoubleTensorReader ObjectTensorReader]
-           [tech.v3.datatype.native_buffer NativeBuffer]
+            ObjectReader LongReader]
            [java.util List]))
 
 
@@ -223,54 +220,54 @@
   dtype-proto/PECount
   (ecount [t] (.lsize t))
   NDBuffer
-  (lsize [t] (.lsize index-system))
-  (elemwiseDatatype [t] (dtype-proto/elemwise-datatype buffer))
-  (buffer [t] buffer)
+  (lsize [_t] (.lsize index-system))
+  (elemwiseDatatype [_t] (dtype-proto/elemwise-datatype buffer))
+  (buffer [_t] buffer)
   (bufferIO [t]
     (if (dims/native? dimensions)
       (dtype-proto/->buffer buffer)
       (indexed-buffer/indexed-buffer (.indexSystem t) buffer)))
-  (dimensions [t] dimensions)
-  (indexSystem [t] index-system)
-  (ndReadBoolean [t idx]
+  (dimensions [_t] dimensions)
+  (indexSystem [_t] index-system)
+  (ndReadBoolean [_t idx]
     (.readBoolean cached-io (.ndReadLong index-system idx)))
-  (ndReadBoolean [t row col]
+  (ndReadBoolean [_t row col]
     (.readBoolean cached-io (.ndReadLong index-system row col)))
-  (ndReadBoolean [t height width chan]
+  (ndReadBoolean [_t height width chan]
     (.readBoolean cached-io (.ndReadLong index-system height width chan)))
-  (ndWriteBoolean [t idx value]
+  (ndWriteBoolean [_t idx value]
     (.writeBoolean cached-io (.ndReadLong index-system idx) value))
-  (ndWriteBoolean [t row col value]
+  (ndWriteBoolean [_t row col value]
     (.writeBoolean cached-io (.ndReadLong index-system row col) value))
-  (ndWriteBoolean [t height width chan value]
+  (ndWriteBoolean [_t height width chan value]
     (.writeBoolean cached-io (.ndReadLong index-system height width chan)
                    value))
 
-  (ndReadLong [t idx]
+  (ndReadLong [_t idx]
     (.readLong cached-io (.ndReadLong index-system idx)))
-  (ndReadLong [t row col]
+  (ndReadLong [_t row col]
     (.readLong cached-io (.ndReadLong index-system row col)))
-  (ndReadLong [t height width chan]
+  (ndReadLong [_t height width chan]
     (.readLong cached-io (.ndReadLong index-system height width chan)))
-  (ndWriteLong [t idx value]
+  (ndWriteLong [_t idx value]
     (.writeLong cached-io (.ndReadLong index-system idx) value))
-  (ndWriteLong [t row col value]
+  (ndWriteLong [_t row col value]
     (.writeLong cached-io (.ndReadLong index-system row col) value))
-  (ndWriteLong [t height width chan value]
+  (ndWriteLong [_t height width chan value]
     (.writeLong cached-io (.ndReadLong index-system height width chan)
                 value))
 
-  (ndReadDouble [t idx]
+  (ndReadDouble [_t idx]
     (.readDouble cached-io (.ndReadLong index-system idx)))
-  (ndReadDouble [t row col]
+  (ndReadDouble [_t row col]
     (.readDouble cached-io (.ndReadLong index-system row col)))
-  (ndReadDouble [t height width chan]
+  (ndReadDouble [_t height width chan]
     (.readDouble cached-io (.ndReadLong index-system height width chan)))
-  (ndWriteDouble [t idx value]
+  (ndWriteDouble [_t idx value]
     (.writeDouble cached-io (.ndReadLong index-system idx) value))
-  (ndWriteDouble [t row col value]
+  (ndWriteDouble [_t row col value]
     (.writeDouble cached-io (.ndReadLong index-system row col) value))
-  (ndWriteDouble [t height width chan value]
+  (ndWriteDouble [_t height width chan value]
     (.writeDouble cached-io (.ndReadLong index-system height width chan)
                   value))
 
@@ -308,27 +305,27 @@
       (.writeObject cached-io (.ndReadLongIter index-system indexes) value)
       (tensor-copy! value (dtype-proto/select t indexes))))
 
-   (ndAccumPlusLong [t c value]
+   (ndAccumPlusLong [_t c value]
      (.accumPlusLong cached-io (.ndReadLong index-system c) value))
-   (ndAccumPlusLong [t x c value]
+   (ndAccumPlusLong [_t x c value]
      (.accumPlusLong cached-io (.ndReadLong index-system x c) value))
-   (ndAccumPlusLong [t y x c value]
+   (ndAccumPlusLong [_t y x c value]
      (.accumPlusLong cached-io (.ndReadLong index-system y x c) value))
 
-   (ndAccumPlusDouble [t c value]
+   (ndAccumPlusDouble [_t c value]
      (.accumPlusDouble cached-io (.ndReadLong index-system c) value))
-   (ndAccumPlusDouble [t x c value]
+   (ndAccumPlusDouble [_t x c value]
      (.accumPlusDouble cached-io (.ndReadLong index-system x c) value))
-   (ndAccumPlusDouble [t y x c value]
+   (ndAccumPlusDouble [_t y x c value]
      (.accumPlusDouble cached-io (.ndReadLong index-system y x c) value))
 
-  (allowsRead [t] (.allowsRead cached-io))
-  (allowsWrite [t] (.allowsWrite cached-io))
+  (allowsRead [_t] (.allowsRead cached-io))
+  (allowsWrite [_t] (.allowsWrite cached-io))
   (iterator [t]
     (.iterator (dtype-proto/slice t 1 false)))
   IObj
-  (meta [item] metadata)
-  (withMeta [item metadata]
+  (meta [_item] metadata)
+  (withMeta [_item metadata]
     (Tensor. buffer dimensions rank index-system cached-io metadata))
   Object
   (toString [t] (tens-pp/tensor->string t)))
@@ -352,54 +349,54 @@
   dtype-proto/PECount
   (ecount [t] (.lsize t))
   NDBuffer
-  (elemwiseDatatype [t] (dtype-proto/elemwise-datatype buffer))
-  (buffer [t] buffer)
+  (elemwiseDatatype [_t] (dtype-proto/elemwise-datatype buffer))
+  (buffer [_t] buffer)
   (bufferIO [t]
     (if (dims/native? dimensions)
       (dtype-proto/->buffer buffer)
       (indexed-buffer/indexed-buffer (.indexSystem t) buffer)))
-  (dimensions [t] dimensions)
-  (indexSystem [t] index-system)
-  (lsize [t] (.lsize index-system))
-  (ndReadBoolean [t idx]
+  (dimensions [_t] dimensions)
+  (indexSystem [_t] index-system)
+  (lsize [_t] (.lsize index-system))
+  (ndReadBoolean [_t idx]
     (.readBoolean cached-io (* idx c)))
-  (ndReadBoolean [t row col]
+  (ndReadBoolean [_t row col]
     (.readBoolean cached-io (+ (* row x) (* col c))))
-  (ndReadBoolean [t height width chan]
+  (ndReadBoolean [_t height width chan]
     (.readBoolean cached-io (+ (* height y) (* width x) (* chan c))))
-  (ndWriteBoolean [t idx value]
+  (ndWriteBoolean [_t idx value]
     (.writeBoolean cached-io (* idx c) value))
-  (ndWriteBoolean [t row col value]
+  (ndWriteBoolean [_t row col value]
     (.writeBoolean cached-io (+ (* row x) (* col c)) value))
-  (ndWriteBoolean [t height width chan value]
+  (ndWriteBoolean [_t height width chan value]
     (.writeBoolean cached-io (+ (* height y) (* width x) (* chan c))
                    value))
 
-  (ndReadLong [t idx]
+  (ndReadLong [_t idx]
     (.readLong cached-io (* idx c)))
-  (ndReadLong [t row col]
+  (ndReadLong [_t row col]
     (.readLong cached-io (+ (* row x) (* col c))))
-  (ndReadLong [t height width chan]
+  (ndReadLong [_t height width chan]
     (.readLong cached-io (+ (* height y) (* width x) (* chan c))))
-  (ndWriteLong [t idx value]
+  (ndWriteLong [_t idx value]
     (.writeLong cached-io (* idx c) value))
-  (ndWriteLong [t row col value]
+  (ndWriteLong [_t row col value]
     (.writeLong cached-io (+ (* row x) (* col c)) value))
-  (ndWriteLong [t height width chan value]
+  (ndWriteLong [_t height width chan value]
     (.writeLong cached-io (+ (* height y) (* width x) (* chan c))
                 value))
 
-  (ndReadDouble [t idx]
+  (ndReadDouble [_t idx]
     (.readDouble cached-io (* idx c)))
-  (ndReadDouble [t row col]
+  (ndReadDouble [_t row col]
     (.readDouble cached-io (+ (* row x) (* col c))))
-  (ndReadDouble [t height width chan]
+  (ndReadDouble [_t height width chan]
     (.readDouble cached-io (+ (* height y) (* width x) (* chan c))))
-  (ndWriteDouble [t idx value]
+  (ndWriteDouble [_t idx value]
     (.writeDouble cached-io (* idx c) value))
-  (ndWriteDouble [t row col value]
+  (ndWriteDouble [_t row col value]
     (.writeDouble cached-io (+ (* row x) (* col c)) value))
-  (ndWriteDouble [t height width chan value]
+  (ndWriteDouble [_t height width chan value]
     (.writeDouble cached-io (+ (* height y) (* width x) (* chan c))
                   value))
 
@@ -437,27 +434,27 @@
       (.writeObject cached-io (.ndReadLongIter index-system indexes) value)
       (tensor-copy! value (dtype-proto/select t indexes))))
 
-   (ndAccumPlusLong [t idx value]
+   (ndAccumPlusLong [_t idx value]
      (.accumPlusLong cached-io (* idx c) value))
-   (ndAccumPlusLong [t row chan value]
+   (ndAccumPlusLong [_t row chan value]
      (.accumPlusLong cached-io (+ (* row x) (* chan c)) value))
-   (ndAccumPlusLong [t height width chan value]
+   (ndAccumPlusLong [_t height width chan value]
      (.accumPlusLong cached-io (+ (* height y) (* width x) (* chan c)) value))
 
-   (ndAccumPlusDouble [t idx value]
+   (ndAccumPlusDouble [_t idx value]
      (.accumPlusDouble cached-io (* idx c) value))
-   (ndAccumPlusDouble [t width chan value]
+   (ndAccumPlusDouble [_t width chan value]
      (.accumPlusDouble cached-io (+ (* width x) (* chan c)) value))
-   (ndAccumPlusDouble [t height width chan value]
+   (ndAccumPlusDouble [_t height width chan value]
      (.accumPlusDouble cached-io (+ (* height y) (* width x) (* chan c)) value))
 
-  (allowsRead [t] (.allowsRead cached-io))
-  (allowsWrite [t] (.allowsWrite cached-io))
+  (allowsRead [_t] (.allowsRead cached-io))
+  (allowsWrite [_t] (.allowsWrite cached-io))
   (iterator [t]
     (.iterator (dtype-proto/slice t 1 false)))
   IObj
-  (meta [item] metadata)
-  (withMeta [item metadata]
+  (meta [_item] metadata)
+  (withMeta [_item metadata]
     (Tensor. buffer dimensions rank index-system cached-io metadata))
   Object
   (toString [t] (tens-pp/tensor->string t)))
@@ -906,7 +903,7 @@
   Results in an implementation of NDBuffer which efficiently performs a 1,2 or 3 dimension
   ND read operation."
   ([datatype advertised-datatype rank shape op-code-args op-code]
-   (let [{:keys [nd-read-fn read-type cast-fn]}
+   (let [{:keys [nd-read-fn read-type _cast-fn]}
          (case datatype
            :int64 {:nd-read-fn 'ndReadLong
                    :read-type 'tech.v3.datatype.LongTensorReader
@@ -1113,7 +1110,7 @@ user> (dtt/compute-tensor [2 2 2] (fn [& args] (vec args)) :object)
     "Both arguments must be tensors.")
   (errors/when-not-errorf (= (dtype-base/shape src) (dtype-base/shape dst))
     "Source (%s) and destination (%s) shapes do not match."
-    (dtype-base/shape src) (dtype-base/shape))
+    (dtype-base/shape src) (dtype-base/shape dst))
   (let [^NDBuffer src src
         ^NDBuffer dst dst
         src-rank (.rank src)

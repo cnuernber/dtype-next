@@ -2,17 +2,10 @@
   (:require [tech.v3.datatype.ffi :as ffi]
             [tech.v3.datatype.ffi.base :as ffi-base]
             [tech.v3.datatype.ffi.ptr-value :as ptr-value]
-            [tech.v3.datatype.copy :as dt-copy]
             [clojure.tools.logging :as log])
   (:import [com.sun.jna NativeLibrary Pointer Callback CallbackReference]
-           [tech.v3.datatype NumericConversions ClojureHelper]
-           [tech.v3.datatype.ffi Library]
-           [tech.v3.datatype.array_buffer ArrayBuffer]
-           [tech.v3.datatype.native_buffer NativeBuffer]
-           [clojure.lang IFn RT IPersistentMap IObj MapEntry Keyword IDeref
-            ISeq]
-           [java.lang.reflect Constructor]
-           [java.nio.file Paths]))
+           [clojure.lang IDeref]
+           [tech.v3.datatype.ffi Library]))
 
 
 (set! *warn-on-reflection* true)
@@ -143,7 +136,7 @@
          [[:invokestatic inner-cls (name fn-name)
            (argtypes->insn-desc argtypes rettype :ptr-as-platform)]]
          (ffi-base/exact-type-retval rettype
-                                     (fn [ptr-fn]
+                                     (fn [_ptr-fn]
                                        [[:checkcast Pointer]
                                         [:invokestatic Pointer 'nativeValue
                                          [Pointer :long]]
@@ -160,11 +153,6 @@
    [:ldc (name symbol-name)]
    [:invokevirtual NativeLibrary "getGlobalVariableAddress" [String Pointer]]])
 
-
-(defn- inline-print
-  [item]
-  (clojure.pprint/pprint item)
-  item)
 
 (defn define-jna-library
   [classname fn-defs symbols _options]

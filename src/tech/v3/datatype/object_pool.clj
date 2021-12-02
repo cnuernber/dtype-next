@@ -20,13 +20,13 @@ Returns nil if timeout passes so nil cannot be stored in the pool.")
 (extend-protocol PPool
   ArrayBlockingQueue
   (take! [pool timeout]
-    (let [timeout (long (or timeout 0))]
-      (let [retval
-            (if (> timeout 0)
-              (.poll pool timeout java.util.concurrent.TimeUnit/MILLISECONDS)
-              (.poll pool))]
-        (when retval
-          @retval))))
+    (let [timeout (long (or timeout 0))
+          retval
+          (if (> timeout 0)
+            (.poll pool timeout java.util.concurrent.TimeUnit/MILLISECONDS)
+            (.poll pool))]
+      (when retval
+        @retval)))
   (return! [pool item]
     (.add pool (delay item))))
 
@@ -43,7 +43,7 @@ Returns nil if timeout passes so nil cannot be stored in the pool.")
                      (fn []
                        (locking iterator
                          (.next iterator)))))]
-     (dotimes [idx n-elems]
+     (dotimes [_idx n-elems]
        (.add retval (delay
                       (if-let [retval (item-fn)]
                         retval

@@ -5,8 +5,7 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.argtypes :as argtypes]
             [tech.v3.datatype.copy :as dtype-cp]
-            [tech.v3.parallel.for :as pfor])
-  (:import [java.util RandomAccess]))
+            [tech.v3.parallel.for :as pfor]))
 
 
 

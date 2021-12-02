@@ -1,8 +1,7 @@
 (ns tech.v3.datatype.primitive
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.casting :as casting]
-            [tech.v3.datatype.const-reader :refer [const-reader]])
-  (:import [tech.v3.datatype ObjectReader]))
+            [tech.v3.datatype.const-reader :refer [const-reader]]))
 
 
 

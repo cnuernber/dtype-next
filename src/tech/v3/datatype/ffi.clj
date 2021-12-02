@@ -21,51 +21,81 @@
 Example:
 
 ```clojure
-
-user> (require '[tech.v3.datatype :as dtype])
-nil
 user> (require '[tech.v3.datatype.ffi :as dtype-ffi])
 nil
-user> (def libmem-def (dtype-ffi/define-library
-                        {:qsort {:rettype :void
-                                 :argtypes [['data :pointer]
-                                            ['nitems :size-t]
-                                            ['item-size :size-t]
-                                            ['comparator :pointer]]}}))
-#'user/libmem-def
-user> (def libmem-inst (dtype-ffi/instantiate-library libmem-def nil))
-#'user/libmem-inst
-user> (def         libmem-fns @libmem-inst)
-#'user/libmem-fns
-user> (def         qsort (:qsort libmem-fns))
-#'user/qsort
-user> (def comp-iface-def (dtype-ffi/define-foreign-interface :int32 [:pointer :pointer]))
-#'user/comp-iface-def
+user> (dtype-ffi/define-library!
+        clib
+        '{:memset {:rettype :pointer
+                   :argtypes [[buffer :pointer]
+                              [byte-value :int32]
+                              [n-bytes :size-t]]}
+          :memcpy {:rettype :pointer
+                   ;;dst src size-t
+                   :argtypes [[dst :pointer]
+                              [src :pointer]
+                              [n-bytes :size-t]]}
+          :qsort {:rettype :void
+                  :argtypes [[data :pointer]
+                             [nitems :size-t]
+                             [item-size :size-t]
+                             [comparator :pointer]]}}
+        nil ;;no library symbols defined
+        nil ;;no systematic error checking
+        )
+
+nil
+user> ;;now we bind to a path or existing library.  nil means find
+user> ;;symbols in current executable.
+user> (dtype-ffi/library-singleton-set! clib nil)
+#<G__17822@7f71640c:
+  {:qsort #object[tech.v3.datatype.ffi.jna.G__17822$invoker_qsort 0x32b4a8cd \"tech.v3.datatype.ffi.jna.G__17822$invoker_qsort@32b4a8cd\"], :memset #object[tech.v3.datatype.ffi.jna.G__17822$invoker_memset 0x676ccb88 \"tech.v3.datatype.ffi.jna.G__17822$invoker_memset@676ccb88\"], :memcpy #object[tech.v3.datatype.ffi.jna.G__17822$invoker_memcpy 0x59fd3d8f \"tech.v3.datatype.ffi.jna.G__17822$invoker_memcpy@59fd3d8f\"]}>
+user> ;;We can now call functions in our library.
+user> (require '[tech.v3.datatype :as dtype])
+nil
+user> (def container (dtype/make-container :native-heap :float64 (range 10)))
+#'user/container
+user> (apply + container)
+45.0
+user> (memset container 0 (* (dtype/ecount container) 8))
+#object[tech.v3.datatype.ffi.Pointer 0x59fa4fe0 \"{:address 0x00007F1B4458C0E0 }\"]
+user> (apply + container)
+0.0
+user> ;;C callbacks take a bit more effort
+user> ;;First define the callback signature.
+user> (def comp-iface (dtype-ffi/define-foreign-interface :int32 [:pointer :pointer]))
+#'user/comp-iface
+user> ;;Then instantiate an implementation.
+user> (import [tech.v3.datatype.ffi Pointer])
 user> (require '[tech.v3.datatype.native-buffer :as native-buffer])
 nil
-user> (def comp-iface-inst (dtype-ffi/instantiate-foreign-interface
-                         comp-iface-def
-                         (fn [^tech.v3.datatype.ffi.Pointer lhs ^tech.v3.datatype.ffi.Pointer rhs]
-                           (let [lhs (.getDouble (native-buffer/unsafe) (.address lhs))
-                                 rhs (.getDouble (native-buffer/unsafe) (.address rhs))]
-                             (Double/compare lhs rhs)))))
-#'user/comp-iface-inst
-user> (def comp-iface-ptr (dtype-ffi/foreign-interface-instance->c
-                        comp-iface-def
-                        comp-iface-inst))
-#'user/comp-iface-ptr
-user> (def dbuf (dtype/make-container :native-heap :float64 (shuffle (range 100))))
-09:00:27.900 [tech.resource.gc ref thread] INFO  tech.v3.resource.gc - Reference thread starting
-#'user/dbuf
-user> dbuf
-#native-buffer@0x00007F47084E4210<float64>[100]
-[80.00, 90.00, 96.00, 29.00, 19.00, 12.00, 88.00, 94.00, 81.00, 17.00, 54.00, 52.00, 64.00, 86.00, 10.00, 76.00, 49.00, 5.000, 32.00, 69.00, ...]
-user> (qsort dbuf (dtype/ecount dbuf) Double/BYTES comp-iface-ptr)
+user> (def iface-inst (dtype-ffi/instantiate-foreign-interface
+                       comp-iface
+                       (fn [^Pointer lhs ^Pointer rhs]
+                         (let [lhs (.getDouble (native-buffer/unsafe) (.address lhs))
+                               rhs (.getDouble (native-buffer/unsafe) (.address rhs))]
+                           (Double/compare lhs rhs)))))
+#'user/iface-inst
+user> iface-inst
+#object[tech.v3.datatype.ffi.jna.ffi_G__17831 0x6e9ddc45 \"tech.v3.datatype.ffi.jna.ffi_G__17831@6e9ddc45\"]
+user> ;;From an instance of a foreign interface we can get an integer pointer
+user> (def iface-ptr (dtype-ffi/foreign-interface-instance->c comp-iface iface-inst))
+#'user/iface-ptr
+user> iface-ptr
+#object[tech.v3.datatype.ffi.Pointer 0x47099d5d \"{:address 0x00007F1BB400F390 }\"]
+user> ;;reset container
+user> (dtype/copy! (vec (shuffle (range 10))) container)
+#native-buffer@0x00007F1B4458C0E0<float64>[10]
+[5.000, 9.000, 8.000, 1.000, 3.000, 0.000, 6.000, 7.000, 4.000, 2.000]
+user> (qsort container 10 8 iface-ptr)
 nil
-user> dbuf
-#native-buffer@0x00007F47084E4210<float64>[100]
-[0.000, 1.000, 2.000, 3.000, 4.000, 5.000, 6.000, 7.000, 8.000, 9.000, 10.00, 11.00, 12.00, 13.00, 14.00, 15.00, 16.00, 17.00, 18.00, 19.00, ...]
-```"
+user> container
+#native-buffer@0x00007F1B4458C0E0<float64>[10]
+[0.000, 1.000, 2.000, 3.000, 4.000, 5.000, 6.000, 7.000, 8.000, 9.000]
+```
+
+  Structs can be defined and passed by pointer/reference.  See the [[tech.v3.datatype.struct]]
+  namespace.  Also note that the output of clang can be used to define your structs based on
+  parsing c/c++ header files.  See [[tech.v3.datatype.ffi.clang/defstruct-from-layout]]."
   (:require [tech.v3.datatype.native-buffer :as native-buffer]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.base :as base]
@@ -99,7 +129,7 @@ user> dbuf
   []
   (try
     (boolean (Class/forName "jdk.incubator.foreign.CLinker"))
-    (catch Throwable e false)))
+    (catch Throwable _e false)))
 
 
 (defn jna-ffi?
@@ -107,7 +137,7 @@ user> dbuf
   []
   (try
     (boolean (Class/forName "com.sun.jna.Pointer"))
-    (catch Throwable e false)))
+    (catch Throwable _e false)))
 
 
 (defn jdk-mmodel?
@@ -115,7 +145,7 @@ user> dbuf
   []
   (try
     (boolean (Class/forName "jdk.incubator.foreign.MemoryAddress"))
-    (catch Throwable e false)))
+    (catch Throwable _e false)))
 
 
 (defprotocol PToPointer
@@ -321,7 +351,7 @@ Attempted both :jdk and :jna -- call set-ffi-impl! from the repl to see specific
        (dechunk-map identity)
        (filter #(try ((:load-library (ffi-impl)) %)
                      true
-                     (catch Throwable e false)))
+                     (catch Throwable _e false)))
        (first)))
 
 
@@ -502,7 +532,7 @@ clojure.lang.IFn that takes only the specific arguments.")
                              :tag Library} library-instance
                            ^:unsynchronized-mutable library-path]
   IDeref
-  (deref [this] library-instance)
+  (deref [_this] library-instance)
   PLibrarySingleton
   (library-singleton-reset! [this]
     (graal-native/when-not-defined-graal-native
@@ -516,9 +546,9 @@ clojure.lang.IFn that takes only the specific arguments.")
   (library-singleton-set! [this libpath]
     (set! library-path {:libpath libpath})
     (library-singleton-reset! this))
-  (library-singleton-set-instance! [lib-singleton libinst]
+  (library-singleton-set-instance! [_lib-singleton libinst]
     (set! library-instance libinst))
-  (library-singleton-find-fn [this fn-kwd]
+  (library-singleton-find-fn [_this fn-kwd]
     (errors/when-not-errorf
      library-instance
      "Library instance not found.  Has initialize! been called?")
@@ -526,14 +556,14 @@ clojure.lang.IFn that takes only the specific arguments.")
     (if-let [retval (fn-kwd @library-instance)]
       retval
       (errors/throwf "Library function %s not found" (symbol (name fn-kwd)))))
-  (library-singleton-find-symbol [this sym-name]
+  (library-singleton-find-symbol [_this sym-name]
     (errors/when-not-errorf
      library-instance
      "Library instance not found.  Has initialize! been called?")
     (.findSymbol library-instance sym-name))
-  (library-singleton-library-path [lib-singleton] (:libpath library-path))
-  (library-singleton-definition [lib-singleton] library-definition)
-  (library-singleton-library [lib-singleton] library-instance))
+  (library-singleton-library-path [_lib-singleton] (:libpath library-path))
+  (library-singleton-definition [_lib-singleton] library-definition)
+  (library-singleton-library [_lib-singleton] library-instance))
 
 
 (defn library-singleton
@@ -562,7 +592,7 @@ clojure.lang.IFn that takes only the specific arguments.")
   ([library-def-var]
    (library-singleton library-def-var (delay nil) nil)))
 
-(defn ^:private library-function-def* [[fn-name fn-data] find-fn check-error]
+(defn ^:private library-function-def* [[fn-name fn-data] check-error]
   (let [{:keys [rettype argtypes check-error?]} fn-data
         fn-symbol (symbol (name fn-name))
         requires-resctx? (first (filter #(= :string %)
@@ -619,8 +649,10 @@ Example:
   [library-def-symbol find-fn check-error]
   `(do
      (let [~'find-fn ~find-fn]
-       ~@(->> @(resolve library-def-symbol)
-              (map #(library-function-def* % 'find-fn check-error))))))
+       ~@(->> (if (symbol? library-def-symbol)
+                @(resolve library-def-symbol)
+                library-def-symbol)
+              (map #(library-function-def* % check-error))))))
 
 
 (defmacro if-class
@@ -632,7 +664,7 @@ Example:
    (let [class-exists (try
                         (Class/forName (name class-name))
                         true
-                        (catch ClassNotFoundException e
+                        (catch ClassNotFoundException _e
                           false))]
      (if class-exists
        then
@@ -696,11 +728,11 @@ Example:
   ```
   "
   [fn-defs
-   & {:keys [classname
+   & {:keys [_classname
              check-error
              symbols
              libraries
-             header-files]
+             _header-files]
       :as opts}]
   (let [fn-defs-val (eval fn-defs)
         classname-form (:classname opts
@@ -730,7 +762,7 @@ Example:
         library-options-val)
        (try
          (Class/forName ~(name classname))
-         (catch ClassNotFoundException e#
+         (catch ClassNotFoundException _e#
            nil)))
      (define-library
        fn-defs-val
@@ -764,7 +796,7 @@ Example:
 
        (let [~'find-fn find-fn#]
          ~@(->> fn-defs-val
-                (map #(library-function-def* % 'find-fn check-error)))
+                (map #(library-function-def* % check-error)))
          lib#))))
 
 
@@ -806,3 +838,93 @@ Example:
                           ;;offset-of returns a pair of offset,datatype
                           (first))]
     (Pointer. (+ (.address data-ptr) member-offset))))
+
+
+(defmacro define-library!
+  "Define a library singleton that will export the defined functions and symbols.
+
+  Only jvm-supported primitives work here - no unsigned but if you have the correct
+  datatype widths the data will be passed unchanged so unsigned does work.
+
+  See namespace declaration for full example.
+
+  Example:
+
+```clojure
+  (define-library!
+    lib
+    '{:memset {:rettype :pointer
+               :argtypes [[buffer :pointer]
+                          [byte-value :int32]
+                          [n-bytes :size-t]]}
+      :memcpy {:rettype :pointer
+               ;;dst src size-t
+               :argtypes [[dst :pointer]
+                          [src :pointer]
+                          [n-bytes :size-t]]}
+      :qsort {:rettype :void
+              :argtypes [[data :pointer]
+                         [nitems :size-t]
+                         [item-size :size-t]
+                         [comparator :pointer]]}}
+    nil
+    nil)
+```
+  "
+  [lib-varname lib-fns lib-symbols error-checker]
+  (let [lib-fns-var (symbol (str lib-varname "-fns"))
+        lib-sym-var (symbol (str lib-varname "-symbols"))]
+    `(do
+       (def ~lib-fns-var ~lib-fns)
+       (def ~lib-sym-var ~lib-symbols)
+       (defonce ~lib-varname (library-singleton (var ~lib-fns-var) (var ~lib-sym-var) nil))
+       (define-library-functions ~lib-fns-var
+         #(library-singleton-find-fn ~lib-varname %)
+         ~error-checker)
+       (library-singleton-reset! ~lib-varname))))
+
+(comment
+
+  (define-library!
+    lib
+    '{:memset {:rettype :pointer
+               :argtypes [[buffer :pointer]
+                          [byte-value :int32]
+                          [n-bytes :size-t]]}
+      :memcpy {:rettype :pointer
+               ;;dst src size-t
+               :argtypes [[dst :pointer]
+                          [src :pointer]
+                          [n-bytes :size-t]]}
+      :qsort {:rettype :void
+              :argtypes [[data :pointer]
+                         [nitems :size-t]
+                         [item-size :size-t]
+                         [comparator :pointer]]}}
+    nil
+    nil)
+  ;; We pass nil here because we are finding those symbols in the current executable.
+  ;; We can also pass a path to a shared library.
+  (library-singleton-set! lib nil)
+
+  (require '[tech.v3.datatype :as dtype])
+  (def container (dtype/make-container :native-heap :float64 (range 10)))
+  (apply + container) ;;45.0
+  (memset container 0 (* (dtype/ecount container) 8))
+  (apply + container) ;; 0.0
+
+  ;;C callbacks - qsort's comparator is passed a function
+  ;;that takes 2 pointers and returns an int32
+  (def comp-iface (define-foreign-interface :int32 [:pointer :pointer]))
+  (def iface-inst (instantiate-foreign-interface
+                   comp-iface
+                   (fn [^Pointer lhs ^Pointer rhs]
+                     (let [lhs (.getDouble (native-buffer/unsafe) (.address lhs))
+                           rhs (.getDouble (native-buffer/unsafe) (.address rhs))]
+                       (Double/compare lhs rhs)))))
+  (def iface-ptr (foreign-interface-instance->c comp-iface iface-inst))
+  (dtype/copy! (vec (shuffle (range 10))) container)
+  (vec container) ;;[5.0 3.0 7.0 0.0 8.0 6.0 4.0 1.0 9.0 2.0]
+  (qsort container 10 8 iface-ptr)
+  (vec container) ;;[0.0 1.0 2.0 3.0 4.0 5.0 6.0 7.0 8.0 9.0]
+  )

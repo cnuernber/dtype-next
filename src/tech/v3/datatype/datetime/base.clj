@@ -6,8 +6,7 @@
   (:import [java.time LocalDate LocalDateTime
             ZonedDateTime Instant ZoneId Duration ZoneOffset
             OffsetDateTime LocalTime]
-           [java.time.temporal ChronoUnit Temporal ChronoField
-            WeekFields TemporalAmount]))
+           [java.time.temporal ChronoUnit]))
 
 
 (set! *warn-on-reflection* true)
@@ -18,7 +17,6 @@
          local-date-time->instant
          local-date-time->local-date
          local-time->local-date-time)
-
 
 
 (defn system-zone-id
@@ -347,12 +345,12 @@
 
 (defn epoch-months->local-date
   ^LocalDate [^long em]
-  (.plus epoch-local-date em java.time.temporal.ChronoUnit/MONTHS))
+  (.plus epoch-local-date em ChronoUnit/MONTHS))
 
 
 (defn epoch-days->local-date
   ^LocalDate [^long ed]
-  (.plus epoch-local-date ed java.time.temporal.ChronoUnit/DAYS))
+  (.plus epoch-local-date ed ChronoUnit/DAYS))
 
 
 (defn epoch-days->epoch-months

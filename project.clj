@@ -12,14 +12,14 @@
                  [org.apache.commons/commons-math3 "3.6.1"]
                  [org.roaringbitmap/RoaringBitmap  "0.9.0"]
                  [com.github.wendykierp/JTransforms "3.1"]
-                 [techascent/tech.resource         "5.04"]
-                 [techascent/tech.jna "4.05" :scope "provided"]
+                 [techascent/tech.resource         "5.05"]
                  ;;Many things require guava, so we may as well have latest version
                  [com.google.guava/guava "30.1.1-jre"]]
   :java-source-paths ["java" "third-party"]
   :source-paths ["src" "classes" "third-party"]
   :profiles {:dev
              {:dependencies [[criterium "0.4.5"]
+                             [net.java.dev.jna/jna "5.9.0"]
                              [uncomplicate/neanderthal "0.35.0"]
                              [com.taoensso/nippy "3.1.1"]
                              [ch.qos.logback/logback-classic "1.1.3"]
@@ -30,8 +30,7 @@
                                  "--enable-native-access=ALL-UNNAMED"]}
              :codox
              {:dependencies [[codox-theme-rdash "0.1.2"]
-                             [codox "0.10.7"
-                              :exclusions [org.ow2.asm/asm-all]]]
+                             [com.cnuernber/codox {:mvn/version "1.000"}]]
               :codox {:project {:name "dtype-next"}
                       :metadata {:doc/format :markdown}
                       :themes [:rdash]
@@ -78,7 +77,8 @@
              :uberjar
              {:aot [tech.v3.datatype.main tech.v3.datatype.expose-fn]
               :source-paths ["src" "native_test" "generated_classes"]
-              :jvm-opts ["-Dclojure.compiler.direct-linking=true" "-Dtech.v3.datatype.graal-native=true"]
+              :jvm-opts ["-Dclojure.compiler.direct-linking=true"
+                         "-Dtech.v3.datatype.graal-native=true"]
               :uberjar-name "dtype-next.jar"
               :main tech.v3.datatype.main}}
-  :aliases {"codox" ["with-profile" "codox,dev" "run" "-m" "tech.v3.libs.lein-codox"]})
+  :aliases {"codox" ["with-profile" "codox,dev" "run" "-m" "codox.main/-main"]})

@@ -8,15 +8,14 @@
             [tech.v3.tensor :as dtt]
             [tech.v3.tensor.dimensions :as dims]
             [clojure.java.io :as io]
-            [clojure.set :as c-set]
-            [clojure.string :as s])
+            [clojure.set :as c-set])
   (:import [java.awt.image BufferedImage
             DataBufferByte DataBufferDouble DataBufferFloat
             DataBufferInt DataBufferShort DataBufferUShort
             DataBuffer]
            [java.awt RenderingHints Graphics2D]
            [java.io InputStream]
-           [tech.v3.datatype Buffer LongBuffer]
+           [tech.v3.datatype LongBuffer]
            [javax.imageio ImageIO])
   (:refer-clojure :exclude [load]))
 
@@ -200,13 +199,13 @@
 
 (deftype PackedIntUbyteBuffer [int-buffer n-elems shape n-channels]
   dtype-proto/PElemwiseDatatype
-  (elemwise-datatype [item] :uint8)
+  (elemwise-datatype [_item] :uint8)
   dtype-proto/PECount
-  (ecount [item] n-elems)
+  (ecount [_item] n-elems)
   dtype-proto/PShape
-  (shape [item] shape)
+  (shape [_item] shape)
   dtype-proto/PClone
-  (clone [item]
+  (clone [_item]
     (PackedIntUbyteBuffer. (dtype-proto/clone int-buffer)
                            n-elems
                            shape
@@ -216,7 +215,7 @@
                      item
                      (dims/dimensions (dtype-base/shape item))))
   dtype-proto/PToBuffer
-  (convertible-to-buffer? [item] true)
+  (convertible-to-buffer? [_item] true)
   (->buffer [item]
     (let [n-channels (long n-channels)
           src-io (dtype-base/->buffer int-buffer)]
@@ -417,7 +416,7 @@
 
 
 (defmethod dtype-proto/make-container :buffered-image
-  [container-type datatype options img-shape]
+  [_container-type datatype _options img-shape]
   (when-not (= datatype :uint8)
     (throw (Exception. "Only uint8 datatype allowed")))
   (when-not (= 3 (count img-shape))

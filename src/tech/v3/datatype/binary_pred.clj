@@ -7,15 +7,12 @@
             [com.github.ztellman.primitive-math :as pmath])
   (:import [tech.v3.datatype BinaryPredicate Buffer
             BinaryPredicates$BooleanBinaryPredicate
-            BinaryPredicates$DoubleBinaryPredicate
             BinaryPredicates$LongBinaryPredicate
             BinaryPredicates$ObjectBinaryPredicate
-            BooleanReader LongReader DoubleReader ObjectReader]
+            BooleanReader ObjectReader]
            [clojure.lang IFn]
-           [clojure.lang Numbers]
            [org.apache.commons.math3.util Precision]
-           [java.time Instant LocalDate ZonedDateTime]
-           [java.util Date Comparator]))
+           [java.util Comparator]))
 
 (set! *warn-on-reflection* true)
 
@@ -124,12 +121,12 @@
 
 
 (defmacro make-boolean-predicate
-  ([opname op]
+  ([_opname op]
    `(reify BinaryPredicates$BooleanBinaryPredicate
       (binaryBoolean [this ~'x ~'y]
         (boolean ~op))))
   ([op]
-   `(make-boolean-predicate op :_unnamed)))
+   `(make-boolean-predicate ~op :_unnamed)))
 
 
 (defmacro make-numeric-binary-predicate

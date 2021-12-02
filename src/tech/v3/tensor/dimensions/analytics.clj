@@ -2,11 +2,9 @@
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.index-algebra :as idx-alg]
             [tech.v3.datatype.protocols :as dtype-proto]
-            [tech.v3.datatype.list :as dtype-list]
             [tech.v3.tensor.dimensions.shape :as shape]
             [com.github.ztellman.primitive-math :as pmath])
-  (:import [tech.v3.datatype Buffer PrimitiveList]
-           [java.util List]))
+  (:import [java.util List]))
 
 
 (set! *unchecked-math* :warn-on-boxed)
@@ -42,7 +40,7 @@
   change its elementwise global->local definition.  This is done because
   the running time of elementwise global->local is heavily dependent upon the
   number of dimensions in the shape."
-  ([^List shape ^List strides ^List shape-ecounts]
+  ([^List shape ^List strides ^List _shape-ecounts]
    (let [n-elems (count shape)
          n-elems-dec (dec n-elems)]
      (loop [idx n-elems-dec
@@ -104,7 +102,7 @@
   ([{:keys [shape strides
             shape-ecounts
             shape-ecount-strides]}
-    offsets?]
+    _offsets?]
    ;;Make sure shape only contains long objects as numbers
    (if (== 1 (count shape))
      {:shape [(ensure-number-or-reader (.get ^List shape 0))]

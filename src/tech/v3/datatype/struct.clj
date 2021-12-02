@@ -12,11 +12,6 @@ user> (require '[tech.v3.datatype :as dtype])
 nil
 user> (require '[tech.v3.datatype.struct :as dt-struct])
 nil
-user> (define-datatype! :vec3 [{:name :x :datatype :float32}
-                         {:name :y :datatype :float32}
-                         {:name :z :datatype :float32}])
-Syntax error compiling at (*cider-repl cnuernber/dtype-next:localhost:36129(clj)*:47:7).
-Unable to resolve symbol: define-datatype! in this context
 user> (dt-struct/define-datatype! :vec3 [{:name :x :datatype :float32}
                                          {:name :y :datatype :float32}
                                          {:name :z :datatype :float32}])
@@ -44,7 +39,7 @@ user> *2
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [com.github.ztellman.primitive-math :as pmath])
-  (:import [tech.v3.datatype BinaryBuffer Buffer ObjectBuffer]
+  (:import [tech.v3.datatype BinaryBuffer ObjectBuffer]
            [java.util.concurrent ConcurrentHashMap]
            [java.util RandomAccess List Map LinkedHashSet Collection]
            [clojure.lang MapEntry IObj IFn ILookup]))
@@ -230,39 +225,39 @@ user> *2
 
  * `.struct-def - The struct definition of this instance.
  * `.buffer - The underlying backing store of this instance."}
-    Struct [struct-def
-            buffer
-            ^{:unsynchronized-mutable true
-              :tag BinaryBuffer} cached-buffer
-            metadata]
+ Struct [struct-def
+         buffer
+         ^{:unsynchronized-mutable true
+           :tag BinaryBuffer} cached-buffer
+         metadata]
   dtype-proto/PDatatype
-  (datatype [m] (:datatype-name struct-def))
+  (datatype [_m] (:datatype-name struct-def))
   dtype-proto/PECount
-  (ecount [m] (dtype-proto/ecount buffer))
+  (ecount [_m] (dtype-proto/ecount buffer))
   dtype-proto/PEndianness
-  (endianness [m] (dtype-proto/endianness buffer))
+  (endianness [_m] (dtype-proto/endianness buffer))
   dtype-proto/PClone
-  (clone [m]
+  (clone [_m]
     (let [new-buffer (dtype-proto/clone buffer)]
       (inplace-new-struct (:datatype-name struct-def) new-buffer
                           {:endianness
                            (dtype-proto/endianness buffer)})))
 
   dtype-proto/PToNativeBuffer
-  (convertible-to-native-buffer? [this]
+  (convertible-to-native-buffer? [_this]
     (dtype-proto/convertible-to-native-buffer? buffer))
-  (->native-buffer [this]
+  (->native-buffer [_this]
     (dtype-proto/->native-buffer buffer))
 
   dtype-proto/PToArrayBuffer
-  (convertible-to-array-buffer? [this]
+  (convertible-to-array-buffer? [_this]
     (dtype-proto/convertible-to-array-buffer? buffer))
-  (->array-buffer [this]
+  (->array-buffer [_this]
     (dtype-proto/->array-buffer buffer))
 
   IObj
-  (meta [this] metadata)
-  (withMeta [this m]
+  (meta [_this] metadata)
+  (withMeta [_this m]
     (Struct. struct-def buffer cached-buffer m))
 
   ILookup
@@ -271,20 +266,20 @@ user> *2
 
   IFn
   (invoke [this k] (.get this k))
-  (applyTo [this args]
+  (applyTo [_this args]
     (errors/when-not-errorf
      (= 1 (count args))
      "only 1 arg is acceptable; %d provided" (count args)))
 
   Map
-  (size [m] (count (:data-layout struct-def)))
-  (containsKey [m k] (.containsKey ^Map (:layout-map struct-def) k))
+  (size [_m] (count (:data-layout struct-def)))
+  (containsKey [_m k] (.containsKey ^Map (:layout-map struct-def) k))
   (entrySet [m]
     (let [map-entry-data (map (comp #(MapEntry. % (.get m %)) :name)
                               (:data-layout struct-def))]
       (LinkedHashSet. ^Collection map-entry-data)))
-  (keySet [m] (.keySet ^Map (:layout-map struct-def)))
-  (get [m k]
+  (keySet [_m] (.keySet ^Map (:layout-map struct-def)))
+  (get [_m k]
     (when-let [[offset dtype :as _data-vec] (offset-of struct-def k)]
       (if-let [struct-def (.get ^ConcurrentHashMap struct-datatypes dtype)]
         (let [new-buffer (dtype-proto/sub-buffer
@@ -333,7 +328,7 @@ user> *2
               :float32 (.writeBinFloat writer offset (pmath/float v))
               :float64 (.writeBinDouble writer offset (pmath/double v)))))
         (throw (Exception. (format "Datatype %s does not containt field %s"
-                                   (dtype-proto/datatype m)) k))))))
+                                   (dtype-proto/datatype m) k)))))))
 
 
 (defn inplace-new-struct
@@ -341,7 +336,7 @@ user> *2
   either be convertible to a native buffer or a byte-array.
 
   Returns a new Struct datatype."
-  (^Struct [datatype backing-store options]
+  (^Struct [datatype backing-store _options]
    (let [struct-def (get-struct-def datatype)]
      (Struct. struct-def backing-store nil {})))
   (^Struct [datatype backing-store]
@@ -398,23 +393,23 @@ user> *2
                          buffer
                          metadata]
   dtype-proto/PEndianness
-  (endianness [ary] (dtype-proto/endianness buffer))
+  (endianness [_ary] (dtype-proto/endianness buffer))
 
   dtype-proto/PClone
-  (clone [ary]
+  (clone [_ary]
     (inplace-new-array-of-structs (:datatype-name struct-def)
                                   (dtype-proto/clone buffer)
                                   metadata))
   dtype-proto/PToNativeBuffer
-  (convertible-to-native-buffer? [this]
+  (convertible-to-native-buffer? [_this]
     (dtype-proto/convertible-to-native-buffer? buffer))
-  (->native-buffer [this]
+  (->native-buffer [_this]
     (dtype-proto/->native-buffer buffer))
 
   dtype-proto/PToArrayBuffer
-  (convertible-to-array-buffer? [this]
+  (convertible-to-array-buffer? [_this]
     (dtype-proto/convertible-to-array-buffer? buffer))
-  (->array-buffer [this]
+  (->array-buffer [_this]
     (dtype-proto/->array-buffer buffer))
 
   dtype-proto/PSubBuffer
@@ -430,15 +425,15 @@ user> *2
                                       metadata))))
 
   ObjectBuffer
-  (elemwiseDatatype [ary] (:datatype-name struct-def))
-  (lsize [ary] n-elems)
-  (readObject [ary idx]
+  (elemwiseDatatype [_ary] (:datatype-name struct-def))
+  (lsize [_ary] n-elems)
+  (readObject [_ary idx]
     (let [sub-buffer (dtype-proto/sub-buffer
                       buffer
                       (* idx elem-size)
                       elem-size)]
       (inplace-new-struct (:datatype-name struct-def) sub-buffer metadata)))
-  (writeObject [ary idx value]
+  (writeObject [_ary idx value]
     (assign-struct! value struct-def (dtype-proto/sub-buffer buffer
                                                              (* idx elem-size)
                                                              elem-size))))
@@ -483,7 +478,7 @@ user> *2
 
   (define-datatype! :segment [{:name :begin :datatype :vec3}
                               {:name :end :datatype :vec3}])
-  (require '[tech.v3.datatype.datetime :as datetime])
+
   (define-datatype! :date-thing [{:name :date :datatype :packed-local-date}
                                  {:name :amount :datatype :uint32}])
 

@@ -276,10 +276,12 @@
           (into {}))))
   ([data]
    (if (duration-datatype? (dtype-base/elemwise-datatype data))
-     (millisecond-descriptive-statistics data #{:min :mean :max :standard-deviation
-                                                :quartile-1 :quartile-3})
-     (millisecond-descriptive-statistics data #{:min :mean :max
-                                                :quartile-1 :quartile-3}))))
+     (millisecond-descriptive-statistics #{:min :mean :max :standard-deviation
+                                           :quartile-1 :quartile-3}
+                                         {} data)
+     (millisecond-descriptive-statistics #{:min :mean :max
+                                           :quartile-1 :quartile-3}
+                                         {} data))))
 
 
 (def ^{:doc "Map of keyword to temporal field"}
@@ -563,8 +565,8 @@
                                 ^BinaryOperator tweener
                                 ^Buffer data]
   Iterator
-  (hasNext [this] (not= start-idx n-windows))
-  (next [this]
+  (hasNext [_this] (not= start-idx n-windows))
+  (next [_this]
     (let [start-val (data start-idx)
           next-end-idx
           (long

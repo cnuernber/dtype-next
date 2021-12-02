@@ -9,22 +9,16 @@
             [tech.v3.datatype.unary-pred :as unary-pred]
             [tech.v3.datatype.binary-pred :as binary-pred]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
-            [tech.v3.datatype.list :as dtype-list]
             [tech.v3.datatype.reductions :as reductions]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.argtypes :as argtypes]
-            [tech.v3.datatype.const-reader :as const-reader]
-            [com.github.ztellman.primitive-math :as pmath])
-  (:import [it.unimi.dsi.fastutil.bytes ByteComparator]
-           [it.unimi.dsi.fastutil.shorts ShortComparator]
-           [it.unimi.dsi.fastutil.ints IntArrays IntComparator]
+            [tech.v3.datatype.const-reader :as const-reader])
+  (:import [it.unimi.dsi.fastutil.ints IntArrays IntComparator]
            [it.unimi.dsi.fastutil.longs LongArrays LongComparator]
-           [it.unimi.dsi.fastutil.floats FloatComparator]
            [it.unimi.dsi.fastutil.doubles DoubleComparator]
            [tech.v3.datatype
             Comparators$IntComp
             Comparators$LongComp
-            Comparators$FloatComp
             Comparators$DoubleComp
             BinaryPredicate
             PrimitiveList
@@ -33,8 +27,8 @@
             UnaryOperator BinaryOperator
             UnaryPredicate BinaryPredicate]
            [tech.v3.datatype.unary_pred IndexList]
-           [java.util Comparator Arrays List Map Iterator Collections Random]
-           [com.google.common.collect MinMaxPriorityQueue MinMaxPriorityQueue$Builder]
+           [java.util Comparator Map Iterator Collections Random]
+           [com.google.common.collect MinMaxPriorityQueue]
            [org.roaringbitmap RoaringBitmap]))
 
 
@@ -400,12 +394,12 @@
 
 
 (defmacro ^:private double-compare
-  [comp lhs rhs]
+  [_comp lhs rhs]
   `(Double/compare ~lhs ~rhs))
 
 
 (defmacro ^:private long-compare
-  [comp lhs rhs]
+  [_comp lhs rhs]
   `(Long/compare ~lhs ~rhs))
 
 

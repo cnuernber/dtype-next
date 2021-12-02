@@ -1,2 +1,1 @@
-{:hooks {:macroexpand {tech.v3.datatype.export-symbols/export-symbols
-                       hooks.export-symbols/export-symbols}}}
+{:config-paths ["../resources/clj-kondo.exports/cnuernber/dtype-next/"]}

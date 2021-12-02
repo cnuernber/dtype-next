@@ -371,19 +371,19 @@
                        ^:volatile-mutable ^Buffer cached-io
                        parent]
   dtype-proto/PToNativeBuffer
-  (convertible-to-native-buffer? [this] true)
+  (convertible-to-native-buffer? [_this] true)
   (->native-buffer [this] this)
   dtype-proto/PEndianness
-  (endianness [item] endianness)
+  (endianness [_item] endianness)
   dtype-proto/PElemwiseDatatype
-  (elemwise-datatype [this] datatype)
+  (elemwise-datatype [_this] datatype)
   dtype-proto/PElemwiseReaderCast
-  (elemwise-reader-cast [item new-dtype]
+  (elemwise-reader-cast [item _new-dtype]
     (or cached-io (dtype-proto/->reader item)))
   dtype-proto/PDatatype
-  (datatype [this] :native-buffer)
+  (datatype [_this] :native-buffer)
   dtype-proto/PECount
-  (ecount [this] n-elems)
+  (ecount [_this] n-elems)
   dtype-proto/PSubBuffer
   (sub-buffer [this offset length]
     (let [byte-width (casting/numeric-byte-width datatype)
@@ -427,7 +427,7 @@
                                  :resource-type resource-type}
                                 this))
   dtype-proto/PToBuffer
-  (convertible-to-buffer? [this] true)
+  (convertible-to-buffer? [_this] true)
   (->buffer [this]
     (if cached-io
       cached-io
@@ -435,18 +435,18 @@
         (set! cached-io (native-buffer->buffer this))
         cached-io)))
   dtype-proto/PToReader
-  (convertible-to-reader? [this] true)
+  (convertible-to-reader? [_this] true)
   (->reader [this]
     (dtype-proto/->buffer this))
   dtype-proto/PToWriter
-  (convertible-to-writer? [this] true)
+  (convertible-to-writer? [_this] true)
   (->writer [this]
     (dtype-proto/->buffer this))
   dtype-proto/PToBinaryBuffer
-  (convertible-to-binary-buffer? [buf] true)
+  (convertible-to-binary-buffer? [_buf] true)
   (->binary-buffer [buf] (construct-binary-buffer buf))
   IObj
-  (meta [item] metadata)
+  (meta [_item] metadata)
   (withMeta [item metadata]
     (NativeBuffer. address n-elems datatype endianness resource-type
                    metadata
@@ -487,9 +487,7 @@
       (dtype-pp/buffer->string buffer (format "native-buffer@0x%016X"
                                               (.address buffer)))
       (with-out-str
-        (graal-native/if-defined-graal-native
-         (println (native-buffer->map buffer))
-         (pp/pprint (native-buffer->map buffer)))))))
+        (println (native-buffer->map buffer))))))
 
 
 (dtype-pp/implement-tostring-print NativeBuffer)
@@ -752,41 +750,41 @@
                              ^long n-bytes
                              metadata]
   dtype-proto/PClone
-  (clone [this]
+  (clone [_this]
     (-> (dtype-proto/clone nbuf)
         (dtype-proto/->binary-buffer)))
   BinaryBuffer
-  (lsize [this] n-bytes)
-  (allowsBinaryRead [this] true)
-  (readBinByte [this byteOffset]
+  (lsize [_this] n-bytes)
+  (allowsBinaryRead [_this] true)
+  (readBinByte [_this byteOffset]
     (.getByte (unsafe) (check-bounds 1 byteOffset address n-bytes)))
-  (readBinShort [this byteOffset]
+  (readBinShort [_this byteOffset]
     (.getShort (unsafe) (check-bounds 2 byteOffset address n-bytes)))
-  (readBinInt [this byteOffset]
+  (readBinInt [_this byteOffset]
     (.getInt (unsafe) (check-bounds 4 byteOffset address n-bytes)))
-  (readBinLong [this byteOffset]
+  (readBinLong [_this byteOffset]
     (.getLong (unsafe) (check-bounds 8 byteOffset address n-bytes)))
-  (readBinFloat [this byteOffset]
+  (readBinFloat [_this byteOffset]
     (.getFloat (unsafe) (check-bounds 4 byteOffset address n-bytes)))
-  (readBinDouble [this byteOffset]
+  (readBinDouble [_this byteOffset]
     (.getDouble (unsafe) (check-bounds 8 byteOffset address n-bytes)))
 
-  (allowsBinaryWrite [this] true)
-  (writeBinByte [this byteOffset data]
+  (allowsBinaryWrite [_this] true)
+  (writeBinByte [_this byteOffset data]
     (.putByte (unsafe) (check-bounds 1 byteOffset address n-bytes) data))
-  (writeBinShort [this byteOffset data]
+  (writeBinShort [_this byteOffset data]
     (.putShort (unsafe) (check-bounds 2 byteOffset address n-bytes) data))
-  (writeBinInt [this byteOffset data]
+  (writeBinInt [_this byteOffset data]
     (.putInt (unsafe) (check-bounds 4 byteOffset address n-bytes) data))
-  (writeBinLong [this byteOffset data]
+  (writeBinLong [_this byteOffset data]
     (.putLong (unsafe) (check-bounds 8 byteOffset address n-bytes) data))
-  (writeBinFloat [this byteOffset data]
+  (writeBinFloat [_this byteOffset data]
     (.putFloat (unsafe) (check-bounds 4 byteOffset address n-bytes) data))
-  (writeBinDouble [this byteOffset data]
+  (writeBinDouble [_this byteOffset data]
     (.putDouble (unsafe) (check-bounds 8 byteOffset address n-bytes) data))
   IObj
-  (meta [this] metadata)
-  (withMeta [this newMeta]
+  (meta [_this] metadata)
+  (withMeta [_this newMeta]
     (NativeBinaryBuffer. nbuf address n-bytes newMeta)))
 
 

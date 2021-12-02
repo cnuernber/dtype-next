@@ -14,9 +14,8 @@
            [org.graalvm.nativeimage.c.function CFunction CEntryPoint]
            [org.graalvm.nativeimage.c.constant CConstant]
            [org.graalvm.nativeimage IsolateThread]
-           [clojure.lang IFn IDeref RT]
-           [java.util ArrayList List]
-           [java.nio.file Paths]))
+           [clojure.lang IDeref RT]
+           [java.util List]))
 
 
 (set! *warn-on-reflection* true)
@@ -40,7 +39,7 @@
 
 
 (defn- emit-library-constructor
-  [inner-cls]
+  [_inner-cls]
   (concat
    [[:aload 0]
     [:invokespecial :super :init [:void]]]
@@ -278,7 +277,7 @@ public final class %s {
   [clojure-sym {:keys [rettype argtypes]}]
   ;;Objects are one slot but args->indexes-args is setup so the 'this' point is the
   ;;first argument and thus starts at arg-position 1
-  (let [ptr-fn (fn [ptr-type stack-idx]
+  (let [ptr-fn (fn [_ptr-type stack-idx]
                  [[:aload stack-idx]
                   [:invokeinterface PointerBase 'rawValue [:long]]
                   [:invokestatic Pointer 'constructNonZero [:long Pointer]]])]
