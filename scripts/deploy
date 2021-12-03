@@ -1,0 +1,9 @@
+#!/bin/bash
+
+set -e
+
+lein clean
+lein codgen
+lein test
+lein codox
+deploy-and-tag $@

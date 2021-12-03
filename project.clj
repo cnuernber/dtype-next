@@ -26,8 +26,14 @@
                              [com.clojure-goes-fast/clj-memory-meter "0.1.0"]
                              [techascent/tech.viz "6.00-beta-16-1"]]
               :test-paths ["neanderthal" "test"]}
-             :jdk-17 {:jvm-opts ["--add-modules" "jdk.incubator.foreign,jdk.incubator.vector"
-                                 "--enable-native-access=ALL-UNNAMED"]}
+
+             :jdk-17
+             {:jvm-opts ["--add-modules" "jdk.incubator.foreign,jdk.incubator.vector"
+                         "--enable-native-access=ALL-UNNAMED"]}
+
+             :codegen
+             {:source-paths ["src" "dev"]}
+
              :codox
              {:dependencies [[codox-theme-rdash "0.1.2"]
                              [com.cnuernber/codox "1.000"]]
@@ -81,4 +87,6 @@
                          "-Dtech.v3.datatype.graal-native=true"]
               :uberjar-name "dtype-next.jar"
               :main tech.v3.datatype.main}}
-  :aliases {"codox" ["with-profile" "codox,dev" "run" "-m" "codox.main/-main"]})
+  :aliases {"codox" ["with-profile" "codox,dev" "run" "-m" "codox.main/-main"]
+            "codegen" ["with-profile" "codegen,dev" "run" "-m" "tech.v3.datatype.codegen/-main"]}
+  )

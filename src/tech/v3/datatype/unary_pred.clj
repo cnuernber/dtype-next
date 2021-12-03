@@ -264,7 +264,7 @@
 
 (defn bool-reader->indexes
   "Given a reader, produce a filtered list of indexes filtering out 'false' values."
-  (^PrimitiveList [{:keys [storage-type]} bool-item]
+  (^PrimitiveList [{:keys [storage-type] :as _options} bool-item]
    (let [n-elems (dtype-base/ecount bool-item)
          reader (dtype-base/->reader bool-item)
          storage-type (or storage-type
