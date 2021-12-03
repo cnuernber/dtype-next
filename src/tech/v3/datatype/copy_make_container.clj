@@ -122,9 +122,13 @@
   nan-strategy is :keep.
 
 
-  Nan strategies can be: [:keep :remove :exception]"
+  Options:
+
+  * `:nan-strategy` - Nan strategies can be: [:keep :remove :exception].  `:remove` can
+  result in a shorter array buffer than the input data.  Default is `:keep`."
   (^ArrayBuffer [datatype {:keys [nan-strategy]
-                           :or {nan-strategy :keep}} item]
+                           :or {nan-strategy :keep}
+                           :as _options} item]
    (let [nan-strategy (if (or (= datatype :float32)
                               (= datatype :float64))
                         nan-strategy
