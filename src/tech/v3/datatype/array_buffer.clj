@@ -132,11 +132,12 @@
            (or (= :char cast-dtype) (casting/integer-type? cast-dtype))
            (concat
             [`(writeLong [rdr# ~'idx ~'value]
-                         (ArrayHelpers/aset ~'java-ary (pmath/+ ~offset ~'idx)
-                               (casting/datatype->unchecked-cast-fn
-                                ~cast-dtype ~datatype
-                                (casting/datatype->cast-fn
-                                 :int64 ~cast-dtype ~'value))))]
+                         (ArrayHelpers/aset
+                          ~'java-ary (pmath/+ ~offset ~'idx)
+                          (casting/datatype->unchecked-cast-fn
+                           ~cast-dtype ~datatype
+                           (casting/datatype->cast-fn
+                            :int64 ~cast-dtype ~'value))))]
             (when-not (or (= :int64 cast-dtype)
                           (= :uint32 cast-dtype)
                           (= :uint64 cast-dtype))
