@@ -1,6 +1,8 @@
 {:hooks
  {:macroexpand {tech.v3.datatype/make-reader
                 tech.v3.datatype/make-reader
+                tech.v3.datatype-api/make-reader
+                tech.v3.datatype-api/make-reader
                 tech.v3.datatype.export-symbols/export-symbols
                 tech.v3.datatype.export-symbols/export-symbols
                 tech.v3.datatype.binary-op/make-numeric-object-binary-op
@@ -53,6 +55,8 @@
                 tech.v3.datatype.unary-op/make-long-unary-op
                 tech.v3.datatype.unary-op/make-all-datatype-unary-op
                 tech.v3.datatype.unary-op/make-all-datatype-unary-op
+                tech.v3.tensor-api/typed-compute-tensor
+                tech.v3.tensor-api/typed-compute-tensor
                 tech.v3.tensor/typed-compute-tensor
                 tech.v3.tensor/typed-compute-tensor
                 }}}

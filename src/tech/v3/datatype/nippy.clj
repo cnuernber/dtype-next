@@ -9,7 +9,7 @@
   (:import [tech.v3.datatype Buffer]
            [tech.v3.datatype.array_buffer ArrayBuffer]
            [tech.v3.datatype.native_buffer NativeBuffer]
-           [tech.v3.tensor Tensor DirectTensor]))
+           [tech.v3.tensor_api Tensor DirectTensor]))
 
 
 (defn buffer->data

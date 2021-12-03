@@ -14,12 +14,10 @@
             [tech.v3.datatype.monotonic-range :as dt-range]
             ;;import in clone for jvm maps
             [tech.v3.datatype.jvm-map]
-            [tech.v3.datatype.export-symbols :refer [export-symbols]]
+            [tech.v3.datatype.export-symbols :refer [export-symbols] :as export-symbols]
             ;;Includes to let clj-kondo know to parse this file after parsing these
             ;;namespaces
             [tech.v3.datatype.base]
-            [tech.v3.datatype.casting]
-            [tech.v3.datatype.dispatch]
             [tech.v3.datatype.argtypes]
             [tech.v3.datatype.emap]
             [tech.v3.datatype.argops]
@@ -304,3 +302,12 @@ user> (dtype/make-reader :float32 5 (* idx 2))
                 retval
                 (errors/throwf "Unable create create tensor for nd object type: %s"
                                (type item))))))
+
+
+(comment
+
+  (export-symbols/write-api! 'tech.v3.datatype-api
+                             'tech.v3.datatype
+                             "src/tech/v3/datatype.clj"
+                             ['cast 'reverse])
+  )

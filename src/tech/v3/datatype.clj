@@ -568,7 +568,7 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
   loosely set with :operation-space in the options.  The actual space the operation
   will be performed in (and the return type of the system) is a combination of
   :operation-space if it exists and the elemwise datatypes of arg1 and arg2.  See
-  [[tech.v3.datatype.casting/widest-datatype]] for more information."
+  tech.v3.datatype.casting/widest-datatype for more information."
   ([scalar-fn iterable-fn reader-fn options arg1 arg2]
   (tech.v3.datatype.dispatch/vectorized-dispatch-2 scalar-fn iterable-fn reader-fn options arg1 arg2))
   ([scalar-fn reader-fn arg1 arg2]
@@ -580,3 +580,5 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
   writing."
   ([item]
   (tech.v3.datatype.base/writer? item)))
+
+
