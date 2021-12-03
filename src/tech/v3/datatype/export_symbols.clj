@@ -70,6 +70,17 @@
 
 
 (defn write-api!
+  "Used to write an easily-discoverable public api.  This simply looks at ns-publics and
+  creates stubs that call through to their defined functions and macros.
+
+  Example:
+
+```clojure
+  (write-api! 'tech.v3.datatype-api
+              'tech.v3.datatype
+              \"src/tech/v3/datatype.clj\"
+              ['cast 'reverse])
+```"
   [src-ns-symbol dst-ns-symbol dst-clj-file exclusions]
   (log/infof "Generating %s" dst-clj-file)
   (require src-ns-symbol)
@@ -155,7 +166,7 @@
                         (if-let [export-info (:export-info data)]
                           [(:src-ns export-info) (:src-sym export-info)]
                           [src-ns-symbol (:name data)])]
-                    (if varargs
+                    (if (and varargs (not macro?))
                       (write! writer "(apply " src-ns-symbol "/" fn-name " ")
                       (write! writer "(" src-ns-symbol "/" fn-name " ")))
                   (when (seq arglist)
