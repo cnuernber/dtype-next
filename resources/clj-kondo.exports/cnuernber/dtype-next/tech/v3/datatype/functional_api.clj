@@ -1,4 +1,4 @@
-(ns tech.v3.datatype.functional
+(ns tech.v3.datatype.functional-api
   (:require [clojure.set :as set]))
 
 (def init-binary-ops

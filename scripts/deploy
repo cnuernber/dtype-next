@@ -2,8 +2,7 @@
 
 set -e
 
-lein clean
-lein codgen
-lein test
+scripts/run-tests
+
 lein codox
 deploy-and-tag $@

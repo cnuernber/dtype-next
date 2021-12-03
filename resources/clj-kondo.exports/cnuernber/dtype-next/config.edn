@@ -19,14 +19,16 @@
                 tech.v3.parallel.for/parallel-for tech.v3.parallel.for/parallel-for
                 tech.v3.datatype.ffi/define-library!
                 tech.v3.datatype.ffi/define-library!
-                tech.v3.datatype.functional/implement-arithmetic-operations
-                tech.v3.datatype.functional/implement-arithmetic-operations
-                tech.v3.datatype.functional/implement-unary-predicates
-                tech.v3.datatype.functional/implement-unary-predicates
-                tech.v3.datatype.functional/implement-binary-predicates
-                tech.v3.datatype.functional/implement-binary-predicates
-                tech.v3.datatype.functional/implement-compare-predicates
-                tech.v3.datatype.functional/implement-compare-predicates
+                tech.v3.datatype.statistics/define-descriptive-stats
+                tech.v3.datatype.statistics/define-descriptive-stats
+                tech.v3.datatype.functional-api/implement-arithmetic-operations
+                tech.v3.datatype.functional-api/implement-arithmetic-operations
+                tech.v3.datatype.functional-api/implement-unary-predicates
+                tech.v3.datatype.functional-api/implement-unary-predicates
+                tech.v3.datatype.functional-api/implement-binary-predicates
+                tech.v3.datatype.functional-api/implement-binary-predicates
+                tech.v3.datatype.functional-api/implement-compare-predicates
+                tech.v3.datatype.functional-api/implement-compare-predicates
                 tech.v3.datatype.gradient/append-diff
                 tech.v3.datatype.gradient/append-diff
                 tech.v3.datatype.gradient/prepend-diff

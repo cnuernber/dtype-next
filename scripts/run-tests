@@ -4,4 +4,5 @@ set -e
 
 lein clean
 lein codegen
+scripts/clj-kondo
 lein test
