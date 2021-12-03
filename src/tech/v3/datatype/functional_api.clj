@@ -204,20 +204,20 @@
      (log/debugf "JDK16 vector ops are not available: %s" (.getMessage e)))))
 
 
-(defn sum
+(defn sum-fast
   "Find the sum of the data.  This operation is neither nan-aware nor does it implement
   kahans compensation although via parallelization it implements pairwise summation
-  compensation.  For nan-aware and extremely correct summations please see the
-  [[tech.v3.datatype.statistics]] namespace."
+  compensation.  For a more but slightly slower but far more correct sum operator,
+  use [[sum]]."
   ^double [data]
   (double ((:sum @optimized-opts*) data)))
 
 
-(defn mean
-  "Take the mean of the data.  This operation doesn't know anything about nan - for nan-aware
-  operations use the statistics namespace."
+(defn mean-fast
+  "Take the mean of the data.  This operation doesn't know anything about nan hence it is
+  a bit faster than the base [[mean]] fn."
   ^double [data]
-  (/ (sum data) (dtype-base/ecount data)))
+  (/ (sum-fast data) (dtype-base/ecount data)))
 
 
 (defn magnitude-squared
@@ -348,6 +348,8 @@
                 descriptive-statistics
                 variance
                 standard-deviation
+                mean
+                sum
                 median
                 skew
                 kurtosis

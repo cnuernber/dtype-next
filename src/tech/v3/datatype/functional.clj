@@ -545,10 +545,18 @@ tech.v3.datatype.functional> (meta regressor)
 
 
 (defn mean
-  "Take the mean of the data.  This operation doesn't know anything about nan - for nan-aware
-  operations use the statistics namespace."
+  "double mean of data"
+  (^{:tag double} [data options]
+  (tech.v3.datatype.statistics/mean data options))
   (^{:tag double} [data]
-  (tech.v3.datatype.functional-api/mean data)))
+  (tech.v3.datatype.statistics/mean data)))
+
+
+(defn mean-fast
+  "Take the mean of the data.  This operation doesn't know anything about nan hence it is
+  a bit faster than the base [[mean]] fn."
+  (^{:tag double} [data]
+  (tech.v3.datatype.functional-api/mean-fast data)))
 
 
 (defn median
@@ -815,12 +823,21 @@ user> (dfn/shift (range 10) -2)
 
 
 (defn sum
+  "Double sum of data using
+  [Kahan compensated summation](https://en.wikipedia.org/wiki/Kahan_summation_algorithm)."
+  (^{:tag double} [data options]
+  (tech.v3.datatype.statistics/sum data options))
+  (^{:tag double} [data]
+  (tech.v3.datatype.statistics/sum data)))
+
+
+(defn sum-fast
   "Find the sum of the data.  This operation is neither nan-aware nor does it implement
   kahans compensation although via parallelization it implements pairwise summation
-  compensation.  For nan-aware and extremely correct summations please see the
-  [[tech.v3.datatype.statistics]] namespace."
+  compensation.  For a more but slightly slower but far more correct sum operator,
+  use [[sum]]."
   (^{:tag double} [data]
-  (tech.v3.datatype.functional-api/sum data)))
+  (tech.v3.datatype.functional-api/sum-fast data)))
 
 
 (defn tan

@@ -366,23 +366,29 @@
   "Double sum of data using
   [Kahan compensated summation](https://en.wikipedia.org/wiki/Kahan_summation_algorithm)."
   (^double [data options]
-   (dtype-reductions/double-summation options data))
+   (if (== 0 (dtype-base/ecount data))
+     0
+     (dtype-reductions/double-summation options data)))
   (^double [data]
    (sum data nil)))
 
 
 (defn min
   (^double [data options]
-   (dtype-reductions/commutative-binary-double
-    (:tech.numerics/min binary-op/builtin-ops) options data))
+   (if (== 0 (dtype-base/ecount data))
+     Double/NaN
+     (dtype-reductions/commutative-binary-double
+      (:tech.numerics/min binary-op/builtin-ops) options data)))
   (^double [data]
    (min data nil)))
 
 
 (defn max
   (^double [data options]
-   (dtype-reductions/commutative-binary-double
-    (:tech.numerics/max binary-op/builtin-ops) options data))
+   (if (== 0 (dtype-base/ecount data))
+     Double/NaN
+     (dtype-reductions/commutative-binary-double
+      (:tech.numerics/max binary-op/builtin-ops) options data)))
   (^double [data]
    (max data nil)))
 
@@ -390,10 +396,12 @@
 (defn mean
   "double mean of data"
   (^double [data options]
-   (let [{:keys [n-elems sum]} (dtype-reductions/staged-double-consumer-reduction
-                                :tech.numerics/+ options data)]
-     (pmath// (double sum)
-              (double n-elems))))
+   (if (== 0 (dtype-base/ecount data))
+     Double/NaN
+     (let [{:keys [n-elems sum]} (dtype-reductions/staged-double-consumer-reduction
+                                  :tech.numerics/+ options data)]
+       (pmath// (double sum)
+                (double n-elems)))))
   (^double [data]
    (mean data nil)))
 

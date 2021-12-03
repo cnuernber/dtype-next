@@ -776,3 +776,10 @@
          (vec (dfn/> 7 (range 10) 1))))
   (is (= [false true true true true true true true false false]
          (vec (dfn/>= 7 (range 10) 1)))))
+
+
+(deftest mean-sum-forgiveness
+  (let [test-data [Double/NaN 1 2]]
+    (is (not (Double/isNaN (dfn/sum test-data))))
+    (is (not (Double/isNaN (dfn/mean test-data)))))
+  )

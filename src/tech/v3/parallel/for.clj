@@ -228,13 +228,15 @@
   Returns the consumer."
   [consumer item]
   (let [local-consumer (->consumer consumer)]
-    (if-let [spliterator (as-spliterator item)]
-      (.forEachRemaining ^Spliterator spliterator local-consumer)
-      (if (convertible-to-iterator? item)
-        (doiter
-         value item
-         (.accept local-consumer value))
-        (errors/throwf "Item is not iterable thus it cannot be consumed")))
+    (if (nil? item)
+      consumer
+      (if-let [spliterator (as-spliterator item)]
+        (.forEachRemaining ^Spliterator spliterator local-consumer)
+        (if (convertible-to-iterator? item)
+          (doiter
+           value item
+           (.accept local-consumer value))
+          (errors/throwf "Item is not iterable thus it cannot be consumed"))))
     consumer))
 
 
