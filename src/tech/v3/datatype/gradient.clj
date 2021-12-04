@@ -115,7 +115,9 @@ user> (dt-grad/diff1d [1 2 4])
   [data & [options]]
   (let [reader (dt-base/->buffer data)
         op-space (casting/simple-operation-space (.elemwiseDatatype reader))
-        options (or options {})]
+        options (or options {})
+        n-data (.lsize reader)
+        addval (or (options :prepend) (options :append))]
     (errors/when-not-errorf
      (not (and (options :prepend) (options :append)))
      "prepend and append options cannot be used simultaneously")

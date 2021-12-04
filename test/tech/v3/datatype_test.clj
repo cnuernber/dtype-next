@@ -7,6 +7,8 @@
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.argops :as argops]
             [tech.v3.datatype.rolling :as rolling]
+            [tech.v3.datatype.gradient :as dt-grad]
+            [tech.v3.datatype.wavelet]
             [tech.v3.datatype.datetime])
   (:import [java.nio FloatBuffer]
            [java.util ArrayList]))
@@ -781,5 +783,9 @@
 (deftest mean-sum-forgiveness
   (let [test-data [Double/NaN 1 2]]
     (is (not (Double/isNaN (dfn/sum test-data))))
-    (is (not (Double/isNaN (dfn/mean test-data)))))
-  )
+    (is (not (Double/isNaN (dfn/mean test-data))))))
+
+
+(deftest gradient-correct
+  (is (= (vec (repeat 10 1.0))
+         (dt-grad/gradient1d (range 10)))))
