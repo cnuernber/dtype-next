@@ -4,8 +4,7 @@
            [java.util List Map Set]
            [java.nio ByteOrder
             ByteBuffer ShortBuffer IntBuffer LongBuffer
-            FloatBuffer DoubleBuffer CharBuffer]
-           [org.roaringbitmap RoaringBitmap]))
+            FloatBuffer DoubleBuffer CharBuffer]))
 
 
 (set! *warn-on-reflection* true)
@@ -232,7 +231,9 @@ and whose values are the indexes that produce those values in the reader."))
 
 (defprotocol PToBitmap
   (convertible-to-bitmap? [item])
-  (as-roaring-bitmap ^{:tag RoaringBitmap} [item]))
+  ;; type hints in protocols must have the full type declared else
+  ;; deftype objects derived from them can get errors during AOT
+  (as-roaring-bitmap ^{:tag org.roaringbitmap.RoaringBitmap} [item]))
 
 
 (defprotocol PBitmapSet
