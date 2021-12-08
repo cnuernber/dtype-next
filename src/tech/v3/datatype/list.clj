@@ -120,13 +120,15 @@
     (.writeObject cached-io ptr value)
     (set! ptr (unchecked-inc ptr)))
   (addAll [item coll]
-    (if-let [data-buf (or (dtype-base/as-buffer coll)
-                          (dtype-base/->reader coll))]
-      (let [item-ecount (dtype-base/ecount data-buf)]
-        (.ensureCapacity item (+ ptr item-ecount))
-        (dtype-cmc/copy! data-buf (dtype-base/sub-buffer buffer ptr item-ecount))
-        (set! ptr (+ ptr item-ecount)))
-      (parallel-for/consume! #(.add item %) coll))
+    (if-let [data-buf (dtype-base/as-buffer coll)]
+      (let [item-ecount (.lsize data-buf)]
+        (if (> item-ecount 256)
+          (do
+            (.ensureCapacity item (+ ptr item-ecount))
+            (dtype-cmc/copy! data-buf (dtype-base/sub-buffer buffer ptr item-ecount))
+            (set! ptr (+ ptr item-ecount)))
+          (parallel-for/doiter val coll (.add item val))))
+      (parallel-for/doiter val coll (.add item val)))
     true)
   IObj
   (meta [_item] metadata)

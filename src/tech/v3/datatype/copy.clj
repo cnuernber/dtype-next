@@ -149,17 +149,19 @@
               (instance? ArrayBuffer dst-buf))
          (let [^ArrayBuffer src src-buf
                ^ArrayBuffer dst dst-buf]
-           (if (< n-elems 1024)
-             (System/arraycopy (.ary-data src) (.offset src)
-                               (.ary-data dst) (.offset dst)
-                               (.n-elems src))
-             ;;Parallelize the copy op.
-             (parallel-for/indexed-map-reduce
-              n-elems
-              (fn [^long start-idx ^long group-len]
-                (System/arraycopy (.ary-data src) (+ (.offset src) start-idx)
-                                  (.ary-data dst) (+ (.offset dst) start-idx)
-                                  group-len)))))
+           (if (< n-elems (* 1024 1024))
+             (do
+               (System/arraycopy (.ary-data src) (.offset src)
+                                 (.ary-data dst) (.offset dst)
+                                 (.n-elems src)))
+             (do
+               ;;Parallelize the copy op.
+               (parallel-for/indexed-map-reduce
+                n-elems
+                (fn [^long start-idx ^long group-len]
+                  (System/arraycopy (.ary-data src) (+ (.offset src) start-idx)
+                                    (.ary-data dst) (+ (.offset dst) start-idx)
+                                    group-len))))))
          (= (dtype-proto/endianness src-buf)
             (dtype-proto/endianness dst-buf))
          (@fast-copy-fn* src-buf dst-buf src-dt n-elems)
