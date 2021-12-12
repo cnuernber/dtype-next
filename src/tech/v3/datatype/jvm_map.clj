@@ -2,11 +2,12 @@
   "Creation and higher-level  manipulation for `java.util.HashMap` and
   `java.util.concurrent.ConcurrentHashMap`."
   (:require [tech.v3.datatype.protocols :as dt-proto]
+            [tech.v3.datatype.argtypes :as argtypes]
             [tech.v3.parallel.for :as pfor])
-  (:import [java.util Map HashMap Map$Entry Set]
+  (:import [java.util Map HashMap Map$Entry Set List ArrayList]
            [java.util.concurrent ConcurrentHashMap]
            [java.util.function BiConsumer BiFunction Function])
-  (:refer-clojure :exclude [hash-map get set contains?]))
+  (:refer-clojure :exclude [hash-map get set contains? frequencies]))
 
 
 (set! *warn-on-reflection* true)
@@ -258,6 +259,58 @@
   [map val-fn]
   (.replaceAll ^Map map (->bi-function val-fn))
   map)
+
+
+(defn frequencies
+  "Faster frequencies that returns either a hash map or concurrent hash map depending on
+  if the sequence is iterable or if it can be converted to a reader.
+
+  For further use of this data see entries below."
+  ^Map [data]
+  (if (nil? data)
+    (HashMap.)
+    (case (argtypes/arg-type data)
+      :scalar (HashMap.)
+      :iterable (let [retval (HashMap.)
+                      incrementor (bi-function k v
+                                               (if v (unchecked-inc
+                                                      (unchecked-long v))
+                                                   1))]
+                  (pfor/doiter value data (.compute retval value incrementor))
+                  retval)
+      (let [incrementor (bi-function k v
+                                     (if v (unchecked-inc
+                                            (unchecked-long v))
+                                         1))
+            ^List data (if (instance? List data)
+                         data
+                         (dt-proto/->reader data))]
+        (if (> (.size data) 1024)
+          (let [retval (ConcurrentHashMap.)]
+            (pfor/indexed-map-reduce
+             (.size data)
+             (fn [^long sidx ^long gsize]
+               (dotimes [iter gsize]
+                 (.compute retval (.get data (+ iter sidx)) incrementor))))
+            retval)
+          (let [retval (HashMap.)]
+            (pfor/doiter value data (.compute retval value data))
+            retval))))))
+
+
+(defn entries
+  "Get the entries of the hashmap.  Returns a randomly accessible list of data.
+
+  * `xform` is a function from k, v to object. Defaults to vector."
+  (^List [^Map map xform]
+   (let [xform (or xform vector)]
+     (if (or (nil? map) (== 0 (.size map)))
+       nil
+       (let [retval (ArrayList. (.size map))]
+         (.forEach map (bi-consumer k v (.add retval (xform k v))))
+         retval))))
+  (^List [map]
+   (entries map nil)))
 
 
 (extend-protocol dt-proto/PClone

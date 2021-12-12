@@ -53,7 +53,7 @@
 (defn- reduce-consumer-results
   [consumer-results]
   (if (== 1 (count consumer-results))
-    (consumer-results 0)
+    (first consumer-results)
     (let [^Consumers$StagedConsumer first-consumer (first consumer-results)
           rest-list (vec (rest consumer-results))]
       (if (>= (count rest-list) 0)
