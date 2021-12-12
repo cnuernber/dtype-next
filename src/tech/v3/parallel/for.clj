@@ -40,6 +40,13 @@
            (reduce-fn)))))
 
 
+(defn- unchunk [s]
+  (when (seq s)
+    (lazy-seq
+      (cons (first s)
+            (unchunk (next s))))))
+
+
 (defn indexed-map-reduce
   "Execute `indexed-map-fn` over `n-groups` subranges of `(range num-iters)`.
    Then call `reduce-fn` passing in entire in order result value sequence.
@@ -80,16 +87,21 @@
              n-groups (quot (+ num-iters (dec group-size))
                             group-size)
              ;;Get pairs of (start-idx, len) to launch callables
-             common-pool pool]
-         (->> (range n-groups)
-              ;;Force start of execution with mapv
-              (mapv (fn [^long callable-idx]
-                      (let [group-start (* callable-idx group-size)
-                            group-end (min (+ group-start group-size) num-iters)
-                            group-len (- group-end group-start)
-                            callable #(indexed-map-fn group-start group-len)]
-                        (.submit common-pool ^Callable callable))))
-              (mapv #(.get ^Future %))
+             common-pool pool
+             ;;submit index groups
+             submissions (->> (range n-groups)
+                              (unchunk)
+                              (map (fn [^long callable-idx]
+                                     (let [group-start (* callable-idx group-size)
+                                           group-end (min (+ group-start group-size) num-iters)
+                                           group-len (- group-end group-start)
+                                           callable #(indexed-map-fn group-start group-len)]
+                                       (.submit common-pool ^Callable callable)))))
+             next-submissions (drop parallelism submissions)]
+         ;;make a true lazy sequence that will block on the futures and will submit
+         ;;new tasps t
+         (->> (sequence (map (fn [future submission] (.get ^Future future)))
+                        submissions (concat next-submissions (repeat parallelism nil)))
               (reduce-fn))))))
   ([num-iters indexed-map-fn reduce-fn]
    (indexed-map-reduce num-iters indexed-map-fn reduce-fn default-max-batch-size))
