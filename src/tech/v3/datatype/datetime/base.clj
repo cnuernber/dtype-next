@@ -24,9 +24,9 @@
   (ZoneId/systemDefault))
 
 
+(def ^{:tag ZoneId} utc-zone-id-val (ZoneId/of "UTC"))
 (defn utc-zone-id
-  ^ZoneId []
-  (ZoneId/of "UTC"))
+  ^ZoneId [] utc-zone-id-val)
 
 
 (defn system-zone-offset
@@ -323,7 +323,7 @@
     (* (long days) constants/milliseconds-in-day)
     zone-id))
   (^LocalDate [days]
-   (days-since-epoch->local-date days (utc-zone-id))))
+   (LocalDate/ofEpochDay (long days))))
 
 
 (defn instant->local-date
