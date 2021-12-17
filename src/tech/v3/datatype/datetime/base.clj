@@ -400,6 +400,7 @@
 (casting/add-object-datatype! :local-date LocalDate)
 (casting/add-object-datatype! :local-date-time LocalDateTime)
 (casting/add-object-datatype! :duration Duration)
+(casting/add-object-datatype! :local-time LocalTime)
 (casting/alias-datatype! :epoch-milliseconds :int64)
 (casting/alias-datatype! :epoch-microseconds :int64)
 (casting/alias-datatype! :epoch-seconds :int64)
@@ -415,7 +416,8 @@
 (casting/alias-datatype! :weeks :int64)
 (casting/alias-datatype! :years :int64)
 
-(def datatypes #{:instant :zoned-date-time :local-date :local-date-time :duration})
+(def datatypes #{:instant :zoned-date-time :local-date :local-date-time :duration
+                 :local-time})
 (def epoch-datatypes #{:epoch-milliseconds :epoch-microseconds :epoch-seconds
                        :epoch-hours :epoch-days})
 (def relative-datatypes #{:milliseconds :microseconds :nanoseconds :seconds

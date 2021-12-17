@@ -5,6 +5,7 @@
 (def ^{:tag 'long} seconds-in-hour 3600)
 (def ^{:tag 'long} seconds-in-minute 60)
 (def ^{:tag 'long} nanoseconds-in-millisecond 1000000)
+(def ^{:tag 'long} nanoseconds-in-microsecond 1000)
 (def ^{:tag 'long} nanoseconds-in-second 1000000000)
 (def ^{:tag 'long} nanoseconds-in-minute 60000000000)
 (def ^{:tag 'long} nanoseconds-in-hour 3600000000000)
