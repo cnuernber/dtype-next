@@ -266,10 +266,11 @@ user> *2
 
   IFn
   (invoke [this k] (.get this k))
-  (applyTo [_this args]
+  (applyTo [this args]
     (errors/when-not-errorf
      (= 1 (count args))
-     "only 1 arg is acceptable; %d provided" (count args)))
+     "only 1 arg is acceptable; %d provided" (count args))
+    (.get this (first args)))
 
   Map
   (size [_m] (count (:data-layout struct-def)))
