@@ -407,6 +407,14 @@
 (casting/alias-datatype! :epoch-hours :int64)
 ;;For compatibility with arrow and parquet datatypes
 (casting/alias-datatype! :epoch-days :int32)
+
+;; Local time variants - packed local times are 64 bit microseconds.
+(casting/alias-datatype! :time-nanoseconds :int64)
+(casting/alias-datatype! :time-microseconds :int64)
+;; Bit width taken by examples from parquet and arrow
+(casting/alias-datatype! :time-milliseconds :int32)
+(casting/alias-datatype! :time-seconds :int32)
+
 (casting/alias-datatype! :milliseconds :int64)
 (casting/alias-datatype! :microseconds :int64)
 (casting/alias-datatype! :nanoseconds :int64)
