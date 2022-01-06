@@ -44,7 +44,11 @@
                                    (log/warn "Failed to activate JDK-17 mmodel pathway; falling back to larray."))))]
                          (if jdk-17-fn
                            jdk-17-fn
-                           (requiring-resolve 'tech.v3.datatype.mmap.larray/mmap-file))))))))
+                           (try
+                             (requiring-resolve 'tech.v3.datatype.mmap.larray/mmap-file)
+                             (catch Throwable e
+                               (log/warnf "Mmap unavailble as larray failed to load: %s" e)
+                               :failed)))))))))
 
 
 (defn mmap-enabled?
@@ -52,7 +56,8 @@
   (graal-native/if-defined-graal-native
    (not (nil? @mmap-fn*))
    (do (resolve-mmap-fn)
-       (not (nil? @mmap-fn*)))))
+       (not (or (keyword? @mmap-fn*)
+                (nil? @mmap-fn*))))))
 
 
 (defn mmap-file
@@ -65,6 +70,8 @@
     * :read-write - map the data as shared read-write.
     * :private - map a private copy of the data and do not share."
   (^NativeBuffer [fpath options]
+   (when-not (mmap-enabled?)
+     (throw (Exception. "MMap is disabled")))
    ((resolve-mmap-fn) fpath options))
   (^NativeBuffer [fpath]
    (mmap-file fpath {})))
