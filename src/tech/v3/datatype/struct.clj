@@ -39,7 +39,8 @@ user> *2
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [com.github.ztellman.primitive-math :as pmath])
-  (:import [tech.v3.datatype BinaryBuffer ObjectBuffer]
+  (:import [tech.v3.datatype BinaryBuffer ObjectBuffer BooleanBuffer
+            LongBuffer DoubleBuffer]
            [java.util.concurrent ConcurrentHashMap]
            [java.util RandomAccess List Map LinkedHashSet Collection]
            [clojure.lang MapEntry IObj IFn ILookup]))
@@ -469,6 +470,105 @@ user> *2
       options)))
   ([datatype n-elems]
    (new-array-of-structs datatype n-elems {})))
+
+
+(defn array-of-structs->column
+  [^ArrayOfStructs ary-of-structs propname]
+  (let [dtype-def (.struct-def ary-of-structs)
+        stride (unchecked-long (dtype-def :datatype-size))
+        {:keys [datatype offset]} (get-in dtype-def [:layout-map propname])
+        _ (errors/when-not-errorf offset
+            "Unable to find property '%s'" propname)
+        n-structs (.n-elems ary-of-structs)
+        offset (long offset)
+        buffer (dtype-base/->binary-buffer (.buffer ary-of-structs))]
+    (case (casting/simple-operation-space datatype)
+      :boolean (reify
+                 BooleanBuffer
+                 (lsize [this] n-structs)
+                 (readBoolean [this idx]
+                   (if (== 0 (.readBinByte buffer (+ offset (* idx stride))))
+                     false
+                     true))
+                 (writeBoolean [this idx val]
+                   (.writeBinByte buffer (+ offset (* idx stride))
+                                  (unchecked-byte (if val 0 1))))
+                 dtype-proto/PEndianness
+                 (endianness [_m] (dtype-proto/endianness buffer)))
+      ;;Reading data involves unchecked casts.  Writing involves checked-casts
+      :int64
+      (let [[read-fn write-fn]
+            (case datatype
+              :int8 [#(.readBinByte buffer (unchecked-long %))
+                     #(.writeBinByte buffer (unchecked-long %1) (byte %2))]
+              :uint8 [#(-> (.readBinByte buffer (unchecked-long %))
+                           (pmath/byte->ubyte))
+                      #(.writeBinByte buffer (unchecked-long %1)
+                                      (unchecked-byte
+                                       (casting/datatype->cast-fn :int64 :uint8
+                                                                  (unchecked-long %2))))]
+              :int16 [#(.readBinShort buffer (unchecked-long %))
+                      #(.writeBinShort buffer (unchecked-long %1) (short %2))]
+              :uint16 [#(-> (.readBinShort buffer (unchecked-long %))
+                            (pmath/short->ushort))
+                       #(.writeBinShort buffer (unchecked-long %1)
+                                        (unchecked-short
+                                         (casting/datatype->cast-fn :int64 :uint16
+                                                                    (unchecked-long %2))))]
+              :int32 [#(.readBinInt buffer (unchecked-long %))
+                      #(.writeBinInt buffer (unchecked-long %1) (int %2))]
+              :uint32 [#(-> (.readBinInt buffer (unchecked-long %))
+                            (pmath/int->uint))
+                       #(.writeBinInt buffer (unchecked-long %1)
+                                      (unchecked-int
+                                       (casting/datatype->cast-fn :int64 :uint32
+                                                                  (unchecked-long %2))))]
+              :int64 [#(.readBinLong buffer (unchecked-long %))
+                      #(.writeBinLong buffer (unchecked-long %1) (long %2))]
+              :uint64 [#(.readBinLong buffer (unchecked-long %))
+                       #(.writeBinLong buffer (unchecked-long %1)
+                                       (unchecked-long
+                                        (casting/datatype->cast-fn :int64 :uint64
+                                                                   (unchecked-long %2))))])]
+               (reify LongBuffer
+                 (lsize [this] n-structs)
+                 (elemwiseDatatype [this] datatype)
+                 (readLong [this idx]
+                   (unchecked-long (read-fn (+ offset (* idx stride)))))
+                 (writeLong [this idx value]
+                   (write-fn (+ offset (* idx stride)) value))
+                 dtype-proto/PEndianness
+                 (endianness [_m] (dtype-proto/endianness buffer))))
+      :float64 (let [[read-fn write-fn]
+                     (case datatype
+                       :float32 [#(.readBinFloat buffer (unchecked-long %))
+                                 #(.writeBinFloat buffer (unchecked-long %1) (float %2))]
+                       :float64 [#(.readBinDouble buffer (unchecked-long %))
+                                 #(.writeBinDouble buffer (unchecked-long %1) (double %2))])]
+                 (reify
+                   DoubleBuffer
+                   (lsize [this] n-structs)
+                   (elemwiseDatatype [this] datatype)
+                   (readDouble [this idx]
+                     (unchecked-double (read-fn (+ offset (* idx stride)))))
+                   (writeDouble [this idx value]
+                     (write-fn (+ offset (* idx stride)) value))
+                   dtype-proto/PEndianness
+                   (endianness [_m] (dtype-proto/endianness buffer))))
+      ;;sub struct reading is a bit harder
+      :object (throw (Exception.
+                      "Making a column out of a struct property isn't supported yet.")))))
+
+
+(defn column-map
+  "Given an array of structs, return a map that maps the property to a primitive buffer for
+  that column.  This is appropriate for passing directly into ->dataset."
+  [^ArrayOfStructs ary]
+  (let [dtype-def (.struct-def ary)]
+    (->> (dtype-def :data-layout)
+         (map (fn [{:keys [name] :as prop-def}]
+                [name (array-of-structs->column ary name)]))
+         (into (array-map)))))
 
 
 (comment
