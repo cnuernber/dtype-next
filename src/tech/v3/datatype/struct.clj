@@ -441,7 +441,9 @@ user> *2
                                                              elem-size))))
 
 
-(defn ^:no-doc inplace-new-array-of-structs
+(defn inplace-new-array-of-structs
+  "Create an array of structs from an existing buffer.  Buffer must be an exact multiple
+  of the size of the desired struct type."
   ([datatype buffer options]
    (let [struct-def (get-struct-def datatype)
          elem-size (long (:datatype-size struct-def))
@@ -458,13 +460,26 @@ user> *2
    (inplace-new-array-of-structs datatype buffer {})))
 
 
-(defn ^:no-doc new-array-of-structs
+(defn new-array-of-structs
+  "Create a new array of structs from new memory.
+
+  Options:
+
+  * `:container-type` - passed directly into make-container, defaults to `:jvm-heap`.
+  For native heap there is a further option of `:resource-type` which can be on of the
+  tech.v3.resource track types of nil, :stack, :gc, or :auto.  Nil means this memory
+  will either live for the lifetime of the process or need to be freed manually.
+  For more options see [[tech.v3.datatype.native-buffer/malloc]]."
   ([datatype n-elems options]
    (let [struct-def (get-struct-def datatype)
          n-elems (long n-elems)
          elem-size (long (:datatype-size struct-def))
          buf-size (* n-elems elem-size)
-         buffer (byte-array buf-size)]
+         buffer (dtype-cmc/make-container
+                 (get options :container-type :jvm-heap)
+                 :int8
+                 options
+                 buf-size)]
      (inplace-new-array-of-structs
       datatype buffer
       options)))
