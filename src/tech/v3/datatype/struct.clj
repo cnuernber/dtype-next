@@ -507,7 +507,7 @@ user> *2
                      true))
                  (writeBoolean [this idx val]
                    (.writeBinByte buffer (+ offset (* idx stride))
-                                  (unchecked-byte (if val 0 1))))
+                                  (unchecked-byte (if val 1 0))))
                  dtype-proto/PEndianness
                  (endianness [_m] (dtype-proto/endianness buffer)))
       ;;Reading data involves unchecked casts.  Writing involves checked-casts
