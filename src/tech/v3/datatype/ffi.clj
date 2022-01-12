@@ -95,7 +95,41 @@ user> container
 
   Structs can be defined and passed by pointer/reference.  See the [[tech.v3.datatype.struct]]
   namespace.  Also note that the output of clang can be used to define your structs based on
-  parsing c/c++ header files.  See [[tech.v3.datatype.ffi.clang/defstruct-from-layout]]."
+  parsing c/c++ header files.  See [[tech.v3.datatype.ffi.clang/defstruct-from-layout]].
+
+
+## Things To Consider:
+
+
+  1.  If the structs are complex or involved I recommend using [clang to dump the record definitions](https://github.com/cnuernber/avclj/blob/master/cpptest/compile64.sh) and using those to [generate the struct layouts](https://github.com/cnuernber/avclj/blob/master/src/avclj/av_context.clj#L512) - [documentation](https://cnuernber.github.io/dtype-next/tech.v3.datatype.ffi.clang.html).)
+  2.   Returning things by pointer-to-pointer.  This often happens in C interfaces so so there is a [pattern for this](https://github.com/cnuernber/tmducken/blob/main/src/tmducken/duckdb.clj#L181).
+  3.  Sometimes you get a pointer to a struct and you need to access the struct values to get/set data on it.  You can cast any pointer to a struct [with this pattern](https://cnuernber.github.io/dtype-next/tech.v3.datatype.ffi.html#var-ptr-.3Estruct) and then it is an implementation of java.util.Map.)
+  4.  If you want things to work on 32 bit systems then you will need to be careful with size-t, offset-t, and ptr definitions.  The [size-t namespace](https://cnuernber.github.io/dtype-next/tech.v3.datatype.ffi.size-t.html) is there to help out a bit.  I often use very late binding (delay) for systems that will have size-t definitions so that if someone were to AOT-compile the jar they don't happen to compile in the wrong size-t definition for a downstream system.
+  5.  Transforming from a raw integer address into a native-buffer happens a lot - [wrap-address](https://cnuernber.github.io/dtype-next/tech.v3.datatype.native-buffer.html#var-wrap-address) with [example usage](https://github.com/cnuernber/avclj/blob/master/src/avclj.clj#L197).
+  6.  It is possible with older creakier libraries you will need to pass in the address to struct members.  This [happened a lot in avclj](https://github.com/cnuernber/avclj/blob/master/src/avclj.clj#L266).
+
+
+## GC
+
+
+  What I often do is I get the pointer address, which is a primitive long value and thus not tracked by the GC system and reconstruct the pointer in the dispose-fn - [native-buffer's malloc is a good example of this](https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/native_buffer.clj#L703).  This keeps the dispose fn from having a reference to the thing being tracked.   By convention I nearly always give users the ability to choose how they want the thing tracked with a :resource-type option that can be one of four possible options:
+
+* nil - no tracking and data has to be manually released
+* :stack - Throws an error if there isn't an open stack resource context but will clean things up.
+* :gc - Always track via the GC tracking mechanism.
+* :auto - nearly always the default, choose GC unless there is an open stack tracker.
+
+  In the case of a derived object such as a child object of a parent allocated object I usually store the parent on the child's metadata so that the parent cannot get cleaned up before the child.  You can see this with the [sub-buffer call](https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/native_buffer.clj#L399) in the case where someone malloc'd a large single buffer and then created child buffers still referencing the same data.
+
+
+## A Word On Efficiency
+
+
+Finally - on my favorite topic, efficiency, dtype-next has extremely fast copies from primitive arrays to native buffers of the same datatype and back.  Users can also write directly to native buffers as they can get a [buffer interface via ->buffer](https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/base.clj#L117).  That typehint means you are guaranteed to get an actual implementation of the [buffer interface](https://github.com/cnuernber/dtype-next/blob/master/java/tech/v3/datatype/Buffer.java#L20) so you can write single values somewhat efficiently but a bulk copy of a primitive array will be probably 100 times faster.
+
+  My recommendation is to allow users who have large datasets to setup a steady state where they can write data to a double or float java primitive array which hotspot handles extremely well especially if everything is typehinted correctly and then use a single dtype/copy! call which will hit the memcpy fastpath for moving data into an actual native buffer.  Allocating primitive arrays is pretty quick but allocating large native arrays may not be and it will always be faster to setup a steady state where you are processing batches of data without allocating anything, preparing one batch while another batch is finishing.  You can see how a design like this makes the actual function call time nearly irrelevant because you are processing thousands of records with very few cross language function calls.  So the actual inter-language time of JNA vs. JDK-17 for a serious perf use case should be a nonissue as users need to handle intelligent batching that will involve nearly no C function calls or very few of them.
+
+  A small detail talking about efficiency of writing data to a java primitive array - Clojure's aset returns the previous value and the Clojure compiler boxes it.   So Clojure's very own aset is a performance disadvantage compared to setting the value in Java or Scala or Kotlin.  For this reason in extremely tight loops I have a version of [aset that returns void](https://github.com/cnuernber/dtype-next/blob/master/java/tech/v3/datatype/ArrayHelpers.java#L7) and thus avoids boxing anything.  For arrays of 10 or 1000 things probably irrelevant but for tight loops running as fast as things can run those extra box calls are noticeable in the profiler."
   (:require [tech.v3.datatype.native-buffer :as native-buffer]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.base :as base]
