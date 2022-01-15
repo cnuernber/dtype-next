@@ -20,7 +20,7 @@
   :profiles {:dev
              {:dependencies [[criterium "0.4.5"]
                              [net.java.dev.jna/jna "5.9.0"]
-                             [uncomplicate/neanderthal "0.35.0"]
+                             [uncomplicate/neanderthal "0.43.3"]
                              [com.taoensso/nippy "3.1.1"]
                              [ch.qos.logback/logback-classic "1.1.3"]
                              [com.clojure-goes-fast/clj-memory-meter "0.1.0"]
