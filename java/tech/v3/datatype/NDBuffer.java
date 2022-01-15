@@ -1,6 +1,5 @@
 package tech.v3.datatype;
 
-import clojure.lang.IFn;
 import clojure.lang.Keyword;
 import clojure.lang.Sequential;
 import clojure.lang.RT;
@@ -11,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.RandomAccess;
 
-public interface NDBuffer extends DatatypeBase, Iterable, IFn,
+public interface NDBuffer extends DatatypeBase, Iterable, IFnDef,
 				  Sequential, Indexed,
 				  List, RandomAccess
 {
@@ -93,7 +92,7 @@ public interface NDBuffer extends DatatypeBase, Iterable, IFn,
     return ndReadObject(RT.longCast(arg), RT.longCast(arg2), RT.longCast(arg3));
   }
   default Object invoke(Object arg, Object arg2, Object arg3, Object arg4) {
-    ArrayList args = new ArrayList() { {
+    ArrayList<Object> args = new ArrayList<Object>() { {
       add(arg);
       add(arg2);
       add(arg3);
@@ -103,7 +102,7 @@ public interface NDBuffer extends DatatypeBase, Iterable, IFn,
   }
   default Object invoke(Object arg, Object arg2, Object arg3, Object arg4,
 			Object arg5) {
-    ArrayList args = new ArrayList() { {
+    ArrayList<Object> args = new ArrayList<Object>() { {
       add(arg);
       add(arg2);
       add(arg3);
@@ -114,7 +113,7 @@ public interface NDBuffer extends DatatypeBase, Iterable, IFn,
   }
   default Object invoke(Object arg, Object arg2, Object arg3, Object arg4,
 			Object arg5, Object arg6) {
-    ArrayList args = new ArrayList() { {
+    ArrayList<Object> args = new ArrayList<Object>() { {
       add(arg);
       add(arg2);
       add(arg3);
@@ -126,7 +125,7 @@ public interface NDBuffer extends DatatypeBase, Iterable, IFn,
   }
   default Object invoke(Object arg, Object arg2, Object arg3, Object arg4,
 			Object arg5, Object arg6, Object arg7) {
-    ArrayList args = new ArrayList() { {
+    ArrayList<Object> args = new ArrayList<Object>() { {
       add(arg);
       add(arg2);
       add(arg3);
@@ -139,7 +138,7 @@ public interface NDBuffer extends DatatypeBase, Iterable, IFn,
   }
   default Object invoke(Object arg, Object arg2, Object arg3, Object arg4,
 			Object arg5, Object arg6, Object arg7, Object arg8) {
-    ArrayList args = new ArrayList() { {
+    ArrayList<Object> args = new ArrayList<Object>() { {
       add(arg);
       add(arg2);
       add(arg3);

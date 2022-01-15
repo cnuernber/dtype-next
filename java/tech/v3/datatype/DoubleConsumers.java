@@ -24,7 +24,7 @@ public class DoubleConsumers
       nElems = _nElems;
     }
     public static Object valueMap(Keyword valueKwd, double value, long nElems ){
-      HashMap hm = new HashMap();
+      HashMap<Object,Object> hm = new HashMap<Object,Object>();
       hm.put( valueKwd, value );
       hm.put( nElemsKwd, nElems );
       return hm;
@@ -199,7 +199,7 @@ public class DoubleConsumers
     }
 
     public Object value() {
-      HashMap retval = (HashMap)sum.value();
+      HashMap<Object,Object> retval = (HashMap<Object,Object>)sum.value();
       retval.put(minKwd, getMin());
       retval.put(maxKwd, getMax());
       return retval;
@@ -244,7 +244,7 @@ public class DoubleConsumers
       return retval;
     }
     public Object value() {
-      HashMap retval = new HashMap();
+      HashMap<Object,Object> retval = new HashMap<Object,Object>();
       retval.put(m2Kwd, m2);
       retval.put(m3Kwd, m3);
       retval.put(m4Kwd, m4);

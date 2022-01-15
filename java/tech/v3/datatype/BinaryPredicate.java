@@ -1,7 +1,6 @@
 package tech.v3.datatype;
 
 
-import clojure.lang.IFn;
 import clojure.lang.Keyword;
 import clojure.lang.ISeq;
 import java.util.function.Function;
@@ -16,7 +15,7 @@ import it.unimi.dsi.fastutil.floats.FloatComparator;
 import it.unimi.dsi.fastutil.doubles.DoubleComparator;
 
 
-public interface BinaryPredicate extends ElemwiseDatatype, IFn, Function,
+public interface BinaryPredicate extends ElemwiseDatatype, IFnDef, Function,
 					 BiPredicate
 {
   boolean binaryBoolean(boolean lhs, boolean rhs);

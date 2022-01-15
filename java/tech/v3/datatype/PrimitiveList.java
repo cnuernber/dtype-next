@@ -18,7 +18,7 @@ public interface PrimitiveList extends Buffer
   }
   default boolean addAll(Collection coll) {
     if(coll != null) {
-      coll.forEach(new Consumer() {
+      coll.forEach(new Consumer<Object>() {
   	  public void accept(Object arg) {
   	    addObject(arg);
       }});

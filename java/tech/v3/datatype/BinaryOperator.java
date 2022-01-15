@@ -1,13 +1,12 @@
 package tech.v3.datatype;
 
-import clojure.lang.IFn;
 import clojure.lang.Keyword;
 import clojure.lang.ISeq;
 import java.util.function.BiFunction;
 import java.util.function.DoubleBinaryOperator;
 
 
-public interface BinaryOperator extends ElemwiseDatatype, IFn, BiFunction, DoubleBinaryOperator
+public interface BinaryOperator extends ElemwiseDatatype, IFnDef, BiFunction, DoubleBinaryOperator
 {
   boolean binaryBoolean(boolean lhs, boolean rhs);
   byte binaryByte(byte lhs, byte rhs);

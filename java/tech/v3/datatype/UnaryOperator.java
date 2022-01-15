@@ -1,13 +1,12 @@
 package tech.v3.datatype;
 
-import clojure.lang.IFn;
 import clojure.lang.Keyword;
 import clojure.lang.ISeq;
 import java.util.function.Function;
 import java.util.function.DoubleUnaryOperator;
 
 
-public interface UnaryOperator extends ElemwiseDatatype, IFn, Function, DoubleUnaryOperator
+public interface UnaryOperator extends ElemwiseDatatype, IFnDef, Function, DoubleUnaryOperator
 {
   boolean unaryBoolean(boolean arg);
   byte unaryByte(byte arg);

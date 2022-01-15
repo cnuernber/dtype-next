@@ -1,7 +1,6 @@
 package tech.v3.datatype;
 
 
-import clojure.lang.IFn;
 import clojure.lang.Keyword;
 import clojure.lang.Sequential;
 import clojure.lang.RT;
@@ -17,7 +16,7 @@ import java.util.stream.DoubleStream;
 import java.util.stream.StreamSupport;
 
 
-public interface Buffer extends DatatypeBase, Iterable, IFn,
+public interface Buffer extends DatatypeBase, Iterable, IFnDef,
 				List, RandomAccess, Sequential,
 				Indexed
 {

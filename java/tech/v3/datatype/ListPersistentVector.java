@@ -14,22 +14,22 @@ import java.util.Collections;
 
 public class ListPersistentVector extends APersistentVector
 {
-  public final List data;
-  public ListPersistentVector (List _data) {
+  public final List<Object> data;
+  public ListPersistentVector (List<Object> _data) {
     data = _data;
   }
   public IPersistentVector cons(Object val) {
-    ArrayList newData = new ArrayList(data);
+    ArrayList<Object> newData = new ArrayList<Object>(data);
     newData.add(val);
     return new ListPersistentVector(Collections.unmodifiableList(newData));
   }
   public IPersistentVector assocN(int idx, Object val) {
-    ArrayList newData = new ArrayList(data);
+    ArrayList<Object> newData = new ArrayList<Object>(data);
     newData.set(idx,val);
     return new ListPersistentVector(Collections.unmodifiableList(newData));
   }
   public IPersistentCollection empty() {
-    return new ListPersistentVector(Collections.unmodifiableList(new ArrayList()));
+    return new ListPersistentVector(Collections.unmodifiableList(new ArrayList<Object>()));
   }
   public IPersistentStack pop() {
     if (data.size() != 0)
