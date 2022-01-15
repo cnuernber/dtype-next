@@ -1,0 +1,5 @@
+#!/bin/bash
+
+rm -rf classes/*
+
+javac -classpath "$(clj -Spath)" -d classes -sourcepath java $(find java | grep .*.java)

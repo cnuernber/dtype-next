@@ -8,6 +8,8 @@ import clojure.lang.Indexed;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Collection;
+import java.util.ListIterator;
 import java.util.RandomAccess;
 
 public interface NDBuffer extends DatatypeBase, Iterable, IFnDef,
@@ -161,8 +163,57 @@ public interface NDBuffer extends DatatypeBase, Iterable, IFnDef,
       return notFound;
     }
   }
+  default List subList(int start, int end) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default ListIterator listIterator() {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default ListIterator listIterator(int idx) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default int indexOf(Object obj) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default int lastIndexOf(Object obj) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default Object remove(int idx) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default void add(int idx, Object obj) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default void clear() {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default boolean retainAll(Collection c) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default boolean removeAll(Collection c) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default boolean add(Object obj) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default boolean addAll(Collection c) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default boolean addAll(int idx, Collection c) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default boolean contains(Object c) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default boolean containsAll(Collection c) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default boolean remove(Object c) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
   default int size() { return RT.intCast(outermostDim()); }
   default Object get(int idx) { return ndReadObject(idx); }
+  default Object set(int idx, Object val) { ndWriteObject(idx, val); return null; }
   default boolean isEmpty() { return size() == 0; }
   default Object[] toArray() {
     int nElems = size();

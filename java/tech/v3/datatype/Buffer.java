@@ -8,6 +8,8 @@ import clojure.lang.ISeq;
 import clojure.lang.Indexed;
 import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
+import java.util.Collection;
 import java.util.RandomAccess;
 import java.util.stream.Stream;
 import java.util.stream.IntStream;
@@ -39,7 +41,6 @@ public interface Buffer extends DatatypeBase, Iterable, IFnDef,
   void writeDouble(long idx, double val);
   void writeObject(long idx, Object val);
 
-
   default void accumPlusLong(long idx, long val) {
     writeLong( idx, readLong(idx) + val );
   }
@@ -57,10 +58,66 @@ public interface Buffer extends DatatypeBase, Iterable, IFnDef,
     writeObject(idx, val);
     return current;
   }
+  default List subList(int start, int end) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default ListIterator listIterator() {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default ListIterator listIterator(int idx) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default int indexOf(Object obj) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default int lastIndexOf(Object obj) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default Object remove(int idx) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default void add(int idx, Object obj) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default void clear() {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default boolean retainAll(Collection c) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default boolean removeAll(Collection c) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default boolean add(Object obj) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default boolean addAll(Collection c) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default boolean addAll(int idx, Collection c) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default boolean contains(Object c) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default boolean containsAll(Collection c) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
+  default boolean remove(Object c) {
+    throw new UnsupportedOperationException("Unimplemented");
+  }
   default boolean isEmpty() { return lsize() == 0; }
   default Object[] toArray() {
     int nElems = size();
     Object[] data = new Object[nElems];
+
+    for(int idx=0; idx < nElems; ++idx) {
+      data[idx] = readObject(idx);
+    }
+    return data;
+  }
+  default Object[] toArray(Object[] data) {
+    int nElems = size();
 
     for(int idx=0; idx < nElems; ++idx) {
       data[idx] = readObject(idx);
