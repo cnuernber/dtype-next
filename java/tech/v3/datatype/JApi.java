@@ -25,10 +25,7 @@ public class JApi {
 
 
 
-  static final IFn toBufferFn = (IFn)requiringResolve("tech.v3.datatype", "->buffer");
-  static final IFn subBufferFn = (IFn)requiringResolve("tech.v3.datatype", "sub-buffer");
   static final IFn makeContainerFn = (IFn)requiringResolve("tech.v3.datatype", "make-container");
-  static final IFn copyFn = (IFn)requiringResolve("tech.v3.datatype", "copy!");
   static final IFn cloneFn = (IFn)requiringResolve("tech.v3.datatype", "clone");
   static final IFn toArrayFn = (IFn)requiringResolve("tech.v3.datatype", "->array");
   static final IFn elemwiseDatatypeFn = (IFn)requiringResolve("tech.v3.datatype",
@@ -49,6 +46,12 @@ public class JApi {
 
 
   static final IFn optMap = (IFn)requiringResolve("tech.v3.datatype.jvm-map", "opt-map");
+
+  static final IFn setConstantFn = (IFn)requiringResolve("tech.v3.datatype", "set-constant!");
+  static final IFn copyFn = (IFn)requiringResolve("tech.v3.datatype", "copy!");
+  static final IFn subBufferFn = (IFn)requiringResolve("tech.v3.datatype", "sub-buffer");
+  static final IFn toBufferFn = (IFn)requiringResolve("tech.v3.datatype", "->buffer");
+
 
   public static Object elemwiseDatatype(Object val) {
     return elemwiseDatatypeFn.invoke(val);
@@ -118,6 +121,38 @@ public class JApi {
     return (double[]) toArrayFn.invoke(data, float64);
   }
 
+  public static Object setConstant(Object item, long offset, long length, Object value) {
+    call(setConstantFn, item, offset, length, value);
+    return item;
+  }
+  public static Object setConstant(Object item, long offset, Object value) {
+    call(setConstantFn, item, offset, value);
+    return item;
+  }
+  public static Object setConstant(Object item, Object value) {
+    call(setConstantFn, item, value);
+    return item;
+  }
+
+  public static Object copy(Object src, Object dst) {
+    call(copyFn, src, dst);
+  }
+
+  public static Object subBuffer(Object src, long offset, long length) {
+    return call(subBufferFn, src, offset, length);
+  }
+  public static Object subBuffer(Object src, long offset) {
+    return call(subBufferFn, src, offset);
+  }
+
+  public static Buffer toBuffer(Object src) {
+    if (src instanceof Buffer) {
+      return (Buffer)src;
+    } else {
+      return (Buffer)call(toBufferFn, src);
+    }
+  }
+
   public static PrimitiveList makeList(Object dtype) {
     return (PrimitiveList)makeListFn.invoke(dtype);
   }
@@ -135,4 +170,6 @@ public class JApi {
   public static Map opts(Object...args) {
     return (Map)optMap.invoke(args);
   }
+
+
 }
