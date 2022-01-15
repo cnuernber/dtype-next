@@ -313,6 +313,22 @@
    (entries map nil)))
 
 
+(defn opt-map
+  "Called from java.  Ensure the keys of the map are keywords.  Should be tested
+  with (opt-map (object-array args))."
+  [^objects args]
+  (let [n-args (alength args)]
+    (if (== 0 n-args)
+      {}
+      (do
+        (when-not (== 0 (rem n-args 2))
+          (throw (Exception. "Map constructors take an even number of arguments")))
+        (->> (partition 2 args)
+             (map #(vector (keyword (first %))
+                           (second %)))
+             (into {}))))))
+
+
 (extend-protocol dt-proto/PClone
   HashMap
   (clone [item] (.clone item))

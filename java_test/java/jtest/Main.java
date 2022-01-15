@@ -4,6 +4,7 @@ import tech.v3.datatype.IFnDef;
 import tech.v3.datatype.LongReader;
 import tech.v3.datatype.DoubleReader;
 import static tech.v3.datatype.Clj.*;
+import static tech.v3.datatype.JApi.*;
 import java.util.ArrayList;
 import clojure.lang.RT;
 import clojure.lang.IFn;
@@ -37,6 +38,20 @@ public class Main
     require("tech.v3.datatype");
     IFn reshape = (IFn)requiringResolve("tech.v3.tensor", "reshape");
     int[] ddata = new int[] {0,1,2,3,4,5,6,7,8,9};
-    System.out.println(call(reshape, ddata, vector(3,3)).toString());
+    System.out.println(call(reshape, ddata, persvec(3,3)).toString());
+    System.out.println(opts("one", 1, "two", 2
+			    , "three", 3)
+		       .toString());
+
+    //Ensure stack resource context mapping is working.
+    try (AutoCloseable ac = stackResourceContext()) {
+      Object nativeBuf = makeContainer(nativeHeap, int8, opts("log-level", keyword("info")),
+				       range(10));
+      System.out.println(nativeBuf.toString());
+    } catch (Exception e) {
+      System.out.println("Error!!" + e.toString());
+      e.printStackTrace(System.out);
+    }
+    System.out.println("After stack pop - nativemem should be released");
   }
 }

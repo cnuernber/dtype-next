@@ -692,7 +692,7 @@
      `tech.jna`."
   (^NativeBuffer [^long n-bytes {:keys [resource-type uninitialized?
                                         endianness log-level]
-                                 :or {resource-type :gc}}]
+                                 :or {resource-type :auto}}]
    (let [endianness (-> (or endianness (dtype-proto/platform-endianness))
                         (validate-endianness))
          retval (NativeBuffer. (.allocateMemory (unsafe) n-bytes)
