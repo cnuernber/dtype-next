@@ -6,7 +6,7 @@ import static tech.v3.datatype.Clj.*;
 import java.util.List;
 import java.util.Map;
 
-public class JApi {
+public class DType {
 
   public static final Object bool = keyword("boolean");
   public static final Object int8 = keyword("int8");
@@ -33,7 +33,7 @@ public class JApi {
   static final IFn ecountFn = (IFn)requiringResolve("tech.v3.datatype", "ecount");
   static final IFn shapeFn = (IFn)requiringResolve("tech.v3.datatype", "shape");
   static final IFn makeListFn = (IFn)requiringResolve("tech.v3.datatype", "make-list");
-  static final IFn emapFn = (IFn)requiringResolve("tech.v3.datatype", "emap");
+  static final IFn emapFn = (IFn)requiringResolve("tech.v3.datatype.emap", "emap");
   static final IFn applyFn = (IFn)requiringResolve("clojure.core", "apply");
 
   //resource management
@@ -51,7 +51,16 @@ public class JApi {
   static final IFn copyFn = (IFn)requiringResolve("tech.v3.datatype", "copy!");
   static final IFn subBufferFn = (IFn)requiringResolve("tech.v3.datatype", "sub-buffer");
   static final IFn toBufferFn = (IFn)requiringResolve("tech.v3.datatype", "->buffer");
-
+  static final IFn wrapAddressFn = (IFn)requiringResolve("tech.v3.datatype.native-buffer",
+							 "wrap-address");
+  static final IFn setNativeDtFn = (IFn)requiringResolve("tech.v3.datatype.native-buffer",
+							 "set-native-datatype");
+  static final IFn asNativeBufferFn = (IFn)requiringResolve("tech.v3.datatype",
+							    "as-native-buffer");
+  static final IFn asArrayBufferFn = (IFn)requiringResolve("tech.v3.datatype",
+							   "as-array-buffer");
+  static final IFn numericByteWidth = (IFn)requiringResolve("tech.v3.datatype.casting",
+							    "numeric-byte-width");
 
   public static Object elemwiseDatatype(Object val) {
     return elemwiseDatatypeFn.invoke(val);
@@ -63,8 +72,7 @@ public class JApi {
     return (List)shapeFn.invoke(val);
   }
   public static AutoCloseable stackResourceContext() {
-    pushThreadBindings(persmap(stackContextVar, atom(list()),
-			       stackBoundVar, true));
+    pushThreadBindings(hashmap(stackContextVar, atom(list()), stackBoundVar, true));
     return new AutoCloseable() {
       public void close() {
 	try {
@@ -94,31 +102,31 @@ public class JApi {
   public static Object toArray(Object data, Object dtype) { return toArrayFn.invoke(data,dtype); }
 
   public static boolean[] toBooleanArray(Object data) {
-    return (boolean[]) toArrayFn.invoke(data, bool);
+    return (boolean[]) toArrayFn.invoke(bool, data);
   }
 
   public static byte[] toByteArray(Object data) {
-    return (byte[]) toArrayFn.invoke(data, int8);
+    return (byte[]) toArrayFn.invoke(int8, data);
   }
 
   public static short[] toShortArray(Object data) {
-    return (short[]) toArrayFn.invoke(data, int16);
+    return (short[]) toArrayFn.invoke(int16, data);
   }
 
   public static int[] toIntArray(Object data) {
-    return (int[]) toArrayFn.invoke(data, int32);
+    return (int[]) toArrayFn.invoke(int32, data);
   }
 
   public static long[] toLongArray(Object data) {
-    return (long[]) toArrayFn.invoke(data, int64);
+    return (long[]) toArrayFn.invoke(int64, data);
   }
 
   public static float[] toFloatArray(Object data) {
-    return (float[]) toArrayFn.invoke(data, float32);
+    return (float[]) toArrayFn.invoke(float32, data);
   }
 
   public static double[] toDoubleArray(Object data) {
-    return (double[]) toArrayFn.invoke(data, float64);
+    return (double[]) toArrayFn.invoke(float64, data);
   }
 
   public static Object setConstant(Object item, long offset, long length, Object value) {
@@ -135,7 +143,7 @@ public class JApi {
   }
 
   public static Object copy(Object src, Object dst) {
-    call(copyFn, src, dst);
+    return call(copyFn, src, dst);
   }
 
   public static Object subBuffer(Object src, long offset, long length) {
@@ -159,6 +167,7 @@ public class JApi {
 
   public static Object emap(IFn mapFn, Object resDtype, Object...args) {
     switch(args.length) {
+    case 0: throw new RuntimeException("emap requires at least one argument to map over.");
     case 1: return emapFn.invoke(mapFn, resDtype, args[0]);
     case 2: return emapFn.invoke(mapFn, resDtype, args[0], args[1]);
     case 3: return emapFn.invoke(mapFn, resDtype, args[0], args[1], args[2]);
@@ -171,5 +180,24 @@ public class JApi {
     return (Map)optMap.invoke(args);
   }
 
+  public static long numericByteWidth(Object dtype) {
+    return (long)call(numericByteWidth, dtype);
+  }
 
+  public static Object wrapAddress(Object gcObject, long address, long nBytes) {
+    return call(wrapAddressFn, address, nBytes, int8, kw("little-endian"), gcObject);
+  }
+
+  public static Object wrapAddress(Object gcObject, long address, long nBytes, Object dtype) {
+    Object origbuf = wrapAddress(gcObject,address,nBytes);
+    return call(setNativeDtFn, origbuf, dtype);
+  }
+
+  public static Object asNativeBuffer(Object obj) {
+    return call(asNativeBufferFn, obj);
+  }
+
+  public static Object asArrayBuffer(Object obj) {
+    return call(asArrayBufferFn, obj);
+  }
 }

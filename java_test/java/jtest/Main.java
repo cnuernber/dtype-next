@@ -4,7 +4,8 @@ import tech.v3.datatype.IFnDef;
 import tech.v3.datatype.LongReader;
 import tech.v3.datatype.DoubleReader;
 import static tech.v3.datatype.Clj.*;
-import static tech.v3.datatype.JApi.*;
+import static tech.v3.datatype.DType.*;
+import static tech.v3.tensor.Tensor.*;
 import java.util.ArrayList;
 import clojure.lang.RT;
 import clojure.lang.IFn;
@@ -38,7 +39,7 @@ public class Main
     require("tech.v3.datatype");
     IFn reshape = (IFn)requiringResolve("tech.v3.tensor", "reshape");
     int[] ddata = new int[] {0,1,2,3,4,5,6,7,8,9};
-    System.out.println(call(reshape, ddata, persvec(3,3)).toString());
+    System.out.println(call(reshape, ddata, vector(3,3)).toString());
     System.out.println(opts("one", 1, "two", 2
 			    , "three", 3)
 		       .toString());
@@ -53,5 +54,20 @@ public class Main
       e.printStackTrace(System.out);
     }
     System.out.println("After stack pop - nativemem should be released");
+
+    Object srcbuf = makeContainer(float32, range(10));
+    Object dstbuf = makeContainer(float32, 10);
+    copy(srcbuf, dstbuf);
+    System.out.println(dstbuf.toString());
+    setConstant(dstbuf, 0);
+    System.out.println(dstbuf.toString());
+    System.out.println(reshape(range(10), vector(3,3)).toString());
+    System.out.println(reshape(toDoubleArray(range(10)), vector(3,3)).toString());
+    System.out.println(computeTensor(float64, vector(3,3),
+				     new IFnDef() {
+				       public Object invoke(Object yidx, Object xidx) {
+					 return (RT.longCast(yidx) * 3) + RT.longCast(xidx);
+				       }
+				     } ).toString());
   }
 }

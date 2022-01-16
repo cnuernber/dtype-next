@@ -18,6 +18,7 @@ public class Clj
   static final IFn vecFn = Clojure.var("clojure.core", "vec");
   static final IFn listFn = Clojure.var("clojure.core", "list");
   static final IFn rangeFn = Clojure.var("clojure.core", "range");
+  static final IFn mergeFn = Clojure.var("clojure.core", "merge");
   static final IFn pushThreadBindingsFn = Clojure.var("clojure.core", "push-thread-bindings");
   static final IFn popThreadBindingsFn = Clojure.var("clojure.core", "pop-thread-bindings");
 
@@ -26,6 +27,7 @@ public class Clj
   static final IFn resetFn = Clojure.var("clojure.core", "reset!");
   static final IFn swapFn = Clojure.var("clojure.core", "swap!");
   static final IFn compareAndSetFn = Clojure.var("clojure.core", "compare-and-set!");
+  static final IFn applyFn = Clojure.var("clojure.core", "apply");
 
 
   public static Object symbol(String name) {
@@ -35,6 +37,9 @@ public class Clj
     return symbolFn.invoke(ns, name);
   }
   public static Object keyword(String name) {
+    return keywordFn.invoke(name);
+  }
+  public static Object kw(String name) {
     return keywordFn.invoke(name);
   }
   public static Object keyword(String ns, String name) {
@@ -121,14 +126,20 @@ public class Clj
   public static Object apply(Object obj, Object... args) {
     return ((IFn) obj).applyTo(RT.seq(args));
   }
-  public static Map persmap(Object... args) {
+  public static Map hashmap(Object... args) {
     return (Map)hashMapFn.applyTo(RT.seq(args));
   }
-  public static List persvec(Object... args) {
+  public static List vector(Object... args) {
     return (List)vectorFn.applyTo(RT.seq(args));
   }
   public static List vec(Object arglist) {
     return (List)vecFn.invoke(arglist);
+  }
+  public static Object merge(Object leftMap, Object rightMap) {
+    return call(mergeFn, leftMap, rightMap);
+  }
+  public static Object merge(Object leftMap, Object rightMap, Object...maps) {
+    return call(applyFn, mergeFn, leftMap, rightMap, maps);
   }
   public static Object range(Object end) {
     return rangeFn.invoke(end);

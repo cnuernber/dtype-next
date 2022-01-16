@@ -863,11 +863,14 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
   "Set a contiguous region of a buffer to a constant value"
   ([item ^long offset ^long length value]
    (errors/check-offset-length offset length (ecount item))
-   (dtype-proto/set-constant! item offset length value))
+   (dtype-proto/set-constant! item offset length value)
+   item)
   ([item offset value]
-   (set-constant! item offset (- (ecount item) (long offset)) value))
+   (set-constant! item offset (- (ecount item) (long offset)) value)
+   item)
   ([item value]
-   (set-constant! item 0 (ecount item) value)))
+   (set-constant! item 0 (ecount item) value)
+   item))
 
 
 (defn- check-ns
