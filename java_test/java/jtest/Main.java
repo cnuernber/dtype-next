@@ -3,12 +3,13 @@ package jtest;
 import tech.v3.datatype.IFnDef;
 import tech.v3.datatype.LongReader;
 import tech.v3.datatype.DoubleReader;
-import static tech.v3.datatype.Clj.*;
-import static tech.v3.datatype.DType.*;
-import static tech.v3.tensor.Tensor.*;
+import static tech.v3.Clj.*;
+import static tech.v3.DType.*;
+import static tech.v3.Tensor.*;
 import java.util.ArrayList;
 import clojure.lang.RT;
 import clojure.lang.IFn;
+import java.util.Map;
 
 public class Main
 {
@@ -62,12 +63,21 @@ public class Main
     setConstant(dstbuf, 0);
     System.out.println(dstbuf.toString());
     System.out.println(reshape(range(10), vector(3,3)).toString());
-    System.out.println(reshape(toDoubleArray(range(10)), vector(3,3)).toString());
+    System.out.println(reshape(toDoubleArray(range(9)), vector(3,3)).toString());
     System.out.println(computeTensor(float64, vector(3,3),
 				     new IFnDef() {
 				       public Object invoke(Object yidx, Object xidx) {
 					 return (RT.longCast(yidx) * 3) + RT.longCast(xidx);
 				       }
 				     } ).toString());
+    try (AutoCloseable ac = stackResourceContext()) {
+      Map bufDesc = ensureNDBufferDescriptor(reshape(toDoubleArray(range(9)), vector(3,3)));
+      System.out.println(bufDesc.toString());
+      System.out.println(NDBufferDescriptorToTensor(bufDesc).toString());
+    } catch(Exception e){
+      System.out.println(e.toString());
+      e.printStackTrace(System.out);
+    }
+
   }
 }

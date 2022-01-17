@@ -1,0 +1,3 @@
+#!/bin/bash
+
+javadoc -sourcepath java_public_api -d docs/javadoc -Xdoclint:none -classpath "$(lein classpath):$(pwd)/target/classes" tech.v3

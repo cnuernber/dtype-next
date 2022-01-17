@@ -121,10 +121,11 @@
 
   dtype-proto/PTensor
   (reshape [t new-shape]
-    (construct-tensor
-     (.bufferIO t)
-     (dims/dimensions new-shape)
-     (meta t)))
+    (let [n-elems (long (apply * new-shape))]
+      (construct-tensor
+       (dtype-proto/sub-buffer (.bufferIO t) 0 n-elems)
+       (dims/dimensions new-shape)
+       (meta t))))
   (select [t select-args]
     (let [{buf-offset :elem-offset
            buf-len :buffer-ecount

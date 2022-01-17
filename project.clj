@@ -1,4 +1,4 @@
-(defproject cnuernber/dtype-next "8.057-SNAPSHOT"
+(defproject cnuernber/dtype-next "8.057"
   :description "A Clojure library designed to aid in the implementation of high performance algorithms and systems."
   :url "http://github.com/cnuernber/dtype-next"
   :license {:name "EPL-2.0"
@@ -15,7 +15,7 @@
                  [techascent/tech.resource         "5.05"]
                  ;;Many things require guava, so we may as well have latest version
                  [com.google.guava/guava "30.1.1-jre"]]
-  :java-source-paths ["java" "third-party"]
+  :java-source-paths ["java" "third-party" "java_public_api"]
   :source-paths ["src" "classes" "third-party"]
   :profiles {:dev
              {:dependencies [[criterium "0.4.5"]
