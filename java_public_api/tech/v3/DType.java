@@ -106,6 +106,9 @@ public class DType {
 
   static final IFn reverseFn = (IFn)requiringResolve("tech.v3.datatype-api", "reverse");
 
+  static final IFn asNioBufFn = (IFn)requiringResolve("tech.v3.datatype.nio-buffer", "as-nio-buffer");
+
+
   /**
    * Return the datatype contained in the container.  For example a double array has
    * an elemwise-datatype of the Clojure keyword ':float64'.
@@ -413,5 +416,11 @@ public class DType {
    */
   public static Object asArrayBuffer(Object obj) {
     return call(asArrayBufferFn, obj);
+  }
+  /**
+   *  Attempt an in-place conversion to a nio buffer.  Returns null if the conversion fails.
+   */
+  public static java.nio.Buffer asNioBuffer(Object obj) {
+    return (java.nio.Buffer)call(asNioBufFn, obj);
   }
 }

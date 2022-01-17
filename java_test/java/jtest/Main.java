@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import clojure.lang.RT;
 import clojure.lang.IFn;
 import java.util.Map;
+import java.nio.FloatBuffer;
 
 public class Main
 {
@@ -79,5 +80,10 @@ public class Main
       e.printStackTrace(System.out);
     }
 
+    //Ensure nio buffers are supported
+    FloatBuffer fbuf = FloatBuffer.wrap(toFloatArray(range (9)));
+    System.out.println(reshape(fbuf, vector(3,3)).toString());
+    fbuf = FloatBuffer.allocate(9);
+    System.out.println(reshape(fbuf, vector(3,3)).toString());
   }
 }
