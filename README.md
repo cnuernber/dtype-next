@@ -7,6 +7,9 @@ Next generation high performance Clojure toolkit.
 
 [![Build Status](https://travis-ci.com/cnuernber/dtype-next.svg?branch=master)](https://travis-ci.com/cnuernber/dtype-next)
 
+Checkout the [Overview](https://cnuernber.github.io/dtype-next/overview.html), [API Documentation](https://cnuernber.github.io/dtype-next/),
+[Java API Documentation](https://cnuernber.github.io/dtype-next/javadoc/index.html), and [Cheatsheet](https://cnuernber.github.io/dtype-next/cheatsheet.html).
+
 
 ## New Functionality
 
@@ -47,9 +50,6 @@ Additional targets of this library:
 *  Support for JDK-8 through JDK-17+ - JDK-16 is *no longer* supported.  For jdk-17 usage, please see
    project.clj for required flags.
 *  [Blogpost](https://techascent.com/blog/next-gen-native.html), [example](examples/clj-ffi) and [involved example](https://github.com/cnuernber/avclj) of using the FFI architecture across JNA, JDK-16 and GraalNative.
-
-Checkout the [Overview](https://cnuernber.github.io/dtype-next/overview.html), [API Documentation](https://cnuernber.github.io/dtype-next/), and
-[Cheatsheet](https://cnuernber.github.io/dtype-next/cheatsheet.html).
 
 
 ## Native Test
