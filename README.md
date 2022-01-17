@@ -7,12 +7,15 @@ Next generation high performance Clojure toolkit.
 
 [![Build Status](https://travis-ci.com/cnuernber/dtype-next.svg?branch=master)](https://travis-ci.com/cnuernber/dtype-next)
 
-Checkout the [Overview](https://cnuernber.github.io/dtype-next/overview.html), [API Documentation](https://cnuernber.github.io/dtype-next/),
-[Java API Documentation](https://cnuernber.github.io/dtype-next/javadoc/index.html), and [Cheatsheet](https://cnuernber.github.io/dtype-next/cheatsheet.html).
+Checkout The:
+
+* [Overview](https://cnuernber.github.io/dtype-next/overview.html)
+* [API Documentation](https://cnuernber.github.io/dtype-next/)
+* Java API [Documentation](https://cnuernber.github.io/dtype-next/javadoc/index.html) and [Sample](https://github.com/cnuernber/dtype-next/blob/98e9b7d3aa5b702dee5af25ff2f9396685f2076f/java_test/java/jtest/Main.java).
+* [Clojure Cheatsheet](https://cnuernber.github.io/dtype-next/cheatsheet.html).
 
 
 ## New Functionality
-
  * [Efficient 1d convolutions, correlations, gaussian correlations](https://cnuernber.github.io/dtype-next/tech.v3.datatype.convolve.html)
  * [Numeric gradient, elemwise difference](https://cnuernber.github.io/dtype-next/tech.v3.datatype.gradient.html)
  * [Variable rolling windows](https://cnuernber.github.io/dtype-next/tech.v3.datatype.rolling.html#var-variable-rolling-window-indexes)
