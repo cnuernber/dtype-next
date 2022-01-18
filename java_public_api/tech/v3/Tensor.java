@@ -101,7 +101,7 @@ public class Tensor {
    * Make an tensor by copying data into a tensor of a given shape and datatype.
    */
   public static NDBuffer makeTensor(Object data, Object shape, Object datatype) {
-    Object tens = call(makeTensorFn, data, hashmap(kw("datatype"), datatype));
+    Object tens = call(makeTensorFn, data, kw("datatype"), datatype);
     return (NDBuffer)call(reshapeFn, tens, shape);
   }
   /**
@@ -110,8 +110,9 @@ public class Tensor {
    */
   public static NDBuffer makeTensor(Object data, Object shape, Object datatype,
 				    Object containerType) {
-    Object tens = call(makeTensorFn, data, hashmap(kw("datatype"), datatype,
-						   kw("container-type"), containerType));
+    Object tens = call(makeTensorFn, data,
+		       kw("datatype"), datatype,
+		       kw("container-type"), containerType);
     return (NDBuffer)call(reshapeFn, tens, shape);
   }
   /**

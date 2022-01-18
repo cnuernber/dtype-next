@@ -4,6 +4,7 @@ import tech.v3.datatype.IFnDef;
 import tech.v3.datatype.LongReader;
 import tech.v3.datatype.DoubleReader;
 import tech.v3.datatype.ArrayBufferData;
+import tech.v3.datatype.NativeBufferData;
 import tech.v3.datatype.Buffer;
 import tech.v3.datatype.NDBuffer;
 import static tech.v3.Clj.*;
@@ -210,5 +211,28 @@ public class Main
     //   [12.00 13.00 14.00]
     //   [15.00 16.00 17.00]]]
     // Array buffer access? false
+
+    //makeTensor copies data into the tensor.
+    System.out.println(makeTensor(range(9), vector(3,3), float32).toString());
+    //#tech.v3.tensor<float32>[3 3]
+    // [[0.000 1.000 2.000]
+    //  [3.000 4.000 5.000]
+    //  [6.000 7.000 8.000]]
+    //We can also make tensor's based on native-heap memory.
+    System.out.println(makeTensor(range(9), vector(3,3), float32, nativeHeap).toString());
+    //#tech.v3.tensor<float32>[3 3]
+    // [[0.000 1.000 2.000]
+    //  [3.000 4.000 5.000]
+    //  [6.000 7.000 8.000]]
+
+    //Native memory tensors have an in-place conversion to a native buffer.
+    NDBuffer ntens = makeTensor(range(9), vector(3,3), float32, nativeHeap);
+    NativeBufferData ndata = asNativeBuffer(ntens);
+    System.out.println(ndata.address);
+    //140397742494704
+
+
+
+
   }
 }

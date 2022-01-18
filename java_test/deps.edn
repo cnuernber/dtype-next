@@ -1,2 +1,2 @@
 {:paths ["classes"]
- :deps {cnuernber/dtype-next {:mvn/version "8.059-SNAPSHOT"}}}
+ :deps {cnuernber/dtype-next {:mvn/version "8.060-SNAPSHOT"}}}

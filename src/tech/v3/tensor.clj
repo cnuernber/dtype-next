@@ -339,7 +339,7 @@ user> (dtype/shape (dtt/reduce-axis dfn/sum t 2))
 
   Example:
 
-  ```clojure
+```clojure
   user> (dtt/select (dtt/->tensor [1 2 3]) [0 2])
   #tech.v3.tensor<object>[2]
   [1 3]
@@ -355,7 +355,7 @@ user> (dtype/shape (dtt/reduce-axis dfn/sum t 2))
   #tech.v3.tensor<object>[2 2]
   [[2 3]
    [5 6]]
-  ```"
+```"
   (^{:tag tech.v3.datatype.NDBuffer} [t & args]
   (apply tech.v3.datatype.base/select t args)))
 
