@@ -3,6 +3,8 @@ package jtest;
 import tech.v3.datatype.IFnDef;
 import tech.v3.datatype.LongReader;
 import tech.v3.datatype.DoubleReader;
+import tech.v3.datatype.ArrayBufferData;
+import tech.v3.datatype.Buffer;
 import static tech.v3.Clj.*;
 import static tech.v3.DType.*;
 import static tech.v3.Tensor.*;
@@ -163,5 +165,12 @@ public class Main
     //[[0.000 0.000 0.000]
     // [0.000 0.000 0.000]
     // [0.000 0.000 0.000]]
+
+    double[] testData = toDoubleArray(range(100));
+    Buffer wrappedData = toBuffer(testData);
+    ArrayBufferData origData = asArrayBuffer(wrappedData);
+
+    System.out.println(String.valueOf(System.identityHashCode(testData))
+		       + " " + String.valueOf(System.identityHashCode(origData.arrayData)));
   }
 }

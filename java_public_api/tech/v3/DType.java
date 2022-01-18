@@ -47,6 +47,9 @@ import java.util.Map;
  */
 public class DType {
 
+  //Unnecessary
+  private DType() {}
+
   public static final Object bool = keyword("boolean");
   public static final Object int8 = keyword("int8");
   public static final Object uint8 = keyword("uint8");
@@ -95,9 +98,9 @@ public class DType {
   static final IFn setNativeDtFn = (IFn)requiringResolve("tech.v3.datatype.native-buffer",
 							 "set-native-datatype");
   static final IFn asNativeBufferFn = (IFn)requiringResolve("tech.v3.datatype",
-							    "as-native-buffer");
+							    "as-native-buffer-data");
   static final IFn asArrayBufferFn = (IFn)requiringResolve("tech.v3.datatype",
-							   "as-array-buffer");
+							   "as-array-buffer-data");
   static final IFn numericByteWidthFn = (IFn)requiringResolve("tech.v3.datatype.casting",
 							    "numeric-byte-width");
 
@@ -402,20 +405,20 @@ public class DType {
   /**
    * Attempt to get a native buffer from an object such as a tensor or a numpy array.
    *
-   * @return an instance of 'tech.v3.datatype.native_buffer.NativeBuffer' or null if an
+   * @return an instance of 'tech.v3.datatype.NativeBufferData' or null if an
    * in-place conversion is not possible.
    */
-  public static Object asNativeBuffer(Object obj) {
-    return call(asNativeBufferFn, obj);
+  public static NativeBufferData asNativeBuffer(Object obj) {
+    return (NativeBufferData)call(asNativeBufferFn, obj);
   }
   /**
    * Attempt to get a array buffer from an object such as a tensor.
    *
-   * @return an instance of 'tech.v3.datatype.array_buffer.ArrayBuffer' or null if an in-place
+   * @return an instance 'tech.v3.datatype.ArrayBufferData' or null if an in-place
    * conversion is not possible.
    */
-  public static Object asArrayBuffer(Object obj) {
-    return call(asArrayBufferFn, obj);
+  public static ArrayBufferData asArrayBuffer(Object obj) {
+    return (ArrayBufferData)call(asArrayBufferFn, obj);
   }
   /**
    *  Attempt an in-place conversion to a nio buffer.  Returns null if the conversion fails.

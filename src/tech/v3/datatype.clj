@@ -157,6 +157,11 @@
   (tech.v3.datatype.base/as-array-buffer item)))
 
 
+(defn as-array-buffer-data
+  (^{:tag tech.v3.datatype.ArrayBufferData} [item]
+  (tech.v3.datatype-api/as-array-buffer-data item)))
+
+
 (defn as-buffer
   "If this item is or has a conversion to an implementation of the Buffer
   interface then return the buffer interface for this object.
@@ -177,6 +182,11 @@
   then convert it and return the typed buffer"
   (^{:tag tech.v3.datatype.native_buffer.NativeBuffer} [item]
   (tech.v3.datatype.base/as-native-buffer item)))
+
+
+(defn as-native-buffer-data
+  (^{:tag tech.v3.datatype.NativeBufferData} [item]
+  (tech.v3.datatype-api/as-native-buffer-data item)))
 
 
 (defn as-nd-buffer-descriptor

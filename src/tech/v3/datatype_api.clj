@@ -27,7 +27,7 @@
             [tech.v3.datatype.copy-make-container])
   (:import [tech.v3.datatype ListPersistentVector BooleanReader
             LongReader DoubleReader ObjectReader PrimitiveList
-            Buffer]
+            Buffer ArrayBufferData NativeBufferData]
            [org.roaringbitmap RoaringBitmap])
   (:refer-clojure :exclude [cast reverse]))
 
@@ -71,6 +71,27 @@
                 get-value
                 set-value!
                 set-constant!)
+
+
+(defn as-array-buffer-data
+  ^ArrayBufferData [item]
+  (when-let [ary-buf (as-array-buffer item)]
+    (ArrayBufferData. (.ary-data ary-buf)
+                      (.offset ary-buf)
+                      (.n-elems ary-buf)
+                      (.datatype ary-buf)
+                      (.metadata ary-buf))))
+
+
+(defn as-native-buffer-data
+  ^NativeBufferData [item]
+  (when-let [nbuf (as-native-buffer item)]
+    (NativeBufferData. (.address nbuf)
+                       (.n-elems nbuf)
+                       (.datatype nbuf)
+                       (.endianness nbuf)
+                       (.metadata nbuf)
+                       (.parent nbuf))))
 
 
 (export-symbols tech.v3.datatype.emap

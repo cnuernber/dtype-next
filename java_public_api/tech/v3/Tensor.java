@@ -76,6 +76,9 @@ import tech.v3.datatype.NDBuffer;
  */
 public class Tensor {
 
+  //Unnecessary
+  private Tensor() {}
+
   static final IFn makeTensorFn = (IFn)requiringResolve("tech.v3.tensor", "->tensor");
   static final IFn asTensorFn = (IFn)requiringResolve("tech.v3.tensor", "as-tensor");
   static final IFn ensureTensorFn = (IFn)requiringResolve("tech.v3.tensor", "ensure-tensor");

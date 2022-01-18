@@ -25,6 +25,9 @@ import java.util.List;
  */
 public class Clj
 {
+  //No need to construct anything.
+  private Clj() {}
+
   static final IFn symbolFn = Clojure.var("clojure.core", "symbol");
   static final IFn requireFn = Clojure.var("clojure.core", "require");
   static final IFn requireresFn = Clojure.var("clojure.core", "requiring-resolve");
