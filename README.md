@@ -11,7 +11,7 @@ Checkout The:
 
 * [Overview](https://cnuernber.github.io/dtype-next/overview.html)
 * [API Documentation](https://cnuernber.github.io/dtype-next/)
-* Java API [Documentation](https://cnuernber.github.io/dtype-next/javadoc/index.html) and [Sample](https://github.com/cnuernber/dtype-next/blob/98e9b7d3aa5b702dee5af25ff2f9396685f2076f/java_test/java/jtest/Main.java).
+* Java API [Documentation](https://cnuernber.github.io/dtype-next/javadoc/index.html) and [Sample](https://github.com/cnuernber/dtype-next/blob/master/java_test/java/jtest/Main.java).
 * [Clojure Cheatsheet](https://cnuernber.github.io/dtype-next/cheatsheet.html).
 
 
