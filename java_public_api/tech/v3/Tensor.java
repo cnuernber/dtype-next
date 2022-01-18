@@ -210,6 +210,7 @@ public class Tensor {
    * to a buffer then that dimension is reindexed by the given elements.  The keyword
    * :all may be used to indicate use entire dimension.  Any dimensions that aren't
    * included in the selection are left unchanged.
+   * See examples in the <a href="https://cnuernber.github.io/dtype-next/tech.v3.tensor.html#var-select">Clojure documentation</a>.
    */
   public static NDBuffer select(NDBuffer src, Object... dims) {
     return (NDBuffer)call(applyFn, selectFn, src, dims);
@@ -218,6 +219,7 @@ public class Tensor {
    * Transpose an NDBuffer by reordering its dimensions.  For example given an
    * image of shape [Y X C] we can make a planar representation by moving the the
    * channels first corresponds to reindexing dimensions [2 0 1].
+   * See examples in the <a href="https://cnuernber.github.io/dtype-next/tech.v3.tensor.html#var-transpose">Clojure documentation</a>.
    */
   public static NDBuffer transpose(NDBuffer src, Object dimIndexes) {
     return (NDBuffer)call(transposeFn, src, dimIndexes);
