@@ -898,7 +898,7 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
 
   Example:
 
-  ```clojure
+```clojure
   user> (dtt/select (dtt/->tensor [1 2 3]) [0 2])
   #tech.v3.tensor<object>[2]
   [1 3]
@@ -914,7 +914,7 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
   #tech.v3.tensor<object>[2 2]
   [[2 3]
    [5 6]]
-  ```"
+```"
   ^NDBuffer [t & new-shape]
   (check-ns 'tech.v3.tensor)
   (dtype-proto/select t new-shape))

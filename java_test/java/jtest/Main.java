@@ -5,6 +5,7 @@ import tech.v3.datatype.LongReader;
 import tech.v3.datatype.DoubleReader;
 import tech.v3.datatype.ArrayBufferData;
 import tech.v3.datatype.Buffer;
+import tech.v3.datatype.NDBuffer;
 import static tech.v3.Clj.*;
 import static tech.v3.DType.*;
 import static tech.v3.Tensor.*;
@@ -166,11 +167,48 @@ public class Main
     // [0.000 0.000 0.000]
     // [0.000 0.000 0.000]]
 
+    //When data is wrapped via a Buffer or a tensor op then
+    //as long as you haven't reindexed it or done some other lazy or abstract operation
+    //you can get back to the original data.
     double[] testData = toDoubleArray(range(100));
     Buffer wrappedData = toBuffer(testData);
     ArrayBufferData origData = asArrayBuffer(wrappedData);
 
     System.out.println(String.valueOf(System.identityHashCode(testData))
 		       + " " + String.valueOf(System.identityHashCode(origData.arrayData)));
+
+
+    //This includes select as long as the selection is contiguous and monotonically
+    //incrementing by 1.
+    NDBuffer tensData = reshape(toDoubleArray(range (27)), vector(3,3,3));
+    NDBuffer smallerTensor = select(tensData, range(1,3));
+    System.out.println(smallerTensor.toString());
+    //Because we use a range the above condition has to be met.
+    System.out.println("Array buffer access? " +
+		       (String.valueOf(asArrayBuffer(smallerTensor) != null)));
+    // #tech.v3.tensor<float64>[2 3 3]
+    // [[[9.000 10.00 11.00]
+    //   [12.00 13.00 14.00]
+    //   [15.00 16.00 17.00]]
+    // [[18.00 19.00 20.00]
+    //  [21.00 22.00 23.00]
+    //  [24.00 25.00 26.00]]]
+    //  Array buffer access? true
+
+
+    //If we invert the selection thus reversing the outermost dimension
+    smallerTensor = select(tensData, range(2,0,-1));
+    System.out.println(smallerTensor.toString());
+    //We can no longer get a buffer from this tensor.
+    System.out.println("Array buffer access? " +
+		       (String.valueOf(asArrayBuffer(smallerTensor) != null)));
+    // #tech.v3.tensor<float64>[2 3 3]
+    // [[[18.00 19.00 20.00]
+    //   [21.00 22.00 23.00]
+    //   [24.00 25.00 26.00]]
+    //  [[9.000 10.00 11.00]
+    //   [12.00 13.00 14.00]
+    //   [15.00 16.00 17.00]]]
+    // Array buffer access? false
   }
 }
