@@ -447,12 +447,12 @@ public class Main
     //https://techascent.github.io/tech.ml.dataset/walkthrough.html
 
     //DType also includes a high performance parallelism primitive named
-    //indexed-map-reduce.  This primitive in-order iterates through many indexes
+    //indexed-map-reduce.  This primitive iterates in-order through many indexes
     //in a block and then reduces the result of those blocks.  Block size is dicated
     //by options - see function documentation.
     //This iteration strategy allows the per-thread iteration mechanism to keep temporary
     //variables on the stack as opposed to in objects.  Stack-based variables are much much
-    //more likely to be picked up by hotspot (or any compile) and vectorized and object
+    //more likely to be picked up by hotspot (or any compiler) and vectorized than object
     //variables.
     double[] doubles = toDoubleArray(range(1000000));
     double result =
