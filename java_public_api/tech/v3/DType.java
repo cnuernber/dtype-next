@@ -2,6 +2,7 @@ package tech.v3;
 
 import tech.v3.datatype.*;
 import clojure.lang.IFn;
+import clojure.lang.Keyword;
 import static tech.v3.Clj.*;
 import java.util.List;
 import java.util.Map;
@@ -50,19 +51,32 @@ public class DType {
   //Unnecessary
   private DType() {}
 
-  public static final Object bool = keyword("boolean");
-  public static final Object int8 = keyword("int8");
-  public static final Object uint8 = keyword("uint8");
-  public static final Object int16 = keyword("int16");
-  public static final Object uint16 = keyword("uint16");
-  public static final Object int32 = keyword("int32");
-  public static final Object uint32 = keyword("uint32");
-  public static final Object int64 = keyword("int64");
-  public static final Object uint64 = keyword("uint64");
-  public static final Object float32 = keyword("float32");
-  public static final Object float64 = keyword("float64");
-  public static final Object jvmHeap = keyword("jvm-heap");
-  public static final Object nativeHeap = keyword("native-heap");
+  /** Boolean keyword datatype. */
+  public static final Keyword bool = keyword("boolean");
+  /** Signed byte datatype. */
+  public static final Keyword int8 = keyword("int8");
+  /** Unsigned byte datatype. */
+  public static final Keyword uint8 = keyword("uint8");
+  /** Signed short datatype. */
+  public static final Keyword int16 = keyword("int16");
+  /** Unsigned short datatype. */
+  public static final Keyword uint16 = keyword("uint16");
+  /** Signed int datatype. */
+  public static final Keyword int32 = keyword("int32");
+  /** Unsigned int datatype. */
+  public static final Keyword uint32 = keyword("uint32");
+  /** Signed 64 bit integer datatype. */
+  public static final Keyword int64 = keyword("int64");
+  /** Unsigned 64 bit integer datatype. */
+  public static final Keyword uint64 = keyword("uint64");
+  /** 32 bit floating point datatype. */
+  public static final Keyword float32 = keyword("float32");
+  /** 64 bit floating point datatype. */
+  public static final Keyword float64 = keyword("float64");
+  /** Allocate data on the JVM heap in JVM primitive arrays. */
+  public static final Keyword jvmHeap = keyword("jvm-heap");
+  /** Allocate data on the native heap e.g. using 'malloc'. */
+  public static final Keyword nativeHeap = keyword("native-heap");
 
 
 
@@ -85,10 +99,7 @@ public class DType {
 						       "*bound-resource-context?*");
   static final IFn releaseResourcesFn = requiringResolve("tech.v3.resource.stack",
 							      "release-current-resources");
-
-
   static final IFn optMap = requiringResolve("tech.v3.datatype.jvm-map", "opt-map");
-
   static final IFn setConstantFn = requiringResolve("tech.v3.datatype", "set-constant!");
   static final IFn copyFn = requiringResolve("tech.v3.datatype", "copy!");
   static final IFn subBufferFn = requiringResolve("tech.v3.datatype", "sub-buffer");
@@ -103,15 +114,83 @@ public class DType {
 							   "as-array-buffer-data");
   static final IFn numericByteWidthFn = requiringResolve("tech.v3.datatype.casting",
 							    "numeric-byte-width");
-
   static final IFn indexedBufferFn = requiringResolve("tech.v3.datatype.io-indexed-buffer",
 							   "indexed-buffer");
-
   static final IFn reverseFn = requiringResolve("tech.v3.datatype-api", "reverse");
-
-  static final IFn asNioBufFn = requiringResolve("tech.v3.datatype.nio-buffer", "as-nio-buffer");
-
-
+  static final IFn asNioBufFn = requiringResolve("tech.v3.datatype.nio-buffer",
+						 "as-nio-buffer");
+  static final IFn indexedMapReduceFn = requiringResolve("tech.v3.parallel.for",
+							 "indexed-map-reduce");
+  /**
+   * Extremely efficient parallelism primitive for working through a fixed number
+   * of indexes.  This corresponds to an out-of-core reduction across a wide set
+   * of indexes followed by an in-core reduction to the final result.  This method
+   * uses the ForkJoinPool's common pool by default and if this thread is already
+   * running inside the common pool it runs the job in a single threaded mode.
+   *
+   * @param numIters Max iteration size.
+   * @param indexedMapFn Function that takes 2 longs, startIndex and groupLen and
+   * produces a single result.
+   * @param reduceFn fn that takes a more or less lazy sequence of results and combines
+   * them or returns them in-place.  For side-effecting loops this could be the Clojure
+   * function dorun which simply realizes everything and returns nil.
+   * @param options Options map (keyword keys) described below.
+   *
+   * <p>Options (may be null):</p>
+   * <ul>
+   *   <li><b>:max-batch-size</b> - Defaults to 64000 to respect safe points and to make the
+   *       result sequence more manageable.</li>
+   *   <li><b>:fork-join-pool</b> - Fork join pool to use.  Defaults to the common pool.</li>
+   * </ul>
+   *
+   * <p>Example:</p>
+   * <pre>
+   * double[] doubles = toDoubleArray(range(1000000));
+   * double result =
+   *  (double)indexedMapReduce(doubles.length,
+   *			       new IFnDef() {
+   *				 //parallel indexed map start block
+   *				 public Object invoke(Object startIdx, Object groupLen) {
+   *				   double sum = 0.0;
+   *				   //RT.intCast is a checked cast.  This could
+   *				   //potentially overflow but then the Clojure runtime would
+   *                               //throw an exception and the double array couldn't
+   *				   //address the data.
+   *				   int sidx = RT.intCast(startIdx);
+   *				   //Note max-batch-size keeps the group len from overflowing
+   *				   //size of integer.
+   *				   int glen = RT.intCast(groupLen);
+   *				   for(int idx = 0; idx < glen; ++idx ) {
+   *				     sum += doubles[sidx + idx];
+   *				   }
+   *				   return sum;
+   *				 }
+   *			       },
+   *			       //Reduction function receives the results of the per-thread
+   *			       //reduction.
+   *			       new IFnDef() {
+   *				 public Object invoke(Object data) {
+   *				   double sum = 0.0;
+   *
+   *				   for( Object c: (Iterable)data) {
+   *				     sum += (double)c;
+   *				   }
+   *				   return sum;
+   *				 }
+   *			       });
+   * </pre>
+   */
+  public static Object indexedMapReduce(long numIters, IFn indexedMapFn, IFn reduceFn,
+					Object options) {
+    return indexedMapReduceFn.invoke(numIters, indexedMapFn, reduceFn, options);
+  }
+  /**
+   * Extremely efficient parallelism primitive.  See documentation on the 4-arity form of the
+   * function.
+   */
+  public static Object indexedMapReduce(long numIters, IFn indexedMapFn, IFn reduceFn) {
+    return indexedMapReduce(numIters, indexedMapFn, reduceFn, null);
+  }
   /**
    * Return the datatype contained in the container.  For example a double array has
    * an elemwise-datatype of the Clojure keyword ':float64'.

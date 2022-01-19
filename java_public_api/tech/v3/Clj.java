@@ -4,6 +4,8 @@ import clojure.lang.IFn;
 import clojure.java.api.Clojure;
 import clojure.lang.RT;
 import clojure.lang.IPersistentMap;
+import clojure.lang.Symbol;
+import clojure.lang.Keyword;
 import java.util.Map;
 import java.util.List;
 
@@ -75,34 +77,34 @@ public class Clj
   /**
    * Create a Clojure symbol object from a string.
    */
-  public static Object symbol(String name) {
-    return symbolFn.invoke(name);
+  public static Symbol symbol(String name) {
+    return (Symbol)symbolFn.invoke(name);
   }
   /**
    * Create a Clojure symbol object from a namespace name and a string.
    */
-  public static Object symbol(String ns, String name) {
-    return symbolFn.invoke(ns, name);
+  public static Symbol symbol(String ns, String name) {
+    return (Symbol)symbolFn.invoke(ns, name);
   }
   /**
    * Create a Clojure keyword from a string.  Keywords are used extremely frequently
    * in Clojure so there is a shorthand method - kw.
    * @see kw.
    */
-  public static Object keyword(String name) {
-    return keywordFn.invoke(name);
+  public static Keyword keyword(String name) {
+    return (Keyword)keywordFn.invoke(name);
   }
   /**
    * Create a Clojure keyword from a string.
    */
-  public static Object kw(String name) {
-    return keywordFn.invoke(name);
+  public static Keyword kw(String name) {
+    return (Keyword)keywordFn.invoke(name);
   }
   /**
    * Create a Clojure namespaced keyword from a namespace name and a string.
    */
-  public static Object keyword(String ns, String name) {
-    return symbolFn.invoke(ns, name);
+  public static Keyword keyword(String ns, String name) {
+    return (Keyword)keywordFn.invoke(ns, name);
   }
   /**
    * Ask the clojure runtime to require a particular namespace.  This must be used

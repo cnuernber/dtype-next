@@ -16,7 +16,9 @@ import clojure.lang.RT;
 import clojure.lang.IFn;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.nio.FloatBuffer;
+
 
 public class Main
 {
@@ -76,12 +78,13 @@ public class Main
     System.out.println(opts("one", 1, "two", 2, "three", 3).toString());
     //{:one 1, :two 2, :three 3}
 
-    //When allocating native memory, users can control how the memory is reclaimed.  The default
-    //is the keyword ':gc' which is the equivalent of keyword("gc") or kw("gc") for short.
-    //The means the memory will be reclaimed when the garbage collector notifies us the
-    //memory is no longer reachable by the program.
-    //Stack-based resource contexts are available in order to ensure the code within the context
-    //will release all allocated native memory immediately upon the 'close' of the context.
+    //When allocating native memory, users can control how the memory is reclaimed.
+    //The default is the keyword ':gc' which is the equivalent of keyword("gc") or
+    //kw("gc") for short.  The means the memory will be reclaimed when the garbage
+    //collector notifies us the memory is no longer reachable by the program.
+    //Stack-based resource contexts are available in order to ensure the code within
+    //the context will release all allocated native memory immediately upon the
+    //'close' of the context.
     try (AutoCloseable ac = stackResourceContext()) {
       Object nativeBuf = makeContainer(nativeHeap, int8, opts("log-level", keyword("info")),
 				       range(10));
@@ -443,10 +446,65 @@ public class Main
     //https://techascent.github.io/tech.ml.dataset/quick-reference.html
     //https://techascent.github.io/tech.ml.dataset/walkthrough.html
 
+    //DType also includes a high performance parallelism primitive named
+    //indexed-map-reduce.  This primitive in-order iterates through many indexes
+    //in a block and then reduces the result of those blocks.  Block size is dicated
+    //by options - see function documentation.
+    //This iteration strategy allows the per-thread iteration mechanism to keep temporary
+    //variables on the stack as opposed to in objects.  Stack-based variables are much much
+    //more likely to be picked up by hotspot (or any compile) and vectorized and object
+    //variables.
+    double[] doubles = toDoubleArray(range(1000000));
+    double result =
+      (double)indexedMapReduce(doubles.length,
+			       new IFnDef() {
+				 //parallel indexed map start block
+				 public Object invoke(Object startIdx, Object groupLen) {
+				   double sum = 0.0;
+				   //RT.intCast is a checked cast.  This could
+				   //potentially overflow but then the double array can't
+				   //address the data.
+				   int sidx = RT.intCast(startIdx);
+				   //Note max-batch-size keeps the group len from overflowing
+				   //size of integer.
+				   int glen = RT.intCast(groupLen);
+				   for(int idx = 0; idx < glen; ++idx ) {
+				     sum += doubles[sidx + idx];
+				   }
+				   return sum;
+				 }
+			       },
+			       //Reduction function receives the results of the per-thread
+			       //reduction.
+			       new IFnDef() {
+				 public Object invoke(Object data) {
+				   double sum = 0.0;
+
+				   for( Object c: (Iterable)data) {
+				     sum += (double)c;
+				   }
+				   return sum;
+				 }
+			       });
+    System.out.println("Reduction result: " + String.valueOf(result));
+    //Reduction result: 4.999995E11
+
+    //Now that was a long form super high efficiency summation.  Now we trade a bit of
+    //efficiency for robustness in two forms, first we automatically filter out
+    //NaN values and second we use Kahan's compesated summation algorithm to give the
+    //accumulator more effective bits than 64.
+
+    System.out.println("Built in reduction result: " +
+		       String.valueOf(call(requiringResolve("tech.v3.datatype.statistics",
+							    "sum"),
+					   doubles)));
+    //Built in reduction result: 4.999995E11
+
+
+
     //Neanderthal boots up Clojure's agent pool which means that when it comes time to
     //shutdown you need to call shutdown-agents else you get a nice 1 minute hang
     //on shutdown.  This is always safe to call regardless.
     call(requiringResolve("clojure.core", "shutdown-agents"));
-
   }
 }
