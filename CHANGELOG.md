@@ -1,6 +1,11 @@
+## 8.062
+ * More types exposed in Clj.java.
+ * compile pathway exposed in Clj.java.
+ * indexMapReduce exposed in DType.java and an example given in java_test.
+
 ## 8.060
  * Fixed issue with makeTensor
- 
+
 ## 8.059
  * Added simple descriptor buffer types for asArrayBuffer and asNativeBuffer so
    users can get to the data in the simplest possible way.
