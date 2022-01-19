@@ -464,20 +464,28 @@ public class Clj
   }
 
   /**
-   * Compile a clojure namespace into class files.  Compilation path defaults to
+   * <p>Compile a clojure namespace into class files.  Compilation path defaults to
    * 'classes'.  If this compilation pathway is on the classpath then that namespace
-   * will load potentially much faster next time it is 'require'd.
+   * will load potentially much faster next time it is 'require'd.</p>
+   *
+   * <p>The major caveat here is if you upgrade the base clojure library you must recompile.
+   * <b>A difference between the version of the .clj files and the version of the
+   * .class files will lead to unpredictable errors running the code.</b></p>
    */
   public static void compile(String namespace) {
     compileFn.invoke(symbol(namespace));
   }
 
   /**
-   * Compile a clojure namespace into class files located in a specific output directory.
+   * <p>Compile a clojure namespace into class files located in a specific output directory.
    * If this output directoryis on the classpath then that namespace will load potentially
-   * much faster next time it is 'require'd.
+   * much faster next time it is 'require'd.</p>
    *
-   * outputDir must exist.
+   * <p>outputDir must exist.</p>
+   *
+   * <p>The major caveat here is if you upgrade the base clojure library you must recompile.
+   * <b>A difference between the version of the .clj files and the version of the
+   * .class files will lead to unpredictable errors running the code.</b></p>
    */
   public static void compile(String namespace, String outputDir) {
     try(AutoCloseable binder = makeThreadBindings(hashmap(compilePathVar, outputDir))) {

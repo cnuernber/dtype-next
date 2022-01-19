@@ -1,5 +1,5 @@
 {:paths ["classes"]
- :deps {cnuernber/dtype-next {:mvn/version "8.060"}
+ :deps {cnuernber/dtype-next {:mvn/version "8.061-SNAPSHOT"}
         uncomplicate/neanderthal {:mvn/version "0.43.3"}
 
         techascent/tech.ml.dataset {:mvn/version "6.049"
