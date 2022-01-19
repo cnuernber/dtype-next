@@ -491,7 +491,7 @@ public class Main
 
     //Now that was a long form super high efficiency summation.  Now we trade a bit of
     //efficiency for robustness in two forms, first we automatically filter out
-    //NaN values and second we use Kahan's compesated summation algorithm to give the
+    //NaN values and second we use Kahan's compensated summation algorithm to give the
     //accumulator more effective bits than 64.
 
     System.out.println("Built in reduction result: " +
