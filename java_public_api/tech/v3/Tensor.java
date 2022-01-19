@@ -79,21 +79,21 @@ public class Tensor {
   //Unnecessary
   private Tensor() {}
 
-  static final IFn makeTensorFn = (IFn)requiringResolve("tech.v3.tensor", "->tensor");
-  static final IFn asTensorFn = (IFn)requiringResolve("tech.v3.tensor", "as-tensor");
-  static final IFn ensureTensorFn = (IFn)requiringResolve("tech.v3.tensor", "ensure-tensor");
-  static final IFn applyFn = (IFn)requiringResolve("clojure.core", "apply");
-  static final IFn mget = (IFn)requiringResolve("tech.v3.tensor", "mget");
-  static final IFn mset = (IFn)requiringResolve("tech.v3.tensor", "mset!");
-  static final IFn bcastFn = (IFn)requiringResolve("tech.v3.tensor", "broadcast");
-  static final IFn reshapeFn = (IFn)requiringResolve("tech.v3.tensor", "reshape");
-  static final IFn selectFn = (IFn)requiringResolve("tech.v3.tensor", "select");
-  static final IFn transposeFn = (IFn)requiringResolve("tech.v3.tensor", "transpose");
-  static final IFn sliceFn = (IFn)requiringResolve("tech.v3.tensor", "slice");
-  static final IFn sliceRightFn = (IFn)requiringResolve("tech.v3.tensor", "slice-right");
-  static final IFn computeTensFn = (IFn)requiringResolve("tech.v3.tensor", "compute-tensor");
-  static final IFn ensureNDBFn = (IFn)requiringResolve("tech.v3.tensor", "ensure-nd-buffer-descriptor");
-  static final IFn NDBToTensFn = (IFn)requiringResolve("tech.v3.tensor", "nd-buffer-descriptor->tensor");
+  static final IFn makeTensorFn = requiringResolve("tech.v3.tensor", "->tensor");
+  static final IFn asTensorFn = requiringResolve("tech.v3.tensor", "as-tensor");
+  static final IFn ensureTensorFn = requiringResolve("tech.v3.tensor", "ensure-tensor");
+  static final IFn applyFn = requiringResolve("clojure.core", "apply");
+  static final IFn mget = requiringResolve("tech.v3.tensor", "mget");
+  static final IFn mset = requiringResolve("tech.v3.tensor", "mset!");
+  static final IFn bcastFn = requiringResolve("tech.v3.tensor", "broadcast");
+  static final IFn reshapeFn = requiringResolve("tech.v3.tensor", "reshape");
+  static final IFn selectFn = requiringResolve("tech.v3.tensor", "select");
+  static final IFn transposeFn = requiringResolve("tech.v3.tensor", "transpose");
+  static final IFn sliceFn = requiringResolve("tech.v3.tensor", "slice");
+  static final IFn sliceRightFn = requiringResolve("tech.v3.tensor", "slice-right");
+  static final IFn computeTensFn = requiringResolve("tech.v3.tensor", "compute-tensor");
+  static final IFn ensureNDBFn = requiringResolve("tech.v3.tensor", "ensure-nd-buffer-descriptor");
+  static final IFn NDBToTensFn = requiringResolve("tech.v3.tensor", "nd-buffer-descriptor->tensor");
 
 
 

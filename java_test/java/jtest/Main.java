@@ -58,7 +58,7 @@ public class Main
     //Base clojure functions work fine.
     require("tech.v3.datatype");
     //A slightly slower but more robust symbol resolution mechanism.
-    IFn reshape = (IFn)requiringResolve("tech.v3.tensor", "reshape");
+    IFn reshape = requiringResolve("tech.v3.tensor", "reshape");
     //You can reshape any flat array or java.util.List implementation in-place
     //into a tensor.  Arrays-of-arrays need to go through the makeTensor route.
     int[] ddata = new int[] {0,1,2,3,4,5,6,7,8,9};
@@ -245,7 +245,7 @@ public class Main
     //along with detailed API documentation
     //https://neanderthal.uncomplicate.org/codox/
     require("uncomplicate.neanderthal.core");
-    IFn denseConstructor = (IFn)requiringResolve("uncomplicate.neanderthal.native", "dge");
+    IFn denseConstructor = requiringResolve("uncomplicate.neanderthal.native", "dge");
     Object denseMatrix = call(denseConstructor, 3, 3, range(9));
     System.out.println(denseMatrix.toString());
     // #RealGEMatrix[double, mxn:3x3, layout:column, offset:0]

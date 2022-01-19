@@ -67,49 +67,49 @@ public class DType {
 
 
 
-  static final IFn makeContainerFn = (IFn)requiringResolve("tech.v3.datatype", "make-container");
-  static final IFn cloneFn = (IFn)requiringResolve("tech.v3.datatype", "clone");
-  static final IFn toArrayFn = (IFn)requiringResolve("tech.v3.datatype", "->array");
-  static final IFn elemwiseDatatypeFn = (IFn)requiringResolve("tech.v3.datatype",
+  static final IFn makeContainerFn = requiringResolve("tech.v3.datatype", "make-container");
+  static final IFn cloneFn = requiringResolve("tech.v3.datatype", "clone");
+  static final IFn toArrayFn = requiringResolve("tech.v3.datatype", "->array");
+  static final IFn elemwiseDatatypeFn = requiringResolve("tech.v3.datatype",
 							      "elemwise-datatype");
-  static final IFn ecountFn = (IFn)requiringResolve("tech.v3.datatype", "ecount");
-  static final IFn shapeFn = (IFn)requiringResolve("tech.v3.datatype", "shape");
-  static final IFn makeListFn = (IFn)requiringResolve("tech.v3.datatype", "make-list");
-  static final IFn emapFn = (IFn)requiringResolve("tech.v3.datatype.emap", "emap");
-  static final IFn applyFn = (IFn)requiringResolve("clojure.core", "apply");
+  static final IFn ecountFn = requiringResolve("tech.v3.datatype", "ecount");
+  static final IFn shapeFn = requiringResolve("tech.v3.datatype", "shape");
+  static final IFn makeListFn = requiringResolve("tech.v3.datatype", "make-list");
+  static final IFn emapFn = requiringResolve("tech.v3.datatype.emap", "emap");
+  static final IFn applyFn = requiringResolve("clojure.core", "apply");
 
   //resource management
   static final Object stackContextVar = requiringResolve("tech.v3.resource.stack",
 							 "*resource-context*");
   static final Object stackBoundVar = requiringResolve("tech.v3.resource.stack",
 						       "*bound-resource-context?*");
-  static final IFn releaseResourcesFn = (IFn)requiringResolve("tech.v3.resource.stack",
+  static final IFn releaseResourcesFn = requiringResolve("tech.v3.resource.stack",
 							      "release-current-resources");
 
 
-  static final IFn optMap = (IFn)requiringResolve("tech.v3.datatype.jvm-map", "opt-map");
+  static final IFn optMap = requiringResolve("tech.v3.datatype.jvm-map", "opt-map");
 
-  static final IFn setConstantFn = (IFn)requiringResolve("tech.v3.datatype", "set-constant!");
-  static final IFn copyFn = (IFn)requiringResolve("tech.v3.datatype", "copy!");
-  static final IFn subBufferFn = (IFn)requiringResolve("tech.v3.datatype", "sub-buffer");
-  static final IFn toBufferFn = (IFn)requiringResolve("tech.v3.datatype", "->buffer");
-  static final IFn wrapAddressFn = (IFn)requiringResolve("tech.v3.datatype.native-buffer",
+  static final IFn setConstantFn = requiringResolve("tech.v3.datatype", "set-constant!");
+  static final IFn copyFn = requiringResolve("tech.v3.datatype", "copy!");
+  static final IFn subBufferFn = requiringResolve("tech.v3.datatype", "sub-buffer");
+  static final IFn toBufferFn = requiringResolve("tech.v3.datatype", "->buffer");
+  static final IFn wrapAddressFn = requiringResolve("tech.v3.datatype.native-buffer",
 							 "wrap-address");
-  static final IFn setNativeDtFn = (IFn)requiringResolve("tech.v3.datatype.native-buffer",
+  static final IFn setNativeDtFn = requiringResolve("tech.v3.datatype.native-buffer",
 							 "set-native-datatype");
-  static final IFn asNativeBufferFn = (IFn)requiringResolve("tech.v3.datatype",
+  static final IFn asNativeBufferFn = requiringResolve("tech.v3.datatype",
 							    "as-native-buffer-data");
-  static final IFn asArrayBufferFn = (IFn)requiringResolve("tech.v3.datatype",
+  static final IFn asArrayBufferFn = requiringResolve("tech.v3.datatype",
 							   "as-array-buffer-data");
-  static final IFn numericByteWidthFn = (IFn)requiringResolve("tech.v3.datatype.casting",
+  static final IFn numericByteWidthFn = requiringResolve("tech.v3.datatype.casting",
 							    "numeric-byte-width");
 
-  static final IFn indexedBufferFn = (IFn)requiringResolve("tech.v3.datatype.io-indexed-buffer",
+  static final IFn indexedBufferFn = requiringResolve("tech.v3.datatype.io-indexed-buffer",
 							   "indexed-buffer");
 
-  static final IFn reverseFn = (IFn)requiringResolve("tech.v3.datatype-api", "reverse");
+  static final IFn reverseFn = requiringResolve("tech.v3.datatype-api", "reverse");
 
-  static final IFn asNioBufFn = (IFn)requiringResolve("tech.v3.datatype.nio-buffer", "as-nio-buffer");
+  static final IFn asNioBufFn = requiringResolve("tech.v3.datatype.nio-buffer", "as-nio-buffer");
 
 
   /**

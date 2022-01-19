@@ -49,23 +49,27 @@ public class Clj
   static final IFn metaFn = Clojure.var("clojure.core", "meta");
   static final IFn withMetaFn = Clojure.var("clojure.core", "with-meta");
   static final IFn varyMetaFn = Clojure.var ("clojure.core", "vary-meta");
+  static final IFn keysFn = Clojure.var("clojure.core", "keys");
+  static final IFn valsFn = Clojure.var("clojure.core", "vals");
+  static final IFn compileFn = Clojure.var("clojure.core", "compile");
+  static final Object compilePathVar = Clojure.var("clojure.core", "*compile-path*");
 
   /**
    * merge fn.  Useful to pass into update or varyMeta.
    */
-  public static final IFn mergeFn = (IFn)Clojure.var("clojure.core", "merge");
+  public static final IFn mergeFn = Clojure.var("clojure.core", "merge");
   /**
    * dissoc fn.  Useful to pass into update or varyMeta.
    */
-  public static final IFn assocFn = (IFn)Clojure.var("clojure.core", "assoc");
+  public static final IFn assocFn = Clojure.var("clojure.core", "assoc");
   /**
    * dissoc fn.  Useful to pass into update or varyMeta.
    */
-  public static final IFn dissocFn = (IFn)Clojure.var("clojure.core", "dissoc");
+  public static final IFn dissocFn = Clojure.var("clojure.core", "dissoc");
   /**
    * update fn.  Useful to pass into varyMeta.
    */
-  public static final IFn updateFn = (IFn)Clojure.var("clojure.core", "update");
+  public static final IFn updateFn = Clojure.var("clojure.core", "update");
 
 
   /**
@@ -115,24 +119,24 @@ public class Clj
    *
    * @see require.
    */
-  public static Object var(String ns, String name) {
+  public static IFn var(String ns, String name) {
     return Clojure.var(ns,name);
   }
 
   /**
    * Perform a require and then lookup a var.  Returns 'null' on failure.
    */
-  public static Object uncheckedRequiringResolve(String ns, String name) {
-    return requireresFn.invoke(symbolFn.invoke(ns,name));
+  public static IFn uncheckedRequiringResolve(String ns, String name) {
+    return (IFn)requireresFn.invoke(symbolFn.invoke(ns,name));
   }
   /**
    * Perform a require and then lookup a var.  Throws exception if the var
    * isn't found.  If an exception isn't desired, use 'uncheckedRequiringResolve'.
    */
-  public static Object requiringResolve(String ns, String name) {
-    Object retval = uncheckedRequiringResolve(ns, name);
+  public static IFn requiringResolve(String ns, String name) {
+    IFn retval = uncheckedRequiringResolve(ns, name);
     if (retval == null)
-      throw new RuntimeException("Unable to resolve '" + ns + "/" + name);
+      throw new RuntimeException("Unable to resolve '" + ns + "/" + name + "'");
     return retval;
   }
   /**
@@ -444,5 +448,43 @@ public class Clj
    */
   public static Object varyMeta(Object val, IFn modifyFn, Object... args) {
     return applyFn.invoke(varyMetaFn, val, modifyFn, args);
+  }
+
+  /**
+   * Return the keys of a map.
+   */
+  public static Iterable keys(Object val) {
+    return (Iterable)keysFn.invoke(val);
+  }
+  /**
+   * Return the values of a map.
+   */
+  public static Iterable vals(Object val) {
+    return (Iterable)valsFn.invoke(val);
+  }
+
+  /**
+   * Compile a clojure namespace into class files.  Compilation path defaults to
+   * 'classes'.  If this compilation pathway is on the classpath then that namespace
+   * will load potentially much faster next time it is 'require'd.
+   */
+  public static void compile(String namespace) {
+    compileFn.invoke(symbol(namespace));
+  }
+
+  /**
+   * Compile a clojure namespace into class files located in a specific output directory.
+   * If this output directoryis on the classpath then that namespace will load potentially
+   * much faster next time it is 'require'd.
+   *
+   * outputDir must exist.
+   */
+  public static void compile(String namespace, String outputDir) {
+    try(AutoCloseable binder = makeThreadBindings(hashmap(compilePathVar, outputDir))) {
+      compileFn.invoke(symbol(namespace));
+    }
+    catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 }
