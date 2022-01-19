@@ -10,10 +10,12 @@ import tech.v3.datatype.NDBuffer;
 import static tech.v3.Clj.*;
 import static tech.v3.DType.*;
 import static tech.v3.Tensor.*;
+import tech.v3.DType; //explicit access to clone method
 import java.util.ArrayList;
 import clojure.lang.RT;
 import clojure.lang.IFn;
 import java.util.Map;
+import java.util.HashMap;
 import java.nio.FloatBuffer;
 
 public class Main
@@ -233,6 +235,218 @@ public class Main
 
 
 
+    //Neanderthal is a high speed linear algebra system with bindings to MKL, openCL, and
+    //cuda.
+    //Overall Neanderthal is *very* well documented both with educational styloe
+    //books and with API documention.
+
+    //See Neaderthal's main website:
+    //https://neanderthal.uncomplicate.org/
+    //along with detailed API documentation
+    //https://neanderthal.uncomplicate.org/codox/
+    require("uncomplicate.neanderthal.core");
+    IFn denseConstructor = (IFn)requiringResolve("uncomplicate.neanderthal.native", "dge");
+    Object denseMatrix = call(denseConstructor, 3, 3, range(9));
+    System.out.println(denseMatrix.toString());
+    // #RealGEMatrix[double, mxn:3x3, layout:column, offset:0]
+
+    //Neaderthal support for dtype-next requires you to require a namespace.  Then
+    //protocols are auto-loaded and neaderthal dense matrixes will have a as-tensor pathway.
+    require("tech.v3.libs.neanderthal");
+    //in-place conversion into dtype-next land is then supported.
+    NDBuffer ndBuf = asTensor(denseMatrix);
+    //Neaderthal defaults to column-major storage.
+    System.out.println(ndBuf.toString());
+    //#tech.v3.tensor<float64>[3 3]
+    // [[0.000 3.000 6.000]
+    //  [1.000 4.000 7.000]
+    //  [2.000 5.000 8.000]]
+
+    //We can create row-major matrix by passing in an option map.
+    Object denseMatrixRowMajor = call(denseConstructor, 3, 3, range(9),
+				      opts("layout", kw("row")));
+
+    ndBuf = asTensor(denseMatrixRowMajor);
+    System.out.println(ndBuf.toString());
+    //#tech.v3.tensor<float64>[3 3]
+    //[[0.000 1.000 2.000]
+    // [3.000 4.000 5.000]
+    // [6.000 7.000 8.000]]
+
+    //Neanderthal objects require an explicit release step.  Potentially in a wrapper
+    //we could bind this to auto-closeable and try with resources.
+    Object releaseFn = requiringResolve("uncomplicate.commons.core", "release");
+    call(releaseFn, denseMatrix);
+    call(releaseFn, denseMatrixRowMajor);
+
+
+
+    //tech.ml.dataset is a in-memory column-store data system similar to pandas
+    //or R's dplyr.  It has an extensive API - https://techascent.github.io/tech.ml.dataset/
+    Object datasetConstructor = requiringResolve("tech.v3.dataset", "->dataset");
+    //Default construction support for csv, tsv, xls, xlsx, sequence-of-maps and map-of-columns
+    //is included.
+    Object ds = call(datasetConstructor, "https://github.com/techascent/tech.ml.dataset/raw/master/test/data/stocks.csv");
+    //Datasets print nicely regardless of size.  We may change print to print begin..end but
+    //regardless you can always print a dataset safely without bombing your print system.
+    //Datasets print in markdown table format so you can paste them directly into a markdown
+    //document if you want a table.
+    System.out.println(ds.toString());
+    //https://github.com/techascent/tech.ml.dataset/raw/master/test/data/stocks.csv [560 3]:
+
+    //| symbol |       date | price |
+    //|--------|------------|------:|
+    //|   MSFT | 2000-01-01 | 39.81 |
+    //|   MSFT | 2000-02-01 | 36.35 |
+    //|   MSFT | 2000-03-01 | 43.22 |
+    //|   MSFT | 2000-04-01 | 28.37 |
+    //|   MSFT | 2000-05-01 | 25.45 |
+    // ...
+
+    //Datasets implement a subset of java.util.Map - they are maps where the colnames are
+    //the keys and the vals are the columns.  The maps are functional, however, so 'put' will
+    //throw an exception.  Use clojure.core's assoc method to create a new dataset.
+    Map dsMap = (Map)ds;
+
+    //Columns aren't themselves readers specifically but they do implement IFn expecting
+    //indexes and they also print nicely.
+    Object prices = dsMap.get("price");
+    System.out.println(prices);
+    //#tech.v3.dataset.column<float64>[560]
+    //price
+    //[39.81, 36.35, 43.22, 28.37, 25.45, 32.54, 28.40, 28.40, 24.53, 28.02, 23.34, 17.65, 24.84, 24.00, 22.25, 27.56, 28.14, 29.70, 26.93, 23.21...]
+
+    //Print the last price
+    System.out.println("Last price: " + call(prices, -1).toString());
+    //Last price: 223.02
+
+    //Datasets support a few java.time objects - Instants, LocalDates, and LocalTimes.  These
+    //are stored 'packed' meaning they are stored as their primitive integer representation.
+    //Instances are stored as 64bit microseconds past epoch.  LocalDates are stored as 32bit
+    //epoch-days and local-times are stores as 64bit microseconds past midnight.
+    //These specific datatypes are prefixed with :packed-.
+    Object dates = dsMap.get("date");
+    System.out.println("Packed date datatype: " + elemwiseDatatype(dates).toString());
+    //Packed date datatype: :packed-local-date
+
+    //Reading from this column's readObject member or its IFn interface will get you back
+    //a LocalDate
+    System.out.println(call(dates, 0).toString());
+
+
+    //Datatype contains a namespace with math functions that are designed to work
+    //lazily with readers. Here we create a price-squared column
+    //Datasets specifically are a version of Clojure's persistent map system so
+    //Clojure's assoc can be used to add new columns.
+    //And finally often we use 'head' to make printing nice.
+    Object sqFn = requiringResolve("tech.v3.datatype.functional", "sq");
+    Object headFn = requiringResolve("tech.v3.dataset", "head");
+    Object newDs = assoc(ds, "price^2", call(sqFn, prices));
+    System.out.println(call(headFn, newDs).toString());
+    //https://github.com/techascent/tech.ml.dataset/raw/master/test/data/stocks.csv [5 4]:
+
+    //| symbol |       date | price |   price^2 |
+    //|--------|------------|------:|----------:|
+    //|   MSFT | 2000-01-01 | 39.81 | 1584.8361 |
+    //|   MSFT | 2000-02-01 | 36.35 | 1321.3225 |
+    //|   MSFT | 2000-03-01 | 43.22 | 1867.9684 |
+    //|   MSFT | 2000-04-01 | 28.37 |  804.8569 |
+    //|   MSFT | 2000-05-01 | 25.45 |  647.7025 |
+
+
+    //You can get the rows of the dataset in 'map' form where the keys are shared
+    //between all the maps and each get operations reads data from the backing store.
+
+    Object rowsFn = requiringResolve("tech.v3.dataset", "rows");
+
+    //The rows object implements Buffer which means it implements both  IFn and
+    //java.util.List so you can use whichever.
+    //The easiest pathway IMHO is to use the IFn or Buffer readObject interface as then
+    //you get negative from-the-end indexing.
+    Object rows = (Object)call(rowsFn, newDs);
+    System.out.println(call(rows, 0).toString());
+    // {"date" #object[java.time.LocalDate 0xe360e01 "2000-01-01"], "symbol" "MSFT", "price^2" 1584.8361000000002, "price" 39.81}
+
+    System.out.println(call(rows,-1).toString());
+    // {"date" #object[java.time.LocalDate 0x210588 "2010-03-01"], "symbol" "AAPL", "price^2" 49737.9204, "price" 223.02}
+
+    //Saving/loading to arrow is done through a specific namespace.
+    //Documentation - https://techascent.github.io/tech.ml.dataset/tech.v3.libs.arrow.html
+    Object writeFn = requiringResolve("tech.v3.libs.arrow", "dataset->stream!");
+    call(writeFn, newDs, "test.arrow");
+    //Lots of annoying debug logging output.
+
+    //Now you can mmap that back unless you are on an m-1 mac.  For m-1 macs you need to
+    //run JDK-17 and load the memory module-
+    //"--add-modules" "jdk.incubator.foreign,jdk.incubator.vector"
+    //"--enable-native-access=ALL-UNNAMED"
+    Object readFn = requiringResolve("tech.v3.libs.arrow", "stream->dataset");
+    //Consider using a resource context here-
+    try (AutoCloseable ac = stackResourceContext()) {
+      //If open-type isn't provided it uses the much more robust input-stream
+      //pathway.
+      Object mmapds = call(readFn, "test.arrow", opts("open-type", kw("mmap")));
+      System.out.println(call(headFn, mmapds).toString());
+      //test.arrow [5 4]:
+      //| symbol |       date | price |   price^2 |
+      //|--------|------------|------:|----------:|
+      //|   MSFT | 2000-01-01 | 39.81 | 1584.8361 |
+      //|   MSFT | 2000-02-01 | 36.35 | 1321.3225 |
+      //|   MSFT | 2000-03-01 | 43.22 | 1867.9684 |
+      //|   MSFT | 2000-04-01 | 28.37 |  804.8569 |
+      //|   MSFT | 2000-05-01 | 25.45 |  647.7025 |
+
+
+
+      //Cloning a datasets copies it completely and efficiently into jvm memory
+      //So it can safely escape the resource context.  In general clone copies the object
+      //as efficiently as possible into jvmHeap memory.
+      //Cloning also serves to realize any outstanding lazy operations.
+      Map cloneds = (Map)DType.clone(mmapds);
+      System.out.println(call(headFn, cloneds).toString());
+      //test.arrow [5 4]:
+      //| symbol |       date | price |   price^2 |
+      //|--------|------------|------:|----------:|
+      //|   MSFT | 2000-01-01 | 39.81 | 1584.8361 |
+      //|   MSFT | 2000-02-01 | 36.35 | 1321.3225 |
+      //|   MSFT | 2000-03-01 | 43.22 | 1867.9684 |
+      //|   MSFT | 2000-04-01 | 28.37 |  804.8569 |
+      //|   MSFT | 2000-05-01 | 25.45 |  647.7025 |
+    } catch(Exception e){
+      System.out.println(e.toString());
+      e.printStackTrace(System.out);
+    }
+
+
+    //Datasets can be constructed from maps of columns.
+    HashMap dsInput = new HashMap();
+    dsInput.put("doubles", toDoubleArray(range(10)));
+    dsInput.put("shorts", toShortArray(range(9, -1, -1)));
+    System.out.println(call(datasetConstructor, dsInput).toString());
+    //_unnamed [10 2]:
+    //| doubles | shorts |
+    //|--------:|-------:|
+    //|     0.0 |      9 |
+    //|     1.0 |      8 |
+    //|     2.0 |      7 |
+    //|     3.0 |      6 |
+    //|     4.0 |      5 |
+    //|     5.0 |      4 |
+    //|     6.0 |      3 |
+    //|     7.0 |      2 |
+    //|     8.0 |      1 |
+    //|     9.0 |      0 |
+
+    //There are a lot of crucial dataset concepts not covered here -
+    //missing, filtering, sorting, grouping, selecting/duplicate a subset of
+    //rows.  Please see:
+    //https://techascent.github.io/tech.ml.dataset/quick-reference.html
+    //https://techascent.github.io/tech.ml.dataset/walkthrough.html
+
+    //Neanderthal boots up Clojure's agent pool which means that when it comes time to
+    //shutdown you need to call shutdown-agents else you get a nice 1 minute hang
+    //on shutdown.  This is always safe to call regardless.
+    call(requiringResolve("clojure.core", "shutdown-agents"));
 
   }
 }
