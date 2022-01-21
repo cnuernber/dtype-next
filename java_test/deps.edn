@@ -1,8 +1,7 @@
 {:paths ["classes"]
- :deps {cnuernber/dtype-next {:mvn/version "8.062-SNAPSHOT"}
-        uncomplicate/neanderthal {:mvn/version "0.43.3"}
+ :deps {uncomplicate/neanderthal {:mvn/version "0.43.3"}
 
-        techascent/tech.ml.dataset {:mvn/version "6.049"
+        techascent/tech.ml.dataset {:mvn/version "6.051"
 
                                     ;;smile has bindings to slf4j that error out with an
                                     ;;exception if there is no logging backend so I
@@ -18,8 +17,9 @@
         ;;mmap, compression, and JDK-17.  Due to this the version of arrow
         ;;included isn't that important.
         org.apache.arrow/arrow-vector {:mvn/version "6.0.0"}
-
+        ;;Compression packages for compressed arrow.
+        org.lz4/lz4-java {:mvn/version "1.8.0"}
+        com.github.luben/zstd-jni {:mvn/version "1.5.1-1"}
         }
  :jdk-17
- {:jvm-opts ["--add-modules" "jdk.incubator.foreign"
-             "--enable-native-access=ALL-UNNAMED"]}}
+ {:jvm-opts ["--add-modules" "jdk.incubator.foreign" "--enable-native-access=ALL-UNNAMED"]}}
