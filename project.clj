@@ -36,7 +36,7 @@
 
              :codox
              {:dependencies [[codox-theme-rdash "0.1.2"]
-                             [com.cnuernber/codox "1.000"]]
+                             [com.cnuernber/codox "1.001"]]
               :codox {:project {:name "dtype-next"}
                       :metadata {:doc/format :markdown}
                       :themes [:rdash]
