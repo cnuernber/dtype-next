@@ -1,4 +1,4 @@
-(defproject cnuernber/dtype-next "8.063-SNAPSHOT"
+(defproject cnuernber/dtype-next "8.063"
   :description "A Clojure library designed to aid in the implementation of high performance algorithms and systems."
   :url "http://github.com/cnuernber/dtype-next"
   :license {:name "EPL-2.0"
@@ -44,7 +44,9 @@
                       :output-path "docs"
                       :doc-paths ["topics"]
                       :source-uri "https://github.com/cnuernber/dtype-next/blob/master/{filepath}#L{line}"
-                      :namespaces [tech.v3.datatype tech.v3.datatype.functional
+                      :namespaces [tech.v3.datatype
+                                   tech.v3.datatype.functional
+                                   tech.v3.datatype.statistics
                                    tech.v3.datatype.errors
                                    tech.v3.tensor
                                    tech.v3.datatype.argops

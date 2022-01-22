@@ -10,6 +10,8 @@ import tech.v3.datatype.NDBuffer;
 import static tech.v3.Clj.*;
 import static tech.v3.DType.*;
 import static tech.v3.Tensor.*;
+import tech.v3.datatype.VecMath;
+import tech.v3.datatype.Stats;
 import tech.v3.DType; //explicit access to clone method
 import java.util.ArrayList;
 import clojure.lang.RT;
@@ -57,6 +59,15 @@ public class Main
     //Readers: [0, 1, 2, 0.0, 1.0, 2.0]
     //Last Elem: 2 2.0 2
 
+    //'Vectorized' math is provided
+    System.out.println(vec(VecMath.add(dbuf,dbuf)).toString() + " : "
+		       + VecMath.magnitudeSquared(dbuf));
+
+    System.out.println(vec(VecMath.where(range(10)
+					 , new IFnDef() {
+					     public Object invoke(Object val) {
+					       return RT.longCast(val) > 5;
+					     }})).toString());
     //Base clojure functions work fine.
     require("tech.v3.datatype");
     //A slightly slower but more robust symbol resolution mechanism.
@@ -495,16 +506,12 @@ public class Main
     //accumulator more effective bits than 64.
 
     System.out.println("Built in reduction result: " +
-		       String.valueOf(call(requiringResolve("tech.v3.datatype.statistics",
-							    "sum"),
-					   doubles)));
+		       String.valueOf(Stats.sum(doubles)));
     //Built in reduction result: 4.999995E11
-
-
 
     //Neanderthal boots up Clojure's agent pool which means that when it comes time to
     //shutdown you need to call shutdown-agents else you get a nice 1 minute hang
     //on shutdown.  This is always safe to call regardless.
-    call(requiringResolve("clojure.core", "shutdown-agents"));
+    shutdownAgents();
   }
 }

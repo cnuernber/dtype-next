@@ -2,6 +2,7 @@ package tech.v3;
 
 import tech.v3.datatype.*;
 import clojure.lang.IFn;
+import clojure.lang.RT;
 import clojure.lang.Keyword;
 import static tech.v3.Clj.*;
 import java.util.List;
@@ -160,7 +161,7 @@ public class DType {
    *				   //Note max-batch-size keeps the group len from overflowing
    *				   //size of integer.
    *				   int glen = RT.intCast(groupLen);
-   *				   for(int idx = 0; idx < glen; ++idx ) {
+   *				   for(int idx = 0; idx &lt; glen; ++idx ) {
    *				     sum += doubles[sidx + idx];
    *				   }
    *				   return sum;
@@ -414,6 +415,19 @@ public class DType {
    */
   public static Buffer indexedBuffer(Object indexes, Object buffer) {
     return (Buffer)call(indexedBufferFn, indexes, buffer);
+  }
+  /**
+   * Boolean cast that respects numeric values.  Numeric values of 0 are false, any other
+   * numeric value is true.  Booleans cast to themselves, null casts to false.
+   */
+  public static boolean boolCast(Object scalarVal) {
+    if (scalarVal instanceof Number) {
+      return (0.0 == RT.doubleCast(scalarVal));
+    } else if (scalarVal instanceof Boolean) {
+      return (boolean)scalarVal;
+    } else {
+      return scalarVal != null;
+    }
   }
   /**
    * Reverse an sequence, range or reader.

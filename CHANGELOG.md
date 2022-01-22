@@ -1,3 +1,7 @@
+## 8.063
+ * Added tech.v3.datatype.VecMath and tech.v3.datatype.Stats packages to the
+   public Java API..
+
 ## 8.062
  * More types exposed in Clj.java.
  * compile pathway exposed in Clj.java.

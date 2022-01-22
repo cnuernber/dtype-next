@@ -6,6 +6,8 @@ import clojure.lang.RT;
 import clojure.lang.IPersistentMap;
 import clojure.lang.Symbol;
 import clojure.lang.Keyword;
+import clojure.lang.IDeref;
+import clojure.lang.Delay;
 import java.util.Map;
 import java.util.List;
 
@@ -55,6 +57,8 @@ public class Clj
   static final IFn valsFn = Clojure.var("clojure.core", "vals");
   static final IFn compileFn = Clojure.var("clojure.core", "compile");
   static final Object compilePathVar = Clojure.var("clojure.core", "*compile-path*");
+  static final IFn realizedFn = Clojure.var("clojure.core", "realized?");
+  static final IFn shutdownAgentsFn = Clojure.var("clojure.core", "shutdown-agents");
 
   /**
    * merge fn.  Useful to pass into update or varyMeta.
@@ -466,13 +470,35 @@ public class Clj
   }
 
   /**
+   * Takes a body of expressions and yields a Delay object that will
+   * invoke the body only the first time it is forced (with force or deref/@), and
+   * will cache the result and return it on all subsequent force
+   * calls.
+   *
+   * @see realized.
+   */
+  public static IDeref delay(IFn code) {
+    return new Delay(code);
+  }
+
+  /**
+   * Return true if the promise, delay, future, or lazy sequence has been realized.
+   */
+  public static boolean realized(Object item) {
+    return (boolean)call(realizedFn, item);
+  }
+
+  /**
    * <p>Compile a clojure namespace into class files.  Compilation path defaults to
-   * 'classes'.  If this compilation pathway is on the classpath then that namespace
+   * './classes'.  If this compilation pathway is on the classpath then that namespace
    * will load potentially much faster next time it is 'require'd.</p>
+   *
+   * <p>'./classes' must exist.<p>
    *
    * <p>The major caveat here is if you upgrade the base clojure library you must recompile.
    * <b>A difference between the version of the .clj files and the version of the
    * .class files will lead to unpredictable errors running the code.</b></p>
+   *
    */
   public static void compile(String namespace) {
     compileFn.invoke(symbol(namespace));
@@ -496,5 +522,14 @@ public class Clj
     catch (Exception e) {
       throw new RuntimeException(e);
     }
+  }
+
+  /**
+   * Clojure has a pool of threads it uses that take a minute to timeout when the program
+   * shuts down.  In order to make the shutdown quicker, you can always safely call
+   * shutdownAgents just before your program exits.
+   */
+  public static void shutdownAgents() {
+    shutdownAgentsFn.invoke();
   }
 }
