@@ -475,9 +475,11 @@ public class DType {
     return (long)call(numericByteWidthFn, dtype);
   }
   /**
-   * Wrap an integer pointer into a buffer.  If the pointer is invalid of the number
+   * <p>Wrap an integer pointer into a buffer.  If the pointer is invalid of the number
    * of bytes is wrong then the most likely outcome is that your program will crash
-   * at some point in the future.
+   * at some point in the future.</p>
+   *
+   * See the 4-arity version of this function for full documentation.
    *
    * Returns a native buffer.
    */
@@ -485,9 +487,20 @@ public class DType {
     return call(wrapAddressFn, address, nBytes, int8, kw("little-endian"), gcObject);
   }
   /**
-   * Wrap an integer pointer into a buffer.  If the pointer is invalid of the number
+   * <p>Wrap an integer pointer into a buffer.  If the pointer is invalid of the number
    * of bytes is wrong then the most likely outcome is that your program will crash
-   * at some point in the future.
+   * at some point in the future.</p>
+   *
+   * <p>Data is assumed to be little endian format.</p>
+   *
+   * @param gcObject An optional object passed in that the native buffer will reference.  This
+   * keeps the gcObject from being cleaned up by gc-based methods until the native-buffer is
+   * no longer referencable.
+   * @param address Integer address of data.
+   * @param nBytes Number of bytes to reference at address.
+   * @param dtype Datatype to interpret the data as.  nBytes must be commensurate with
+   * the binary size of dtype.
+   *
    *
    * Returns a native buffer.
    */
