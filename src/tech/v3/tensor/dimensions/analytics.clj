@@ -214,7 +214,7 @@
   [shape ^long n-new-shape]
   (if (== (count shape) n-new-shape)
     shape
-    (vec (concat (repeat 1 (- n-new-shape (count shape)))
+    (vec (concat (repeat (- n-new-shape (count shape)) 1)
                  shape))))
 
 
@@ -222,7 +222,7 @@
   [strides ^long n-new-strides]
   (if (== (count strides) n-new-strides)
     strides
-    (vec (concat (repeat (first strides) (- n-new-strides (count strides)))
+    (vec (concat (repeat (- n-new-strides (count strides)) (first strides))
                  strides))))
 
 

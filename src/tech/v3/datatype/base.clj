@@ -964,7 +964,7 @@ user> (dtt/transpose tensor [1 2 0])
 
 
 (defn broadcast
-  "Broadcase an element into a new (larger) shape.  The new shape's dimension
+  "Broadcast an element into a new (larger) shape.  The new shape's dimension
   must be even multiples of the old shape's dimensions.  Elements are repeated.
 
   See [[reduce-axis]] for the opposite operation."

@@ -8,8 +8,10 @@ import clojure.lang.Symbol;
 import clojure.lang.Keyword;
 import clojure.lang.IDeref;
 import clojure.lang.Delay;
+import clojure.lang.Var;
 import java.util.Map;
 import java.util.List;
+import java.util.Comparator;
 
 
 /**
@@ -64,7 +66,11 @@ public class Clj
   static final IFn shutdownAgentsFn = Clojure.var("clojure.core", "shutdown-agents");
   public static final IFn lessThanFn = Clojure.var("clojure.core", "<");
   public static final IFn greaterThanFn = Clojure.var("clojure.core", ">");
-
+  public static final Comparator compare = (Comparator)deref(Clojure.var("clojure.core", "compare"));
+  static final IFn printlnFn = Clojure.var("clojure.core", "println");
+  static final IFn strFn = Clojure.var("clojure.core", "str");
+  public static Var outVar = (Var)Clojure.var("clojure.core", "*out*");
+  public static Var errVar = (Var)Clojure.var("clojure.core", "*err*");
   /**
    * merge fn.  Useful to pass into update or varyMeta.
    */
@@ -113,6 +119,12 @@ public class Clj
    * Create a Clojure namespaced keyword from a namespace name and a string.
    */
   public static Keyword keyword(String ns, String name) {
+    return (Keyword)keywordFn.invoke(ns, name);
+  }
+  /**
+   * Create a Clojure keyword from a namespace name and a string.
+   */
+  public static Keyword kw(String ns, String name) {
     return (Keyword)keywordFn.invoke(ns, name);
   }
   /**
@@ -252,10 +264,40 @@ public class Clj
 			      arg11, arg12);
   }
   /**
-   * Invoke an implementation of clojure.lang.IFn with variable arguments.
+   * <p>Invoke an implementation of clojure.lang.IFn with variable arguments.  Also this class
+   * exposes applyFn to allow you to do things like:</p>
+   *
+   * <pre>return call(applyFn, afn, arg1, arg2, restargs);</pre>
    */
   public static Object apply(Object obj, Object... args) {
     return ((IFn) obj).applyTo(RT.seq(args));
+  }
+  /**
+   * Alternative to System.out.println that automatically combines separate strings with
+   * spaces and invokes Clojure's more sophisticated print system.
+   */
+  public static void println(Object... args) {
+    printlnFn.applyTo(RT.seq(args));
+  }
+  /**
+   * Create a larger string by directly concatenating toString representations of arguments.
+   */
+  public static String str(Object... args) {
+    return (String)strFn.applyTo(RT.seq(args));
+  }
+  /**
+   * Run side-effecting code and return eveything printed to *out* as a string.
+   */
+  public static String withOutStr(IFn code) {
+    java.io.StringWriter writer = new java.io.StringWriter();
+    try(AutoCloseable bindings = makeThreadBindings(hashmap(outVar, writer))) {
+      code.invoke();
+    }
+    catch(Exception e) {
+      println(e);
+      e.printStackTrace(System.out);
+    }
+    return str(writer);
   }
   /**
    * Create a Clojure persistent map with the clojure.core.hash-map function.

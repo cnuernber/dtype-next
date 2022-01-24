@@ -258,3 +258,18 @@
             [[1.000 1.000 20.00]
              [2.000 2.000 23.00]
              [3.000 3.000 26.00]]]))))
+
+
+(deftest broadcast-left-extend-shape
+  (let [target-shape [2 3 4]
+        src-data (dtt/ensure-tensor [1 2 3 4])
+        target (dtt/broadcast src-data target-shape)]
+    (is (= target-shape (dtype/shape target)))))
+
+
+(deftest mset-auto-broadcast
+  (let [src-tens (dtt/new-tensor [4 4 4] :datatype :uint8)
+        ;;Logically this should auto-broadcast
+        src-tens (dtt/mset! src-tens [0x20 0x20 0x20 0xFF])]
+    (is (= [0x20 0x20 0x20 0xFF]
+           (vec (dtt/mget src-tens 0 0))))))

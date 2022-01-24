@@ -1,3 +1,7 @@
+## 8.064
+ * More niceties in the Clojure api.
+ * Tensor broadcast is fixed which fixed mset!.
+
 ## 8.063
  * Added tech.v3.datatype.VecMath and tech.v3.datatype.Stats packages to the
    public Java API..
