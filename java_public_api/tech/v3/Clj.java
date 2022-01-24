@@ -39,6 +39,7 @@ public class Clj
   static final IFn hashMapFn = Clojure.var("clojure.core", "hash-map");
   static final IFn vectorFn = Clojure.var("clojure.core", "vector");
   static final IFn vecFn = Clojure.var("clojure.core", "vec");
+  static final IFn isVectorFn = Clojure.var("clojure.core", "vector?");
   static final IFn listFn = Clojure.var("clojure.core", "list");
   static final IFn rangeFn = Clojure.var("clojure.core", "range");
   static final IFn pushThreadBindingsFn = Clojure.var("clojure.core", "push-thread-bindings");
@@ -49,16 +50,20 @@ public class Clj
   static final IFn resetFn = Clojure.var("clojure.core", "reset!");
   static final IFn swapFn = Clojure.var("clojure.core", "swap!");
   static final IFn compareAndSetFn = Clojure.var("clojure.core", "compare-and-set!");
-  static final IFn applyFn = Clojure.var("clojure.core", "apply");
+  /** clojure.core/apply in var form.  Useful as you can call it using call */
+  public static final IFn applyFn = Clojure.var("clojure.core", "apply");
   static final IFn metaFn = Clojure.var("clojure.core", "meta");
   static final IFn withMetaFn = Clojure.var("clojure.core", "with-meta");
   static final IFn varyMetaFn = Clojure.var ("clojure.core", "vary-meta");
   static final IFn keysFn = Clojure.var("clojure.core", "keys");
   static final IFn valsFn = Clojure.var("clojure.core", "vals");
+  public static final IFn identityFn = Clojure.var("clojure.core", "identity");
   static final IFn compileFn = Clojure.var("clojure.core", "compile");
   static final Object compilePathVar = Clojure.var("clojure.core", "*compile-path*");
   static final IFn realizedFn = Clojure.var("clojure.core", "realized?");
   static final IFn shutdownAgentsFn = Clojure.var("clojure.core", "shutdown-agents");
+  public static final IFn lessThanFn = Clojure.var("clojure.core", "<");
+  public static final IFn greaterThanFn = Clojure.var("clojure.core", ">");
 
   /**
    * merge fn.  Useful to pass into update or varyMeta.
@@ -271,6 +276,12 @@ public class Clj
    */
   public static List vec(Object arglist) {
     return (List)vecFn.invoke(arglist);
+  }
+  /**
+   * Return true if this data is a persistent vector.
+   */
+  public static boolean isVector(Object data) {
+    return (boolean)isVectorFn.invoke(data);
   }
   /**
    * Merge a left hashmap with a right hashmap, the rightmost hashmap wins on key conflict.

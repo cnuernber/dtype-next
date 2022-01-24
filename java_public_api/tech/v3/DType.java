@@ -7,6 +7,7 @@ import clojure.lang.Keyword;
 import static tech.v3.Clj.*;
 import java.util.List;
 import java.util.Map;
+import org.roaringbitmap.RoaringBitmap;
 
 /**
  * <p>
@@ -122,6 +123,8 @@ public class DType {
 						 "as-nio-buffer");
   static final IFn indexedMapReduceFn = requiringResolve("tech.v3.parallel.for",
 							 "indexed-map-reduce");
+
+  static final IFn toBitmapFn = requiringResolve("tech.v3.datatype.bitmap", "->bitmap");
   /**
    * Extremely efficient parallelism primitive for working through a fixed number
    * of indexes.  This corresponds to an out-of-core reduction across a wide set
@@ -531,5 +534,17 @@ public class DType {
    */
   public static java.nio.Buffer asNioBuffer(Object obj) {
     return (java.nio.Buffer)call(asNioBufFn, obj);
+  }
+  /**
+   * Create a roaring bitmap from arbitrary data.
+   */
+  public static RoaringBitmap toBitmap(Object data) {
+    return (RoaringBitmap)call(toBitmapFn, data);
+  }
+  /**
+   * Create a new empty roaring bitmap.
+   */
+  public static RoaringBitmap emptyBitmap() {
+    return (RoaringBitmap)call(toBitmapFn);
   }
 }
