@@ -341,11 +341,27 @@
 
 
 (defn argsort
-  "Sort values in index space.  By default uses a parallelized quicksort algorithm."
+  "Sort values in index space returning a buffer of indexes.  By default uses a parallelized
+  quicksort algorithm by default.
+
+
+  * `compare-fn` may be one of:
+     - a clojure operator like clojure.core/<
+     - `:tech.numerics/<`, `:tech.numerics/>` for unboxing comparisons of primitive
+        values.
+     - clojure.core/compare
+     - A custom java.util.Comparator instantiation.
+
+  Options:
+
+  * `:nan-strategy` - General missing strategy.  Options are `:first`, `:last`, and
+    `:exception`.
+  * `:parallel?` - Uses parallel quicksort when true and regular quicksort when false."
   ([comparator {:keys [parallel?
                        nan-strategy]
                 :or {parallel? true
-                     nan-strategy :last}}
+                     nan-strategy :last}
+                :as _options}
     values]
    (let [n-elems (dtype-base/ecount values)
          val-dtype (dtype-base/operational-elemwise-datatype values)

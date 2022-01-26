@@ -1,3 +1,9 @@
+## 9.000
+ * Changed API to rolling so that you can pass in a normal subtraction operator
+   and get the result you expect.  This is reverse of how it worked in version
+   8.064.
+
+
 ## 8.064
  * More niceties in the Clojure api.
  * Tensor broadcast is fixed which fixed mset!.

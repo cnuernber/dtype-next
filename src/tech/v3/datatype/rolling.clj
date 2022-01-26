@@ -4,6 +4,7 @@
             [tech.v3.datatype.dispatch :refer [vectorized-dispatch-1]]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.packing :as packing]
+            [tech.v3.datatype.binary-op :as binary-op]
             [tech.v3.datatype.emap :as emap])
   (:import [tech.v3.datatype Buffer LongReader DoubleReader ObjectReader]
            [java.util Iterator]))
@@ -198,6 +199,15 @@ user>
    (fixed-rolling-window item window-size window-fn nil)))
 
 
+(defn- to-compare-fn
+  [data]
+  (if (keyword? data)
+    (if-let [retval (get binary-op/builtin-ops data)]
+      retval
+      (throw (Exception. (format "Unrecognized compare fn %s" data))))
+    data))
+
+
 (deftype ObjectRollingIterator [^{:unsynchronized-mutable true
                                   :tag long} start-idx
                                 ^{:unsynchronized-mutable true
@@ -216,7 +226,7 @@ user>
           (long
            (loop [eidx end-idx]
              (if (or (>= eidx n-elems)
-                     (>= (double (tweener start-val (data eidx))) window-length))
+                     (>= (double (tweener (data eidx) start-val)) window-length))
                eidx
                (recur (unchecked-inc eidx)))))
           retval (WindowRange. start-idx (- next-end-idx start-idx))
@@ -226,7 +236,7 @@ user>
                   next-start-idx
                   (loop [eidx (unchecked-inc next-start-idx)]
                     (if (or (>= eidx n-elems)
-                            (>= (double (tweener start-val (data eidx))) stepsize))
+                            (>= (double (tweener (data eidx) start-val)) stepsize))
                       eidx
                       (recur (unchecked-inc eidx))))))]
       (set! start-idx next-start-idx)
@@ -303,9 +313,7 @@ tech.v3.datatype.rolling> (vec (variable-rolling-window-ranges
                                              comp-fn
                                              n-subset]
                                       :or {stepsize 0.0}}]
-   (let [comp-fn (or comp-fn (fn [lhs rhs]
-                               (double (- (double rhs)
-                                          (double lhs)))))
+   (let [comp-fn (to-compare-fn (or comp-fn :tech.numerics/-))
          src-data (dtype-base/->buffer src-data)
          n-elems (.lsize src-data)
          n-subset (long (or n-subset n-elems))]

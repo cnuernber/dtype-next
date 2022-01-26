@@ -492,28 +492,50 @@
 
 
 (defn between-op
-  "between always results in a long or long object"
-  [src-dt-type units]
-  (let [dtype (packing/unpack-datatype src-dt-type)]
-    (case (dt-base/classify-datatype dtype)
-      :temporal (let [^ChronoUnit chrono-unit (if (instance? ChronoUnit units)
-                                                units
-                                                (get-chrono-unit units))]
-                  (reify BinaryOperators$ObjectBinaryOperator
-                    (binaryObject [this lhs rhs]
-                      (.between chrono-unit ^Temporal lhs ^Temporal rhs))))
-      :epoch (let [epoch-conv (long (dt-base/epoch->microseconds src-dt-type))
-                   unit-conv (long (dt-base/relative->microseconds units))]
-               (reify BinaryOperators$LongBinaryOperator
-                 (binaryLong [this lhs rhs]
-                   (let [rel (* (- rhs lhs) epoch-conv)]
-                     (quot rel unit-conv)))))
-      :relative (let [src-conv (long (dt-base/relative->microseconds src-dt-type))
-                      unit-conv (long (dt-base/relative->microseconds units))]
+  "between always results in a long or long object.
+
+  * src-dt-type - Source datatype.
+  * units - Units to do comparison in.
+  * reverse? Reverse makes the comparison work like a normal subtraction
+    e.g. later dates on the left with earlier dates on the right return
+    positive integers.  This is opposite the java.time api in general."
+  ([src-dt-type units reverse?]
+   (let [dtype (packing/unpack-datatype src-dt-type)]
+     (case (dt-base/classify-datatype dtype)
+       :temporal (let [^ChronoUnit chrono-unit (if (instance? ChronoUnit units)
+                                                 units
+                                                 (get-chrono-unit units))]
+                   (if reverse?
+                     (reify BinaryOperators$ObjectBinaryOperator
+                       (binaryObject [this rhs lhs]
+                         (.between chrono-unit ^Temporal lhs ^Temporal rhs)))
+                     (reify BinaryOperators$ObjectBinaryOperator
+                       (binaryObject [this lhs rhs]
+                         (.between chrono-unit ^Temporal lhs ^Temporal rhs)))))
+       :epoch (let [epoch-conv (long (dt-base/epoch->microseconds src-dt-type))
+                    unit-conv (long (dt-base/relative->microseconds units))]
+                (if reverse?
+                  (reify BinaryOperators$LongBinaryOperator
+                    (binaryLong [this rhs lhs]
+                      (let [rel (* (- rhs lhs) epoch-conv)]
+                        (quot rel unit-conv))))
                   (reify BinaryOperators$LongBinaryOperator
                     (binaryLong [this lhs rhs]
-                      (let [rel (* (- rhs lhs) src-conv)]
-                        (quot rel unit-conv))))))))
+                      (let [rel (* (- rhs lhs) epoch-conv)]
+                        (quot rel unit-conv))))))
+       :relative (let [src-conv (long (dt-base/relative->microseconds src-dt-type))
+                       unit-conv (long (dt-base/relative->microseconds units))]
+                   (if reverse?
+                     (reify BinaryOperators$LongBinaryOperator
+                       (binaryLong [this rhs lhs]
+                         (let [rel (* (- rhs lhs) src-conv)]
+                           (quot rel unit-conv))))
+                     (reify BinaryOperators$LongBinaryOperator
+                       (binaryLong [this lhs rhs]
+                         (let [rel (* (- rhs lhs) src-conv)]
+                           (quot rel unit-conv)))))))))
+  ([src-dt-type units]
+   (between-op src-dt-type units false)))
 
 
 (defn between
@@ -591,7 +613,8 @@
   options, of which stepsize may be of interest."
   ([src-data window-length units options]
    (let [^BinaryOperator tweener (between-op (dtype-base/elemwise-datatype src-data)
-                                             units)]
+                                             units
+                                             true)]
      (dt-rolling/variable-rolling-window-ranges
       src-data window-length (merge {:comp-fn tweener} options))))
   ([src-data window-length units]
