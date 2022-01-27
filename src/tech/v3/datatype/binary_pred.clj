@@ -9,7 +9,12 @@
             BinaryPredicates$BooleanBinaryPredicate
             BinaryPredicates$LongBinaryPredicate
             BinaryPredicates$ObjectBinaryPredicate
-            BooleanReader ObjectReader]
+            BooleanReader ObjectReader
+            UnaryPredicate
+            UnaryPredicates$BooleanUnaryPredicate
+            UnaryPredicates$LongUnaryPredicate
+            UnaryPredicates$DoubleUnaryPredicate
+            UnaryPredicates$ObjectUnaryPredicate]
            [clojure.lang IFn]
            [org.apache.commons.math3.util Precision]
            [java.util Comparator]))
@@ -219,3 +224,44 @@
                                              (.compareTo ^Comparable x y)
                                              (compare x y)))]
                         (pmath/<= comp-val 0)))})
+
+(defn builtin
+  "Return the builtin binary predicate for the given keyword or error."
+  ^BinaryPredicate [kwd]
+  (if-let [retval (builtin-ops kwd)]
+    retval
+    (throw (Exception. (format "Failed to bind binary predicate: %s" kwd)))))
+
+
+(defn unary-pred
+  "Create a unary predicate from a binary predicate and a constant passed into
+  the left position.  This means a statement such as:
+  ```clojure
+  ((unary-pred 5.0 :tech.numerics/>) 6.0)
+  ```
+  yeilds false.
+
+  Operation will happen in the numeric space of the constant.  Integers will happen
+  in :int64, floating point comparisons will happen in :float64, booleans in :boolean and
+  anything else will happen in object space."
+  ^UnaryPredicate [constant kwd]
+  (let [^BinaryPredicate pred (if (keyword? kwd)
+                                (builtin kwd)
+                                (->predicate kwd))]
+    (let [c-dtype (dtype-base/datatype constant)]
+      (case (casting/simple-operation-space c-dtype)
+        :int64 (let [lval (unchecked-long constant)]
+                 (reify UnaryPredicates$LongUnaryPredicate
+                   (unaryLong [this arg]
+                     (.binaryLong pred lval arg))))
+        :float64 (let [dval (unchecked-double constant)]
+                   (reify UnaryPredicates$DoubleUnaryPredicate
+                     (unaryDouble [this arg]
+                       (.binaryDouble pred dval arg))))
+        :boolean (let [bval (boolean constant)]
+                   (reify UnaryPredicates$BooleanUnaryPredicate
+                     (unaryBoolean [this arg]
+                       (.binaryBoolean pred bval arg))))
+        (reify UnaryPredicates$ObjectUnaryPredicate
+          (unaryObject [this arg]
+            (= constant arg)))))))

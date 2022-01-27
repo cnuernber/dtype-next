@@ -1,3 +1,7 @@
+## 9.001
+ * Added tech.v3.datatype.Pred package to allow fast (in terms of typing) creation of typed
+   unary predicates from java.
+
 ## 9.000
  * Changed API to rolling so that you can pass in a normal subtraction operator
    and get the result you expect.  This is reverse of how it worked in version
