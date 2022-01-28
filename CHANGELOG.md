@@ -1,3 +1,6 @@
+## 9.002
+ * expose map,filter from clj interface.
+ 
 ## 9.001
  * Added tech.v3.datatype.Pred package to allow fast (in terms of typing) creation of typed
    unary predicates from java.

@@ -132,6 +132,9 @@ public class DType {
    * uses the ForkJoinPool's common pool by default and if this thread is already
    * running inside the common pool it runs the job in a single threaded mode.
    *
+   * It is safe to call this function recurrently as it checks to see if the thread
+   * is already in a common pool thread and if so runs the code serially.
+   *
    * @param numIters Max iteration size.
    * @param indexedMapFn Function that takes 2 longs, startIndex and groupLen and
    * produces a single result.

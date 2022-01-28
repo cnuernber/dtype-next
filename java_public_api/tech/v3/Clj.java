@@ -9,6 +9,7 @@ import clojure.lang.Keyword;
 import clojure.lang.IDeref;
 import clojure.lang.Delay;
 import clojure.lang.Var;
+import clojure.lang.ISeq;
 import java.util.Map;
 import java.util.List;
 import java.util.Comparator;
@@ -87,6 +88,8 @@ public class Clj
    * update fn.  Useful to pass into varyMeta.
    */
   public static final IFn updateFn = Clojure.var("clojure.core", "update");
+  static final IFn mapFn = Clojure.var("clojure.core", "map");
+  static final IFn filterFn = Clojure.var("clojure.core", "filter");
 
 
   /**
@@ -577,6 +580,43 @@ public class Clj
     }
   }
 
+  /**
+   * Map a function across one or more sequences.  Resulting sequence will be the length
+   * of the shortest input sequences.
+   */
+  public static ISeq map(IFn userFn, Object arg0, Object arg1, Object arg2, Object... args) {
+    return (ISeq)call(applyFn, userFn, arg0, arg1, arg2, args);
+  }
+  /**
+   * Map a function across one or more sequences.  Resulting sequence will be the length
+   * of the shortest input sequences.
+   */
+  public static ISeq map(IFn userFn, Object arg0, Object arg1, Object arg2) {
+    return (ISeq)mapFn.invoke(userFn, arg0, arg1, arg2);
+  }
+  /**
+   * Map a function across one or more sequences.  Resulting sequence will be the length
+   * of the shortest input sequences.
+   */
+  public static ISeq map(IFn userFn, Object arg0, Object arg1) {
+    return (ISeq)mapFn.invoke(userFn, arg0, arg1);
+  }
+  /**
+   * Map a function across one or more sequences.  Resulting sequence will be the length
+   * of the shortest input sequences.
+   */
+  public static ISeq map(IFn userFn, Object arg0) {
+    return (ISeq)mapFn.invoke(userFn, arg0);
+  }
+  
+  /**
+   * filter a sequence by a predicate.
+   */
+  public static ISeq filter(IFn pred, Object data) {
+    return (ISeq)filterFn.invoke(pred, data);
+  }
+
+  
   /**
    * Clojure has a pool of threads it uses that take a minute to timeout when the program
    * shuts down.  In order to make the shutdown quicker, you can always safely call
