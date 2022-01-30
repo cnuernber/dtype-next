@@ -468,7 +468,8 @@ public class Main
     HashMap dsInput = new HashMap();
     dsInput.put("doubles", toDoubleArray(range(10)));
     dsInput.put("shorts", toShortArray(range(9, -1, -1)));
-    println(call(datasetConstructor, dsInput).toString());
+    Object datatypeDs = call(datasetConstructor, dsInput);
+    println(datatypeDs);
     //_unnamed [10 2]:
     //| doubles | shorts |
     //|--------:|-------:|
@@ -482,6 +483,11 @@ public class Main
     //|     7.0 |      2 |
     //|     8.0 |      1 |
     //|     9.0 |      0 |
+
+    //Datasets can be compressed to nippy
+    byte[] frozenDtypeDs = Nippy.freeze(datatypeDs);
+    println("Dataset byte length:", frozenDtypeDs.length);
+    //Dataset byte length: 511
 
     //There are a lot of crucial dataset concepts not covered here -
     //missing, filtering, sorting, grouping, selecting/duplicate a subset of
