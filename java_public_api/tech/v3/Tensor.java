@@ -2,11 +2,14 @@ package tech.v3;
 
 
 import clojure.lang.IFn;
+import clojure.lang.IDeref;
+import clojure.lang.Keyword;
 import static tech.v3.Clj.*;
 import static tech.v3.DType.*;
 import java.util.List;
 import java.util.Map;
 import tech.v3.datatype.NDBuffer;
+import tech.v3.datatype.IFnDef;
 
 
 /**
@@ -94,6 +97,12 @@ public class Tensor {
   static final IFn computeTensFn = requiringResolve("tech.v3.tensor", "compute-tensor");
   static final IFn ensureNDBFn = requiringResolve("tech.v3.tensor", "ensure-nd-buffer-descriptor");
   static final IFn NDBToTensFn = requiringResolve("tech.v3.tensor", "nd-buffer-descriptor->tensor");
+
+  static final IDeref tensorToNeanderthalMatrixFn = delay(new IFnDef() {
+      public Object invoke() {
+	return requiringResolve("tech.v3.libs.neanderthal", "tensor->matrix");
+      }
+    });
 
 
 
@@ -269,4 +278,26 @@ public class Tensor {
     return (NDBuffer)call(NDBToTensFn, ndBufferDesc);
   }
 
+  /**
+   * Attempt to load neanderthal bindings.  Throws exception upon failure.
+   */
+  public static void enableNeanderthal() {
+    tensorToNeanderthalMatrixFn.deref();
+  }
+  /**
+   * Convert a tensor to a neanderthal matrix.
+   *
+   * @param layout Either `:column` or `:row`.
+   * @param datatype Either `:float64` or `:float32`.
+   */
+  public static Object tensorToNeanderthalMatrix(Object tens, Keyword layout, Keyword datatype) {
+    return ((IFn)tensorToNeanderthalMatrixFn.deref()).invoke(tens, layout, datatype);
+  }
+  /**
+   * Convert a tensor to a column major neanderthal matrix of the same datatype as
+   * the tensor.  Supports either `:float32` or `:float64` tensors.
+   */
+  public static Object tensorToNeanderthalMatrix(Object tens) {
+    return ((IFn)tensorToNeanderthalMatrixFn.deref()).invoke(tens);
+  }
 }
