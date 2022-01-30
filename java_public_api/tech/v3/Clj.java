@@ -404,8 +404,8 @@ public class Clj
    * unless you need it to interact with Clojure libraries.  popThreadBindings *must*
    * be called within the same thread e.g. in a finally clause.
    * varvalmap is a map of Clojure Var (the result of 'var' or 'requiringResolve')
-   * to values.  The vars in the map must be dynamic vars else the per-thread bindings
-   * not not work.
+   * to values.  The Vars in the map must be dynamic vars else the per-thread bindings
+   * will not work.
    */
   public static void pushThreadBindings(Map varvalmap) {
     pushThreadBindingsFn.invoke(varvalmap);
@@ -608,7 +608,7 @@ public class Clj
   public static ISeq map(IFn userFn, Object arg0) {
     return (ISeq)mapFn.invoke(userFn, arg0);
   }
-  
+
   /**
    * filter a sequence by a predicate.
    */
@@ -616,7 +616,7 @@ public class Clj
     return (ISeq)filterFn.invoke(pred, data);
   }
 
-  
+
   /**
    * Clojure has a pool of threads it uses that take a minute to timeout when the program
    * shuts down.  In order to make the shutdown quicker, you can always safely call
