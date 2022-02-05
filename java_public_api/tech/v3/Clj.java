@@ -90,6 +90,7 @@ public class Clj
   public static final IFn updateFn = Clojure.var("clojure.core", "update");
   static final IFn mapFn = Clojure.var("clojure.core", "map");
   static final IFn filterFn = Clojure.var("clojure.core", "filter");
+  static final IFn repeatedlyFn = Clojure.var("clojure.core", "repeatedly");
 
 
   /**
@@ -616,6 +617,13 @@ public class Clj
     return (ISeq)filterFn.invoke(pred, data);
   }
 
+  public static ISeq repeatedly(long nTimes, IFn gen) {
+    return (ISeq)repeatedlyFn.invoke(nTimes, gen);
+  }
+
+  public static ISeq repeatedly(IFn gen) {
+    return (ISeq)repeatedlyFn.invoke(gen);
+  }
 
   /**
    * Clojure has a pool of threads it uses that take a minute to timeout when the program
