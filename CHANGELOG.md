@@ -1,3 +1,8 @@
+## 9.006
+ * Base Clj java API has faster map/vector creation.
+ * DType now exposes map factory and fast vector creation.
+ * A slightly optimized FastStruct is now a datatype java object.
+
 ## 9.005
  * Expose one of the most useful Clojure functions, repeatedly.
 

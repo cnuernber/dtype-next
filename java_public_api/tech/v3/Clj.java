@@ -10,6 +10,8 @@ import clojure.lang.IDeref;
 import clojure.lang.Delay;
 import clojure.lang.Var;
 import clojure.lang.ISeq;
+import clojure.lang.PersistentArrayMap;
+import clojure.lang.LazilyPersistentVector;
 import java.util.Map;
 import java.util.List;
 import java.util.Comparator;
@@ -307,13 +309,16 @@ public class Clj
    * Create a Clojure persistent map with the clojure.core.hash-map function.
    */
   public static Map hashmap(Object... args) {
-    return (Map)hashMapFn.applyTo(RT.seq(args));
+    if (args.length < 16)
+      return PersistentArrayMap.createWithCheck(args);
+    else
+      return (Map)hashMapFn.applyTo(RT.seq(args));
   }
   /**
    * Create a Clojure persistent vector with the clojure.core.vector function.
    */
   public static List vector(Object... args) {
-    return (List)vectorFn.applyTo(RT.seq(args));
+    return (List)LazilyPersistentVector.create(args);
   }
   /**
    * Create a Clojure persistent vector with the clojure.core.vec function - this

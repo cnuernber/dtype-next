@@ -363,6 +363,34 @@
   (tech.v3.datatype-api/ensure-serializeable item)))
 
 
+(defn fast-vector
+  "Much faster vector/list constructor than `clojure.core/vector`."
+  ([]
+  (tech.v3.datatype-api/fast-vector ))
+  ([a0]
+  (tech.v3.datatype-api/fast-vector a0))
+  ([a0 a1]
+  (tech.v3.datatype-api/fast-vector a0 a1))
+  ([a0 a1 a2]
+  (tech.v3.datatype-api/fast-vector a0 a1 a2))
+  ([a0 a1 a2 a3]
+  (tech.v3.datatype-api/fast-vector a0 a1 a2 a3))
+  ([a0 a1 a2 a3 a4]
+  (tech.v3.datatype-api/fast-vector a0 a1 a2 a3 a4))
+  ([a0 a1 a2 a3 a4 a5]
+  (tech.v3.datatype-api/fast-vector a0 a1 a2 a3 a4 a5))
+  ([a0 a1 a2 a3 a4 a5 a6]
+  (tech.v3.datatype-api/fast-vector a0 a1 a2 a3 a4 a5 a6))
+  ([a0 a1 a2 a3 a4 a5 a6 a7]
+  (tech.v3.datatype-api/fast-vector a0 a1 a2 a3 a4 a5 a6 a7))
+  ([a0 a1 a2 a3 a4 a5 a6 a7 a8]
+  (tech.v3.datatype-api/fast-vector a0 a1 a2 a3 a4 a5 a6 a7 a8))
+  ([a0 a1 a2 a3 a4 a5 a6 a7 a8 a9]
+  (tech.v3.datatype-api/fast-vector a0 a1 a2 a3 a4 a5 a6 a7 a8 a9))
+  ([a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 & args]
+  (apply tech.v3.datatype-api/fast-vector a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 args)))
+
+
 (defn get-datatype
   "Legacy method, returns elemwise-datatype"
   ([item]
@@ -438,6 +466,14 @@ user> (dtype/make-reader :float32 5 (* idx 2))
   `(tech.v3.datatype-api/make-reader ~datatype ~n-elems ~read-op))
   ([reader-datatype advertised-datatype n-elems read-op]
   `(tech.v3.datatype-api/make-reader ~reader-datatype ~advertised-datatype ~n-elems ~read-op)))
+
+
+(defn map-factory
+  "Create an IFn taking exactly n-keys arguments to rapidly create a map.
+  This moves the key-checking to the factory creation and simply creates a
+  new map as fast as possible when requrested"
+  ([key-seq]
+  (tech.v3.datatype-api/map-factory key-seq)))
 
 
 (defn reader-like?

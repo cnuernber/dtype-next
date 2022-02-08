@@ -125,6 +125,9 @@ public class DType {
 							 "indexed-map-reduce");
 
   static final IFn toBitmapFn = requiringResolve("tech.v3.datatype.bitmap", "->bitmap");
+  static final IFn mapFactoryFn = requiringResolve("tech.v3.datatype", "map-factory");
+  static final IFn fastVectFn = requiringResolve("tech.v3.datatype", "fast-vector");
+
   /**
    * Extremely efficient parallelism primitive for working through a fixed number
    * of indexes.  This corresponds to an out-of-core reduction across a wide set
@@ -549,5 +552,83 @@ public class DType {
    */
   public static RoaringBitmap emptyBitmap() {
     return (RoaringBitmap)call(toBitmapFn);
+  }
+  /**
+   * Return a function taking exactly n-keys arguments that will rapidly construct
+   * a new map.
+   */
+  public static IFn mapFactory(List keys) {
+    return (IFn)mapFactoryFn.invoke(keys);
+  }
+  /**
+   * As rapidly as possible construct a constant implementation of java.util.List
+   */
+  public static List fastVector() {
+    return (List)fastVectFn.invoke();
+  }
+  /**
+   * As rapidly as possible construct a constant implementation of java.util.List
+   */
+  public static List fastVector(Object a0) {
+    return (List)fastVectFn.invoke(a0);
+  }
+  /**
+   * As rapidly as possible construct a constant implementation of java.util.List
+   */
+  public static List fastVector(Object a0, Object a1) {
+    return (List)fastVectFn.invoke(a0, a1);
+  }
+  /**
+   * As rapidly as possible construct a constant implementation of java.util.List
+   */
+  public static List fastVector(Object a0, Object a1, Object a2) {
+    return (List)fastVectFn.invoke(a0, a1, a2);
+  }
+  /**
+   * As rapidly as possible construct a constant implementation of java.util.List
+   */
+  public static List fastVector(Object a0, Object a1, Object a2, Object a3) {
+    return (List)fastVectFn.invoke(a0, a1, a2, a3);
+  }
+  /**
+   * As rapidly as possible construct a constant implementation of java.util.List
+   */
+  public static List fastVector(Object a0, Object a1, Object a2, Object a3, Object a4) {
+    return (List)fastVectFn.invoke(a0, a1, a2, a3, a4);
+  }
+  /**
+   * As rapidly as possible construct a constant implementation of java.util.List
+   */
+  public static List fastVector(Object a0, Object a1, Object a2, Object a3, Object a4,
+				Object a5) {
+    return (List)fastVectFn.invoke(a0, a1, a2, a3, a4, a5);
+  }
+  /**
+   * As rapidly as possible construct a constant implementation of java.util.List
+   */
+  public static List fastVector(Object a0, Object a1, Object a2, Object a3, Object a4,
+				Object a5, Object a6) {
+    return (List)fastVectFn.invoke(a0, a1, a2, a3, a4, a5, a6);
+  }
+  /**
+   * As rapidly as possible construct a constant implementation of java.util.List
+   */
+  public static List fastVector(Object a0, Object a1, Object a2, Object a3, Object a4,
+				Object a5, Object a6, Object a7) {
+    return (List)fastVectFn.invoke(a0, a1, a2, a3, a4, a5, a6, a7);
+  }
+  /**
+   * As rapidly as possible construct a constant implementation of java.util.List
+   */
+  public static List fastVector(Object a0, Object a1, Object a2, Object a3, Object a4,
+				Object a5, Object a6, Object a7, Object a8) {
+    return (List)fastVectFn.invoke(a0, a1, a2, a3, a4, a5, a6, a7, a8);
+  }
+  /**
+   * As rapidly as possible construct a constant implementation of java.util.List
+   */
+  public static List fastVector(Object a0, Object a1, Object a2, Object a3, Object a4,
+				Object a5, Object a6, Object a7, Object a8, Object a9) {
+    return (List)fastVectFn.invoke(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9);
   }
 }

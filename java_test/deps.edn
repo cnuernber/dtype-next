@@ -1,6 +1,6 @@
 {:paths ["classes"]
  :deps {uncomplicate/neanderthal {:mvn/version "0.43.3"}
-        cnuernber/dtype-next {:mvn/version "9.004-SNAPSHOT"}
+        cnuernber/dtype-next {:mvn/version "9.006-SNAPSHOT"}
         techascent/tech.ml.dataset {:mvn/version "6.051"
 
                                     ;;smile has bindings to slf4j that error out with an
