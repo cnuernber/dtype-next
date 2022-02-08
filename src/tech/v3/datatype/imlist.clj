@@ -3,11 +3,12 @@
   to clojure.lang.APersistentVector."
   (:require [tech.v3.datatype.pprint :as dtype-pp]
             [tech.v3.datatype.errors :as errors])
-  (:import [tech.v3.datatype ObjectReader]
+  (:import [tech.v3.datatype ObjectReader ArrayHelpers]
            [clojure.lang Util Murmur3 IHashEq IPersistentCollection
             IPersistentVector IteratorSeq IObj
             APersistentVector$RSeq
             APersistentVector$Seq
+            LazilyPersistentVector
             RT]
            [java.util List Objects]))
 
@@ -102,6 +103,12 @@
                     (mapcat (fn [argidx]
                               [argidx (symbol (str "arg" argidx))])))
              (throw (Exception. (str "Index out of range: " idx#))))))
+       (get [this# idx#]
+         (case idx#
+           ~@(->> (range argc)
+                  (mapcat (fn [argidx]
+                            [argidx (symbol (str "arg" argidx))])))
+           (throw (Exception. (str "Index out of range: " idx#)))))
        IHashEq
        (hasheq [this#]
          (if (== 0 ~'hash-eq)
@@ -203,11 +210,27 @@
   (^List [meta arg0 arg1 arg3 arg4 arg5
           arg6 arg7 arg8 arg9 arg10] (ImList10. 0 0 meta arg0 arg1 arg3 arg4 arg5
                                                 arg6 arg7 arg8 arg9 arg10))
-  (^List [meta arg0 arg1 arg3 arg4 arg5
-          arg6 arg7 arg8 arg9 arg10 & args]
+  (^List [meta arg0 arg1 arg2 arg3 arg4
+          arg5 arg6 arg7 arg8 arg9 & args]
    (with-meta
-     (apply vector arg0 arg1 arg3 arg4 arg5
-            arg6 arg7 arg8 arg9 arg10 args)
+     (let [n-args (count args)
+           obj-data (object-array (+ 10 n-args))]
+       (ArrayHelpers/aset obj-data 0 arg0)
+       (ArrayHelpers/aset obj-data 1 arg1)
+       (ArrayHelpers/aset obj-data 2 arg2)
+       (ArrayHelpers/aset obj-data 3 arg3)
+       (ArrayHelpers/aset obj-data 4 arg4)
+       (ArrayHelpers/aset obj-data 5 arg5)
+       (ArrayHelpers/aset obj-data 6 arg6)
+       (ArrayHelpers/aset obj-data 7 arg7)
+       (ArrayHelpers/aset obj-data 8 arg8)
+       (ArrayHelpers/aset obj-data 9 arg9)
+       (loop [idx 10
+              args args]
+         (when args
+           (ArrayHelpers/aset obj-data idx (RT/first args))
+           (recur (unchecked-inc idx) (RT/next args))))
+       (LazilyPersistentVector/create obj-data))
      meta)))
 
 
@@ -233,7 +256,23 @@
   (^List [arg0 arg1 arg3 arg4 arg5
           arg6 arg7 arg8 arg9 arg10] (ImList10. 0 0 nil arg0 arg1 arg3 arg4 arg5
                                                 arg6 arg7 arg8 arg9 arg10))
-  (^List [arg0 arg1 arg3 arg4 arg5
-          arg6 arg7 arg8 arg9 arg10 & args]
-   (apply vector arg0 arg1 arg3 arg4 arg5
-          arg6 arg7 arg8 arg9 arg10 args)))
+  (^List [arg0 arg1 arg2 arg3 arg4
+          arg5 arg6 arg7 arg8 arg9 & args]
+   (let [n-args (count args)
+         obj-data (object-array (+ 10 n-args))]
+     (ArrayHelpers/aset obj-data 0 arg0)
+     (ArrayHelpers/aset obj-data 1 arg1)
+     (ArrayHelpers/aset obj-data 2 arg2)
+     (ArrayHelpers/aset obj-data 3 arg3)
+     (ArrayHelpers/aset obj-data 4 arg4)
+     (ArrayHelpers/aset obj-data 5 arg5)
+     (ArrayHelpers/aset obj-data 6 arg6)
+     (ArrayHelpers/aset obj-data 7 arg7)
+     (ArrayHelpers/aset obj-data 8 arg8)
+     (ArrayHelpers/aset obj-data 9 arg9)
+     (loop [idx 10
+            args args]
+       (when args
+         (ArrayHelpers/aset obj-data idx (RT/first args))
+         (recur (unchecked-inc idx) (RT/next args))))
+     (LazilyPersistentVector/create obj-data))))
