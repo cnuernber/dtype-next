@@ -549,7 +549,7 @@ public class Main
     //When you are creating a whole lot of small maps or lists we have faster methods
     IFn mapFact = mapFactory(vector("a", "b", "c"));
     println(mapFact.invoke(1,2,3));
-    println(fastVector(1,2,3));
+    println(vector(1,2,3));
     //Neanderthal boots up Clojure's agent pool which means that when it comes time to
     //shutdown you need to call shutdown-agents else you get a nice 1 minute hang
     //on shutdown.  This is always safe to call regardless.

@@ -126,7 +126,6 @@ public class DType {
 
   static final IFn toBitmapFn = requiringResolve("tech.v3.datatype.bitmap", "->bitmap");
   static final IFn mapFactoryFn = requiringResolve("tech.v3.datatype", "map-factory");
-  static final IFn fastVectFn = requiringResolve("tech.v3.datatype", "fast-vector");
 
   /**
    * Extremely efficient parallelism primitive for working through a fixed number
