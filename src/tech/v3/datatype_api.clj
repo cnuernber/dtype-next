@@ -25,8 +25,7 @@
             [tech.v3.datatype.const-reader]
             [tech.v3.datatype.io-concat-buffer]
             [tech.v3.datatype.copy-make-container]
-            [tech.v3.datatype.fastobjs :as fastobjs]
-            [tech.v3.datatype.imlist :as imlist])
+            [tech.v3.datatype.fastobjs :as fastobjs])
   (:import [tech.v3.datatype ListPersistentVector BooleanReader
             LongReader DoubleReader ObjectReader PrimitiveList
             Buffer ArrayBufferData NativeBufferData]
@@ -335,23 +334,6 @@ user> (dtype/make-reader :float32 5 (* idx 2))
   (if (empty? key-seq)
     (constantly {})
     (fastobjs/map-factory key-seq)))
-
-
-(defn fast-vector
-  "Much faster vector/list constructor than `clojure.core/vector`."
-  ([] [])
-  ([a0] (imlist/imlist a0))
-  ([a0 a1] (imlist/imlist a0 a1))
-  ([a0 a1 a2] (imlist/imlist a0 a1 a2))
-  ([a0 a1 a2 a3] (imlist/imlist a0 a1 a2 a3))
-  ([a0 a1 a2 a3 a4] (imlist/imlist a0 a1 a2 a3 a4))
-  ([a0 a1 a2 a3 a4 a5] (imlist/imlist a0 a1 a2 a3 a4 a5))
-  ([a0 a1 a2 a3 a4 a5 a6] (imlist/imlist a0 a1 a2 a3 a4 a5 a6))
-  ([a0 a1 a2 a3 a4 a5 a6 a7] (imlist/imlist a0 a1 a2 a3 a4 a5 a6 a7))
-  ([a0 a1 a2 a3 a4 a5 a6 a7 a8] (imlist/imlist a0 a1 a2 a3 a4 a5 a6 a7 a8))
-  ([a0 a1 a2 a3 a4 a5 a6 a7 a8 a9] (imlist/imlist a0 a1 a2 a3 a4 a5 a6 a7 a8 a9))
-  ([a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 & args]
-   (apply imlist/imlist a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 args)))
 
 (comment
 

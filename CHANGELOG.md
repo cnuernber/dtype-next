@@ -1,3 +1,7 @@
+## 9.007
+ * Removed DType's custom vector class - creating vectors with (vector) is fine up
+   to 6 args which works for now.
+
 ## 9.006
  * Base Clj java API has faster map/vector creation.
  * DType now exposes map factory and fast vector creation.

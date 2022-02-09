@@ -3,6 +3,7 @@ package tech.v3;
 import clojure.lang.IFn;
 import clojure.java.api.Clojure;
 import clojure.lang.RT;
+import clojure.lang.ArraySeq;
 import clojure.lang.IPersistentMap;
 import clojure.lang.Symbol;
 import clojure.lang.Keyword;
@@ -312,7 +313,7 @@ public class Clj
     if (args.length < 16)
       return PersistentArrayMap.createWithCheck(args);
     else
-      return (Map)hashMapFn.applyTo(RT.seq(args));
+      return (Map)hashMapFn.applyTo(ArraySeq.create(args));
   }
   /**
    * Create a Clojure persistent vector with the clojure.core.vector function.
