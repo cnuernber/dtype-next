@@ -114,7 +114,10 @@ public class VecMath
    * where the true values are.  After which you can reindex your buffer leaving
    * only the values where the condition was true.
    *
-   * @see tech.v3.Dtype.indexedBuffer.
+   * Numeric buffers will be interpreted as boolean where anything that is zero
+   * is false else the value is true.
+   *
+   * @see tech.v3.DType.indexedBuffer.
    */
   public static Object booleansToIndexes(Object boolVec) {
     return call(booleansToIndexesFn, boolVec);

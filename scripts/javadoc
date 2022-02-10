@@ -1,3 +1,9 @@
 #!/bin/bash
 
-javadoc -sourcepath java_public_api -d docs/javadoc -Xdoclint:none -classpath "$(lein classpath):$(pwd)/target/classes" tech.v3 tech.v3.datatype
+javadoc -sourcepath java_public_api -d docs/javadoc -Xdoclint:none \
+	-classpath "$(lein classpath):$(pwd)/target/classes" \
+	-doctitle "DType Next Documentation"\
+	-windowtitle "DTYpe Next Documentation"\
+	--allow-script-in-comments\
+	-header "<script async src=\"https://www.googletagmanager.com/gtag/js?id=G-95TVFC1FEB\"</script><script>window.dataLayer = window.dataLayer || [];\nfunction gtag(){dataLayer.push(arguments);}\ngtag('js', new Date());\ngtag('config', 'G-95TVFC1FEB');"\
+	tech.v3 tech.v3.datatype
