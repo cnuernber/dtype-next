@@ -1,4 +1,4 @@
-(defproject cnuernber/dtype-next "9.009-SNAPSHOT"
+(defproject cnuernber/dtype-next "9.009"
   :description "A Clojure library designed to aid in the implementation of high performance algorithms and systems."
   :url "http://github.com/cnuernber/dtype-next"
   :license {:name "EPL-2.0"
@@ -40,6 +40,14 @@
               :codox {:project {:name "dtype-next"}
                       :metadata {:doc/format :markdown}
                       :themes [:rdash]
+                      :google-analytics "G-95TVFC1FEB"
+                      :html {:transforms [[:head] [:append [:script {:async true
+                                                                     :src "https://www.googletagmanager.com/gtag/js?id=G-95TVFC1FEB"}]]
+                                          [:head] [:append [:script "window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-95TVFC1FEB');"]]]}
                       :source-paths ["src"]
                       :output-path "docs"
                       :doc-paths ["topics"]

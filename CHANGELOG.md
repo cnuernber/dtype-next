@@ -1,3 +1,7 @@
+## 9.009
+ * Added google analytics to documentation so we know which pages are getting referenced
+   the most.
+   
 ## 9.007
  * Removed DType's custom vector class - creating vectors with (vector) is fine up
    to 6 args which works for now.
