@@ -24,6 +24,7 @@
             [tech.v3.datatype.io-indexed-buffer]
             [tech.v3.datatype.const-reader]
             [tech.v3.datatype.io-concat-buffer]
+            [tech.v3.datatype.list :as dt-list]
             [tech.v3.datatype.copy-make-container]
             [tech.v3.datatype.fastobjs :as fastobjs])
   (:import [tech.v3.datatype ListPersistentVector BooleanReader
@@ -232,11 +233,39 @@ user> (dtype/make-reader :float32 5 (* idx 2))
 (defn make-list
   "Make an instance of a tech.v3.datatype.PrimitiveList.  These have typed add*
   methods, implement tech.v3.datatype.Buffer, and a guaranteed in-place transformation
-  to a concrete buffer (defaults to an array buffer)."
+  to a concrete buffer (defaults to an array buffer).
+
+  If an integer is passed in an empty list that has preallocated storage is returned.
+  If a sequence of data is passed in then a non-empty list that contains just those elements
+  is returned.
+
+  Example:
+
+```clojure
+user> (require '[tech.v3.datatype :as dt])
+nil
+user> (dt/make-list :float32 10)
+#list<float32>[0]
+[]
+user> (dt/make-list :float32 (range 10))
+#list<float32>[10]
+[0.000, 1.000, 2.000, 3.000, 4.000, 5.000, 6.000, 7.000, 8.000, 9.000]
+```"
   (^PrimitiveList [datatype n-elems-or-data]
-   (make-container :list datatype n-elems-or-data))
+   (if (number? n-elems-or-data)
+     (dt-list/make-list (make-container datatype n-elems-or-data) 0)
+     (make-container :list datatype n-elems-or-data)))
   (^PrimitiveList [datatype]
    (make-list datatype 0)))
+
+
+(defn prealloc-list
+  "Make an list with preallocated storage.  This function exists to cause
+  a compilation error if older versions of dtype-next are included and is
+  the equivalent (in latest versions of dtype-next) to
+  `(make-list datatype n-elems)`."
+  ^PrimitiveList [datatype ^long n-elems]
+  (dt-list/make-list (make-container datatype n-elems) 0))
 
 
 (defn copy-raw->item!

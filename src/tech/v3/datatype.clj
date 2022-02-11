@@ -406,7 +406,24 @@
 (defn make-list
   "Make an instance of a tech.v3.datatype.PrimitiveList.  These have typed add*
   methods, implement tech.v3.datatype.Buffer, and a guaranteed in-place transformation
-  to a concrete buffer (defaults to an array buffer)."
+  to a concrete buffer (defaults to an array buffer).
+
+  If an integer is passed in an empty list that has preallocated storage is returned.
+  If a sequence of data is passed in then a non-empty list that contains just those elements
+  is returned.
+
+  Example:
+
+```clojure
+user> (require '[tech.v3.datatype :as dt])
+nil
+user> (dt/make-list :float32 10)
+#list<float32>[0]
+[]
+user> (dt/make-list :float32 (range 10))
+#list<float32>[10]
+[0.000, 1.000, 2.000, 3.000, 4.000, 5.000, 6.000, 7.000, 8.000, 9.000]
+```"
   (^{:tag tech.v3.datatype.PrimitiveList} [datatype n-elems-or-data]
   (tech.v3.datatype-api/make-list datatype n-elems-or-data))
   (^{:tag tech.v3.datatype.PrimitiveList} [datatype]
@@ -446,6 +463,15 @@ user> (dtype/make-reader :float32 5 (* idx 2))
   new map as fast as possible when requrested"
   ([key-seq]
   (tech.v3.datatype-api/map-factory key-seq)))
+
+
+(defn prealloc-list
+  "Make an list with preallocated storage.  This function exists to cause
+  a compilation error if older versions of dtype-next are included and is
+  the equivalent (in latest versions of dtype-next) to
+  `(make-list datatype n-elems)`."
+  (^{:tag tech.v3.datatype.PrimitiveList} [datatype n-elems]
+  (tech.v3.datatype-api/prealloc-list datatype n-elems)))
 
 
 (defn reader-like?
