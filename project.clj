@@ -37,8 +37,7 @@
              :codox
              {:dependencies [[codox-theme-rdash "0.1.2"]
                              [com.cnuernber/codox "1.001"]]
-              :codox {:project {:name "dtype-next"}
-                      :metadata {:doc/format :markdown}
+              :codox {:metadata {:doc/format :markdown}
                       :themes [:rdash]
                       :google-analytics "G-95TVFC1FEB"
                       :html {:transforms [[:head] [:append [:script {:async true
