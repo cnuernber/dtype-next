@@ -721,13 +721,6 @@ tech.v3.datatype.functional> (meta regressor)
   (tech.v3.datatype.functional-api/reduce-min rdr)))
 
 
-(defn register-optimized-operations!
-  "Register one more more optimized operations.  Only specific operations are optimized
-  via vectorization - sum dot-product magnitude-squared and distance-squared"
-  ([opt-map]
-  (tech.v3.datatype.functional-api/register-optimized-operations! opt-map)))
-
-
 (defn rem
   ([x y]
   (tech.v3.datatype.functional-api/rem x y))

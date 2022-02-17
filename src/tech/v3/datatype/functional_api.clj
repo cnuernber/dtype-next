@@ -181,27 +181,32 @@
    (:tech.numerics/min binary-op/builtin-ops) rdr))
 
 
-(defonce ^:private optimized-opts* (atom {:sum fn-opt/sum
-                                          :dot-product fn-opt/dot-product
-                                          :magnitude-squared fn-opt/magnitude-squared
-                                          :distance-squared fn-opt/distance-squared}))
+(defn- vm-major-version
+  ^long []
+  (let [vs (System/getProperty "java.version")
+        periodIdx (.indexOf vs ".")
+        vs (.substring vs 0 periodIdx)]
+    (try (Integer/parseInt vs)
+         (catch Exception e 0))))
 
 
+(def ^:private optimized-opts*
+  (delay
+    (merge
+     {:sum fn-opt/sum
+      :dot-product fn-opt/dot-product
+      :magnitude-squared fn-opt/magnitude-squared
+      :distance-squared fn-opt/distance-squared}
+     (graal-native/when-not-defined-graal-native
+      (when (clojure.core/>= (vm-major-version) 17)
+        (try
+          ((requiring-resolve 'tech.v3.datatype.functional.vecopt/optimized-operations))
+          (catch Exception e
+            (log/debug "JDK17 vector ops unavailable - to enable please enable vector op module:
+\t--add-modules jdk.incubator.vector")
+            {})))))))
 
-(defn ^:no-doc register-optimized-operations!
-  "Register one more more optimized operations.  Only specific operations are optimized
-  via vectorization - sum dot-product magnitude-squared and distance-squared"
-  [opt-map]
-  (swap! optimized-opts* merge opt-map)
-  (keys opt-map))
 
-
-(graal-native/when-not-defined-graal-native
- (try
-   (register-optimized-operations!
-    ((requiring-resolve 'tech.v3.datatype.functional.vecopt/optimized-operations)))
-   (catch Throwable e
-     (log/debugf "JDK16 vector ops are not available: %s" (.getMessage e)))))
 
 
 (defn sum-fast

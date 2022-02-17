@@ -6,7 +6,8 @@
             [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.binary-op :as binary-op]
             [tech.v3.datatype.emap :as emap])
-  (:import [tech.v3.datatype Buffer LongReader DoubleReader ObjectReader]
+  (:import [tech.v3.datatype Buffer LongReader DoubleReader ObjectReader
+            VariableRollingIterBase]
            [java.util Iterator]))
 
 
@@ -208,41 +209,6 @@ user>
     data))
 
 
-(deftype ObjectRollingIterator [^{:unsynchronized-mutable true
-                                  :tag long} start-idx
-                                ^{:unsynchronized-mutable true
-                                  :tag long} end-idx
-                                ^double window-length
-                                ^double stepsize
-                                ^long n-elems
-                                ^long n-subset
-                                tweener
-                                ^Buffer data]
-  Iterator
-  (hasNext [_this] (< start-idx n-subset))
-  (next [_this]
-    (let [start-val (data start-idx)
-          next-end-idx
-          (long
-           (loop [eidx end-idx]
-             (if (or (>= eidx n-elems)
-                     (>= (double (tweener (data eidx) start-val)) window-length))
-               eidx
-               (recur (unchecked-inc eidx)))))
-          retval (WindowRange. start-idx (- next-end-idx start-idx))
-          next-start-idx (unchecked-inc start-idx)
-          next-start-idx
-          (long (if (== 0.0 stepsize)
-                  next-start-idx
-                  (loop [eidx (unchecked-inc next-start-idx)]
-                    (if (or (>= eidx n-elems)
-                            (>= (double (tweener (data eidx) start-val)) stepsize))
-                      eidx
-                      (recur (unchecked-inc eidx))))))]
-      (set! start-idx next-start-idx)
-      (set! end-idx next-end-idx)
-      retval)))
-
 
 (defn variable-rolling-window-ranges
     "Given a reader of monotonically increasing source data, a double window
@@ -266,15 +232,14 @@ user>
   * `:comp-fn` - defaults to (- rhs lhs), must return a double result that will be
      used to figure out the next window indexes and the amount to increment the
      start index in between windows.
-  * `:n-subset` - defaults to n-elems, used when parallelizing rolling windows over
-     a single buffer this will exit the iteration prematurely and must be less than
-     src-data n-elems.
+  * `:relative-window-position` - defaults to `:right`, attempts to center the window
+     relative to the input.
 
   Examples:
 
 ```clojure
 tech.v3.datatype.rolling> (vec (variable-rolling-window-ranges
-                                (range 20) 5))
+                                (range 20) 5))]
 [[0 1 2 3 4]
  [1 2 3 4 5]
  [2 3 4 5 6]
@@ -311,22 +276,68 @@ tech.v3.datatype.rolling> (vec (variable-rolling-window-ranges
 ```"
   (^Iterable [src-data window-length {:keys [stepsize
                                              comp-fn
-                                             n-subset]
+                                             relative-window-position]
                                       :or {stepsize 0.0}}]
    (let [comp-fn (to-compare-fn (or comp-fn :tech.numerics/-))
+         relative-window-position (or relative-window-position :right)
          src-data (dtype-base/->buffer src-data)
-         n-elems (.lsize src-data)
-         n-subset (long (or n-subset n-elems))]
-     (reify
-       Iterable
-       (iterator [this]
-         (ObjectRollingIterator. 0 1
-                                 (double window-length)
-                                 (double stepsize)
-                                 n-elems n-subset
-                                 comp-fn src-data)))))
+         n-elems (.lsize src-data)]
+     (case relative-window-position
+       :right
+       (reify
+         Iterable
+         (iterator [this]
+           (let [iter-base (VariableRollingIterBase. src-data stepsize
+                                                        (double window-length)
+                                                        comp-fn)]
+             (reify Iterator
+               (hasNext [this] (.hasNext iter-base))
+               (next [this]
+                 (.incrementEnd iter-base)
+                 (let [window (WindowRange. (.getStartIdx iter-base)
+                                            (.getRangeLength iter-base))]
+                   (.incrementTarget iter-base)
+                   (.setStartToTarget iter-base)
+                   window))))))
+       :left
+       (reify Iterable
+         (iterator [this]
+           (let [iter-base (VariableRollingIterBase. src-data stepsize
+                                                         (double window-length)
+                                                         comp-fn)]
+             (.setEndToTarget iter-base)
+             (reify Iterator
+               (hasNext [this] (.hasNext iter-base))
+               (next [this]
+                 (.incrementStart iter-base)
+                 (let [window (WindowRange. (.getStartIdx iter-base)
+                                            (.getRangeLength iter-base))]
+                   (.incrementTarget iter-base)
+                   (.setEndToTarget iter-base)
+                   window))))))
+       :center
+       (reify Iterable
+         (iterator [this]
+           (let [iter-base (VariableRollingIterBase. src-data stepsize
+                                                     (/ (double window-length) 2.0)
+                                                     comp-fn)]
+             (reify Iterator
+               (hasNext [this] (.hasNext iter-base))
+               (next [this]
+                 (.incrementStart iter-base)
+                 (.incrementEnd iter-base)
+                 (let [window (WindowRange. (.getStartIdx iter-base)
+                                            (.getRangeLength iter-base))]
+                   (.incrementTarget iter-base)
+                   window)))))))))
   (^Iterable [src-data window-length]
    (variable-rolling-window-ranges src-data window-length nil)))
+
+(comment
+  (vec (variable-rolling-window-ranges
+        (range 20) 5 {:relative-window-position :left}))
+
+  )
 
 
 (defn expanding-window-ranges

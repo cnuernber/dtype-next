@@ -94,7 +94,7 @@
                              reduced-dims))))
 
 
-(graal-native/if-defined-graal-native
+#_(graal-native/if-defined-graal-native
  (log/debug "Graal Native Defined -- insn custom indexing disabled!")
  (do
    (log/debug "insn custom indexing enabled!")
@@ -124,7 +124,7 @@
 
 (defn make-indexing-obj
   [reduced-dims broadcast?]
-  (graal-native/if-defined-graal-native
+  #_(graal-native/if-defined-graal-native
    (elem-idx->addr-fn reduced-dims)
    (let [signature (reduced-dims->signature reduced-dims broadcast?)
          reader-constructor-fn
@@ -133,7 +133,8 @@
               defined-classes
               signature
               (absent-sig-fn signature)))]
-     (reader-constructor-fn reduced-dims))))
+     (reader-constructor-fn reduced-dims)))
+  (elem-idx->addr-fn reduced-dims))
 
 
 (defn get-or-create-reader

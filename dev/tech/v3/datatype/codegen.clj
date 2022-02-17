@@ -10,12 +10,7 @@
 
   (log/info "Generating datatype api files")
 
-  (export-symbols/write-api! 'tech.v3.datatype-api
-                             'tech.v3.datatype
-                             "src/tech/v3/datatype.clj"
-                             ['cast 'reverse])
-
-  (export-symbols/write-api! 'tech.v3.datatype.functional-api
+    (export-symbols/write-api! 'tech.v3.datatype.functional-api
                              'tech.v3.datatype.functional
                              "src/tech/v3/datatype/functional.clj"
                              '[+ - / *
@@ -32,6 +27,11 @@
                              'tech.v3.datatype.datetime
                              "src/tech/v3/datatype/datetime.clj"
                              nil)
+
+  (export-symbols/write-api! 'tech.v3.datatype-api
+                             'tech.v3.datatype
+                             "src/tech/v3/datatype.clj"
+                             ['cast 'reverse])
 
 
   (export-symbols/write-api! 'tech.v3.tensor-api

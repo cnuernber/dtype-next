@@ -1,3 +1,10 @@
+## 9.012
+ * Removed insn optimizations for tensor ops for now.  No one is using those pathways and
+   it just increases startup time.
+ * Removed logging around JDK-17 specific optimizations for vms < 17.
+ * Rolling now can handle variables windows that are left, right, and centered relative
+   window positions.
+   
 ## 9.009
  * Added google analytics to documentation so we know which pages are getting referenced
    the most.
