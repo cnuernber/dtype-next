@@ -403,6 +403,7 @@
 (casting/add-object-datatype! :local-time LocalTime)
 (casting/alias-datatype! :epoch-milliseconds :int64)
 (casting/alias-datatype! :epoch-microseconds :int64)
+(casting/alias-datatype! :epoch-nanoseconds :int64)
 (casting/alias-datatype! :epoch-seconds :int64)
 (casting/alias-datatype! :epoch-hours :int64)
 ;;For compatibility with arrow and parquet datatypes
