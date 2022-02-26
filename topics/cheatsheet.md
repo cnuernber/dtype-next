@@ -1,4 +1,4 @@
-# Cheatsheet
+# dtype-next Cheatsheet
 
 The old cheatsheet has been moved to [overview](https://cnuernber.github.io/dtype-next/overview.html).
 

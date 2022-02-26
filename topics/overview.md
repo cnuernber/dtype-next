@@ -1,4 +1,4 @@
-# Overview
+# dtype-next Overview
 
 
 ## Setup
@@ -286,4 +286,4 @@ user> (dtt/mset! (dtt/transpose tens [1 0]) 0 [25 26 27])
 ```
 
 
-If you got this far be sure to checkout the [cheatseet](https://cnuernber.github.io/dtype-next/cheatsheet.html).
+If you got this far be sure to checkout the [cheatsheet](https://cnuernber.github.io/dtype-next/cheatsheet.html).

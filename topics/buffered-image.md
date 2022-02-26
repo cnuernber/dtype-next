@@ -1,4 +1,4 @@
-# Buffered Image Support
+# dtype-next Buffered Image Support
 
 
 `dtype-next` contains support for loading/saving buffered images

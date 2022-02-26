@@ -1,4 +1,10 @@
-# Dimensions and Bytecode Generation
+# dtype-next Tensor Dimensions and Bytecode Generation
+
+
+dtype-next uses a dimensions operator in order to transform `nd` space to a linear
+address space.  We no longer compile in bytecode address operator generation by
+default as it takes a bit longer to load and most users won't see any benefit as
+they are not using ND operations.
 
 
 ## Translating from N-Dimensional Space to 1 Dimensional Space
