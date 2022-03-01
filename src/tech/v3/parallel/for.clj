@@ -1,6 +1,7 @@
 (ns tech.v3.parallel.for
   "Serial and parallel iteration strategies across iterators and index spaces."
-  (:require [tech.v3.datatype.errors :as errors])
+  (:require [tech.v3.datatype.errors :as errors]
+            [com.climate.claypoole :as claypoole])
   (:import [java.util.concurrent ForkJoinPool Callable Future ForkJoinTask]
            [java.util Spliterator Iterator ArrayList]
            [java.util.stream Stream]
@@ -133,6 +134,20 @@
           (dotimes [idx# group-len#]
             (let [~idx-var (+ idx# group-start#)]
               ~@body)))))))
+
+
+(defn cpu-pmap
+  "pmap using the commonPool.  This is useful for interacting with other primitives, namely
+  [[indexed-map-reduce]] which are also based on this pool."
+  [map-fn & sequences]
+  (apply claypoole/pmap (ForkJoinPool/commonPool) map-fn sequences))
+
+
+(defn cpu-upmap
+  "Unordered pmap using the commonPool.  This is useful for interacting with other primitives,
+  namely [[indexed-map-reduce]] which are also based on this pool."
+  [map-fn & sequences]
+  (apply claypoole/upmap (ForkJoinPool/commonPool) map-fn sequences))
 
 
 (defn as-spliterator
