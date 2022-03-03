@@ -1,3 +1,7 @@
+## 9.015
+ * tech.v3.parallel - adds ForkJoinPool/commonPool-based pmap, and upmap parallelism
+ constructs that will bail and use map variants if already in a fork join thread.
+
 ## 9.013
  * `epoch-nanosecond` is an int64-aliased datatype.
 
