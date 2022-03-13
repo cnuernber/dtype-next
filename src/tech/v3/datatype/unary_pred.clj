@@ -10,7 +10,7 @@
   (:import [tech.v3.datatype UnaryPredicate Buffer
             UnaryPredicates$BooleanUnaryPredicate
             UnaryPredicates$DoubleUnaryPredicate
-            UnaryPredicates$ObjectUnaryPredicate
+            UnaryPredicates$ObjectUnaryPredicate BooleanConversions
             BooleanReader PrimitiveList]
            [tech.v3.datatype.monotonic_range Int64Range]
            [java.util List]
@@ -33,7 +33,7 @@
    (reify
      UnaryPredicates$ObjectUnaryPredicate
      (unaryObject [this arg]
-       (boolean (ifn arg)))
+       (BooleanConversions/from (ifn arg)))
      dtype-proto/POperator
      (op-name [this] opname)))
   (^UnaryPredicate [ifn]

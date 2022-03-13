@@ -1,3 +1,6 @@
+## 9.017
+ * `(argops/argfilter)` respects boolean/double-nan rules below.
+
 ## 9.016
  * Double/NaN, when casted to a boolean, evaluates to false.  This make the behavior of
    `(ds/filter-column col identity)` and `(dtype/elemwise-cast item :boolean)` consistent

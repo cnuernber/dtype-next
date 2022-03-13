@@ -9,6 +9,7 @@
             BinaryPredicates$BooleanBinaryPredicate
             BinaryPredicates$LongBinaryPredicate
             BinaryPredicates$ObjectBinaryPredicate
+            BooleanConversions
             BooleanReader ObjectReader
             UnaryPredicate
             UnaryPredicates$BooleanUnaryPredicate
@@ -29,7 +30,7 @@
    (reify
      BinaryPredicates$ObjectBinaryPredicate
      (binaryObject [this lhs rhs]
-       (boolean (ifn lhs rhs)))
+       (BooleanConversions/from (ifn lhs rhs)))
      dtype-proto/POperator
      (op-name [this] opname)))
   (^BinaryPredicate [ifn]
@@ -43,7 +44,7 @@
    (reify
      BinaryPredicates$LongBinaryPredicate
      (binaryObject [this lhs rhs]
-       (boolean (ifn lhs rhs)))
+       (BooleanConversions/from (ifn lhs rhs)))
      dtype-proto/POperator
      (op-name [this] opname)))
   (^BinaryPredicate [ifn]

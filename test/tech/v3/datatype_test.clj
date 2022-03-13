@@ -803,4 +803,5 @@
                    (.readBoolean 0))))
   (is (= false (tech.v3.datatype.BooleanConversions/from Double/NaN)))
   (is (= false (tech.v3.datatype.BooleanConversions/from (Double/valueOf Double/NaN))))
-  (is (= false (tech.v3.datatype.BooleanConversions/from (Long/valueOf 0)))))
+  (is (= false (tech.v3.datatype.BooleanConversions/from (Long/valueOf 0))))
+  (is (= [2] (vec (argops/argfilter identity (double-array [0 Double/NaN 1]))))))
