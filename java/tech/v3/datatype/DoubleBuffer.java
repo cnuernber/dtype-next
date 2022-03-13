@@ -10,7 +10,10 @@ import java.util.stream.DoubleStream;
 public interface DoubleBuffer extends Buffer
 {
   default Object elemwiseDatatype () { return Keyword.intern(null, "float64"); }
-  default boolean readBoolean(long idx) {return readDouble(idx) != 0.0;}
+  default boolean readBoolean(long idx) {
+    double dval = readDouble(idx);
+    return !Double.isNaN(dval) && dval != 0.0;
+  }
   default byte readByte(long idx) {return RT.byteCast(readDouble(idx));}
   default short readShort(long idx) {return RT.byteCast(readDouble(idx));}
   default char readChar(long idx) {return RT.charCast(readDouble(idx));}

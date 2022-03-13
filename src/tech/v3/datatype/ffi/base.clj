@@ -1,8 +1,7 @@
 (ns tech.v3.datatype.ffi.base
   (:require [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.ffi :as ffi]
-            [tech.v3.datatype.ffi.size-t :as ffi-size-t]
-            [insn.core :as insn])
+            [tech.v3.datatype.ffi.size-t :as ffi-size-t])
   (:import [clojure.lang IFn RT Keyword]
            [tech.v3.datatype ClojureHelper NumericConversions]
            [tech.v3.datatype.ffi Pointer]
@@ -227,6 +226,19 @@
                                       %))]))
        (into {})))
 
+(defn visit-write!
+  [cls]
+  (let [visit (requiring-resolve 'insn.core/visit)
+        write (requiring-resolve 'insn.core/write)]
+    (-> cls
+        (visit)
+        (write))))
+
+
+(defn insn-define!
+  [cls]
+  ((requiring-resolve 'insn.core/define) cls))
+
 
 (defn define-library
   [fn-defs symbols classname library-classes-fn instantiate? options]
@@ -237,11 +249,10 @@
                                        (emit-invokers classname fn-defs))
                                ;;side effects
                                (mapv (fn [cls]
-                                       (-> (insn/visit cls)
-                                           (insn/write))
+                                       (visit-write! cls)
                                       ;;defined immediately for repl access
                                        (if instantiate?
-                                         (insn/define cls)
+                                         (insn-define! cls)
                                          (:name cls)))))]
     ;; First we define the inner class which contains the typesafe static methods
     {:library-symbol classname
@@ -378,10 +389,8 @@
 (defn define-foreign-interface
   [classname rettype argtypes options]
   (let [cls-def (foreign-interface-definition classname rettype argtypes options)]
-    (-> cls-def
-        (insn/visit)
-        (insn/write))
+    (visit-write! cls-def)
     {:rettype rettype
      :argtypes argtypes
      :foreign-iface-symbol classname
-     :foreign-iface-class (insn/define cls-def)}))
+     :foreign-iface-class (insn-define! cls-def)}))

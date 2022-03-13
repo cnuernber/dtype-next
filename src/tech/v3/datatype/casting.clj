@@ -267,14 +267,17 @@
   [src-dtype item]
   (cond
     (numeric-type? src-dtype)
-    `(boolean (not= 0.0 (unchecked-double ~item)))
+    `(boolean (let [dval# (unchecked-double ~item)]
+                (and (not= 0.0 dval#) (not (Double/isNaN dval#)))))
     (= :boolean src-dtype)
     `(boolean ~item)
     :else
     `(boolean
       (let [item# ~item]
         (if (number? item#)
-          (not= 0.0 (unchecked-double item#))
+          (boolean
+           (let [dval# (unchecked-double item#)]
+             (and (not= 0.0 dval#) (not (Double/isNaN dval#)))))
           item#)))))
 
 ;; Save these because we are switching to unchecked soon

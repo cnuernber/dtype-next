@@ -1,3 +1,13 @@
+## 9.016
+ * Double/NaN, when casted to a boolean, evaluates to false.  This make the behavior of
+   `(ds/filter-column col identity)` and `(dtype/elemwise-cast item :boolean)` consistent
+   across float, double and all object datatypes.
+ * insn is not loaded until required with requiring-resolve from the FFI system.  This
+   allows you to pre-generate FFI bindings during build time but not require insn or
+   `org.ow2.asm/asm` at runtime enabling greater compatibilty with hadoop-based systems
+   which include a legacy version of `org.ow2.asm/asm` which is incompatible with
+   insn.
+
 ## 9.015
  * tech.v3.parallel - adds ForkJoinPool/commonPool-based pmap, and upmap parallelism
  constructs that will bail and use map variants if already in a fork join thread.

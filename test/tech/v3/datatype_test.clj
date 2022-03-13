@@ -789,3 +789,18 @@
 (deftest gradient-correct
   (is (= (vec (repeat 10 1.0))
          (dt-grad/gradient1d (range 10)))))
+
+
+(deftest double-nan-boolean
+  (is (= false (dtype/cast (Double/NaN) :boolean)))
+  (is (= [false]
+         (-> (dtype/make-container :float64 [Double/NaN])
+             (dtype/elemwise-cast :boolean)
+             (vec))))
+  (is (= false (-> (reify tech.v3.datatype.DoubleReader
+                     (lsize [this] 1)
+                     (readDouble [this idx] Double/NaN))
+                   (.readBoolean 0))))
+  (is (= false (tech.v3.datatype.BooleanConversions/from Double/NaN)))
+  (is (= false (tech.v3.datatype.BooleanConversions/from (Double/valueOf Double/NaN))))
+  (is (= false (tech.v3.datatype.BooleanConversions/from (Long/valueOf 0)))))

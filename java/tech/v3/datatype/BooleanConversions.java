@@ -1,6 +1,8 @@
 package tech.v3.datatype;
 
 
+import clojure.lang.RT;
+
 
 public class BooleanConversions
 {
@@ -23,14 +25,14 @@ public class BooleanConversions
     return val != 0;
   }
   public static boolean from(float val) {
-    return val != 0.0f;
+    return !Float.isNaN(val) && val != 0.0f;
   }
   public static boolean from(double val) {
-    return val != 0.0;
+    return !Double.isNaN(val) && val != 0.0;
   }
   public static boolean from(Object obj) {
     if (obj instanceof Number) {
-      return (double)obj != 0.0;
+      return from(RT.uncheckedDoubleCast(obj));
     } else if (obj instanceof Boolean) {
       return (boolean) obj;
     }
@@ -38,7 +40,7 @@ public class BooleanConversions
       return obj != null;
     }
   }
-  
+
   public static byte toByte(boolean val) {
     return val ? (byte)1 : (byte)0;
   }
