@@ -1,3 +1,8 @@
+## 9.018
+ * Fast [csv parsing](https://cnuernber.github.io/dtype-next/tech.v3.datatype.char-input.html).
+ * Related, function to take an iterator and realize it into a queue in an offline thread
+   returning a new iterator - [queue-iter](https://cnuernber.github.io/dtype-next/tech.v3.parallel.queue-iter.html).
+ 
 ## 9.017
  * `(argops/argfilter)` respects boolean/double-nan rules below.
 
