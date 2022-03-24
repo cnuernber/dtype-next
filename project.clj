@@ -1,4 +1,4 @@
-(defproject cnuernber/dtype-next "9.018-SNAPSHOT"
+(defproject cnuernber/dtype-next "9.018"
   :description "A Clojure library designed to aid in the implementation of high performance algorithms and systems."
   :url "http://github.com/cnuernber/dtype-next"
   :license {:name "EPL-2.0"
@@ -82,6 +82,8 @@
                                    tech.v3.datatype.packing
                                    tech.v3.datatype.ffi.graalvm
                                    tech.v3.parallel.for
+                                   tech.v3.parallel.queue-iter
+                                   tech.v3.datatype.char-input
                                    tech.v3.datatype.jvm-map
                                    tech.v3.libs.buffered-image
                                    tech.v3.libs.neanderthal]}

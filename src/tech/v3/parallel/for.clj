@@ -229,6 +229,18 @@
            (recur (.hasNext iter#)))))))
 
 
+(defmacro indexed-doiter
+  "Execute body for every item in the iterable.  Expecting side effects, returns nil."
+  [idxvarname varname iterable & body]
+  `(let [iter# (->iterator ~iterable)]
+     (loop [continue?# (.hasNext iter#)
+            ~idxvarname 0]
+       (when continue?#
+         (let [~varname (.next iter#)]
+           ~@body
+           (recur (.hasNext iter#) (unchecked-inc ~idxvarname)))))))
+
+
 (defn ->consumer
   "Convert a generic object into a consumer.  Works for any java.util.consumer
   and a Clojure IFn.  Returns an implementation of java.util.Consumer"
