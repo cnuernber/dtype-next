@@ -299,10 +299,10 @@
           (recur (.hasNext iter) (unchecked-inc rc)))
         rc)))
 
-  (crit/quick-bench (iter-row-count (read-csv (java.io.File. srcpath))))
+  (crit/quick-bench (iter-row-count (read-csv (java.io.File. srcpath) {:async? false})))
   ;;26ms
   (crit/quick-bench (iter-row-count (read-csv (java.io.File. srcpath))))
-  ;;20ms
+  ;;18ms
 
   (iter-row-count (read-csv (java.io.File. srcpath) {:log-level :info}))
 
