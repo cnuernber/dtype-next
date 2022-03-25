@@ -2,7 +2,10 @@
   "Efficient ways to read files via the java.io.Reader interface.  You can read a file
   into an iterator of (fixed rotating) character buffers, create a new and much
   faster reader-like interface from the character buffers and parse a csv/tsv type
-  file with an interface that is mostly compatible with but far faster than clojure.data.csv."
+  file with an interface that is mostly compatible with but far faster than clojure.data.csv.
+
+  Files are by default read by a separate thread into character arrays and those arrays are
+  then processed.  For details around the threading system see [[tech.v3.parallel.queue-iter]]."
   (:require [clojure.java.io :as io]
             [tech.v3.parallel.queue-iter :as queue-iter]
             [com.github.ztellman.primitive-math :as pmath])
@@ -21,7 +24,8 @@
                                   :tag long} next-buf-idx
                                 ^{:unsynchronized-mutable true
                                   :tag chars} cur-buf
-                                ^long n-buffers]
+                                ^long n-buffers
+                                close-reader?]
   Iterator
   (hasNext [this] (not (nil? cur-buf)))
   (next [this]
@@ -40,7 +44,9 @@
       (set! cur-buf buf)
       retval))
   AutoCloseable
-  (close [this] (.close reader)))
+  (close [this]
+    (when close-reader?
+      (.close reader))))
 
 
 (defn- ->reader
@@ -64,7 +70,8 @@
   * `:n-buffers` - Number of buffers to use.  Defaults to 8 - if this number is too small
   then buffers in flight will get overwritten.
   * `:bufsize` - Size of each buffer - defaults to 2048.  Small improvements are sometimes
-  seen with larger or smaller buffers."
+  seen with larger or smaller buffers.
+  * `:close-reader?` - When true, close input reader when finished.  Defaults to true."
   ^Iterator [rdr & [options]]
   (let [rdr (->reader rdr)
         n-buffers (long (get options :n-buffers 8))
@@ -79,7 +86,7 @@
               nil
               :else
               (Arrays/copyOf buf nchars))]
-    (CharBufIter. buffers rdr 1 buf n-buffers)))
+    (CharBufIter. buffers rdr 1 buf n-buffers (get options :close-reader? true))))
 
 
 (defn- ->character
@@ -99,6 +106,9 @@
 
   Options:
 
+  Options are passed through mainly unchanged to queue-iter and to
+  [[reader->char-buf-iter]].
+
   * `:async?` - default to true - reads the reader in an offline thread into character
      buffers."
   ^CharReader [rdr & [options]]
@@ -111,7 +121,7 @@
                          :n-buffers 18
                          :bufsize (get options :bufsize 8192)))
         src-iter (reader->char-buf-iter rdr options)
-        src-iter (if (get options :async?)
+        src-iter (if async?
                    (queue-iter/queue-iter src-iter options)
                    src-iter)]
     (CharReader. src-iter quote separator)))
@@ -189,6 +199,8 @@
 
   The iterator returned derives from AutoCloseable and it will terminate the iteration and
   close the underlying iterator (and join the async thread) if (.close iter) is called.
+
+  For a drop-in but much faster replacement to clojure.data.csv use [[read-csv-compat]].
 
   Options:
 
@@ -274,8 +286,8 @@
   ;;17ms
 
   (def stocks-csv "../../tech.all/tech.ml.dataset/test/data/stocks.csv")
-  (def row-iter (read-csv stocks-csv))
-  (def rows (vec (iterator-seq (read-csv "test/data/funky.csv"))))
+  (def row-iter (read-csv (java.io.File. stocks-csv) {:log-level :info}))
+  (def rows (vec (iterator-seq (read-csv (java.io.File. "test/data/funky.csv")))))
 
   (defn iter-row-count
     [^Iterator iter]
@@ -287,13 +299,11 @@
           (recur (.hasNext iter) (unchecked-inc rc)))
         rc)))
 
-  (crit/quick-bench (iter-row-count (read-csv srcpath)))
+  (crit/quick-bench (iter-row-count (read-csv (java.io.File. srcpath))))
   ;;26ms
-  (crit/quick-bench (iter-row-count (read-csv srcpath {:async? true
-                                                       :bufsize 8192})))
+  (crit/quick-bench (iter-row-count (read-csv (java.io.File. srcpath))))
   ;;20ms
 
-  (dotimes [iter 100000]
-    (iter-row-count (read-csv srcpath {:async? true})))
+  (iter-row-count (read-csv (java.io.File. srcpath) {:log-level :info}))
 
   )

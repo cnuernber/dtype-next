@@ -2,20 +2,37 @@
   "Read an iterator from in a separate thread into a queue returning a new iterator.  This
   allows a traversal of potentially blocking information to happen in a separate thread
   with a fixed queue size."
-  (:require [tech.v3.parallel.for :as pfor])
+  (:require [tech.v3.parallel.for :as pfor]
+            [clojure.tools.logging :as log])
   (:import [java.util Iterator NoSuchElementException]
-           [java.util.concurrent ArrayBlockingQueue]))
+           [java.util.concurrent ArrayBlockingQueue Executors ExecutorService ThreadFactory]))
 
 
 (set! *warn-on-reflection* true)
 
 
+(defonce ^:private default-thread-pool*
+  (delay
+    (Executors/newCachedThreadPool
+     (reify ThreadFactory
+       (newThread [this runnable]
+         (let [t (Thread. runnable (str (ns-name *ns*)))]
+           (.setDaemon t true)
+           t))))))
+
+
+(defn default-executor-service
+  "Default executor service that is created via 'newCachedThreadPool with a custom thread
+  factory that creates daemon threads.  This is an executor service that is suitable for
+  blocking operations as it creates new threads as needed."
+  ^ExecutorService[]
+  @default-thread-pool*)
+
+
 (deftype ^:private QueueException [e])
-(deftype ^:private QueueIterator [^Thread thread
-                                  ^Iterator srcIter
-                                  ^ArrayBlockingQueue queue
-                                  continue?*
-                                  ^:unsynchronized-mutable value]
+(deftype ^:private QueueIterator [^ArrayBlockingQueue queue
+                                  ^:unsynchronized-mutable value
+                                  close-fn*]
   Iterator
   (hasNext [this] (not (identical? value ::end)))
   (next [this]
@@ -23,21 +40,19 @@
       (identical? value ::end)
       (throw (NoSuchElementException.))
       (instance? QueueException value)
-      (throw (.e ^QueueException value))
+      (do
+        (.close this)
+        (throw (.e ^QueueException value)))
       :else
       (let [next-val (.take queue)
             cur-val value]
         (set! value next-val)
-        (when (identical? value ::end)
-          (.join thread))
+        (when (identical? next-val ::end)
+          (.close this))
         cur-val)))
   java.lang.AutoCloseable
   (close [this]
-    (vreset! continue?* false)
-    (.clear queue)
-    (.join thread)
-    (when (instance? java.lang.AutoCloseable srcIter)
-      (.close ^java.lang.AutoCloseable srcIter))))
+    @close-fn*))
 
 
 (defn queue-iter
@@ -47,33 +62,42 @@
   Options:
 
   * `:queue-depth` - Queue depth.  Defaults to 16.
-  * `:queue-thread-name` - Name of new thread.  Defaults to namespace name."
+  * `:log-level` - When set a message is logged when the iteration is finished.
+  * `:executor-service` - Which executor service to use to run the thread.  Defaults to
+     a default one created via [[default-executor-service]]."
   ^Iterator [iter & [options]]
   (let [queue-depth (long (get options :queue-depth 16))
-        thread-name (str (get options :queue-thread-name "tech.v3.parallel.queue-iter"))
         queue (ArrayBlockingQueue. queue-depth)
         continue?* (volatile! true)
         src-iter iter
         iter (pfor/->iterator iter)
-        thread
-        (Thread.
-         ^Runnable
-         (fn []
-           (try
-             (loop [thread-continue? @continue?*
-                    has-next? (.hasNext iter)]
-               (if (and thread-continue? has-next?)
-                 (do
-                   (.put queue (.next iter))
-                   (recur @continue?* (.hasNext iter)))
-                 (.put queue ::end)))
-             (catch Exception e
-               (.put queue (QueueException. e)))))
-         thread-name)]
-    (.start thread)
-    (QueueIterator. thread src-iter queue continue?* (.take queue))))
+        run-fn (fn []
+                 (try
+                   (loop [thread-continue? @continue?*
+                          has-next? (.hasNext iter)]
+                     (if (and thread-continue? has-next?)
+                       (do
+                         (.put queue (.next iter))
+                         (recur @continue?* (.hasNext iter)))
+                       (.put queue ::end)))
+                   (catch Exception e
+                     (.put queue (QueueException. e)))))
+        ^ExecutorService service (or (get options :executor-service)
+                                     (default-executor-service))
+        close-fn* (delay
+                    (try
+                      (vreset! continue?* false)
+                      (.clear queue)
+                      (when (instance? java.lang.AutoCloseable src-iter)
+                        (.close ^java.lang.AutoCloseable src-iter))
+                      (when-let [ll (get options :log-level)]
+                        (log/log ll "queue-iter thread shutdown"))
+                      (catch Exception e
+                        (log/warnf e "Error closing down queue-iter thread"))))]
+    (.submit service ^Callable run-fn)
+    (QueueIterator. queue (.take queue) close-fn*)))
 
 
 (comment
-  (vec (iterator-seq (queue-iter (range 2000))))
+  (def data (vec (iterator-seq (queue-iter (range 2000) {:log-level :info}))))
   )
