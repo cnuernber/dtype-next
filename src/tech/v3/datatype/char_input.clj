@@ -8,11 +8,13 @@
   then processed.  For details around the threading system see [[tech.v3.parallel.queue-iter]]."
   (:require [clojure.java.io :as io]
             [tech.v3.parallel.queue-iter :as queue-iter]
-            [com.github.ztellman.primitive-math :as pmath])
-  (:import [tech.v3.datatype CharReader]
+            [com.github.ztellman.primitive-math :as pmath]
+            [clojure.set :as set])
+  (:import [tech.v3.datatype CharReader UnaryPredicate UnaryPredicates$LongUnaryPredicate]
            [java.io Reader StringReader]
            [java.util Iterator Arrays ArrayList List NoSuchElementException]
-           [java.lang AutoCloseable]))
+           [java.lang AutoCloseable]
+           [org.roaringbitmap RoaringBitmap]))
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
@@ -142,22 +144,36 @@
       (and (== 1 (.size data))
            (.equals "" (.get data 0)))))
 
+(def ^{:private true
+       :tag UnaryPredicate}
+  true-unary-predicate
+  (reify UnaryPredicates$LongUnaryPredicate
+    (unaryLong [this arg]
+      true)))
+
 
 (defn- read-row
-  ^RowRecord [^CharReader rdr, ^StringBuilder sb, ^ArrayList row]
+  ^RowRecord [^CharReader rdr ^StringBuilder sb ^ArrayList row
+              ^UnaryPredicate filter-fn]
   (.clear row)
-  (let [tag (long (loop [tag (.csvRead rdr sb)]
+  (let [tag (long (loop [tag (.csvRead rdr sb)
+                         col-idx 0]
                     (if-not (or (== tag EOL)
                                 (== tag EOF))
                       (do
                         (when (== tag SEP)
-                          (.add row (.toString sb))
+                          (when (.unaryLong filter-fn col-idx)
+                            (.add row (.toString sb)))
                           (.delete sb 0 (.length sb)))
                         (recur (long (if (== tag SEP)
                                        (.csvRead rdr sb)
-                                       (.csvReadQuote rdr sb)))))
+                                       (.csvReadQuote rdr sb)))
+                               (if (== tag SEP)
+                                 (unchecked-inc col-idx)
+                                 col-idx)))
                       (do
-                        (.add row (.toString sb))
+                        (when (.unaryLong filter-fn col-idx)
+                          (.add row (.toString sb)))
                         (.delete sb 0 (.length sb))
                         tag))))
         new-row (.clone row)]
@@ -172,14 +188,15 @@
                                 ^ArrayList row-builder
                                 ^{:unsynchronized-mutable true
                                   :tag RowRecord} cur-row
-                                close?]
+                                close?
+                                ^UnaryPredicate column-whitelist]
   Iterator
   (hasNext [this] (not (nil? cur-row)))
   (next [this]
     (let [retval cur-row
           next-row (if (pmath/== (.tag cur-row) EOF)
                      nil
-                     (read-row rdr sb row-builder))]
+                     (read-row rdr sb row-builder column-whitelist))]
       (set! cur-row next-row)
       (when (and (nil? next-row) close?)
         (.close this))
@@ -204,17 +221,53 @@
 
   Options:
 
-  * `:async?` - defaults to true - read the file into buffers in an offline thread.  This
+  * `:async?` - Defaults to true - read the file into buffers in an offline thread.  This
      speeds up reading larger files 1MB+ by about 25%.
-  * `:separator` - field separator - defaults to `\\,`.
-  * `:quote` - quote specifier - defaults to `\\.`.
-  * `:close-reader?` - Close the reader when iteration is finished - defaults to true."
+  * `:separator` - Field separator - defaults to \\,.
+  * `:quote` - Quote specifier - defaults to \\..
+  * `:close-reader?` - Close the reader when iteration is finished - defaults to true.
+  * `:column-whitelist` - Sequence of allowed column names.
+  * `:column-blacklist` - Sequence of dis-allowed column names.  When conflicts with
+     `:column-whitelist` then `:column-whitelist` wins."
   ^Iterator [input & [options]]
   (let [rdr (reader->char-reader input options)
         sb (StringBuilder.)
         row (ArrayList.)
-        next-row (read-row rdr sb row)]
-    (CSVReadIter. rdr sb row next-row (get options :close-reader? true))))
+        next-row (read-row rdr sb row true-unary-predicate)
+        ^RoaringBitmap column-whitelist
+        (when (or (contains? options :column-whitelist)
+                  (contains? options :column-blacklist))
+          (let [whitelist (when-let [data (get options :column-whitelist)]
+                            (set data))
+                blacklist (when-let [data (get options :column-blacklist)]
+                            (set/difference (set data) (or whitelist #{})))
+                indexes
+                (->> (.row next-row)
+                     (map-indexed
+                      (fn [col-idx cname]
+                        (when (or (and whitelist (whitelist cname))
+                                  (and blacklist (not (blacklist cname))))
+                          col-idx)))
+                     (remove nil?)
+                     (seq))
+                bmp (RoaringBitmap.)]
+            (.add bmp (int-array indexes))
+            bmp))
+        ^UnaryPredicate col-pred (if column-whitelist
+                                   (reify UnaryPredicates$LongUnaryPredicate
+                                     (unaryLong [this arg]
+                                       (.contains column-whitelist (unchecked-int arg))))
+                                   true-unary-predicate)]
+    (when column-whitelist
+      (let [^List cur-row (.row next-row)
+            nr (.size cur-row)
+            dnr (dec nr)]
+        (dotimes [idx nr]
+          (let [cur-idx (- dnr idx)]
+            (when-not (.contains column-whitelist cur-idx)
+              (.remove cur-row (unchecked-int cur-idx)))))))
+    (CSVReadIter. rdr sb row next-row (get options :close-reader? true)
+                  col-pred)))
 
 
 (defn read-csv-compat

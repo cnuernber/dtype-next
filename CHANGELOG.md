@@ -1,3 +1,9 @@
+## 9.020
+ * `:column-whitelist` and `:column-blacklist` are now supported for csv parsing.
+
+## 9.019
+ * Move to cached thread pool for queue-iter.
+ 
 ## 9.018
  * Fast [csv parsing](https://cnuernber.github.io/dtype-next/tech.v3.datatype.char-input.html).
  * Related, function to take an iterator and realize it into a queue in an offline thread
