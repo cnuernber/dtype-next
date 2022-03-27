@@ -5,7 +5,20 @@
   file with an interface that is mostly compatible with but far faster than clojure.data.csv.
 
   Files are by default read by a separate thread into character arrays and those arrays are
-  then processed.  For details around the threading system see [[tech.v3.parallel.queue-iter]]."
+  then processed.  For details around the threading system see [[tech.v3.parallel.queue-iter]].
+
+  CSV parsing is broken up into two parts.  The first is reading a file and creating an iterator
+  of char[] buffers.  The second is parsing an iterator of char[] buffers.  As mentioned earlier
+  we further move the file->char buffer parsing off onto an offline thread.
+
+  This design is meant to be easy to experiment with.  It could be that an mmap-based pathway
+  allows us to read the file faster, it could be that parsing into blocks of rows as opposed
+  to char[]s in an offline thread is faster, etc.
+
+  Overall parsing many csv's in parallel will a better strategy than using many threads to
+  make parsing a single csv incrementally faster so this current design keeps the memory
+  requirements for a single csv quite low while still gaining the majority of meaningful
+  performance benefits."
   (:require [clojure.java.io :as io]
             [tech.v3.parallel.queue-iter :as queue-iter]
             [com.github.ztellman.primitive-math :as pmath]
@@ -118,14 +131,17 @@
   [[reader->char-buf-iter]].
 
   * `:async?` - default to true - reads the reader in an offline thread into character
-     buffers.
-  * `:trim-leading-whitespace?` - When true, leading spaces are ignored.  Defaults to true."
+     buffers."
   ^CharReader [rdr & [options]]
   (let [quote (->character (get options :quote \"))
         separator (->character (get options :separator \,))
         trim-leading? (get options :trim-leading-whitespace? true)
         async? (get options :async? true)
         options (if async?
+                  ;;You need some number more buffers than queue depth else buffers will be
+                  ;;overwritten during processing.  I calculate you need at least 3  - one
+                  ;;in the source thread, one for the iterator's next value and one that
+                  ;;the system is parsing.  I added one more for safety.
                   (assoc options
                          :queue-depth 12
                          :n-buffers 18
