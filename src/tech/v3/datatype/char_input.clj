@@ -18,7 +18,15 @@
   Overall parsing many csv's in parallel will a better strategy than using many threads to
   make parsing a single csv incrementally faster so this current design keeps the memory
   requirements for a single csv quite low while still gaining the majority of meaningful
-  performance benefits."
+  performance benefits.
+
+  Supporting Java classes:
+
+  * [CharBuffer.java](https://github.com/cnuernber/dtype-next/blob/master/java/tech/v3/datatype/CharBuffer.java) -
+    StringBuilder-like class that implements whitespace trimming, clear, and nil empty strings.
+  * [CharReader.java](https://github.com/cnuernber/dtype-next/blob/master/java/tech/v3/datatype/CharReader.java) -
+    A java.io.Reader-like class that only correctly implements single-character unread but contains the
+    tight loops required to efficiently parse a CSV file."
   (:require [clojure.java.io :as io]
             [tech.v3.parallel.queue-iter :as queue-iter]
             [com.github.ztellman.primitive-math :as pmath]

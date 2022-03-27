@@ -20,6 +20,14 @@ to char[]s in an offline thread is faster, etc.</p>
 make parsing a single csv incrementally faster so this current design keeps the memory
 requirements for a single csv quite low while still gaining the majority of meaningful
 performance benefits.</p>
+<p>Supporting Java classes:</p>
+<ul>
+<li><a href="https://github.com/cnuernber/dtype-next/blob/master/java/tech/v3/datatype/CharBuffer.java">CharBuffer.java</a> -
+StringBuilder-like class that implements whitespace trimming, clear, and nil empty strings.</li>
+<li><a href="https://github.com/cnuernber/dtype-next/blob/master/java/tech/v3/datatype/CharReader.java">CharReader.java</a> -
+A java.io.Reader-like class that only correctly implements single-character unread but contains the
+tight loops required to efficiently parse a CSV file.</li>
+</ul>
 </div></div><div class="public anchor" id="var-read-csv"><h3>read-csv</h3><div class="usage"><code>(read-csv input &amp; [options])</code></div><div class="doc"><div class="markdown"><p>Read a csv into a row iterator.  Parse algorithm the same as clojure.data.csv although
 this returns an iterator and each row is an ArrayList as opposed to a persistent
 vector.  To convert a java.util.List into something with the same equal and hash semantics
@@ -44,9 +52,9 @@ to true</li>
 <li><code>:nil-empty-values?</code> - When true, empty strings are elided entirely and returned as nil
 values. Defaults to true.</li>
 </ul>
-</div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/char_input.clj#L235">view source</a></div></div><div class="public anchor" id="var-read-csv-compat"><h3>read-csv-compat</h3><div class="usage"><code>(read-csv-compat input &amp; options)</code></div><div class="doc"><div class="markdown"><p>Read a csv returning a clojure.data.csv-compatible sequence.  For options
+</div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/char_input.clj#L243">view source</a></div></div><div class="public anchor" id="var-read-csv-compat"><h3>read-csv-compat</h3><div class="usage"><code>(read-csv-compat input &amp; options)</code></div><div class="doc"><div class="markdown"><p>Read a csv returning a clojure.data.csv-compatible sequence.  For options
 see <a href="tech.v3.datatype.char-input.html#var-read-csv">read-csv</a>.</p>
-</div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/char_input.clj#L306">view source</a></div></div><div class="public anchor" id="var-reader-.3Echar-buf-iter"><h3>reader-&gt;char-buf-iter</h3><div class="usage"><code>(reader-&gt;char-buf-iter rdr &amp; [options])</code></div><div class="doc"><div class="markdown"><p>Given a reader, return an iterator of a sequence of character buffers.  This rotates
+</div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/char_input.clj#L314">view source</a></div></div><div class="public anchor" id="var-reader-.3Echar-buf-iter"><h3>reader-&gt;char-buf-iter</h3><div class="usage"><code>(reader-&gt;char-buf-iter rdr &amp; [options])</code></div><div class="doc"><div class="markdown"><p>Given a reader, return an iterator of a sequence of character buffers.  This rotates
 through a fixed number of buffers under the covers so you need to be cognizant of the number
 of actual buffers that you want to have present in memory.</p>
 <p>Options:</p>
@@ -57,7 +65,7 @@ then buffers in flight will get overwritten.</li>
 seen with larger or smaller buffers.</li>
 <li><code>:close-reader?</code> - When true, close input reader when finished.  Defaults to true.</li>
 </ul>
-</div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/char_input.clj#L79">view source</a></div></div><div class="public anchor" id="var-reader-.3Echar-reader"><h3>reader-&gt;char-reader</h3><div class="usage"><code>(reader-&gt;char-reader rdr &amp; [options])</code></div><div class="doc"><div class="markdown"><p>Given a reader, return a CharReader which presents some of the same interface
+</div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/char_input.clj#L87">view source</a></div></div><div class="public anchor" id="var-reader-.3Echar-reader"><h3>reader-&gt;char-reader</h3><div class="usage"><code>(reader-&gt;char-reader rdr &amp; [options])</code></div><div class="doc"><div class="markdown"><p>Given a reader, return a CharReader which presents some of the same interface
 as a pushbackreader but is only capable of pushing back 1 character.</p>
 <p>Options:</p>
 <p>Options are passed through mainly unchanged to queue-iter and to
@@ -66,4 +74,4 @@ as a pushbackreader but is only capable of pushing back 1 character.</p>
 <li><code>:async?</code> - default to true - reads the reader in an offline thread into character
 buffers.</li>
 </ul>
-</div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/char_input.clj#L124">view source</a></div></div></div></body></html>
+</div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/char_input.clj#L132">view source</a></div></div></div></body></html>
