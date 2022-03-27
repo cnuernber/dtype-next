@@ -4,11 +4,12 @@ package tech.v3.datatype;
 import java.util.Iterator;
 import java.io.EOFException;
 
-public class CharReader
+public final class CharReader
 {
   public final Iterator buffers;
   public static final char lf = '\n';
   public static final char cr = '\r';
+
   public final char quot;
   public final char sep;
   public static final long EOF=-1;
@@ -56,7 +57,7 @@ public class CharReader
     --curPos;
   }
 
-  public final long csvRead(StringBuilder sb) {
+  public final long csvRead(CharBuffer sb) {
     while(curBuffer != null) {
       for(; curPos < buflen; ++curPos) {
 	final char curChar = curBuffer[curPos];
@@ -84,7 +85,7 @@ public class CharReader
     return EOF;
   }
 
-  public final long csvReadQuote(StringBuilder sb) throws EOFException {
+  public final long csvReadQuote(CharBuffer sb) throws EOFException {
     while(curBuffer != null) {
       for(; curPos < buflen; ++curPos) {
 	final char curChar = curBuffer[curPos];

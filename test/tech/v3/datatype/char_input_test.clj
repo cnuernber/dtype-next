@@ -6,7 +6,7 @@
 (deftest funky-csv
   (is (= [["a,b" "c\"def\"" "one,two" "\"a,b,c\"def\"g\""]
           ["abba" "def" "1" "2"]
-          ["df" "ef" "5" ""]]
+          ["df" "ef" "5" nil]]
          (-> (read-csv (java.io.File. "test/data/funky.csv"))
              (iterator-seq)
              (vec)))))
@@ -79,3 +79,11 @@ air, moon roof, loaded\",4799.00")
     (is (= 2 (count csv)))
     (is (= ["Year" "Make" "Model"] (first csv)))
     (is (= ["1997" "Ford" "E350"] (second csv)))))
+
+
+(deftest trim-leading
+  (let [header (first (read-csv-compat (java.io.File. "test/data/datatype_parser.csv")))]
+    (is (= "word" (header 2))))
+  (let [header (first (read-csv-compat (java.io.File. "test/data/datatype_parser.csv")
+                                       :trim-leading-whitespace? false))]
+    (is (= "   word" (header 2)))))

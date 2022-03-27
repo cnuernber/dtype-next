@@ -1,3 +1,8 @@
+## 9.021
+ * `:trim-leading-whitespace?`, `:trim-trailing-whitespace?`, and `:nil-empty-values?` are
+    all supported in csv parsing to bring feature set up to par with univocity.  These changes
+	allow all tech.ml.dataset csv-based unit tests to succeed.
+
 ## 9.020
  * `:column-whitelist` and `:column-blacklist` are now supported for csv parsing.
 

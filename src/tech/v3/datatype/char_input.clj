@@ -10,7 +10,8 @@
             [tech.v3.parallel.queue-iter :as queue-iter]
             [com.github.ztellman.primitive-math :as pmath]
             [clojure.set :as set])
-  (:import [tech.v3.datatype CharReader UnaryPredicate UnaryPredicates$LongUnaryPredicate]
+  (:import [tech.v3.datatype CharReader UnaryPredicate UnaryPredicates$LongUnaryPredicate
+            CharBuffer]
            [java.io Reader StringReader]
            [java.util Iterator Arrays ArrayList List NoSuchElementException]
            [java.lang AutoCloseable]
@@ -97,7 +98,12 @@
     (char? v)
     v
     (string? v)
-    (first v)
+    (do
+      (when-not (== 1 (.length ^String v))
+        (throw (Exception.
+                (format "Only single character separators allowed: - \"%s\""
+                        v))))
+      (first v))
     (number? v)
     (unchecked-char v)))
 
@@ -112,10 +118,12 @@
   [[reader->char-buf-iter]].
 
   * `:async?` - default to true - reads the reader in an offline thread into character
-     buffers."
+     buffers.
+  * `:trim-leading-whitespace?` - When true, leading spaces are ignored.  Defaults to true."
   ^CharReader [rdr & [options]]
   (let [quote (->character (get options :quote \"))
         separator (->character (get options :separator \,))
+        trim-leading? (get options :trim-leading-whitespace? true)
         async? (get options :async? true)
         options (if async?
                   (assoc options
@@ -142,7 +150,8 @@
   (or (nil? data)
       (== 0 (.size data))
       (and (== 1 (.size data))
-           (.equals "" (.get data 0)))))
+           (or (nil? (.get data 0))
+               (.equals "" (.get data 0))))))
 
 (def ^{:private true
        :tag UnaryPredicate}
@@ -153,7 +162,7 @@
 
 
 (defn- read-row
-  ^RowRecord [^CharReader rdr ^StringBuilder sb ^ArrayList row
+  ^RowRecord [^CharReader rdr ^CharBuffer sb ^ArrayList row
               ^UnaryPredicate filter-fn]
   (.clear row)
   (let [tag (long (loop [tag (.csvRead rdr sb)
@@ -164,7 +173,7 @@
                         (when (== tag SEP)
                           (when (.unaryLong filter-fn col-idx)
                             (.add row (.toString sb)))
-                          (.delete sb 0 (.length sb)))
+                          (.clear sb))
                         (recur (long (if (== tag SEP)
                                        (.csvRead rdr sb)
                                        (.csvReadQuote rdr sb)))
@@ -174,7 +183,7 @@
                       (do
                         (when (.unaryLong filter-fn col-idx)
                           (.add row (.toString sb)))
-                        (.delete sb 0 (.length sb))
+                        (.clear sb)
                         tag))))
         new-row (.clone row)]
     (.clear row)
@@ -184,7 +193,7 @@
 
 
 (deftype ^:private CSVReadIter [^CharReader rdr
-                                ^StringBuilder sb
+                                ^CharBuffer sb
                                 ^ArrayList row-builder
                                 ^{:unsynchronized-mutable true
                                   :tag RowRecord} cur-row
@@ -228,11 +237,19 @@
   * `:close-reader?` - Close the reader when iteration is finished - defaults to true.
   * `:column-whitelist` - Sequence of allowed column names.
   * `:column-blacklist` - Sequence of dis-allowed column names.  When conflicts with
-     `:column-whitelist` then `:column-whitelist` wins."
+     `:column-whitelist` then `:column-whitelist` wins.
+  * `:trim-leading-whitespace?` - When true, leading spaces are ignored.  Defaults to true.
+  * `:trim-trailing-whitespace?` - When true, trainling spaces and tabs are ignored.  Defaults
+     to true
+  * `:nil-empty-values?` - When true, empty strings are elided entirely and returned as nil
+     values. Defaults to true."
   ^Iterator [input & [options]]
   (let [rdr (reader->char-reader input options)
-        sb (StringBuilder.)
+        sb (CharBuffer. (get options :trim-leading-whitespace? true)
+                        (get options :trim-trailing-whitespace? true)
+                        (get options :nil-empty-values? true))
         row (ArrayList.)
+        nil-empty? (get options :nil-empty-values? true)
         next-row (read-row rdr sb row true-unary-predicate)
         ^RoaringBitmap column-whitelist
         (when (or (contains? options :column-whitelist)
