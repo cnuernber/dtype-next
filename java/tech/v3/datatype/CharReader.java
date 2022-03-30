@@ -3,10 +3,12 @@ package tech.v3.datatype;
 
 import java.util.Iterator;
 import java.io.EOFException;
+import java.util.ArrayList;
+import clojure.lang.IFn;
 
-public final class CharReader
+public final class CharReader implements AutoCloseable
 {
-  public final Iterator buffers;
+  public final IFn buffers;
   public static final char lf = '\n';
   public static final char cr = '\r';
 
@@ -21,8 +23,9 @@ public final class CharReader
   int buflen;
 
   final void nextBuffer() {
-    if (buffers.hasNext()) {
-      curBuffer = (char[])buffers.next();
+    char[] nextbuf = (char[])buffers.invoke();
+    if (nextbuf != null) {
+      curBuffer = nextbuf;
       curPos = 0;
       buflen = curBuffer.length;
     } else {
@@ -32,14 +35,14 @@ public final class CharReader
     }
   }
 
-  public CharReader(Iterator _buf, char _quot, char _sep) {
+  public CharReader(IFn _buf, char _quot, char _sep) {
     buffers = _buf;
     nextBuffer();
     quot = _quot;
     sep = _sep;
   }
 
-  public CharReader(Iterator _buf) {
+  public CharReader(IFn _buf) {
     this(_buf, '"', ',');
   }
 
@@ -106,5 +109,57 @@ public final class CharReader
     }
     throw new EOFException("EOF encounted within quote");
   }
+  public void close() throws Exception {
+    if (buffers instanceof AutoCloseable) {
+      ((AutoCloseable)buffers).close();
+    }
+  }
 
+  public static final class RowReader
+  {
+    public final CharReader rdr;
+    public final CharBuffer sb;
+    public final ArrayList row;
+    UnaryPredicate pred;
+    public RowReader(CharReader _r, CharBuffer _sb, ArrayList _al, UnaryPredicate _pred) {
+      rdr = _r;
+      sb = _sb;
+      row = _al;
+      pred = _pred;
+    }
+    public void setPredicate(UnaryPredicate p) { pred = p; }
+    public static final boolean emptyStr(String s) {
+      return s == null || s.length() == 0;
+    }
+    public final boolean emptyRow() {
+      int sz = row.size();
+      return sz == 0 || (sz == 1 && emptyStr((String)row.get(0)));
+    }
+    public final long nextTag(long tag) throws EOFException {
+      if (tag == QUOT)
+	return rdr.csvReadQuote(sb);
+      return rdr.csvRead(sb);
+    }
+    public final ArrayList nextRow() throws EOFException {
+      row.clear();
+      int colidx = 0;
+      long tag = SEP;
+      for(tag = nextTag(tag);
+	  tag != EOL && tag != EOF;
+	  tag = nextTag(tag)) {
+	if (tag == SEP) {
+	  if (pred.unaryLong(colidx))
+	    row.add(sb.toString());
+	  sb.clear();
+	  ++colidx;
+	}
+      }
+      if (pred.unaryLong(colidx))
+	row.add(sb.toString());
+      sb.clear();
+      if (!(tag == EOF && emptyRow()))
+	return row;
+      return null;
+    }
+  }
 }

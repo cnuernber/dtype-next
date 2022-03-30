@@ -32,7 +32,7 @@
             [com.github.ztellman.primitive-math :as pmath]
             [clojure.set :as set])
   (:import [tech.v3.datatype CharReader UnaryPredicate UnaryPredicates$LongUnaryPredicate
-            CharBuffer]
+            CharBuffer CharReader$RowReader IFnDef]
            [java.io Reader StringReader]
            [java.util Iterator Arrays ArrayList List NoSuchElementException]
            [java.lang AutoCloseable]
@@ -113,6 +113,56 @@
     (CharBufIter. buffers rdr 1 buf n-buffers (get options :close-reader? true))))
 
 
+(deftype CharBufFn [^{:unsynchronized-mutable true
+                      :tag Reader} reader
+                    ^{:unsynchronized-mutable true
+                      :tag long} cur-buf-idx
+                    ^objects buffers
+                    close-reader?]
+  IFnDef
+  (invoke [this]
+    (when reader
+      (let [^chars next-buf (aget buffers (rem cur-buf-idx
+                                               (alength buffers)))
+            nchars (.read reader next-buf)]
+        (set! cur-buf-idx (unchecked-inc cur-buf-idx))
+        (cond
+          (pmath/== nchars (alength next-buf))
+          next-buf
+          (pmath/== nchars -1)
+          (do
+            (.close this)
+            nil)
+          :else
+          (Arrays/copyOf next-buf nchars)))))
+  AutoCloseable
+  (close [this]
+    (when (and reader close-reader?)
+      (.close reader))
+    (set! reader nil)))
+
+
+(defn reader->char-buf-fn
+  "Given a reader, return a clojure fn that when called reads the next buffer of the reader.
+  This function iterates through a fixed number of buffers under the covers so you need to
+  be cognizant of the number of actual buffers that you want to have present in memory.
+  This fn also implement `AutoCloseable` and closing it will close the underlying reader.
+
+  Options:
+
+  * `:n-buffers` - Number of buffers to use.  Defaults to 8 - if this number is too small
+  then buffers in flight will get overwritten.
+  * `:bufsize` - Size of each buffer - defaults to 2048.  Small improvements are sometimes
+  seen with larger or smaller buffers.
+  * `:close-reader?` - When true, close input reader when finished.  Defaults to true."
+  [rdr & [options]]
+  (let [rdr (->reader rdr)
+        n-buffers (long (get options :n-buffers 8))
+        bufsize (long (get options :bufsize 2048))
+        buffers (object-array (repeatedly n-buffers #(char-array bufsize)))]
+    (CharBufFn.  rdr 0 buffers (get options :close-reader? true))))
+
+
 (defn- ->character
   [v]
   (cond
@@ -144,21 +194,23 @@
   (let [quote (->character (get options :quote \"))
         separator (->character (get options :separator \,))
         trim-leading? (get options :trim-leading-whitespace? true)
-        async? (get options :async? true)
+        async? (and (> (.availableProcessors (Runtime/getRuntime)) 1)
+                    (get options :async? true))
         options (if async?
                   ;;You need some number more buffers than queue depth else buffers will be
                   ;;overwritten during processing.  I calculate you need at least 3  - one
                   ;;in the source thread, one for the iterator's next value and one that
-                  ;;the system is parsing.  I added one more for safety.
-                  (assoc options
-                         :queue-depth 12
-                         :n-buffers 18
-                         :bufsize (get options :bufsize 8192)))
-        src-iter (reader->char-buf-iter rdr options)
-        src-iter (if async?
-                   (queue-iter/queue-iter src-iter options)
-                   src-iter)]
-    (CharReader. src-iter quote separator)))
+                  ;;the system is parsing.
+                  (let [qd (long (get options :queue-depth 2))]
+                    (assoc options :queue-depth qd
+                           :n-buffers (get options :n-buffers (+ qd 3))
+                           :bufsize (get options :bufsize (* 1024 1024))))
+                  (assoc options :async? false))
+        src-fn (reader->char-buf-fn rdr options)
+        src-fn (if async?
+                   (queue-iter/queue-fn src-fn options)
+                   src-fn)]
+    (CharReader. src-fn quote separator)))
 
 
 (def ^{:private true :tag 'long :const true} EOF CharReader/EOF)
@@ -185,59 +237,23 @@
       true)))
 
 
-(defn- read-row
-  ^RowRecord [^CharReader rdr ^CharBuffer sb ^ArrayList row
-              ^UnaryPredicate filter-fn]
-  (.clear row)
-  (let [tag (long (loop [tag (.csvRead rdr sb)
-                         col-idx 0]
-                    (if-not (or (== tag EOL)
-                                (== tag EOF))
-                      (do
-                        (when (== tag SEP)
-                          (when (.unaryLong filter-fn col-idx)
-                            (.add row (.toString sb)))
-                          (.clear sb))
-                        (recur (long (if (== tag SEP)
-                                       (.csvRead rdr sb)
-                                       (.csvReadQuote rdr sb)))
-                               (if (== tag SEP)
-                                 (unchecked-inc col-idx)
-                                 col-idx)))
-                      (do
-                        (when (.unaryLong filter-fn col-idx)
-                          (.add row (.toString sb)))
-                        (.clear sb)
-                        tag))))
-        new-row (.clone row)]
-    (.clear row)
-    (when-not (and (pmath/== tag EOF)
-                   (empty-list? new-row))
-      (RowRecord. new-row tag))))
-
-
-(deftype ^:private CSVReadIter [^CharReader rdr
-                                ^CharBuffer sb
-                                ^ArrayList row-builder
-                                ^{:unsynchronized-mutable true
-                                  :tag RowRecord} cur-row
-                                close?
-                                ^UnaryPredicate column-whitelist]
+(deftype ^:private CSVReadIter [^{:unsynchronized-mutable true
+                                  :tag CharReader$RowReader} rdr
+                                close-fn*]
   Iterator
-  (hasNext [this] (not (nil? cur-row)))
+  (hasNext [this] (not (nil? rdr)))
   (next [this]
-    (let [retval cur-row
-          next-row (if (pmath/== (.tag cur-row) EOF)
-                     nil
-                     (read-row rdr sb row-builder column-whitelist))]
-      (set! cur-row next-row)
-      (when (and (nil? next-row) close?)
-        (.close this))
-      (.row retval)))
+    (if rdr
+      (let [retval (.clone (.row rdr))
+            next-row (.nextRow rdr)]
+        (when-not next-row
+          (.close this))
+        retval)
+      (throw (NoSuchElementException.))))
   AutoCloseable
   (close [this]
-    (when (instance? AutoCloseable (.buffers rdr))
-      (.close ^AutoCloseable (.buffers rdr)))))
+    (set! rdr nil)
+    @close-fn*))
 
 
 (defn read-csv
@@ -255,15 +271,15 @@
   Options:
 
   * `:async?` - Defaults to true - read the file into buffers in an offline thread.  This
-     speeds up reading larger files 1MB+ by about 25%.
+     speeds up reading larger files (1MB+) by about 30%.
   * `:separator` - Field separator - defaults to \\,.
   * `:quote` - Quote specifier - defaults to \\..
   * `:close-reader?` - Close the reader when iteration is finished - defaults to true.
   * `:column-whitelist` - Sequence of allowed column names.
   * `:column-blacklist` - Sequence of dis-allowed column names.  When conflicts with
      `:column-whitelist` then `:column-whitelist` wins.
-  * `:trim-leading-whitespace?` - When true, leading spaces are ignored.  Defaults to true.
-  * `:trim-trailing-whitespace?` - When true, trainling spaces and tabs are ignored.  Defaults
+  * `:trim-leading-whitespace?` - When true, leading spaces and tabs are ignored.  Defaults to true.
+  * `:trim-trailing-whitespace?` - When true, trailing spaces and tabs are ignored.  Defaults
      to true
   * `:nil-empty-values?` - When true, empty strings are elided entirely and returned as nil
      values. Defaults to true."
@@ -274,7 +290,10 @@
                         (get options :nil-empty-values? true))
         row (ArrayList.)
         nil-empty? (get options :nil-empty-values? true)
-        next-row (read-row rdr sb row true-unary-predicate)
+        row-reader (CharReader$RowReader. rdr sb row true-unary-predicate)
+        ;;mutably changes row in place
+        next-row (.nextRow row-reader)
+        ^ArrayList next-row (when next-row (.clone next-row))
         ^RoaringBitmap column-whitelist
         (when (or (contains? options :column-whitelist)
                   (contains? options :column-blacklist))
@@ -283,7 +302,7 @@
                 blacklist (when-let [data (get options :column-blacklist)]
                             (set/difference (set data) (or whitelist #{})))
                 indexes
-                (->> (.row next-row)
+                (->> next-row
                      (map-indexed
                       (fn [col-idx cname]
                         (when (or (and whitelist (whitelist cname))
@@ -298,17 +317,42 @@
                                    (reify UnaryPredicates$LongUnaryPredicate
                                      (unaryLong [this arg]
                                        (.contains column-whitelist (unchecked-int arg))))
-                                   true-unary-predicate)]
-    (when column-whitelist
-      (let [^List cur-row (.row next-row)
+                                   true-unary-predicate)
+        close-fn* (delay
+                    (when (get options :close-reader? true)
+                      (.close rdr)))]
+    (when (and next-row column-whitelist)
+      (let [^List cur-row next-row
             nr (.size cur-row)
             dnr (dec nr)]
         (dotimes [idx nr]
           (let [cur-idx (- dnr idx)]
             (when-not (.contains column-whitelist cur-idx)
               (.remove cur-row (unchecked-int cur-idx)))))))
-    (CSVReadIter. rdr sb row next-row (get options :close-reader? true)
-                  col-pred)))
+    (.setPredicate row-reader col-pred)
+    (if next-row
+      (CSVReadIter. row-reader close-fn*)
+      (do
+        @close-fn*
+        (reify Iterator
+          (hasNext [this] false)
+          (next [this] (throw (NoSuchElementException.))))))))
+
+
+(defn ^:no-doc read-csv-inplace
+  "Read a csv returning a function that reads each row and returns the same
+  arraylist.  This is used to ensure the overhead of the read-csv pathway is not reasonably
+  different than a potentially surprising but maximally efficient inplace pathway."
+  [input & [options]]
+  (let [rdr (reader->char-reader input options)
+        sb (CharBuffer. (get options :trim-leading-whitespace? true)
+                        (get options :trim-trailing-whitespace? true)
+                        (get options :nil-empty-values? true))
+        row (ArrayList.)
+        nil-empty? (get options :nil-empty-values? true)
+        rowreader (CharReader$RowReader. rdr sb row true-unary-predicate)]
+    (fn []
+      (.nextRow rowreader))))
 
 
 (defn read-csv-compat
@@ -393,11 +437,41 @@
           (recur (.hasNext iter) (unchecked-inc rc)))
         rc)))
 
-  (crit/quick-bench (iter-row-count (read-csv (java.io.File. srcpath) {:async? false})))
+  (crit/quick-bench (iter-row-count (read-csv (java.io.File. srcpath) {:async? false
+                                                                       :bufsize 8192})))
   ;;26ms
-  (crit/quick-bench (iter-row-count (read-csv (java.io.File. srcpath))))
+  (crit/quick-bench (iter-row-count (read-csv (java.io.File. srcpath) {:bufsize (* 8 1024)})))
   ;;18ms
 
-  (iter-row-count (read-csv (java.io.File. srcpath) {:log-level :info}))
+  (defn inplace-row-count
+    ^long [read-fn]
+    (loop [row (read-fn)
+           rc 0]
+      (if row
+        (recur (read-fn) (unchecked-inc rc))
+        rc)))
+
+  (crit/quick-bench (inplace-row-count (read-csv-inplace (java.io.File. srcpath))))
+
+  (crit/quick-bench (inplace-row-count (read-csv-inplace (java.io.File. srcpath)
+                                                         {:bufsize 8192})))
+
+  (do
+    (require '[tech.v3.datatype :as dtype])
+    (require '[tech.v3.datatype.functional :as dfn])
+    (defn ^:no-doc timeop-ns
+      ^long [op]
+      (let [start (System/nanoTime)
+            _ (op)
+            end (System/nanoTime)]
+        (- end start)))
+
+    (defn ^:no-doc avg-time-ms
+      [op]
+      ;;warmup
+      (op)
+      (* (dfn/mean (repeatedly 5 #(timeop-ns op))) 1e-6)))
+
+  (avg-time-ms #(inplace-row-count (read-csv-inplace (java.io.File. srcpath))))
 
   )

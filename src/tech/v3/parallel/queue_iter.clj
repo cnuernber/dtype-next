@@ -5,7 +5,9 @@
   (:require [tech.v3.parallel.for :as pfor]
             [clojure.tools.logging :as log])
   (:import [java.util Iterator NoSuchElementException]
-           [java.util.concurrent ArrayBlockingQueue Executors ExecutorService ThreadFactory]))
+           [java.util.concurrent ArrayBlockingQueue Executors ExecutorService ThreadFactory]
+           [tech.v3.datatype IFnDef]
+           [java.lang AutoCloseable]))
 
 
 (set! *warn-on-reflection* true)
@@ -96,6 +98,83 @@
                         (log/warnf e "Error closing down queue-iter thread"))))]
     (.submit service ^Callable run-fn)
     (QueueIterator. queue (.take queue) close-fn*)))
+
+
+(deftype QueueFn [^{:unsynchronized-mutable true
+                    :tag ArrayBlockingQueue} queue
+                  close-fn*]
+  IFnDef
+  (invoke [this]
+    (when queue
+      (let [value (.take queue)]
+        (cond
+          (identical? value ::end)
+          (do
+            (.close this)
+            nil)
+          (instance? QueueException value)
+          (do
+            (.close this)
+            (throw (.e ^QueueException value)))
+          :else
+          value))))
+  AutoCloseable
+  (close [this]
+    (set! queue nil)
+    @close-fn*))
+
+
+(defn queue-fn
+  "Given a clojure fn, create a new thread that will read that
+  fn and place the results into a queue of a fixed size.  Returns new fn.
+  Iteration stops when the src-fn returns nil.
+
+  Options:
+
+  * `:queue-depth` - Queue depth.  Defaults to 16.
+  * `:log-level` - When set a message is logged when the iteration is finished.
+  * `:executor-service` - Which executor service to use to run the thread.  Defaults to
+     a default one created via [[default-executor-service]].
+  * `:close-fn` - Function to call to close upstream iteration."
+  [src-fn & [options]]
+  (let [queue-depth (long (get options :queue-depth 16))
+        queue (ArrayBlockingQueue. queue-depth)
+        continue?* (volatile! true)
+        close-fn (get options :close-fn)
+        run-fn (fn []
+                 (try
+                   (loop [thread-continue? @continue?*
+                          next-val (src-fn)]
+                     (if (and thread-continue? next-val)
+                       (do
+                         (.put queue next-val)
+                         (recur @continue?* (src-fn)))
+                       (.put queue ::end)))
+                   (catch Exception e
+                     (.put queue (QueueException. e)))))
+        ^ExecutorService service (or (get options :executor-service)
+                                     (default-executor-service))
+        close-fn* (delay
+                    (try
+                      (vreset! continue?* false)
+                      (.clear queue)
+                      (when close-fn
+                        (close-fn))
+                      (when-let [ll (get options :log-level)]
+                        (log/log ll "queue-fn thread shutdown"))
+                      (catch Exception e
+                        (log/warnf e "Error closing down queue-fn thread"))))]
+    (.submit service ^Callable run-fn)
+    (QueueFn. queue close-fn*)))
+
+
+(defn iter-fn
+  "Create a non threadsafe clojure fn that will iterate the iterator."
+  [item]
+  (let [iter (pfor/->iterator item)]
+    (fn []
+      (when (.hasNext iter)
+        (.next iter)))))
 
 
 (comment

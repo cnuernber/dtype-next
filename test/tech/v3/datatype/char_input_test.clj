@@ -7,9 +7,9 @@
   (is (= [["a,b" "c\"def\"" "one,two" "\"a,b,c\"def\"g\""]
           ["abba" "def" "1" "2"]
           ["df" "ef" "5" nil]]
-         (-> (read-csv (java.io.File. "test/data/funky.csv"))
-             (iterator-seq)
-             (vec)))))
+         (->> (read-csv (java.io.File. "test/data/funky.csv"))
+              (iterator-seq)
+              (vec)))))
 
 
 
@@ -87,3 +87,9 @@ air, moon roof, loaded\",4799.00")
   (let [header (first (read-csv-compat (java.io.File. "test/data/datatype_parser.csv")
                                        :trim-leading-whitespace? false))]
     (is (= "   word" (header 2)))))
+
+
+(deftest empty-file-test
+  (let [data (seq (read-csv-compat (java.io.File. "test/data/emptyfile.csv")
+                                   :column-whitelist ["firstcol"]))]
+    (is (nil? data))))
