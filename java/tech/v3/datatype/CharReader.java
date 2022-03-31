@@ -14,10 +14,10 @@ public final class CharReader implements AutoCloseable
 
   public final char quot;
   public final char sep;
-  public static final long EOF=-1;
-  public static final long QUOT=1;
-  public static final long SEP=2;
-  public static final long EOL=3;
+  public static final int EOF=-1;
+  public static final int QUOT=1;
+  public static final int SEP=2;
+  public static final int EOL=3;
   char[] curBuffer;
   int curPos;
   int buflen;
@@ -60,22 +60,28 @@ public final class CharReader implements AutoCloseable
     --curPos;
   }
 
-  public final long csvRead(CharBuffer sb) {
+  final int readFrom(int pos) {
+    curPos = pos;
+    return read();
+  }
+
+  public final int csvRead(CharBuffer sb) {
     while(curBuffer != null) {
-      for(; curPos < buflen; ++curPos) {
-	final char curChar = curBuffer[curPos];
+      char[] buffer = curBuffer;
+      int len = buffer.length;
+      for(int pos = curPos; pos < len; ++pos) {
+	final char curChar = buffer[pos];
 	if (curChar == quot) {
-	  ++curPos;
+	  curPos = pos + 1;
 	  return QUOT;
 	} else if (curChar == sep) {
-	  ++curPos;
+	  curPos = pos + 1;
 	  return SEP;
 	} else if (curChar == lf) {
-	  ++curPos;
+	  curPos = pos + 1;
 	  return EOL;
 	} else if (curChar == cr) {
-	  ++curPos;
-	  if (read() != lf) {
+	  if (readFrom(pos+1) != lf) {
 	    unread();
 	  }
 	  return EOL;
@@ -88,15 +94,19 @@ public final class CharReader implements AutoCloseable
     return EOF;
   }
 
-  public final long csvReadQuote(CharBuffer sb) throws EOFException {
+  public final int csvReadQuote(CharBuffer sb) throws EOFException {
     while(curBuffer != null) {
-      for(; curPos < buflen; ++curPos) {
-	final char curChar = curBuffer[curPos];
+      char[] buffer = curBuffer;
+      int len = buffer.length;
+      for(int pos = curPos; pos < len; ++pos) {
+	final char curChar = buffer[pos];
 	if (curChar == quot) {
-	  ++curPos;
-	  if (read() == quot) {
+	  if (readFrom(pos+1) == quot) {
 	    --curPos;
 	    sb.append(quot);
+	    buffer = curBuffer;
+	    len = buffer.length;
+	    pos = curPos;
 	  } else {
 	    unread();
 	    return csvRead(sb);

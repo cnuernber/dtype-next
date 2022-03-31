@@ -198,12 +198,12 @@
                     (get options :async? true))
         options (if async?
                   ;;You need some number more buffers than queue depth else buffers will be
-                  ;;overwritten during processing.  I calculate you need at least 3  - one
-                  ;;in the source thread, one for the iterator's next value and one that
-                  ;;the system is parsing.
-                  (let [qd (long (get options :queue-depth 2))]
+                  ;;overwritten during processing.  I calculate you need at least 2  - one
+                  ;;in the source thread, and one that the system is parsing.
+                  (let [qd (long (get options :queue-depth 4))]
                     (assoc options :queue-depth qd
-                           :n-buffers (get options :n-buffers (+ qd 3))
+                           :async? true
+                           :n-buffers (get options :n-buffers (+ qd 2))
                            :bufsize (get options :bufsize (* 1024 1024))))
                   (assoc options :async? false))
         src-fn (reader->char-buf-fn rdr options)
@@ -217,17 +217,6 @@
 (def ^{:private true :tag 'long :const true} QUOT CharReader/QUOT)
 (def ^{:private true :tag 'long :const true} SEP CharReader/SEP)
 (def ^{:private true :tag 'long :const true} EOL CharReader/EOL)
-
-(defrecord ^:private RowRecord [row ^long tag])
-
-
-(defn- empty-list?
-  [^List data]
-  (or (nil? data)
-      (== 0 (.size data))
-      (and (== 1 (.size data))
-           (or (nil? (.get data 0))
-               (.equals "" (.get data 0))))))
 
 (def ^{:private true
        :tag UnaryPredicate}
