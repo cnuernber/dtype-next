@@ -214,8 +214,6 @@
 
 
 (def ^{:private true :tag 'long :const true} EOF CharReader/EOF)
-(def ^{:private true :tag 'long :const true} QUOT CharReader/QUOT)
-(def ^{:private true :tag 'long :const true} SEP CharReader/SEP)
 (def ^{:private true :tag 'long :const true} EOL CharReader/EOL)
 
 (def ^{:private true
@@ -233,7 +231,7 @@
   (hasNext [this] (not (nil? rdr)))
   (next [this]
     (if rdr
-      (let [retval (.clone (.row rdr))
+      (let [retval (.clone (.currentRow rdr))
             next-row (.nextRow rdr)]
         (when-not next-row
           (.close this))
@@ -282,7 +280,6 @@
         row-reader (CharReader$RowReader. rdr sb row true-unary-predicate)
         ;;mutably changes row in place
         next-row (.nextRow row-reader)
-        ^ArrayList next-row (when next-row (.clone next-row))
         ^RoaringBitmap column-whitelist
         (when (or (contains? options :column-whitelist)
                   (contains? options :column-blacklist))
@@ -357,9 +354,10 @@
 
 
 (comment
-  (require '[clojure.java.io :as io])
-  (require '[criterium.core :as crit])
-  (def srcpath "../../tech.all/tech.ml.dataset/test/data/issue-292.csv")
+  (do
+    (require '[clojure.java.io :as io])
+    (require '[criterium.core :as crit])
+    (def srcpath "../../tech.all/tech.ml.dataset/test/data/issue-292.csv"))
 
 
   (defn read-all-reader
@@ -426,10 +424,9 @@
           (recur (.hasNext iter) (unchecked-inc rc)))
         rc)))
 
-  (crit/quick-bench (iter-row-count (read-csv (java.io.File. srcpath) {:async? false
-                                                                       :bufsize 8192})))
+  (crit/quick-bench (iter-row-count (read-csv (java.io.File. srcpath) {:async? false})))
   ;;26ms
-  (crit/quick-bench (iter-row-count (read-csv (java.io.File. srcpath) {:bufsize (* 8 1024)})))
+  (crit/quick-bench (iter-row-count (read-csv (java.io.File. srcpath))))
   ;;18ms
 
   (defn inplace-row-count

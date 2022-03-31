@@ -4,20 +4,21 @@ package tech.v3.datatype;
 import java.util.Iterator;
 import java.io.EOFException;
 import java.util.ArrayList;
+import java.util.function.Consumer;
 import clojure.lang.IFn;
+
 
 public final class CharReader implements AutoCloseable
 {
   public final IFn buffers;
-  public static final char lf = '\n';
-  public static final char cr = '\r';
 
-  public final char quot;
-  public final char sep;
+  final char quot;
+  final char sep;
+  //there were a few others but outside entities only need 1.
   public static final int EOF=-1;
-  public static final int QUOT=1;
-  public static final int SEP=2;
-  public static final int EOL=3;
+  public static final int EOL=-2;
+  public static final int SEP=1;
+  public static final int QUOT=2;
   char[] curBuffer;
   int curPos;
   int buflen;
@@ -65,10 +66,36 @@ public final class CharReader implements AutoCloseable
     return read();
   }
 
-  public final int csvRead(CharBuffer sb) {
+  final void csvReadQuote(CharBuffer sb) throws EOFException {
     while(curBuffer != null) {
       char[] buffer = curBuffer;
       int len = buffer.length;
+      for(int pos = curPos; pos < len; ++pos) {
+	final char curChar = buffer[pos];
+	if (curChar != quot) {
+	  sb.append(curChar);
+	} else {
+	  if (readFrom(pos+1) == quot) {
+	    sb.append(quot);
+	    buffer = curBuffer;
+	    len = buffer.length;
+	    //account for loop increment
+	    pos = curPos - 1;
+	  } else {
+	    unread();
+	    return;
+	  }
+	}
+      }
+      nextBuffer();
+    }
+    throw new EOFException("EOF encounted within quote");
+  }
+  //Read a row from a CSV file.
+  final int csvRead(CharBuffer sb) throws EOFException {
+    while(curBuffer != null) {
+      final char[] buffer = curBuffer;
+      final int len = buffer.length;
       for(int pos = curPos; pos < len; ++pos) {
 	final char curChar = buffer[pos];
 	if (curChar == quot) {
@@ -77,11 +104,11 @@ public final class CharReader implements AutoCloseable
 	} else if (curChar == sep) {
 	  curPos = pos + 1;
 	  return SEP;
-	} else if (curChar == lf) {
+	} else if (curChar == '\n') {
 	  curPos = pos + 1;
 	  return EOL;
-	} else if (curChar == cr) {
-	  if (readFrom(pos+1) != lf) {
+	} else if (curChar == '\r') {
+	  if (readFrom(pos+1) != '\n') {
 	    unread();
 	  }
 	  return EOL;
@@ -94,31 +121,6 @@ public final class CharReader implements AutoCloseable
     return EOF;
   }
 
-  public final int csvReadQuote(CharBuffer sb) throws EOFException {
-    while(curBuffer != null) {
-      char[] buffer = curBuffer;
-      int len = buffer.length;
-      for(int pos = curPos; pos < len; ++pos) {
-	final char curChar = buffer[pos];
-	if (curChar == quot) {
-	  if (readFrom(pos+1) == quot) {
-	    --curPos;
-	    sb.append(quot);
-	    buffer = curBuffer;
-	    len = buffer.length;
-	    pos = curPos;
-	  } else {
-	    unread();
-	    return csvRead(sb);
-	  }
-	} else {
-	  sb.append(curChar);
-	}
-      }
-      nextBuffer();
-    }
-    throw new EOFException("EOF encounted within quote");
-  }
   public void close() throws Exception {
     if (buffers instanceof AutoCloseable) {
       ((AutoCloseable)buffers).close();
@@ -127,10 +129,11 @@ public final class CharReader implements AutoCloseable
 
   public static final class RowReader
   {
-    public final CharReader rdr;
-    public final CharBuffer sb;
-    public final ArrayList row;
+    final CharReader rdr;
+    final CharBuffer sb;
+    final ArrayList row;
     UnaryPredicate pred;
+
     public RowReader(CharReader _r, CharBuffer _sb, ArrayList _al, UnaryPredicate _pred) {
       rdr = _r;
       sb = _sb;
@@ -145,31 +148,28 @@ public final class CharReader implements AutoCloseable
       int sz = row.size();
       return sz == 0 || (sz == 1 && emptyStr((String)row.get(0)));
     }
-    public final long nextTag(long tag) throws EOFException {
-      if (tag == QUOT)
-	return rdr.csvReadQuote(sb);
-      return rdr.csvRead(sb);
-    }
+    public final ArrayList currentRow() { return row; }
     public final ArrayList nextRow() throws EOFException {
       row.clear();
-      int colidx = 0;
-      long tag = SEP;
-      for(tag = nextTag(tag);
-	  tag != EOL && tag != EOF;
-	  tag = nextTag(tag)) {
-	if (tag == SEP) {
-	  if (pred.unaryLong(colidx))
-	    row.add(sb.toString());
-	  sb.clear();
-	  ++colidx;
-	}
-      }
-      if (pred.unaryLong(colidx))
-	row.add(sb.toString());
       sb.clear();
+      int tag;
+      int colidx = 0;
+      final UnaryPredicate p = pred;
+      do {
+	tag = rdr.csvRead(sb);
+	if(tag != QUOT) {
+	  if (p.unaryLong(colidx))
+	    row.add(sb.toString());
+	  ++colidx;
+	  sb.clear();
+	} else if (tag == QUOT) {
+	  rdr.csvReadQuote(sb);
+	}
+      } while(tag > 0);
       if (!(tag == EOF && emptyRow()))
 	return row;
-      return null;
+      else
+	return null;
     }
   }
 }

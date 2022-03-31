@@ -93,3 +93,19 @@ air, moon roof, loaded\",4799.00")
   (let [data (seq (read-csv-compat (java.io.File. "test/data/emptyfile.csv")
                                    :column-whitelist ["firstcol"]))]
     (is (nil? data))))
+
+
+(deftest whitelist-test
+  (is (= [["char" "word"]
+          ["t" "true"]
+          ["f" "False"]
+          ["y" "YES"]
+          ["n" "NO"]
+          ["T" "positive"]
+          ["F" "negative"]
+          ["Y" "yep"]
+          ["N" "not"]
+          ["A" "pos"]
+          ["z" "neg"]]
+         (vec (read-csv-compat (java.io.File. "test/data/datatype_parser.csv")
+                               :column-whitelist ["char" "word"])))))
