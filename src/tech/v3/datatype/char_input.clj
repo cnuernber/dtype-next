@@ -42,37 +42,6 @@
 (set! *unchecked-math* :warn-on-boxed)
 
 
-(deftype ^:private CharBufIter [^objects buffers
-                                ^Reader reader
-                                ^{:unsynchronized-mutable true
-                                  :tag long} next-buf-idx
-                                ^{:unsynchronized-mutable true
-                                  :tag chars} cur-buf
-                                ^long n-buffers
-                                close-reader?]
-  Iterator
-  (hasNext [this] (not (nil? cur-buf)))
-  (next [this]
-    (let [retval cur-buf
-          idx (rem next-buf-idx n-buffers)
-          ^chars buf (aget buffers idx)
-          nchars (.read reader ^chars buf)
-          buf (cond
-                (pmath/== nchars (alength buf))
-                buf
-                (pmath/== nchars -1)
-                nil
-                :else
-                (Arrays/copyOf buf nchars))]
-      (set! next-buf-idx (unchecked-inc next-buf-idx))
-      (set! cur-buf buf)
-      retval))
-  AutoCloseable
-  (close [this]
-    (when close-reader?
-      (.close reader))))
-
-
 (defn- ->reader
   ^Reader [item]
   (cond
@@ -83,34 +52,6 @@
     :else
     (io/reader item)))
 
-
-(defn reader->char-buf-iter
-  "Given a reader, return an iterator of a sequence of character buffers.  This rotates
-  through a fixed number of buffers under the covers so you need to be cognizant of the number
-  of actual buffers that you want to have present in memory.
-
-  Options:
-
-  * `:n-buffers` - Number of buffers to use.  Defaults to 8 - if this number is too small
-  then buffers in flight will get overwritten.
-  * `:bufsize` - Size of each buffer - defaults to 2048.  Small improvements are sometimes
-  seen with larger or smaller buffers.
-  * `:close-reader?` - When true, close input reader when finished.  Defaults to true."
-  ^Iterator [rdr & [options]]
-  (let [rdr (->reader rdr)
-        n-buffers (long (get options :n-buffers 8))
-        bufsize (long (get options :bufsize 2048))
-        buffers (object-array (repeatedly n-buffers #(char-array bufsize)))
-        ^chars buf (aget buffers 0)
-        nchars (.read rdr buf)
-        buf (cond
-              (pmath/== nchars bufsize)
-              buf
-              (pmath/== nchars -1)
-              nil
-              :else
-              (Arrays/copyOf buf nchars))]
-    (CharBufIter. buffers rdr 1 buf n-buffers (get options :close-reader? true))))
 
 
 (deftype CharBufFn [^{:unsynchronized-mutable true
@@ -154,13 +95,28 @@
   then buffers in flight will get overwritten.
   * `:bufsize` - Size of each buffer - defaults to 2048.  Small improvements are sometimes
   seen with larger or smaller buffers.
+  * `:async?` - defaults to false.  When true data is read in an async thread.
   * `:close-reader?` - When true, close input reader when finished.  Defaults to true."
   [rdr & [options]]
   (let [rdr (->reader rdr)
-        n-buffers (long (get options :n-buffers 8))
-        bufsize (long (get options :bufsize 2048))
-        buffers (object-array (repeatedly n-buffers #(char-array bufsize)))]
-    (CharBufFn.  rdr 0 buffers (get options :close-reader? true))))
+        async? (get options :async? false)
+        options (if async?
+                  ;;You need some number more buffers than queue depth else buffers will be
+                  ;;overwritten during processing.  I calculate you need at least 2  - one
+                  ;;in the source thread, and one that the system is parsing.
+                  (let [qd (long (get options :queue-depth 4))]
+                    (assoc options :queue-depth qd
+                           :async? true
+                           :n-buffers (get options :n-buffers (+ qd 2))
+                           :bufsize (get options :bufsize (* 128 1024))))
+                  (assoc options :async? false))
+        n-buffers (long (get options :n-buffers 2))
+        bufsize (long (get options :bufsize (* 128 1024)))
+        buffers (object-array (repeatedly n-buffers #(char-array bufsize)))
+        src-fn (CharBufFn.  rdr 0 buffers (get options :close-reader? true))]
+    (if async?
+      (queue-iter/queue-fn src-fn options)
+      src-fn)))
 
 
 (defn- ->character
@@ -193,28 +149,11 @@
   ^CharReader [rdr & [options]]
   (let [quote (->character (get options :quote \"))
         separator (->character (get options :separator \,))
-        trim-leading? (get options :trim-leading-whitespace? true)
         async? (and (> (.availableProcessors (Runtime/getRuntime)) 1)
                     (get options :async? true))
-        options (if async?
-                  ;;You need some number more buffers than queue depth else buffers will be
-                  ;;overwritten during processing.  I calculate you need at least 2  - one
-                  ;;in the source thread, and one that the system is parsing.
-                  (let [qd (long (get options :queue-depth 4))]
-                    (assoc options :queue-depth qd
-                           :async? true
-                           :n-buffers (get options :n-buffers (+ qd 2))
-                           :bufsize (get options :bufsize (* 1024 1024))))
-                  (assoc options :async? false))
-        src-fn (reader->char-buf-fn rdr options)
-        src-fn (if async?
-                   (queue-iter/queue-fn src-fn options)
-                   src-fn)]
-    (CharReader. src-fn quote separator)))
+        options (if async? (assoc options :async? true) options)]
+    (CharReader. (reader->char-buf-fn rdr options) quote separator)))
 
-
-(def ^{:private true :tag 'long :const true} EOF CharReader/EOF)
-(def ^{:private true :tag 'long :const true} EOL CharReader/EOL)
 
 (def ^{:private true
        :tag UnaryPredicate}
