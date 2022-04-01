@@ -32,6 +32,24 @@ public final class CharBuffer
       ++len;
     }
   }
+  public final void append(char[] data, int startoff, int endoff) {
+    int soff = startoff;
+    if(trimLeading && len == 0) {
+      for(; soff < endoff && isspace(data[soff]); ++soff );
+    }
+    if(soff != endoff) {
+      int nchars = endoff - soff;
+      int newlen = len + nchars;
+      if (newlen >= buffer.length) {
+	char[] newbuffer = new char[newlen * 2];
+	System.arraycopy(buffer, 0, newbuffer, 0, len);
+	buffer = newbuffer;
+      }
+      for(; soff < endoff; ++soff, ++len) {
+	buffer[len] = data[soff];
+      }
+    }
+  }
   public final void clear() { len = 0; }
   public final int length() { return len; }
   public final String toString() {

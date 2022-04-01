@@ -69,53 +69,59 @@ public final class CharReader implements AutoCloseable
   final void csvReadQuote(CharBuffer sb) throws EOFException {
     while(curBuffer != null) {
       char[] buffer = curBuffer;
+      int startpos = curPos;
       int len = buffer.length;
-      for(int pos = curPos; pos < len; ++pos) {
+      for(int pos = startpos; pos < len; ++pos) {
 	final char curChar = buffer[pos];
-	if (curChar != quot) {
-	  sb.append(curChar);
-	} else {
+	if (curChar == quot) {
+	  sb.append(buffer,startpos,pos);
 	  if (readFrom(pos+1) == quot) {
 	    sb.append(quot);
 	    buffer = curBuffer;
 	    len = buffer.length;
 	    //account for loop increment
 	    pos = curPos - 1;
+	    startpos = curPos;
 	  } else {
 	    unread();
 	    return;
 	  }
 	}
       }
+      sb.append(buffer,startpos,len);
       nextBuffer();
     }
-    throw new EOFException("EOF encounted within quote");
+    throw new EOFException("EOF encountered within quote");
   }
   //Read a row from a CSV file.
   final int csvRead(CharBuffer sb) throws EOFException {
     while(curBuffer != null) {
       final char[] buffer = curBuffer;
       final int len = buffer.length;
-      for(int pos = curPos; pos < len; ++pos) {
+      final int startpos = curPos;
+      for(int pos = startpos; pos < len; ++pos) {
 	final char curChar = buffer[pos];
 	if (curChar == quot) {
+	  sb.append(buffer, startpos, pos);
 	  curPos = pos + 1;
 	  return QUOT;
 	} else if (curChar == sep) {
+	  sb.append(buffer, startpos, pos);
 	  curPos = pos + 1;
 	  return SEP;
 	} else if (curChar == '\n') {
+	  sb.append(buffer, startpos, pos);
 	  curPos = pos + 1;
 	  return EOL;
 	} else if (curChar == '\r') {
+	  sb.append(buffer, startpos, pos);
 	  if (readFrom(pos+1) != '\n') {
 	    unread();
 	  }
 	  return EOL;
-	} else {
-	  sb.append(curChar);
 	}
       }
+      sb.append(buffer, startpos, len);
       nextBuffer();
     }
     return EOF;

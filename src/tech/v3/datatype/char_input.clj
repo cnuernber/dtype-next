@@ -426,8 +426,8 @@
 
   (crit/quick-bench (iter-row-count (read-csv (java.io.File. srcpath) {:async? false})))
   ;;26ms
-  (crit/quick-bench (iter-row-count (read-csv (java.io.File. srcpath))))
-  ;;18ms
+  (crit/quick-bench (iter-row-count (read-csv (java.io.File. srcpath) {:bufsize 8192})))
+  ;;16.6ms
 
   (defn inplace-row-count
     ^long [read-fn]
