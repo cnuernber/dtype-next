@@ -16,18 +16,24 @@ public final class CharBuffer
     buffer = new char[32];
     len = 0;
   }
+  public CharBuffer() {
+    this(false, false, false);
+  }
   public final boolean isspace(char val) {
     return val == ' ' || val == '\t';
+  }
+  public final void ensureCapacity(int newlen) {
+    if (newlen >= buffer.length) {
+      char[] newbuffer = new char[newlen * 2];
+      System.arraycopy(buffer, 0, newbuffer, 0, len);
+      buffer = newbuffer;
+    }
   }
   public final void append(char val) {
     if(!trimLeading ||
        len != 0 ||
        !isspace(val)) {
-      if (len == buffer.length) {
-	char[] newbuffer = new char[buffer.length * 2];
-	System.arraycopy(buffer, 0, newbuffer, 0, len);
-	buffer = newbuffer;
-      }
+      ensureCapacity(len+1);
       buffer[len] = val;
       ++len;
     }
@@ -40,18 +46,16 @@ public final class CharBuffer
     if(soff != endoff) {
       int nchars = endoff - soff;
       int newlen = len + nchars;
-      if (newlen >= buffer.length) {
-	char[] newbuffer = new char[newlen * 2];
-	System.arraycopy(buffer, 0, newbuffer, 0, len);
-	buffer = newbuffer;
-      }
+      ensureCapacity(newlen);
       for(; soff < endoff; ++soff, ++len) {
 	buffer[len] = data[soff];
       }
     }
   }
   public final void clear() { len = 0; }
+  public char[] buffer() { return buffer; }
   public final int length() { return len; }
+  public final int capacity() { return buffer.length; }
   public final String toString() {
     int strlen = len;
     if(len != 0 && trimTrailing) {

@@ -12,7 +12,6 @@
               (vec)))))
 
 
-
 (def ^{:private true} simple
   "Year,Make,Model
 1997,Ford,E350

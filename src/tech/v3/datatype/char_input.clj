@@ -24,7 +24,7 @@
 
   * [CharBuffer.java](https://github.com/cnuernber/dtype-next/blob/master/java/tech/v3/datatype/CharBuffer.java) -
     StringBuilder-like class that implements whitespace trimming, clear, and nil empty strings.
-  * [CharReader.java](https://github.com/cnuernber/dtype-next/blob/master/java/tech/v3/datatype/CharReader.java) -
+  * [CSVReader.java](https://github.com/cnuernber/dtype-next/blob/master/java/tech/v3/datatype/CSVReader.java) -
     A java.io.Reader-like class that only correctly implements single-character unread but contains the
     tight loops required to efficiently parse a CSV file."
   (:require [clojure.java.io :as io]
@@ -32,7 +32,7 @@
             [com.github.ztellman.primitive-math :as pmath]
             [clojure.set :as set])
   (:import [tech.v3.datatype CharReader UnaryPredicate UnaryPredicates$LongUnaryPredicate
-            CharBuffer CharReader$RowReader IFnDef]
+            CharBuffer IFnDef CSVReader$RowReader]
            [java.io Reader StringReader]
            [java.util Iterator Arrays ArrayList List NoSuchElementException]
            [java.lang AutoCloseable]
@@ -147,12 +147,10 @@
   * `:async?` - default to true - reads the reader in an offline thread into character
      buffers."
   ^CharReader [rdr & [options]]
-  (let [quote (->character (get options :quote \"))
-        separator (->character (get options :separator \,))
-        async? (and (> (.availableProcessors (Runtime/getRuntime)) 1)
+  (let [async? (and (> (.availableProcessors (Runtime/getRuntime)) 1)
                     (get options :async? true))
         options (if async? (assoc options :async? true) options)]
-    (CharReader. (reader->char-buf-fn rdr options) quote separator)))
+    (CharReader. (reader->char-buf-fn rdr options))))
 
 
 (def ^{:private true
@@ -164,7 +162,7 @@
 
 
 (deftype ^:private CSVReadIter [^{:unsynchronized-mutable true
-                                  :tag CharReader$RowReader} rdr
+                                  :tag CSVReader$RowReader} rdr
                                 close-fn*]
   Iterator
   (hasNext [this] (not (nil? rdr)))
@@ -216,7 +214,9 @@
                         (get options :nil-empty-values? true))
         row (ArrayList.)
         nil-empty? (get options :nil-empty-values? true)
-        row-reader (CharReader$RowReader. rdr sb row true-unary-predicate)
+        quote (->character (get options :quote \"))
+        separator (->character (get options :separator \,))
+        row-reader (CSVReader$RowReader. rdr sb row true-unary-predicate quote separator)
         ;;mutably changes row in place
         next-row (.nextRow row-reader)
         ^RoaringBitmap column-whitelist
@@ -273,9 +273,12 @@
         sb (CharBuffer. (get options :trim-leading-whitespace? true)
                         (get options :trim-trailing-whitespace? true)
                         (get options :nil-empty-values? true))
+        quote (->character (get options :quote \"))
+        separator (->character (get options :separator \,))
         row (ArrayList.)
         nil-empty? (get options :nil-empty-values? true)
-        rowreader (CharReader$RowReader. rdr sb row true-unary-predicate)]
+        rowreader (CSVReader$RowReader. rdr sb row true-unary-predicate
+                                        quote separator)]
     (fn []
       (.nextRow rowreader))))
 
