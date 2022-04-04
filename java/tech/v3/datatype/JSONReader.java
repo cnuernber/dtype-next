@@ -110,8 +110,7 @@ public final class JSONReader implements AutoCloseable {
 	  return cb.toString();
 	} else if (curChar == '\\') {
 	  cb.append(buffer,startpos,pos);
-	  pos++;
-	  final int idata = reader.readFrom(pos);
+	  final int idata = reader.readFrom(pos+1);
 	  if (idata == -1)
 	    throw new EOFException();
 	  final char data = (char)idata;
@@ -150,7 +149,7 @@ public final class JSONReader implements AutoCloseable {
       }
       buffer = reader.nextBuffer();
     }
-    throw new EOFException();
+    throw new EOFException("EOF while reading string.");
   }
   final Object readNumber(char firstChar) throws Exception {
     final CharBuffer cb = charBuffer;
@@ -196,7 +195,7 @@ public final class JSONReader implements AutoCloseable {
       }
       buffer = reader.nextBuffer();
     }
-    throw new EOFException();
+    throw new EOFException("EOF while reading number);
   }
 
   final Object readList() throws Exception {
@@ -221,7 +220,33 @@ public final class JSONReader implements AutoCloseable {
 	  reader.unread();
       }
     }
-    throw new EOFException();
+    throw new EOFException("EOF while reading list);
+  }
+
+  final String readKey() throws Exception {
+    final CharBuffer cb = charBuffer;
+    cb.clear();
+    char[] buffer = reader.buffer();
+    while(buffer != null) {
+      int len = buffer.length;
+      int startpos = reader.position();
+      for(int pos = startpos; pos < len; ++pos) {
+	final char curChar = buffer[pos];
+	if (Character.isWhitespace(curChar) || curChar == ':') {
+	  //unread the character
+	  reader.position(pos-1);
+	  cb.append(buffer, startpos, pos);
+	  final String retval = cb.toString();
+	  if (retval.equals("")) {
+	    throw new RuntimeException("Invalid empty key.");
+	  }
+	  return retval;
+	}
+      }
+      cb.append(buffer,startpos,pos);
+      buffer = reader.nextBuffer();
+    }
+    throw new EOFException("EOF while reading a string.");
   }
 
   final Object readMap() throws Exception {
@@ -240,22 +265,23 @@ public final class JSONReader implements AutoCloseable {
 	first = false;
 	if (!hasNext)
 	  throw new Exception ("One too few commas in your map my friend");
-	if (nextChar != '"')
-	  throw new Exception("JSON object must have string keys.");
-	dataBuf.add(keyFn.invoke(readString()));
+	if (nextChar == '"')
+	  dataBuf.add(keyFn.invoke(readString()));
+	else
+	  dataBuf.add(keyFn.invoke(readKey()));
 	nextChar = reader.eatwhite();
 	if (nextChar != ':')
-	  throw new Exception("One too many commas in your list my friend");
+	  throw new Exception("Map keys must be followed by a ':'");
 	Object valVal = valFn.invoke(readObject());
 	if (valVal == null)
-	  throw new EOFException();
+	  throw new EOFException("EOF while reading map.");
 	dataBuf.add(valFn.invoke(valVal));
 	hasNext = reader.eatwhite() == ',';
 	if (!hasNext)
 	  reader.unread();
       }
     }
-    throw new EOFException();
+    throw new EOFException("EOF while reading map.");
   }
 
   public final Object readObject() throws Exception {
@@ -276,9 +302,8 @@ public final class JSONReader implements AutoCloseable {
       throw new Exception("JSON parse error - bad boolean value.");
     } else if (val == 'n') {
       final char[] data = tempRead(3);
-      if (data[0] == 'u' && data[1] == 'l' && data[2] == 'l') {
+      if (data[0] == 'u' && data[1] == 'l' && data[2] == 'l')
 	return null;
-      }
       throw new Exception("JSON parse error - unrecognized 'null' entry.");
     } else if (val == '[') {
       pushContext();
