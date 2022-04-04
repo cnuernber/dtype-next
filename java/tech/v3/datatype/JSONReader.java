@@ -63,14 +63,9 @@ public final class JSONReader implements AutoCloseable {
       throw new RuntimeException("Stack underflow");
   }
   final ArrayList<Object> currentContext() {
-    for(int needed = stackDepth - contextStack.size() + 1; needed >= 0; --needed)
-      contextStack.add(null);
-    ArrayList<Object> entry = contextStack.get(stackDepth);
-    if (entry == null) {
-      entry = new ArrayList<Object>();
-      contextStack.set(stackDepth, entry);
-    }
-    return entry;
+    for(int needed = stackDepth - contextStack.size() + 1; needed > 0; --needed)
+      contextStack.add(new ArrayList<Object>());
+    return contextStack.get(stackDepth);
   }
 
   public JSONReader(CharReader rdr, IFn _doubleFn, IFn _keyFn, IFn _valFn, IFn _listFn,
@@ -151,6 +146,23 @@ public final class JSONReader implements AutoCloseable {
     }
     throw new EOFException("EOF while reading string.");
   }
+  final Object finalizeNumber(CharBuffer cb, boolean integer) throws Exception {
+    final String strdata = cb.toString();
+    if (integer) {
+      //Definitely an integer
+      if (strdata.length() < 18)
+	return Long.parseLong(strdata);
+      else {
+	try {
+	  return Long.parseLong(strdata);
+	} catch (Exception e) {
+	  return new BigDecimal(strdata);
+	}
+      }
+    } else {
+      return doubleFn.invoke(strdata);
+    }
+  }
   final Object readNumber(char firstChar) throws Exception {
     final CharBuffer cb = charBuffer;
     cb.clear();
@@ -171,21 +183,7 @@ public final class JSONReader implements AutoCloseable {
 	  //Not we do not increment position here as the next method
 	  //needs to restart parsing from this place.
 	  reader.position(pos);
-	  final String strdata = cb.toString();
-	  if (integer) {
-	    //Definitely an integer
-	    if (strdata.length() < 18)
-	      return Long.parseLong(strdata);
-	    else {
-	      try {
-		return Long.parseLong(strdata);
-	      } catch (Exception e) {
-		return new BigDecimal(strdata);
-	      }
-	    }
-	  } else {
-	    return doubleFn.invoke(strdata);
-	  }
+	  return finalizeNumber(cb, integer);
 	}
 	else if (nextChar == 'e' ||
 		 nextChar == 'E' ||
@@ -193,9 +191,10 @@ public final class JSONReader implements AutoCloseable {
 	  integer = false;
 	}
       }
+      cb.append(buffer, startpos, len);
       buffer = reader.nextBuffer();
     }
-    throw new EOFException("EOF while reading number);
+    return finalizeNumber(cb, integer);
   }
 
   final Object readList() throws Exception {
@@ -220,7 +219,7 @@ public final class JSONReader implements AutoCloseable {
 	  reader.unread();
       }
     }
-    throw new EOFException("EOF while reading list);
+    throw new EOFException("EOF while reading list");
   }
 
   final String readKey() throws Exception {
@@ -229,8 +228,9 @@ public final class JSONReader implements AutoCloseable {
     char[] buffer = reader.buffer();
     while(buffer != null) {
       int len = buffer.length;
-      int startpos = reader.position();
-      for(int pos = startpos; pos < len; ++pos) {
+      final int startpos = reader.position();
+      int pos = startpos;
+      for(; pos < len; ++pos) {
 	final char curChar = buffer[pos];
 	if (Character.isWhitespace(curChar) || curChar == ':') {
 	  //unread the character
@@ -285,6 +285,8 @@ public final class JSONReader implements AutoCloseable {
   }
 
   public final Object readObject() throws Exception {
+    if (reader == null) return null;
+
     final char val = reader.eatwhite();
     if (numberChar(val)) {
       return readNumber(val);
@@ -316,6 +318,7 @@ public final class JSONReader implements AutoCloseable {
       popContext();
       return retval;
     } else if (reader.eof()) {
+      close();
       return null;
     } else
       throw new Exception("JSON parse error - Unexpected character - " + val);

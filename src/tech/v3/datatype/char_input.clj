@@ -32,7 +32,8 @@
             [com.github.ztellman.primitive-math :as pmath]
             [clojure.set :as set])
   (:import [tech.v3.datatype CharReader UnaryPredicate UnaryPredicates$LongUnaryPredicate
-            CharBuffer IFnDef CSVReader$RowReader]
+            CharBuffer IFnDef CSVReader$RowReader JSONReader]
+           [clojure.lang IFn]
            [java.io Reader StringReader]
            [java.util Iterator Arrays ArrayList List NoSuchElementException]
            [java.lang AutoCloseable]
@@ -135,6 +136,9 @@
     (unchecked-char v)))
 
 
+(defonce char-ary-cls (type (char-array 0)))
+
+
 (defn reader->char-reader
   "Given a reader, return a CharReader which presents some of the same interface
   as a pushbackreader but is only capable of pushing back 1 character.
@@ -150,7 +154,13 @@
   (let [async? (and (> (.availableProcessors (Runtime/getRuntime)) 1)
                     (get options :async? true))
         options (if async? (assoc options :async? true) options)]
-    (CharReader. (reader->char-buf-fn rdr options))))
+    (cond
+      (string? rdr)
+      (CharReader. (str rdr))
+      (instance? char-ary-cls rdr)
+      (CharReader. ^chars rdr)
+      :else
+      (CharReader. ^IFn (reader->char-buf-fn rdr options)))))
 
 
 (def ^{:private true
@@ -197,7 +207,7 @@
   * `:async?` - Defaults to true - read the file into buffers in an offline thread.  This
      speeds up reading larger files (1MB+) by about 30%.
   * `:separator` - Field separator - defaults to \\,.
-  * `:quote` - Quote specifier - defaults to \\..
+  * `:quote` - Quote specifier - defaults to //\".
   * `:close-reader?` - Close the reader when iteration is finished - defaults to true.
   * `:column-whitelist` - Sequence of allowed column names.
   * `:column-blacklist` - Sequence of dis-allowed column names.  When conflicts with
@@ -212,11 +222,10 @@
         sb (CharBuffer. (get options :trim-leading-whitespace? true)
                         (get options :trim-trailing-whitespace? true)
                         (get options :nil-empty-values? true))
-        row (ArrayList.)
         nil-empty? (get options :nil-empty-values? true)
         quote (->character (get options :quote \"))
         separator (->character (get options :separator \,))
-        row-reader (CSVReader$RowReader. rdr sb row true-unary-predicate quote separator)
+        row-reader (CSVReader$RowReader. rdr sb true-unary-predicate quote separator)
         ;;mutably changes row in place
         next-row (.nextRow row-reader)
         ^RoaringBitmap column-whitelist
@@ -275,9 +284,8 @@
                         (get options :nil-empty-values? true))
         quote (->character (get options :quote \"))
         separator (->character (get options :separator \,))
-        row (ArrayList.)
         nil-empty? (get options :nil-empty-values? true)
-        rowreader (CSVReader$RowReader. rdr sb row true-unary-predicate
+        rowreader (CSVReader$RowReader. rdr sb true-unary-predicate
                                         quote separator)]
     (fn []
       (.nextRow rowreader))))
@@ -293,6 +301,51 @@
     (->> (read-csv input options)
          (iterator-seq)
          (map vec))))
+
+
+(deftype ^:private JSONReadFn [^{:unsynchronized-mutable true
+                                 :tag JSONReader} rdr
+                               close-fn*]
+  IFnDef
+  (invoke [this]
+    (when rdr
+      (let [nextobj (.readObject rdr)]
+        (when-not nextobj
+          (.close this))
+        nextobj)))
+  AutoCloseable
+  (close [this]
+    (set! rdr nil)
+    @close-fn*))
+
+
+(defn read-json-fn
+  "Most efficient read pathway for json
+  Returns an auto-closeable function that when called either returns a new object or nil
+  if the read pathway is finished."
+  [input & [options]]
+  (let [json-rdr (JSONReader. (reader->char-reader input options)
+                              nil ;;double-fn
+                              nil ;;key-fn
+                              nil ;;valFn
+                              nil ;;listFn
+                              nil);;mapFn
+        close-fn* (delay (.close json-rdr))]
+    (JSONReadFn. json-rdr close-fn*)))
+
+
+(defn- read-json-fn-seq
+  [json-fn]
+  (let [retval (json-fn)]
+    (when retval
+      (cons retval (lazy-seq (read-json-fn-seq json-fn))))))
+
+
+(defn read-json
+  "Drop in replacement for clojure.data.json/read and clojure.data.json/read-str"
+  [input & args]
+  (-> (read-json-fn input (into {} (map vec (partition 2 args))))
+      (read-json-fn-seq read-fn)))
 
 
 (comment

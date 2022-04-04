@@ -84,12 +84,13 @@ public final class CSVReader {
   public static final class RowReader
   {
     final CSVReader rdr;
-    final CharBuffer sb = new CharBuffer();
+    final CharBuffer sb;
     final ArrayList<String> row = new ArrayList<String>();
     UnaryPredicate pred;
 
-    public RowReader(CharReader _r, UnaryPredicate _pred, char quot, char sep) {
+    public RowReader(CharReader _r, CharBuffer cb, UnaryPredicate _pred, char quot, char sep) {
       rdr = new CSVReader(_r, quot, sep);
+      sb = cb;
       pred = _pred;
     }
     public void setPredicate(UnaryPredicate p) { pred = p; }
