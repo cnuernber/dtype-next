@@ -84,15 +84,12 @@ public final class CSVReader {
   public static final class RowReader
   {
     final CSVReader rdr;
-    final CharBuffer sb;
-    final ArrayList row;
+    final CharBuffer sb = new CharBuffer();
+    final ArrayList<String> row = new ArrayList<String>();
     UnaryPredicate pred;
 
-    public RowReader(CharReader _r, CharBuffer _sb, ArrayList _al, UnaryPredicate _pred,
-		     char quot, char sep) {
+    public RowReader(CharReader _r, UnaryPredicate _pred, char quot, char sep) {
       rdr = new CSVReader(_r, quot, sep);
-      sb = _sb;
-      row = _al;
       pred = _pred;
     }
     public void setPredicate(UnaryPredicate p) { pred = p; }
@@ -101,7 +98,7 @@ public final class CSVReader {
     }
     public final boolean emptyRow() {
       int sz = row.size();
-      return sz == 0 || (sz == 1 && emptyStr((String)row.get(0)));
+      return sz == 0 || (sz == 1 && emptyStr(row.get(0)));
     }
     public final ArrayList currentRow() { return row; }
     public final ArrayList nextRow() throws EOFException {

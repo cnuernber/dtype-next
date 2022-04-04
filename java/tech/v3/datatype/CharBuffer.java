@@ -19,9 +19,6 @@ public final class CharBuffer
   public CharBuffer() {
     this(false, false, false);
   }
-  public final boolean isspace(char val) {
-    return val == ' ' || val == '\t';
-  }
   public final void ensureCapacity(int newlen) {
     if (newlen >= buffer.length) {
       char[] newbuffer = new char[newlen * 2];
@@ -30,26 +27,17 @@ public final class CharBuffer
     }
   }
   public final void append(char val) {
-    if(!trimLeading ||
-       len != 0 ||
-       !isspace(val)) {
-      ensureCapacity(len+1);
-      buffer[len] = val;
-      ++len;
-    }
+    ensureCapacity(len+1);
+    buffer[len] = val;
+    ++len;
   }
   public final void append(char[] data, int startoff, int endoff) {
-    int soff = startoff;
-    if(trimLeading && len == 0) {
-      for(; soff < endoff && isspace(data[soff]); ++soff );
-    }
-    if(soff != endoff) {
-      int nchars = endoff - soff;
+    if(startoff < endoff) {
+      int nchars = endoff - startoff;
       int newlen = len + nchars;
       ensureCapacity(newlen);
-      for(; soff < endoff; ++soff, ++len) {
-	buffer[len] = data[soff];
-      }
+      System.arraycopy(data,startoff,buffer,len,nchars);
+      len += nchars;
     }
   }
   public final void clear() { len = 0; }
@@ -58,10 +46,15 @@ public final class CharBuffer
   public final int capacity() { return buffer.length; }
   public final String toString() {
     int strlen = len;
-    if(len != 0 && trimTrailing) {
-      int idx = len - 1;
-      for (; idx >= 0 && isspace(buffer[idx]); --idx);
-      strlen = idx + 1;
+    int startoff = 0;
+    if(trimLeading && strlen != 0) {
+      for (; startoff < len && Character.isWhitespace(buffer[startoff]); ++startoff);
+      strlen = strlen - startoff;
+    }
+    if(trimTrailing && strlen != 0) {
+      int idx = strlen - 1;
+      for (; idx >= startoff && Character.isWhitespace(buffer[idx]); --idx);
+      strlen = idx + 1 - startoff;
     }
     if(strlen == 0) {
       if(nilEmpty) {
@@ -69,7 +62,7 @@ public final class CharBuffer
       }
       return "";
     } else {
-      return new String(buffer, 0, strlen);
+      return new String(buffer, startoff, strlen);
     }
   }
 }
