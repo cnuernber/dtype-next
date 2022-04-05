@@ -89,9 +89,7 @@ public final class JSONReader implements AutoCloseable {
   }
 
   public static boolean numberChar(char v) {
-    return (v >= '0' && v <= '9') ||
-      v == '-' ||
-      v == '+';
+    return (v >= '0' && v <= '9') || v == '-';
   }
 
   final char[] tempRead(int nchars) throws EOFException {
@@ -143,10 +141,18 @@ public final class JSONReader implements AutoCloseable {
     }
     throw new EOFException("EOF while reading string: " + cb.toString());
   }
-  final Object finalizeNumber(CharBuffer cb, boolean integer) throws Exception {
+  final Object finalizeNumber(CharBuffer cb, boolean integer, final char firstChar,
+			      final int dotIndex)
+    throws Exception {
+    final char[] cbBuffer = cb.buffer();
     final String strdata = cb.toString();
+    final int nElems = strdata.length();
     if (integer) {
       //Definitely an integer
+      if ((nElems > 1 && firstChar == '0') ||
+	  (nElems > 2 && firstChar == '-' && cbBuffer[1] == '0'))
+	throw new Exception("JSON parse error - integer starting with 0: "
+			    + strdata);
       if (strdata.length() < 18)
 	return Long.parseLong(strdata);
       else {
@@ -157,15 +163,27 @@ public final class JSONReader implements AutoCloseable {
 	}
       }
     } else {
+      if (dotIndex != -1) {
+	final char bufChar = cbBuffer[dotIndex];
+	//sanity check
+	if (bufChar != '.')
+	  throw new RuntimeException("Programming error - dotIndex incorrect: "
+				     + String.valueOf(dotIndex) + " - " +  strdata);
+	if (dotIndex == nElems - 1 || !Character.isDigit(cbBuffer[dotIndex+1]) ||
+	    dotIndex == 0 || !Character.isDigit(cbBuffer[dotIndex-1]))
+	  throw new Exception("JSON parse error - period must be followed by digit: " +
+			      strdata);
+      }
       return doubleFn.invoke(strdata);
     }
   }
-  final Object readNumber(char firstChar) throws Exception {
+  final Object readNumber(final char firstChar) throws Exception {
     final CharBuffer cb = charBuffer;
     cb.clear();
     cb.append(firstChar);
     boolean integer = true;
     char[] buffer = reader.buffer();
+    int dotIndex = -1;
     while(buffer != null) {
       int startpos = reader.position();
       int pos = startpos;
@@ -180,18 +198,20 @@ public final class JSONReader implements AutoCloseable {
 	  //Not we do not increment position here as the next method
 	  //needs to restart parsing from this place.
 	  reader.position(pos);
-	  return finalizeNumber(cb, integer);
+	  return finalizeNumber(cb, integer, firstChar, dotIndex);
 	}
 	else if (nextChar == 'e' ||
 		 nextChar == 'E' ||
 		 nextChar == '.') {
+	  if (nextChar == '.')
+	    dotIndex = cb.length() + pos - startpos;
 	  integer = false;
 	}
       }
       cb.append(buffer, startpos, len);
       buffer = reader.nextBuffer();
     }
-    return finalizeNumber(cb, integer);
+    return finalizeNumber(cb, integer, firstChar, dotIndex);
   }
 
   final Object readList() throws Exception {
