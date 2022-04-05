@@ -320,16 +320,41 @@
 
 
 (defn read-json-fn
-  "Most efficient read pathway for json
-  Returns an auto-closeable function that when called either returns a new object or nil
-  if the read pathway is finished."
+  "Most efficient read pathway for json.
+  Returns an auto-closeable function that when called by default throws an exception
+  if the read pathway is finished.
+
+  Options:
+
+  * `:bigdec` - When true use bigdecimals for floating point numbers.  Defaults to false.
+  * `:double-fn` - If :bigdec isn't provided, use this function to parse double values.
+  * `:key-fn` - Function called on each string map key.
+  * `:value-fn` - Function called on each map value.  Function is passed the key and val so it
+     takes 2 arguments.
+  * `:array-fn` - Function called on the object array of values for a javascript array.
+  * `:obj-fn` - Function called on the flattened object array of key values for each javascript
+    object.  An acceptible although inefficient function would be `#(apply hash-map %)`.
+  * `:eof-error?` - Defaults to true - when eof is encountered when attempting to read an
+     object throw an EOF error.  Else returns a special EOF value.
+  * `:eof-value` - EOF value.  Defaults to
+  * `:eof-fn` - Function called if readObject is going to return EOF.  Defaults to throwing an
+     EOFException."
   [input & [options]]
-  (let [json-rdr (JSONReader. (reader->char-reader input options)
-                              nil ;;double-fn
-                              nil ;;key-fn
-                              nil ;;valFn
-                              nil ;;listFn
-                              nil);;mapFn
+  (let [eof-error? (get options :eof-error? true)
+        eof-value (get options :eof-value :eof)
+        json-rdr
+        (JSONReader. (reader->char-reader input options)
+                     (if (get options :bigdec)
+                       #(BigDecimal. ^String %)
+                       (get options :double-fn))
+                     (get options :key-fn) ;;key-fn
+                     (get options :value-fn) ;;valFn
+                     (get options :array-fn) ;;listFn
+                     (get options :obj-fn) ;;mapFn
+                     (get options :eof-fn
+                          #(if eof-error?
+                             (throw (java.io.EOFException. "Unexpected end of input"))
+                             eof-value)))
         close-fn* (delay (.close json-rdr))]
     (JSONReadFn. json-rdr close-fn*)))
 
@@ -342,10 +367,13 @@
 
 
 (defn read-json
-  "Drop in replacement for clojure.data.json/read and clojure.data.json/read-str"
+  "Drop in replacement for clojure.data.json/read and clojure.data.json/read-str.  For options
+  see [[read-json-fn]]."
   [input & args]
-  (-> (read-json-fn input (into {} (map vec (partition 2 args))))
-      (read-json-fn-seq read-fn)))
+  (let [json-fn (read-json-fn input (into {} (map vec (partition 2 args))))
+        retval (json-fn)]
+    (.close ^AutoCloseable json-fn)
+    retval))
 
 
 (comment
