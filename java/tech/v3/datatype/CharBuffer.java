@@ -52,7 +52,7 @@ public final class CharBuffer
       strlen = strlen - startoff;
     }
     if(trimTrailing && strlen != 0) {
-      int idx = strlen - 1;
+      int idx = len - 1;
       for (; idx >= startoff && Character.isWhitespace(buffer[idx]); --idx);
       strlen = idx + 1 - startoff;
     }

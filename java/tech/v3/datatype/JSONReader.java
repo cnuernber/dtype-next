@@ -91,6 +91,9 @@ public final class JSONReader implements AutoCloseable {
   public static boolean numberChar(char v) {
     return (v >= '0' && v <= '9') || v == '-';
   }
+  public static boolean isAsciiDigit(char v) {
+    return v >= '0' && v <= '9';
+  }
 
   final char[] tempRead(int nchars) throws EOFException {
     if (reader.read(tempBuf, 0, nchars) == -1)
@@ -169,9 +172,10 @@ public final class JSONReader implements AutoCloseable {
 	if (bufChar != '.')
 	  throw new RuntimeException("Programming error - dotIndex incorrect: "
 				     + String.valueOf(dotIndex) + " - " +  strdata);
-	if (dotIndex == nElems - 1 || !Character.isDigit(cbBuffer[dotIndex+1]) ||
-	    dotIndex == 0 || !Character.isDigit(cbBuffer[dotIndex-1]))
-	  throw new Exception("JSON parse error - period must be followed by digit: " +
+	//If there is a period it must have a number on each side.
+	if (dotIndex == nElems - 1 || !isAsciiDigit(cbBuffer[dotIndex+1]) ||
+	    dotIndex == 0 || !isAsciiDigit(cbBuffer[dotIndex-1]))
+	  throw new Exception("JSON parse error - period must be preceded and followed by a digit: " +
 			      strdata);
       }
       return doubleFn.invoke(strdata);

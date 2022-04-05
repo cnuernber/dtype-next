@@ -1,4 +1,4 @@
-(ns clojure.data.json-test-suite-test
+(ns tech.v3.datatype.json.json-test-suite-test
   (:require [tech.v3.datatype.char-input :as char-input]
             [clojure.test :refer :all]
             [clojure.string :as str]))
