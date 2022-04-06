@@ -24,13 +24,17 @@ performance benefits.</p>
 <ul>
 <li><a href="https://github.com/cnuernber/dtype-next/blob/master/java/tech/v3/datatype/CharBuffer.java">CharBuffer.java</a> -
 StringBuilder-like class that implements whitespace trimming, clear, and nil empty strings.</li>
+<li><a href="https://github.com/cnuernber/dtype-next/blob/master/java/tech/v3/datatype/CharReader.java">CharReader.java</a> -
+A java.io.Reader-like class that only correctly implements single-character unread but allows access
+to the underlying buffer.</li>
 <li><a href="https://github.com/cnuernber/dtype-next/blob/master/java/tech/v3/datatype/CSVReader.java">CSVReader.java</a> -
-A java.io.Reader-like class that only correctly implements single-character unread but contains the
-tight loops required to efficiently parse a CSV file.</li>
+All the tight loops necessary to parse a CSV file quickly.</li>
+<li><a href="https://github.com/cnuernber/dtype-next/blob/master/java/tech/v3/datatype/JSONReader.java">JSONReader.java</a> -
+All the tight loops necessary to parse a JSON file.  Fairly customizeable.</li>
 </ul>
-</div></div><div class="public anchor" id="var-char-ary-cls"><h3>char-ary-cls</h3><div class="usage"></div><div class="doc"><div class="markdown"></div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/char_input.clj#L140">view source</a></div></div><div class="public anchor" id="var-parse-json-fn"><h3>parse-json-fn</h3><div class="usage"><code>(parse-json-fn &amp; [options])</code></div><div class="doc"><div class="markdown"><p>Return a function from input-&gt;json.  Reuses the parse context.
+</div></div><div class="public anchor" id="var-char-ary-cls"><h3>char-ary-cls</h3><div class="usage"></div><div class="doc"><div class="markdown"></div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/char_input.clj#L144">view source</a></div></div><div class="public anchor" id="var-parse-json-fn"><h3>parse-json-fn</h3><div class="usage"><code>(parse-json-fn &amp; [options])</code></div><div class="doc"><div class="markdown"><p>Return a function from input-&gt;json.  Reuses the parse context.
 Same options as <a href="tech.v3.datatype.char-input.html#var-read-json-fn">read-json-fn</a>.</p>
-</div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/char_input.clj#L456">view source</a></div></div><div class="public anchor" id="var-read-csv"><h3>read-csv</h3><div class="usage"><code>(read-csv input &amp; [options])</code></div><div class="doc"><div class="markdown"><p>Read a csv into a row iterator.  Parse algorithm the same as clojure.data.csv although
+</div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/char_input.clj#L460">view source</a></div></div><div class="public anchor" id="var-read-csv"><h3>read-csv</h3><div class="usage"><code>(read-csv input &amp; [options])</code></div><div class="doc"><div class="markdown"><p>Read a csv into a row iterator.  Parse algorithm the same as clojure.data.csv although
 this returns an iterator and each row is an ArrayList as opposed to a persistent
 vector.  To convert a java.util.List into something with the same equal and hash semantics
 of a persistent vector use either <code>tech.v3.datatype.ListPersistentVector</code> or <code>vec</code>.  To
@@ -54,11 +58,11 @@ to true</li>
 <li><code>:nil-empty-values?</code> - When true, empty strings are elided entirely and returned as nil
 values. Defaults to true.</li>
 </ul>
-</div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/char_input.clj#L194">view source</a></div></div><div class="public anchor" id="var-read-csv-compat"><h3>read-csv-compat</h3><div class="usage"><code>(read-csv-compat input &amp; options)</code></div><div class="doc"><div class="markdown"><p>Read a csv returning a clojure.data.csv-compatible sequence.  For options
+</div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/char_input.clj#L198">view source</a></div></div><div class="public anchor" id="var-read-csv-compat"><h3>read-csv-compat</h3><div class="usage"><code>(read-csv-compat input &amp; options)</code></div><div class="doc"><div class="markdown"><p>Read a csv returning a clojure.data.csv-compatible sequence.  For options
 see <a href="tech.v3.datatype.char-input.html#var-read-csv">read-csv</a>.</p>
-</div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/char_input.clj#L295">view source</a></div></div><div class="public anchor" id="var-read-json"><h3>read-json</h3><div class="usage"><code>(read-json input &amp; args)</code></div><div class="doc"><div class="markdown"><p>Drop in replacement for clojure.data.json/read and clojure.data.json/read-str.  For options
+</div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/char_input.clj#L299">view source</a></div></div><div class="public anchor" id="var-read-json"><h3>read-json</h3><div class="usage"><code>(read-json input &amp; args)</code></div><div class="doc"><div class="markdown"><p>Drop in replacement for clojure.data.json/read and clojure.data.json/read-str.  For options
 see <a href="tech.v3.datatype.char-input.html#var-read-json-fn">read-json-fn</a>.</p>
-</div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/char_input.clj#L446">view source</a></div></div><div class="public anchor" id="var-read-json-fn"><h3>read-json-fn</h3><div class="usage"><code>(read-json-fn input &amp; [options])</code></div><div class="doc"><div class="markdown"><p>Most efficient read pathway for json.
+</div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/char_input.clj#L450">view source</a></div></div><div class="public anchor" id="var-read-json-fn"><h3>read-json-fn</h3><div class="usage"><code>(read-json-fn input &amp; [options])</code></div><div class="doc"><div class="markdown"><p>Most efficient read pathway for json.
 Returns an auto-closeable function that when called by default throws an exception
 if the read pathway is finished.  Input may be a character array or string (most efficient)
 or something convertible to a reader.  Options for conversion to reader are described in
@@ -87,7 +91,7 @@ object throw an EOF error.  Else returns a special EOF value.</li>
 <li><code>:eof-fn</code> - Function called if readObject is going to return EOF.  Defaults to throwing an
 EOFException.</li>
 </ul>
-</div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/char_input.clj#L400">view source</a></div></div><div class="public anchor" id="var-reader-.3Echar-buf-fn"><h3>reader-&gt;char-buf-fn</h3><div class="usage"><code>(reader-&gt;char-buf-fn rdr &amp; [options])</code></div><div class="doc"><div class="markdown"><p>Given a reader, return a clojure fn that when called reads the next buffer of the reader.
+</div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/char_input.clj#L404">view source</a></div></div><div class="public anchor" id="var-reader-.3Echar-buf-fn"><h3>reader-&gt;char-buf-fn</h3><div class="usage"><code>(reader-&gt;char-buf-fn rdr &amp; [options])</code></div><div class="doc"><div class="markdown"><p>Given a reader, return a clojure fn that when called reads the next buffer of the reader.
 This function iterates through a fixed number of buffers under the covers so you need to
 be cognizant of the number of actual buffers that you want to have present in memory.
 This fn also implement <code>AutoCloseable</code> and closing it will close the underlying reader.</p>
@@ -100,7 +104,7 @@ seen with larger or smaller buffers.</li>
 <li><code>:async?</code> - defaults to false.  When true data is read in an async thread.</li>
 <li><code>:close-reader?</code> - When true, close input reader when finished.  Defaults to true.</li>
 </ul>
-</div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/char_input.clj#L88">view source</a></div></div><div class="public anchor" id="var-reader-.3Echar-reader"><h3>reader-&gt;char-reader</h3><div class="usage"><code>(reader-&gt;char-reader rdr &amp; [options])</code></div><div class="doc"><div class="markdown"><p>Given a reader, return a CharReader which presents some of the same interface
+</div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/char_input.clj#L92">view source</a></div></div><div class="public anchor" id="var-reader-.3Echar-reader"><h3>reader-&gt;char-reader</h3><div class="usage"><code>(reader-&gt;char-reader rdr &amp; [options])</code></div><div class="doc"><div class="markdown"><p>Given a reader, return a CharReader which presents some of the same interface
 as a pushbackreader but is only capable of pushing back 1 character.</p>
 <p>Options:</p>
 <p>Options are passed through mainly unchanged to queue-iter and to
@@ -109,4 +113,4 @@ as a pushbackreader but is only capable of pushing back 1 character.</p>
 <li><code>:async?</code> - default to true - reads the reader in an offline thread into character
 buffers.</li>
 </ul>
-</div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/char_input.clj#L143">view source</a></div></div></div></body></html>
+</div></div><div class="src-link"><a href="https://github.com/cnuernber/dtype-next/blob/master/src/tech/v3/datatype/char_input.clj#L147">view source</a></div></div></div></body></html>
