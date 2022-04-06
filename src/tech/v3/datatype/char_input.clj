@@ -36,6 +36,7 @@
            [clojure.lang IFn]
            [java.io Reader StringReader]
            [java.util Iterator Arrays ArrayList List NoSuchElementException]
+           [java.util.function Function BiFunction Supplier]
            [java.lang AutoCloseable]
            [org.roaringbitmap RoaringBitmap]))
 
@@ -318,19 +319,106 @@
     (set! rdr nil)
     @close-fn*))
 
+(defn- ->function
+  ^Function [data]
+  (cond
+    (nil? data) data
+    (instance? Function data) data
+    (instance? IFn data)
+    (reify Function (apply [this a] (data a)))
+    :else
+    (throw (Exception. (format "Unable to convert type %s to java function"
+                               (type data))))))
+
+(defn- ->bi-function
+  ^BiFunction [data]
+  (cond
+    (nil? data) data
+    (instance? BiFunction data) data
+    (instance? IFn data)
+    (reify BiFunction (apply [this a b] (data a b)))
+    :else
+    (throw (Exception. (format "Unable to convert type %s to java bifunction"
+                               (type data))))))
+
+
+(defn- ->supplier
+  ^Supplier [data]
+  (cond
+    (nil? data) data
+    (instance? Supplier data) data
+    (instance? IFn data)
+    (reify Supplier (get [this] (data)))
+    :else
+    (throw (Exception. (format "Unable to convert type %s to java supplier"
+                               (type data))))))
+
+
+(deftype JSONObj [^objects data])
+
+
+(defn- json-reader
+  ^JSONReader [options]
+  (let [eof-error? (get options :eof-error? true)
+        eof-value (get options :eof-value :eof)
+        [obj-fn-default array-fn-default]
+        (case (get options :profile :immutable)
+          :mutable
+          [JSONReader/hashmapFn JSONReader/arrayIdentityFn]
+          :raw
+          [(reify Function
+             (apply [this args]
+               (JSONObj. args)))
+           JSONReader/arrayIdentityFn]
+          :mixed
+          [(reify Function
+             (apply [this args]
+               (let [^objects args args]
+                 (if (< (alength args) 16)
+                   (clojure.lang.PersistentArrayMap. args)
+                   (.apply JSONReader/hashmapFn args)))))
+           JSONReader/arrayIdentityFn]
+          :immutable
+          [nil nil])]
+    (JSONReader. (->function
+                  (if (get options :bigdec)
+                    #(BigDecimal. ^String %)
+                    (get options :double-fn)))
+                 (->function (get options :key-fn)) ;;key-fn
+                 (->bi-function (get options :value-fn)) ;;valFn
+                 (->function (get options :array-fn array-fn-default)) ;;listFn
+                 (->function (get options :obj-fn obj-fn-default)) ;;mapFn
+                 (->supplier
+                  (get options :eof-fn
+                       #(if eof-error?
+                          (throw (java.io.EOFException. "Unexpected end of input"))
+                          eof-value))))))
+
+(deftype JSONObj [^objects data])
+
 
 (defn read-json-fn
   "Most efficient read pathway for json.
   Returns an auto-closeable function that when called by default throws an exception
-  if the read pathway is finished.
+  if the read pathway is finished.  Input may be a character array or string (most efficient)
+  or something convertible to a reader.  Options for conversion to reader are described in
+  [[reader->char-reader]] although for the json case we default `:async?` to false as
+  most json is just too small to benefit from async reading of the input.
 
   Options:
 
   * `:bigdec` - When true use bigdecimals for floating point numbers.  Defaults to false.
   * `:double-fn` - If :bigdec isn't provided, use this function to parse double values.
+  * `:profile` - Which performance profile to use.  This simply provides defaults to
+     `:array-fn` and `:obj-fn`. The default `:immutable` value produces persistent datastructures.
+     `:mutable` produces an object arrays and java.util.HashMaps - this is about
+     30% faster.  `:mixed` produces a mixture of persistent maps has hashmaps and is nearly as fast
+     as `:raw` while still being very useable and `:raw` produces an object[] for arrays and a
+     JSONObj type with a public data member that is an object[] for objects.
   * `:key-fn` - Function called on each string map key.
   * `:value-fn` - Function called on each map value.  Function is passed the key and val so it
-     takes 2 arguments.
+     takes 2 arguments.  If this function returns `:tech.v3.datatype.char-input/elided` then
+     the key-val pair will be elided from the result.
   * `:array-fn` - Function called on the object array of values for a javascript array.
   * `:obj-fn` - Function called on the flattened object array of key values for each javascript
     object.  An acceptible although inefficient function would be `#(apply hash-map %)`.
@@ -340,22 +428,11 @@
   * `:eof-fn` - Function called if readObject is going to return EOF.  Defaults to throwing an
      EOFException."
   [input & [options]]
-  (let [eof-error? (get options :eof-error? true)
-        eof-value (get options :eof-value :eof)
-        json-rdr
-        (JSONReader. (reader->char-reader input options)
-                     (if (get options :bigdec)
-                       #(BigDecimal. ^String %)
-                       (get options :double-fn))
-                     (get options :key-fn) ;;key-fn
-                     (get options :value-fn) ;;valFn
-                     (get options :array-fn) ;;listFn
-                     (get options :obj-fn) ;;mapFn
-                     (get options :eof-fn
-                          #(if eof-error?
-                             (throw (java.io.EOFException. "Unexpected end of input"))
-                             eof-value)))
-        close-fn* (delay (.close json-rdr))]
+  (let [json-rdr (json-reader options)
+        close-fn* (delay (.close json-rdr))
+        ;;default async? to false
+        options (assoc options :async? (get options :async? false))]
+    (.beginParse json-rdr (reader->char-reader input options))
     (JSONReadFn. json-rdr close-fn*)))
 
 
@@ -374,6 +451,19 @@
         retval (json-fn)]
     (.close ^AutoCloseable json-fn)
     retval))
+
+
+(defn parse-json-fn
+  "Return a function from input->json.  Reuses the parse context.
+  Same options as [[read-json-fn]]."
+  [& [options]]
+  (let [json-rdr (json-reader options)
+        ;;default async to false
+        options (assoc options :async? (get options :async? false))]
+    (fn [input]
+      (with-open [rdr (reader->char-reader input options)]
+        (.beginParse json-rdr rdr)
+        (.readObject json-rdr)))))
 
 
 (comment

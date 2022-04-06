@@ -1,3 +1,7 @@
+## 9.022
+ * fast json parsing - as fast as anything on the JVM and faster than most - with options for
+   even faster if you don't need everything to be immutable.
+ 
 ## 9.021
  * `:trim-leading-whitespace?`, `:trim-trailing-whitespace?`, and `:nil-empty-values?` are
     all supported in csv parsing to bring feature set up to par with univocity.  These changes

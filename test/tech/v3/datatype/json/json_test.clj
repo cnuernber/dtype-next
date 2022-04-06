@@ -118,7 +118,7 @@
                     :key-fn keyword
                     :value-fn (fn thisfn [k v]
                                 (if (= :date k)
-                                  thisfn
+                                  :tech.v3.datatype.char-input/elided
                                   v))))))
 
 (declare pass1-string)

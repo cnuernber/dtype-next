@@ -4,23 +4,27 @@ package tech.v3.datatype;
 import java.io.EOFException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.function.Function;
+import java.util.function.BiFunction;
+import java.util.function.Supplier;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import clojure.lang.IFn;
 import clojure.lang.PersistentArrayMap;
 import clojure.lang.PersistentHashMap;
 import clojure.lang.LazilyPersistentVector;
+import clojure.lang.Keyword;
 
 
 public final class JSONReader implements AutoCloseable {
   CharReader reader;
   //Parsing specialization functions
-  public final IFn doubleFn;
-  public final IFn keyFn;
-  public final IFn valFn;
-  public final IFn mapFn;
-  public final IFn listFn;
-  public final IFn eofFn;
+  public final Function<String,Object> doubleFn;
+  public final Function<String,Object> keyFn;
+  public final BiFunction<Object,Object,Object> valFn;
+  public final Function<Object[],Object> mapFn;
+  public final Function<Object[],Object> listFn;
+  public final Supplier<Object> eofFn;
 
   //Top level object parsing context
   final ArrayList<ArrayList<Object>> contextStack = new ArrayList<ArrayList<Object>>();
@@ -29,39 +33,26 @@ public final class JSONReader implements AutoCloseable {
   final CharBuffer charBuffer = new CharBuffer();
   //A temp buffer for reading out fixed sequences of characters
   final char[] tempBuf = new char[8];
-  public static final IFn defaultDoubleParser = new IFnDef() {
-      public Object invoke(Object data) {
-	return Double.parseDouble((String)data);
-      }
-    };
-  public static final IFn identityFn = new IFnDef() {
-      public Object invoke(Object data) { return data; }
-      //value fns get passed the key
-      public Object invoke(Object a0, Object data) { return data; }
-    };
-  public static final IFn defaultMapFn = new IFnDef() {
-      public Object invoke(Object data) {
-	Object[] dldata = (Object[])data;
-	if (dldata.length <= 16)
-	  return PersistentArrayMap.createAsIfByAssoc(dldata);
-	else
-	  return PersistentHashMap.create(null, dldata);
-      }
-    };
-  public static final IFn defaultListFn = new IFnDef() {
-      public Object invoke(Object data) {
-	return LazilyPersistentVector.createOwning((Object[])data);
-      }
-    };
-  public static final IFn defaultEOFFn = new IFnDef() {
-      public Object invoke() {
-	throw new RuntimeException("EOF encounted while reading stream.");
-      }
-    };
+  public static final Function<String,Object> defaultDoubleParser = data -> Double.parseDouble(data);
+  public static final Function<String,Object> strIdentityFn = data -> data;
+  public static final Function<Object[],Object> arrayIdentityFn = data -> data;
+  public static final Function<Object[],Object> defaultMapFn = data -> data.length <= 16 ? PersistentArrayMap.createAsIfByAssoc(data) : PersistentHashMap.create(null, data);
+  public static final Function<Object[],Object> hashmapFn = data -> {
+    int nkeys = data.length / 2;
+    HashMap<Object,Object> retval = new HashMap<Object,Object>(nkeys);
+    for (int idx = 0; idx < nkeys; ++idx) {
+      int kidx = idx*2;
+      retval.put(data[kidx], data[kidx+1]);
+    }
+    return retval;
+  };
 
-  static final IFn orDefault(IFn arg, IFn def) {
-    return arg != null ? arg : def;
-  }
+  public static final Function<Object[],Object> defaultListFn = data -> LazilyPersistentVector.createOwning(data);
+  public static final Supplier<Object> defaultEOFFn = () -> { throw new RuntimeException("EOF encounted while reading stream."); };
+  public static final BiFunction<Object,Object,Object> defaultValFn = (k,v) -> v;
+  public static final <T> T orDefault(T val, T defVal) { return val != null ? val : defVal; }
+
+  public static final Keyword elidedValue = Keyword.intern("tech.v3.datatype.char-input", "elided");
 
   final void pushContext() {
     ++stackDepth;
@@ -77,12 +68,15 @@ public final class JSONReader implements AutoCloseable {
     return contextStack.get(stackDepth);
   }
 
-  public JSONReader(CharReader rdr, IFn _doubleFn, IFn _keyFn, IFn _valFn, IFn _listFn,
-		    IFn _mapFn, IFn _eofFn) {
-    reader = rdr;
+  public JSONReader(Function<String,Object> _doubleFn,
+		    Function<String,Object>  _keyFn,
+		    BiFunction<Object,Object,Object> _valFn,
+		    Function<Object[],Object> _listFn,
+		    Function<Object[],Object> _mapFn,
+		    Supplier<Object> _eofFn) {
     doubleFn = orDefault(_doubleFn, defaultDoubleParser);
-    keyFn = orDefault(_keyFn, identityFn);
-    valFn = orDefault(_valFn, identityFn);
+    keyFn = orDefault(_keyFn, strIdentityFn);
+    valFn = orDefault(_valFn, defaultValFn);
     listFn = orDefault(_listFn, defaultListFn);
     mapFn = orDefault(_mapFn, defaultMapFn);
     eofFn = orDefault(_eofFn, defaultEOFFn);
@@ -178,7 +172,7 @@ public final class JSONReader implements AutoCloseable {
 	  throw new Exception("JSON parse error - period must be preceded and followed by a digit: " +
 			      strdata);
       }
-      return doubleFn.invoke(strdata);
+      return doubleFn.apply(strdata);
     }
   }
   final Object readNumber(final char firstChar) throws Exception {
@@ -228,7 +222,7 @@ public final class JSONReader implements AutoCloseable {
       if (nextChar == ']') {
 	if (hasNext && !first)
 	  throw new Exception("One too many commas in your list my friend");
-	return listFn.invoke(dataBuf.toArray());
+	return listFn.apply(dataBuf.toArray());
       } else if (nextChar != 0) {
 	if (!hasNext)
 	  throw new Exception("One too few commas in your list my friend");
@@ -284,7 +278,7 @@ public final class JSONReader implements AutoCloseable {
 	if (hasNext && !first)
 	  throw new Exception("One too many commas in your map my friend: "
 			      + dataBuf.toString());
-	return mapFn.invoke(dataBuf.toArray());
+	return mapFn.apply(dataBuf.toArray());
       } else {
 	first = false;
 	if (!hasNext)
@@ -292,7 +286,7 @@ public final class JSONReader implements AutoCloseable {
 			       + dataBuf.toString());
 	Object keyVal = null;
 	if (nextChar == '"')
-	  keyVal = keyFn.invoke(readString());
+	  keyVal = keyFn.apply(readString());
 	else
 	  throw new Exception("JSON keys must be quoted strings.");
 
@@ -300,9 +294,9 @@ public final class JSONReader implements AutoCloseable {
 	if (nextChar != ':')
 	  throw new Exception("Map keys must be followed by a ':'");
 	Object valVal = readObject();
-	valVal = valFn.invoke(keyVal, valVal);
+	valVal = valFn.apply(keyVal, valVal);
 	//Note reference equality here
-	if (valVal != valFn) {
+	if (valVal != elidedValue) {
 	  dataBuf.add(keyVal);
 	  dataBuf.add(valVal);
 	}
@@ -359,13 +353,18 @@ public final class JSONReader implements AutoCloseable {
       case 0:
 	if (reader.eof()) {
 	  close();
-	  return eofFn.invoke();
+	  return eofFn.get();
 	}
 	//fallthrough intentional
       default:
 	throw new Exception("JSON parse error - Unexpected character - " + val);
       }
     }
+  }
+
+  public void beginParse(CharReader rdr) {
+    stackDepth = 0;
+    reader = rdr;
   }
 
   public void close() throws Exception {
