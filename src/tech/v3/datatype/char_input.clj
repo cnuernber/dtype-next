@@ -358,9 +358,6 @@
                                (type data))))))
 
 
-(deftype JSONObj [^objects data])
-
-
 (defn- json-reader
   ^JSONReader [options]
   (let [eof-error? (get options :eof-error? true)
@@ -402,7 +399,7 @@
 
 
 (defn read-json-fn
-  "Most efficient read pathway for json.
+  "Read one or more JSON objects.
   Returns an auto-closeable function that when called by default throws an exception
   if the read pathway is finished.  Input may be a character array or string (most efficient)
   or something convertible to a reader.  Options for conversion to reader are described in
@@ -458,7 +455,10 @@
 
 
 (defn parse-json-fn
-  "Return a function from input->json.  Reuses the parse context.
+  "Return a function from input->json.  Reuses the parse context and thus when
+  parsing many small JSON inputs where you intend to get one and only one JSON
+  object from them this pathway is a bit more efficient than read-json.
+
   Same options as [[read-json-fn]]."
   [& [options]]
   (let [json-rdr (json-reader options)
