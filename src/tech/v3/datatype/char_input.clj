@@ -358,6 +358,9 @@
                                (type data))))))
 
 
+(deftype JSONObj [^objects data])
+
+
 (defn- json-reader
   ^JSONReader [options]
   (let [eof-error? (get options :eof-error? true)
@@ -394,8 +397,6 @@
                        #(if eof-error?
                           (throw (java.io.EOFException. "Unexpected end of input"))
                           eof-value))))))
-
-(deftype JSONObj [^objects data])
 
 
 (defn read-json-fn
