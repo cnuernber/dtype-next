@@ -156,15 +156,15 @@
   * `:async?` - default to true - reads the reader in an offline thread into character
      buffers."
   (^CharReader [rdr options]
-   (let [async? (and (> (.availableProcessors (Runtime/getRuntime)) 1)
-                     (get options :async? true))
-         options (if async? (assoc options :async? true) options)]
-     (cond
-       (string? rdr)
-       (CharReader. (str rdr))
-       (instance? char-ary-cls rdr)
-       (CharReader. ^chars rdr)
-       :else
+   (cond
+     (string? rdr)
+     (CharReader. ^String rdr)
+     (instance? char-ary-cls rdr)
+     (CharReader. ^chars rdr)
+     :else
+     (let [async? (and (> (.availableProcessors (Runtime/getRuntime)) 1)
+                       (get options :async? true))
+           options (if async? (assoc options :async? true) options)]
        (CharReader. ^IFn (reader->char-buf-fn rdr options)))))
   (^CharReader [rdr]
    (cond

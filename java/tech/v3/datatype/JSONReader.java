@@ -66,54 +66,18 @@ public final class JSONReader implements AutoCloseable {
     };
   //Parsing specialization functions
   public final Function<String,Object> doubleFn;
-  // public final Function<String,Object> keyFn;
-  // public final BiFunction<Object,Object,Object> valFn;
-  // public final Function<Object[],Object> mapFn;
-  // public final Function<Object[],Object> listFn;
   public final Supplier<Object> eofFn;
   public final ObjReader objReader;
   public final ArrayReader aryReader;
-  //Top level object parsing context
-  // final ArrayList<ArrayList<Object>> contextStack = new ArrayList<ArrayList<Object>>();
-  // int stackDepth = 0;
   //We only need one temp buffer for various string building activities
   final CharBuffer charBuffer = new CharBuffer();
   //A temp buffer for reading out fixed sequences of characters
   final char[] tempBuf = new char[8];
   public static final Function<String,Object> defaultDoubleParser = data -> Double.parseDouble(data);
-  public static final Function<String,Object> strIdentityFn = data -> data;
-  public static final Function<Object[],Object> arrayIdentityFn = data -> data;
-  public static final Function<Object[],Object> defaultMapFn = data -> data.length <= 16 ? PersistentArrayMap.createAsIfByAssoc(data) : PersistentHashMap.create(null, data);
-  public static final Function<Object[],Object> hashmapFn = data -> {
-    int nkeys = data.length / 2;
-    HashMap<Object,Object> retval = new HashMap<Object,Object>(nkeys);
-    for (int idx = 0; idx < nkeys; ++idx) {
-      int kidx = idx*2;
-      retval.put(data[kidx], data[kidx+1]);
-    }
-    return retval;
-  };
-
-  public static final Function<Object[],Object> defaultListFn = data -> LazilyPersistentVector.createOwning(data);
   public static final Supplier<Object> defaultEOFFn = () -> { throw new RuntimeException("EOF encounted while reading stream."); };
-  public static final BiFunction<Object,Object,Object> defaultValFn = (k,v) -> v;
   public static final <T> T orDefault(T val, T defVal) { return val != null ? val : defVal; }
 
   public static final Keyword elidedValue = Keyword.intern("tech.v3.datatype.char-input", "elided");
-
-  // final void pushContext() {
-  //   ++stackDepth;
-  // }
-  // final void popContext() {
-  //   --stackDepth;
-  //   if (stackDepth < 0)
-  //     throw new RuntimeException("Stack underflow");
-  // }
-  // final ArrayList<Object> currentContext() {
-  //   for(int needed = stackDepth - contextStack.size() + 1; needed > 0; --needed)
-  //     contextStack.add(new ArrayList<Object>());
-  //   return contextStack.get(stackDepth);
-  // }
 
   public JSONReader(Function<String,Object> _doubleFn,
 		    ArrayReader _aryReader,
@@ -186,24 +150,33 @@ public final class JSONReader implements AutoCloseable {
 			      final int dotIndex)
     throws Exception {
     final char[] cbBuffer = cb.buffer();
-    final String strdata = cb.toString();
-    final int nElems = strdata.length();
+    final int nElems = cb.length();
     if (integer) {
       //Definitely an integer
       if ((nElems > 1 && firstChar == '0') ||
 	  (nElems > 2 && firstChar == '-' && cbBuffer[1] == '0'))
 	throw new Exception("JSON parse error - integer starting with 0: "
-			    + strdata);
-      if (strdata.length() < 18)
-	return Long.parseLong(strdata);
+			    + cb.toString());
+      if (nElems == 1) {
+	long retval = Character.digit(cbBuffer[0], 10);
+	if (retval < 0) throw new Exception("JSON parse error - invalid integer: " +
+					    cb.toString());
+	return retval;
+      }
       else {
-	try {
+	final String strdata = cb.toString();
+	if (nElems < 18)
 	  return Long.parseLong(strdata);
-	} catch (Exception e) {
-	  return new BigInteger(strdata);
+	else {
+	  try {
+	    return Long.parseLong(strdata);
+	  } catch (Exception e) {
+	    return new BigInteger(strdata);
+	  }
 	}
       }
     } else {
+      final String strdata = cb.toString();
       if (dotIndex != -1) {
 	final char bufChar = cbBuffer[dotIndex];
 	//sanity check
