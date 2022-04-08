@@ -70,7 +70,7 @@ public final class JSONReader implements AutoCloseable {
   public final ObjReader objReader;
   public final ArrayReader aryReader;
   //We only need one temp buffer for various string building activities
-  //final CharBuffer charBuffer = new CharBuffer();
+  final CharBuffer charBuffer = new CharBuffer();
   //A temp buffer for reading out fixed sequences of characters
   //final char[] tempBuf = new char[8];
   public static final Function<String,Object> defaultDoubleParser = data -> Double.parseDouble(data);
@@ -103,8 +103,14 @@ public final class JSONReader implements AutoCloseable {
     return tempBuf;
   }
 
+  final CharBuffer getCharBuffer() {
+    final CharBuffer cb = charBuffer;
+    cb.clear();
+    return cb;
+  }
+
   final String readString() throws Exception {
-    final CharBuffer cb = new CharBuffer();
+    final CharBuffer cb = getCharBuffer();
     char[] buffer = reader.buffer();
     while(buffer != null) {
       int startpos = reader.position();
@@ -193,7 +199,7 @@ public final class JSONReader implements AutoCloseable {
     }
   }
   final Object readNumber(final char firstChar) throws Exception {
-    final CharBuffer cb = new CharBuffer();
+    final CharBuffer cb = getCharBuffer();
     cb.clear();
     cb.append(firstChar);
     boolean integer = true;
