@@ -594,4 +594,22 @@
 
   (avg-time-ms #(inplace-row-count (read-csv-inplace (java.io.File. srcpath))))
 
+
+  (let [cb (CharBuffer.)]
+    (crit/quick-bench (do
+                        (.clear cb)
+                        (dotimes [idx 10]
+                          (.append cb \a)))))
+  ;;110ns
+  (crit/quick-bench (let [cb (CharBuffer.)]
+                      (dotimes [idx 10]
+                        (.append cb \a))
+                      ))
+
+  (let [sb (StringBuilder.)]
+    (crit/quick-bench (do
+                        (.delete sb 0 (.length sb))
+                        (dotimes [idx 10]
+                          (.append sb \a))
+                        (.toString sb))))
   )

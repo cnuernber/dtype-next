@@ -70,9 +70,9 @@ public final class JSONReader implements AutoCloseable {
   public final ObjReader objReader;
   public final ArrayReader aryReader;
   //We only need one temp buffer for various string building activities
-  final CharBuffer charBuffer = new CharBuffer();
+  //final CharBuffer charBuffer = new CharBuffer();
   //A temp buffer for reading out fixed sequences of characters
-  final char[] tempBuf = new char[8];
+  //final char[] tempBuf = new char[8];
   public static final Function<String,Object> defaultDoubleParser = data -> Double.parseDouble(data);
   public static final Supplier<Object> defaultEOFFn = () -> { throw new RuntimeException("EOF encounted while reading stream."); };
   public static final <T> T orDefault(T val, T defVal) { return val != null ? val : defVal; }
@@ -97,14 +97,14 @@ public final class JSONReader implements AutoCloseable {
   }
 
   final char[] tempRead(int nchars) throws EOFException {
+    final char[] tempBuf = new char[nchars];
     if (reader.read(tempBuf, 0, nchars) == -1)
       throw new EOFException();
     return tempBuf;
   }
 
   final String readString() throws Exception {
-    final CharBuffer cb = charBuffer;
-    cb.clear();
+    final CharBuffer cb = new CharBuffer();
     char[] buffer = reader.buffer();
     while(buffer != null) {
       int startpos = reader.position();
@@ -193,7 +193,7 @@ public final class JSONReader implements AutoCloseable {
     }
   }
   final Object readNumber(final char firstChar) throws Exception {
-    final CharBuffer cb = charBuffer;
+    final CharBuffer cb = new CharBuffer();
     cb.clear();
     cb.append(firstChar);
     boolean integer = true;
