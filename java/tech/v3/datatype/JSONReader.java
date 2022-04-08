@@ -14,21 +14,68 @@ import clojure.lang.PersistentArrayMap;
 import clojure.lang.PersistentHashMap;
 import clojure.lang.LazilyPersistentVector;
 import clojure.lang.Keyword;
+import clojure.lang.ITransientVector;
+import clojure.lang.ITransientMap;
+import clojure.lang.PersistentVector;
 
 
 public final class JSONReader implements AutoCloseable {
   CharReader reader;
+  public interface ObjReader {
+    public Object newObj();
+    public Object onKV(Object obj, Object k, Object v);
+    public default Object finalizeObj(Object obj) { return obj; }
+  };
+  public static final ObjReader immutableObjReader = new ObjReader() {
+      public Object newObj() { return PersistentHashMap.EMPTY.asTransient(); }
+      public Object onKV(Object obj, Object k, Object v) {
+	return ((ITransientMap)obj).assoc(k, v);
+      }
+      public Object finalizeObj(Object obj) {
+	return ((ITransientMap)obj).persistent();
+      }
+    };
+  public static final ObjReader mutableObjReader = new ObjReader() {
+      public Object newObj() { return new HashMap<Object,Object>(); }
+      public Object onKV(Object obj, Object k, Object v) {
+	((HashMap<Object,Object>)obj).put(k,v);
+	return obj;
+      }
+    };
+
+  public interface ArrayReader {
+    public Object newArray();
+    public Object onValue(Object ary, Object v);
+    public default Object finalizeArray(Object ary) { return ary; }
+  };
+  public static final ArrayReader immutableArrayReader = new ArrayReader() {
+      public Object newArray() { return PersistentVector.EMPTY.asTransient(); }
+      public Object onValue(Object ary, Object v) {
+        return ((ITransientVector)ary).conj(v);
+      }
+      public Object finalizeArray(Object obj) {
+	return ((ITransientVector)obj).persistent();
+      }
+    };
+  public static final ArrayReader mutableArrayReader = new ArrayReader() {
+      public Object newArray() { return new ArrayList<Object>(); }
+      public Object onValue(Object ary, Object v) {
+	((ArrayList<Object>)ary).add(v);
+	return ary;
+      }
+    };
   //Parsing specialization functions
   public final Function<String,Object> doubleFn;
-  public final Function<String,Object> keyFn;
-  public final BiFunction<Object,Object,Object> valFn;
-  public final Function<Object[],Object> mapFn;
-  public final Function<Object[],Object> listFn;
+  // public final Function<String,Object> keyFn;
+  // public final BiFunction<Object,Object,Object> valFn;
+  // public final Function<Object[],Object> mapFn;
+  // public final Function<Object[],Object> listFn;
   public final Supplier<Object> eofFn;
-
+  public final ObjReader objReader;
+  public final ArrayReader aryReader;
   //Top level object parsing context
-  final ArrayList<ArrayList<Object>> contextStack = new ArrayList<ArrayList<Object>>();
-  int stackDepth = 0;
+  // final ArrayList<ArrayList<Object>> contextStack = new ArrayList<ArrayList<Object>>();
+  // int stackDepth = 0;
   //We only need one temp buffer for various string building activities
   final CharBuffer charBuffer = new CharBuffer();
   //A temp buffer for reading out fixed sequences of characters
@@ -54,31 +101,27 @@ public final class JSONReader implements AutoCloseable {
 
   public static final Keyword elidedValue = Keyword.intern("tech.v3.datatype.char-input", "elided");
 
-  final void pushContext() {
-    ++stackDepth;
-  }
-  final void popContext() {
-    --stackDepth;
-    if (stackDepth < 0)
-      throw new RuntimeException("Stack underflow");
-  }
-  final ArrayList<Object> currentContext() {
-    for(int needed = stackDepth - contextStack.size() + 1; needed > 0; --needed)
-      contextStack.add(new ArrayList<Object>());
-    return contextStack.get(stackDepth);
-  }
+  // final void pushContext() {
+  //   ++stackDepth;
+  // }
+  // final void popContext() {
+  //   --stackDepth;
+  //   if (stackDepth < 0)
+  //     throw new RuntimeException("Stack underflow");
+  // }
+  // final ArrayList<Object> currentContext() {
+  //   for(int needed = stackDepth - contextStack.size() + 1; needed > 0; --needed)
+  //     contextStack.add(new ArrayList<Object>());
+  //   return contextStack.get(stackDepth);
+  // }
 
   public JSONReader(Function<String,Object> _doubleFn,
-		    Function<String,Object>  _keyFn,
-		    BiFunction<Object,Object,Object> _valFn,
-		    Function<Object[],Object> _listFn,
-		    Function<Object[],Object> _mapFn,
+		    ArrayReader _aryReader,
+		    ObjReader _objReader,
 		    Supplier<Object> _eofFn) {
     doubleFn = orDefault(_doubleFn, defaultDoubleParser);
-    keyFn = orDefault(_keyFn, strIdentityFn);
-    valFn = orDefault(_valFn, defaultValFn);
-    listFn = orDefault(_listFn, defaultListFn);
-    mapFn = orDefault(_mapFn, defaultMapFn);
+    aryReader = _aryReader != null ? _aryReader : immutableArrayReader;
+    objReader = _objReader != null ? _objReader : immutableObjReader;
     eofFn = orDefault(_eofFn, defaultEOFFn);
   }
 
@@ -134,6 +177,7 @@ public final class JSONReader implements AutoCloseable {
 	  pos = startpos - 1;
 	}
       }
+      cb.append(buffer,startpos,len);
       buffer = reader.nextBuffer();
     }
     throw new EOFException("EOF while reading string: " + cb.toString());
@@ -201,34 +245,37 @@ public final class JSONReader implements AutoCloseable {
 	else if (nextChar == 'e' ||
 		 nextChar == 'E' ||
 		 nextChar == '.') {
-	  if (nextChar == '.')
-	    dotIndex = cb.length() + pos - startpos;
+	  if (nextChar == '.') {
+	    //if appending in blocks
+	    dotIndex = cb.length() +  pos - startpos;
+	    //if appending in singles
+	    //dotIndex = cb.length() - 1;
+	  }
 	  integer = false;
 	}
       }
-      cb.append(buffer, startpos, len);
+      cb.append(buffer, startpos, pos);
       buffer = reader.nextBuffer();
     }
     return finalizeNumber(cb, integer, firstChar, dotIndex);
   }
 
   final Object readList() throws Exception {
-    final ArrayList<Object> dataBuf = currentContext();
-    dataBuf.clear();
     boolean hasNext = true;
     boolean first = true;
+    Object aryObj = aryReader.newArray();
     while (!reader.eof()) {
       final char nextChar = reader.eatwhite();
       if (nextChar == ']') {
 	if (hasNext && !first)
 	  throw new Exception("One too many commas in your list my friend");
-	return listFn.apply(dataBuf.toArray());
+	return aryReader.finalizeArray(aryObj);
       } else if (nextChar != 0) {
 	if (!hasNext)
 	  throw new Exception("One too few commas in your list my friend");
 	first = false;
 	reader.unread();
-	dataBuf.add(readObject());
+	aryObj = aryReader.onValue(aryObj, readObject());
 	hasNext = reader.eatwhite() == ',';
 	if (!hasNext)
 	  reader.unread();
@@ -267,26 +314,25 @@ public final class JSONReader implements AutoCloseable {
   /* } */
 
   final Object readMap() throws Exception {
-    final ArrayList<Object> dataBuf = currentContext();
-    dataBuf.clear();
     boolean hasNext = true;
     boolean first = true;
     //By the json specification, keys must be strings.
+    Object mapObj = objReader.newObj();
     while(!reader.eof()) {
       char nextChar = reader.eatwhite();
       if (nextChar == '}') {
 	if (hasNext && !first)
 	  throw new Exception("One too many commas in your map my friend: "
-			      + dataBuf.toString());
-	return mapFn.apply(dataBuf.toArray());
+			      + String.valueOf(objReader.finalizeObj(mapObj)));
+	return objReader.finalizeObj(mapObj);
       } else {
 	first = false;
 	if (!hasNext)
 	  throw new Exception ("One too few commas in your map my friend: "
-			       + dataBuf.toString());
-	Object keyVal = null;
+			       + String.valueOf(objReader.finalizeObj(mapObj)));
+	String keyVal = null;
 	if (nextChar == '"')
-	  keyVal = keyFn.apply(readString());
+	  keyVal = readString();
 	else
 	  throw new Exception("JSON keys must be quoted strings.");
 
@@ -294,15 +340,10 @@ public final class JSONReader implements AutoCloseable {
 	if (nextChar != ':')
 	  throw new Exception("Map keys must be followed by a ':'");
 	Object valVal = readObject();
-	valVal = valFn.apply(keyVal, valVal);
-	//Note reference equality here
-	if (valVal != elidedValue) {
-	  dataBuf.add(keyVal);
-	  dataBuf.add(valVal);
-	}
+	mapObj = objReader.onKV(mapObj, keyVal, valVal);
 	nextChar = reader.eatwhite();
 	if ( nextChar == 0 )
-	  throw new EOFException("EOF while reading map: " + dataBuf.toString());
+	  throw new EOFException("EOF while reading map: " + String.valueOf(objReader.finalizeObj(mapObj)));
 	hasNext = nextChar == ',';
 	if (!hasNext)
 	  reader.unread();
@@ -338,18 +379,8 @@ public final class JSONReader implements AutoCloseable {
 	  return null;
 	throw new Exception("JSON parse error - unrecognized 'null' entry.");
       }
-      case '[': {
-	pushContext();
-	final Object retval = readList();
-	popContext();
-	return retval;
-      }
-      case '{': {
-	pushContext();
-	final Object retval = readMap();
-	popContext();
-	return retval;
-      }
+      case '[': return readList();
+      case '{': return readMap();
       case 0:
 	if (reader.eof()) {
 	  close();
@@ -363,7 +394,6 @@ public final class JSONReader implements AutoCloseable {
   }
 
   public void beginParse(CharReader rdr) {
-    stackDepth = 0;
     reader = rdr;
   }
 

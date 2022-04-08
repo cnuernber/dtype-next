@@ -19,25 +19,46 @@ public final class CharBuffer
   public CharBuffer() {
     this(false, false, false);
   }
-  public final void ensureCapacity(int newlen) {
+  public final char[] ensureCapacity(int newlen) {
     if (newlen >= buffer.length) {
       char[] newbuffer = new char[newlen * 2];
       System.arraycopy(buffer, 0, newbuffer, 0, len);
       buffer = newbuffer;
     }
+    return buffer;
   }
   public final void append(char val) {
-    ensureCapacity(len+1);
-    buffer[len] = val;
+    char[] buf = buffer;
+    //common case first
+    if (len < buf.length) {
+      buf[len] = val;
+      ++len;
+      return;
+    }
+    buf = ensureCapacity(len+1);
+    buf[len] = val;
     ++len;
   }
   public final void append(char[] data, int startoff, int endoff) {
     if(startoff < endoff) {
       int nchars = endoff - startoff;
-      int newlen = len + nchars;
-      ensureCapacity(newlen);
-      System.arraycopy(data,startoff,buffer,len,nchars);
-      len += nchars;
+      char[] buf = buffer;
+      int buflen = len;
+      int remaining = buf.length - buflen;
+      //common case
+      if (nchars < remaining) {
+	for(; startoff < endoff; ++startoff, ++buflen)
+	  buf[buflen] = data[startoff];
+	len = buflen;
+      } else {
+	int newlen = buflen + nchars;
+	buf = ensureCapacity(newlen);
+	for (; startoff < endoff; ++startoff, ++buflen)
+	  buf[buflen] = data[startoff];
+	// Usually we are appending small things.
+	// System.arraycopy(data,startoff,buffer,len,nchars);
+	len += nchars;
+      }
     }
   }
   public final void clear() { len = 0; }

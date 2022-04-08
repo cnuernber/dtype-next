@@ -36,7 +36,7 @@
             [com.github.ztellman.primitive-math :as pmath]
             [clojure.set :as set])
   (:import [tech.v3.datatype CharReader UnaryPredicate UnaryPredicates$LongUnaryPredicate
-            CharBuffer IFnDef CSVReader$RowReader JSONReader]
+            CharBuffer IFnDef CSVReader$RowReader JSONReader JSONReader$ObjReader]
            [clojure.lang IFn]
            [java.io Reader StringReader]
            [java.util Iterator Arrays ArrayList List NoSuchElementException]
@@ -155,17 +155,25 @@
 
   * `:async?` - default to true - reads the reader in an offline thread into character
      buffers."
-  ^CharReader [rdr & [options]]
-  (let [async? (and (> (.availableProcessors (Runtime/getRuntime)) 1)
-                    (get options :async? true))
-        options (if async? (assoc options :async? true) options)]
-    (cond
-      (string? rdr)
-      (CharReader. (str rdr))
-      (instance? char-ary-cls rdr)
-      (CharReader. ^chars rdr)
-      :else
-      (CharReader. ^IFn (reader->char-buf-fn rdr options)))))
+  (^CharReader [rdr options]
+   (let [async? (and (> (.availableProcessors (Runtime/getRuntime)) 1)
+                     (get options :async? true))
+         options (if async? (assoc options :async? true) options)]
+     (cond
+       (string? rdr)
+       (CharReader. (str rdr))
+       (instance? char-ary-cls rdr)
+       (CharReader. ^chars rdr)
+       :else
+       (CharReader. ^IFn (reader->char-buf-fn rdr options)))))
+  (^CharReader [rdr]
+   (cond
+     (string? rdr)
+     (CharReader. (str rdr))
+     (instance? char-ary-cls rdr)
+     (CharReader. ^chars rdr)
+     :else
+     (CharReader. ^IFn (reader->char-buf-fn rdr nil)))))
 
 
 (def ^{:private true
@@ -361,42 +369,49 @@
 (deftype JSONObj [^objects data])
 
 
-(defn- json-reader
-  ^JSONReader [options]
+(defn json-reader-fn
+  [options]
   (let [eof-error? (get options :eof-error? true)
         eof-value (get options :eof-value :eof)
-        [obj-fn-default array-fn-default]
+        [key-fn val-fn] [(get options :key-fn) (get options :value-fn)]
+        [obj-iface-default array-iface-default]
         (case (get options :profile :immutable)
           :mutable
-          [JSONReader/hashmapFn JSONReader/arrayIdentityFn]
+          [JSONReader/mutableObjReader JSONReader/mutableArrayReader]
           :raw
-          [(reify Function
-             (apply [this args]
-               (JSONObj. args)))
-           JSONReader/arrayIdentityFn]
+          [JSONReader/mutableObjReader JSONReader/mutableArrayReader]
           :mixed
-          [(reify Function
-             (apply [this args]
-               (let [^objects args args]
-                 (if (< (alength args) 16)
-                   (clojure.lang.PersistentArrayMap. args)
-                   (.apply JSONReader/hashmapFn args)))))
-           JSONReader/arrayIdentityFn]
+          [JSONReader/mutableObjReader JSONReader/mutableArrayReader]
           :immutable
-          [nil nil])]
-    (JSONReader. (->function
-                  (if (get options :bigdec)
-                    #(BigDecimal. ^String %)
-                    (get options :double-fn)))
-                 (->function (get options :key-fn)) ;;key-fn
-                 (->bi-function (get options :value-fn)) ;;valFn
-                 (->function (get options :array-fn array-fn-default)) ;;listFn
-                 (->function (get options :obj-fn obj-fn-default)) ;;mapFn
-                 (->supplier
-                  (get options :eof-fn
-                       #(if eof-error?
-                          (throw (java.io.EOFException. "Unexpected end of input"))
-                          eof-value))))))
+          (if (or key-fn val-fn)
+            (let [key-fn (or key-fn identity)
+                  val-fn (or val-fn (fn val-identity [k v] v))]
+              [(reify JSONReader$ObjReader
+                 (newObj [this] (transient {}))
+                 (onKV [this obj k v]
+                   (let [k (key-fn k)
+                         v (val-fn k v)]
+                     (if-not (identical? v ::elided)
+                       (assoc! obj k v)
+                       obj)))
+                 (finalizeObj [this obj]
+                   (persistent! obj)))
+               JSONReader/immutableArrayReader])
+            [nil nil]))
+        obj-iface (get options :obj-iface obj-iface-default)
+        array-iface (get options :array-iface array-iface-default)
+        bigdec-fn (->function (if (get options :bigdec)
+                                #(BigDecimal. ^String %)
+                                (get options :double-fn)))
+        eof-fn (->supplier
+                (get options :eof-fn
+                     #(if eof-error?
+                        (throw (java.io.EOFException. "Unexpected end of input"))
+                        eof-value)))]
+    #(JSONReader. bigdec-fn
+                  array-iface
+                  obj-iface
+                  eof-fn)))
 
 
 (defn read-json-fn
@@ -412,7 +427,7 @@
   * `:bigdec` - When true use bigdecimals for floating point numbers.  Defaults to false.
   * `:double-fn` - If :bigdec isn't provided, use this function to parse double values.
   * `:profile` - Which performance profile to use.  This simply provides defaults to
-     `:array-fn` and `:obj-fn`. The default `:immutable` value produces persistent datastructures.
+     `:array-iface` and `:obj-iface`. The default `:immutable` value produces persistent datastructures and supports value-fn and key-fn.
      `:mutable` produces an object arrays and java.util.HashMaps - this is about
      30% faster.  `:mixed` produces a mixture of persistent maps has hashmaps and is nearly as fast
      as `:raw` while still being very useable and `:raw` produces an object[] for arrays and a
@@ -421,16 +436,16 @@
   * `:value-fn` - Function called on each map value.  Function is passed the key and val so it
      takes 2 arguments.  If this function returns `:tech.v3.datatype.char-input/elided` then
      the key-val pair will be elided from the result.
-  * `:array-fn` - Function called on the object array of values for a javascript array.
-  * `:obj-fn` - Function called on the flattened object array of key values for each javascript
-    object.  An acceptible although inefficient function would be `#(apply hash-map %)`.
+  * `:array-iface` - Implementation of JSONReader$ArrayReader called on the object array of values for a javascript array.
+  * `:obj-iface` - Implementation of JSONReader$ObjReader called for each javascript
+    object.  Note that providing this overrides key-fn and value-fn.
   * `:eof-error?` - Defaults to true - when eof is encountered when attempting to read an
      object throw an EOF error.  Else returns a special EOF value.
   * `:eof-value` - EOF value.  Defaults to
   * `:eof-fn` - Function called if readObject is going to return EOF.  Defaults to throwing an
      EOFException."
   [input & [options]]
-  (let [json-rdr (json-reader options)
+  (let [^JSONReader json-rdr ((json-reader-fn options))
         close-fn* (delay (.close json-rdr))
         ;;default async? to false
         options (assoc options :async? (get options :async? false))]
@@ -462,13 +477,14 @@
 
   Same options as [[read-json-fn]]."
   [& [options]]
-  (let [json-rdr (json-reader options)
+  (let [json-rdr-fn (json-reader-fn options)
         ;;default async to false
         options (assoc options :async? (get options :async? false))]
     (fn [input]
-      (with-open [rdr (reader->char-reader input options)]
-        (.beginParse json-rdr rdr)
-        (.readObject json-rdr)))))
+      (let [^JSONReader json-rdr (json-rdr-fn)]
+        (with-open [rdr (reader->char-reader input options)]
+          (.beginParse json-rdr rdr)
+          (.readObject json-rdr))))))
 
 
 (comment
