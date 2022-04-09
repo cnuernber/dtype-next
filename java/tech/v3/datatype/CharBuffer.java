@@ -41,24 +41,18 @@ public final class CharBuffer
   }
   public final void append(char[] data, int startoff, int endoff) {
     if(startoff < endoff) {
-      int nchars = endoff - startoff;
-      char[] buf = buffer;
       int buflen = len;
-      int remaining = buf.length - buflen;
-      //common case
-      if (nchars < remaining) {
+      final int nchars = endoff - startoff;
+      final int newlen = buflen + nchars;
+      final char[] buf = ensureCapacity(newlen);
+
+      if (nchars < 5) {
 	for(; startoff < endoff; ++startoff, ++buflen)
 	  buf[buflen] = data[startoff];
-	len = buflen;
       } else {
-	int newlen = buflen + nchars;
-	buf = ensureCapacity(newlen);
-	for (; startoff < endoff; ++startoff, ++buflen)
-	  buf[buflen] = data[startoff];
-	// Usually we are appending small things.
-	// System.arraycopy(data,startoff,buffer,len,nchars);
-	len += nchars;
+	System.arraycopy(data, startoff, buf, buflen, nchars);
       }
+      len = newlen;
     }
   }
   public final void clear() { len = 0; }

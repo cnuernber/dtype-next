@@ -191,9 +191,8 @@
   (hasNext [this] (not (nil? rdr)))
   (next [this]
     (if rdr
-      (let [retval (.clone (.currentRow rdr))
-            next-row (.nextRow rdr)]
-        (when-not next-row
+      (let [retval (.currentRow rdr)]
+        (when-not (.nextRow rdr)
           (.close this))
         retval)
       (throw (NoSuchElementException.))))
@@ -366,9 +365,6 @@
                                (type data))))))
 
 
-(deftype JSONObj [^objects data])
-
-
 (defn json-reader-fn
   [options]
   (let [eof-error? (get options :eof-error? true)
@@ -379,9 +375,7 @@
           :mutable
           [JSONReader/mutableObjReader JSONReader/mutableArrayReader]
           :raw
-          [JSONReader/mutableObjReader JSONReader/mutableArrayReader]
-          :mixed
-          [JSONReader/mutableObjReader JSONReader/mutableArrayReader]
+          [JSONReader/rawObjReader JSONReader/mutableArrayReader]
           :immutable
           (if (or key-fn val-fn)
             (let [key-fn (or key-fn identity)
@@ -429,9 +423,8 @@
   * `:profile` - Which performance profile to use.  This simply provides defaults to
      `:array-iface` and `:obj-iface`. The default `:immutable` value produces persistent datastructures and supports value-fn and key-fn.
      `:mutable` produces an object arrays and java.util.HashMaps - this is about
-     30% faster.  `:mixed` produces a mixture of persistent maps has hashmaps and is nearly as fast
-     as `:raw` while still being very useable and `:raw` produces an object[] for arrays and a
-     JSONObj type with a public data member that is an object[] for objects.
+     30% faster. `:raw` produces ArrayLists for arrays and a
+     JSONReader$JSONObj type with a public data member that is an ArrayList for objects.
   * `:key-fn` - Function called on each string map key.
   * `:value-fn` - Function called on each map value.  Function is passed the key and val so it
      takes 2 arguments.  If this function returns `:tech.v3.datatype.char-input/elided` then

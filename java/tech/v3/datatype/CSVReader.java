@@ -50,16 +50,18 @@ public final class CSVReader {
   //Read a row from a CSV file.
   final int csvRead(CharBuffer sb) throws EOFException {
     char[] buffer = reader.buffer();
+    final char localSep = sep;
+    final char localQuot = quot;
     while(buffer != null) {
       final int startpos = reader.position();
       final int len = buffer.length;
       for(int pos = startpos; pos < len; ++pos) {
 	final char curChar = buffer[pos];
-	if (curChar == quot) {
+	if (curChar == localQuot) {
 	  sb.append(buffer, startpos, pos);
 	  reader.position(pos + 1);
 	  return QUOT;
-	} else if (curChar == sep) {
+	} else if (curChar == localSep) {
 	  sb.append(buffer, startpos, pos);
 	  reader.position(pos + 1);
 	  return SEP;
@@ -85,7 +87,7 @@ public final class CSVReader {
   {
     final CSVReader rdr;
     final CharBuffer sb;
-    final ArrayList<String> row = new ArrayList<String>();
+    ArrayList<String> row;
     UnaryPredicate pred;
 
     public RowReader(CharReader _r, CharBuffer cb, UnaryPredicate _pred, char quot, char sep) {
@@ -97,13 +99,15 @@ public final class CSVReader {
     public static final boolean emptyStr(String s) {
       return s == null || s.length() == 0;
     }
-    public final boolean emptyRow() {
+    public static final boolean emptyRow(ArrayList<String> row) {
       int sz = row.size();
       return sz == 0 || (sz == 1 && emptyStr(row.get(0)));
     }
     public final ArrayList currentRow() { return row; }
     public final ArrayList nextRow() throws EOFException {
-      row.clear();
+      //It turns out it is fast to just create a new row object
+      //rather than clone an existing one.
+      final ArrayList<String> curRow = new ArrayList<String>(8);
       sb.clear();
       int tag;
       int colidx = 0;
@@ -112,15 +116,17 @@ public final class CSVReader {
 	tag = rdr.csvRead(sb);
 	if(tag != QUOT) {
 	  if (p.unaryLong(colidx))
-	    row.add(sb.toString());
+	    curRow.add(sb.toString());
 	  ++colidx;
 	  sb.clear();
-	} else if (tag == QUOT) {
+	} else {
 	  rdr.csvReadQuote(sb);
 	}
       } while(tag > 0);
-      if (!(tag == EOF && emptyRow()))
-	return row;
+      if (!(tag == EOF && emptyRow(curRow))) {
+	row = curRow;
+	return curRow;
+      }
       else
 	return null;
     }

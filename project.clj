@@ -25,7 +25,7 @@
                              [com.taoensso/nippy "3.1.1"]
                              [ch.qos.logback/logback-classic "1.1.3"]
                              [com.clojure-goes-fast/clj-memory-meter "0.1.0"]
-                             [techascent/tech.viz "6.00-beta-16-1"]]
+                             [techascent/tech.viz "6.00-beta-16-2"]]
               :test-paths ["neanderthal" "test"]}
 
              :jdk-17

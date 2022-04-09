@@ -8,6 +8,7 @@
             [tech.v3.datatype.errors :as errors])
   (:import [sun.misc Unsafe]
            [tech.v3.datatype.native_buffer NativeBuffer]
+           [tech.v3.datatype ArrayHelpers]
            [tech.v3.datatype.array_buffer ArrayBuffer]))
 
 
@@ -215,3 +216,133 @@
      dst))
   ([src dst]
    (copy! src dst false)))
+
+
+(comment
+  (do
+    (require '[tech.viz.pyplot :as pyplot])
+    (require '[criterium.core :as crit])
+
+    (def sizes (mapv #(bit-shift-left 1 (long %)) (range 5)))
+
+    (defn byte-m-copy
+      [^bytes src ^bytes dst]
+      (ArrayHelpers/manualCopy src 0 dst 0 (alength src)))
+
+    (defn byte-s-copy
+      [^bytes src ^bytes dst]
+      (System/arraycopy src 0 dst 0 (alength src)))
+
+    (defn char-m-copy
+      [^chars src ^chars dst]
+      (ArrayHelpers/manualCopy src 0 dst 0 (alength src)))
+
+    (defn char-s-copy
+      [^chars src ^chars dst]
+      (System/arraycopy src 0 dst 0 (alength src)))
+
+    (defn int-m-copy
+      [^ints src ^ints dst]
+      (ArrayHelpers/manualCopy src 0 dst 0 (alength src)))
+
+    (defn int-s-copy
+      [^ints src ^ints dst]
+      (System/arraycopy src 0 dst 0 (alength src)))
+
+    (defn double-m-copy
+      [^doubles src ^doubles dst]
+      (ArrayHelpers/manualCopy src 0 dst 0 (alength src)))
+
+    (defn double-s-copy
+      [^doubles src ^doubles dst]
+      (System/arraycopy src 0 dst 0 (alength src)))
+
+    (defn object-m-copy
+      [^objects src ^objects dst]
+      (ArrayHelpers/manualCopy src 0 dst 0 (alength src)))
+
+    (defn object-s-copy
+      [^objects src ^objects dst]
+      (System/arraycopy src 0 dst 0 (alength src)))
+
+
+    (defmacro benchmark-us
+      [op]
+      `(let [bdata# (crit/quick-benchmark ~op nil)]
+         {:mean (* (double (first (:mean bdata#))) 1e6)
+          :variance (* (double (first (:variance bdata#))) 1e6)}))
+
+
+    (defn test-bytes
+      [^long len]
+      (let [src (byte-array len)
+            dst (byte-array len)]
+        [(assoc (benchmark-us (byte-m-copy src dst))
+                :type :manual
+                :datatype :int8
+                :length len)
+         (assoc (benchmark-us (byte-s-copy src dst))
+                :type :system
+                :datatype :int8
+                :length len)]))
+
+    (defn test-chars
+      [^long len]
+      (let [src (char-array len)
+            dst (char-array len)]
+        [(assoc (benchmark-us (char-m-copy src dst))
+                :type :manual
+                :datatype :char
+                :length len)
+         (assoc (benchmark-us (char-s-copy src dst))
+                :type :system
+                :datatype :char
+                :length len)]))
+
+    (defn test-doubles
+      [^long len]
+      (let [src (double-array len)
+            dst (double-array len)]
+        [(assoc (benchmark-us (double-m-copy src dst))
+                :type :manual
+                :datatype :float64
+                :length len)
+         (assoc (benchmark-us (double-s-copy src dst))
+                :type :system
+                :datatype :float64
+                :length len)]))
+
+
+    (defn test-objects
+      [^long len]
+      (let [src (object-array len)
+            dst (object-array len)]
+        [(assoc (benchmark-us (object-m-copy src dst))
+                :type :manual
+                :datatype :object
+                :length len)
+         (assoc (benchmark-us (object-s-copy src dst))
+                :type :system
+                :datatype :object
+                :length len)]))
+
+    )
+
+  (do
+    (def byte-results (vec (mapcat test-bytes sizes)))
+    (def char-results (vec (mapcat test-chars sizes)))
+    (def double-results (vec (mapcat test-doubles sizes)))
+    (def object-results (vec (mapcat test-objects sizes))))
+
+  (do
+    (defn array-copy-crossover
+      [result-list]
+      (->> (partition 2 result-list)
+           (remove (fn [[manual system]]
+                     (< (:mean manual) (:mean system))))
+           (ffirst)))
+
+    (def res (->> [byte-results char-results double-results object-results]
+                  (map array-copy-crossover)))
+    )
+  )

@@ -42,6 +42,22 @@ public final class JSONReader implements AutoCloseable {
 	return obj;
       }
     };
+  public static class JSONObj {
+    public final ArrayList<Object> data;
+    public JSONObj(ArrayList<Object> d) { data = d; }
+  }
+  public static final ObjReader rawObjReader = new ObjReader() {
+      public Object newObj() { return new ArrayList<Object>(8); }
+      public Object onKV(Object obj, Object k, Object v) {
+	final ArrayList<Object> ary = (ArrayList<Object>)obj;
+	ary.add(k);
+	ary.add(v);
+	return ary;
+      }
+      public Object finalizeObj(Object obj) {
+	return new JSONObj((ArrayList<Object>)obj);
+      }
+    };
 
   public interface ArrayReader {
     public Object newArray();
@@ -58,7 +74,7 @@ public final class JSONReader implements AutoCloseable {
       }
     };
   public static final ArrayReader mutableArrayReader = new ArrayReader() {
-      public Object newArray() { return new ArrayList<Object>(); }
+      public Object newArray() { return new ArrayList<Object>(8); }
       public Object onValue(Object ary, Object v) {
 	((ArrayList<Object>)ary).add(v);
 	return ary;
