@@ -15,7 +15,8 @@
 (set! *warn-on-reflection* true)
 
 
-(def ^{:tag 'long
+(defonce ^{:tag 'long
+       :const true
        :doc "Default batch size to allow reasonable safe-point access"}
   default-max-batch-size 64000)
 

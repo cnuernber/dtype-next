@@ -1,5 +1,10 @@
-(ns tech.v3.datatype.char-input
-  "Efficient ways to read files via the java.io.Reader interface.  You can read a file
+(ns ^:deprecated tech.v3.datatype.char-input
+  "This namespace has been completely superceded by [Charred](https://github.com/cnuernber/charred),
+  will receive no further updates, and is subject to removal at any time in the future.
+
+
+
+  Efficient ways to read files via the java.io.Reader interface.  You can read a file
   into an iterator of (fixed rotating) character buffers, create a new and much
   faster reader-like interface from the character buffers and parse a csv/tsv type
   file with an interface that is mostly compatible with but far faster than clojure.data.csv.
@@ -89,7 +94,7 @@
     (set! reader nil)))
 
 
-(defn reader->char-buf-fn
+(defn ^:deprecated reader->char-buf-fn
   "Given a reader, return a clojure fn that when called reads the next buffer of the reader.
   This function iterates through a fixed number of buffers under the covers so you need to
   be cognizant of the number of actual buffers that you want to have present in memory.
@@ -144,7 +149,7 @@
 (defonce char-ary-cls (type (char-array 0)))
 
 
-(defn reader->char-reader
+(defn ^:deprecated reader->char-reader
   "Given a reader, return a CharReader which presents some of the same interface
   as a pushbackreader but is only capable of pushing back 1 character.
 
@@ -202,7 +207,7 @@
     @close-fn*))
 
 
-(defn read-csv
+(defn ^:deprecated read-csv
   "Read a csv into a row iterator.  Parse algorithm the same as clojure.data.csv although
   this returns an iterator and each row is an ArrayList as opposed to a persistent
   vector.  To convert a java.util.List into something with the same equal and hash semantics
@@ -365,7 +370,7 @@
                                (type data))))))
 
 
-(defn json-reader-fn
+(defn ^:deprecated json-reader-fn
   [options]
   (let [eof-error? (get options :eof-error? true)
         eof-value (get options :eof-value :eof)
@@ -408,7 +413,7 @@
                   eof-fn)))
 
 
-(defn read-json-fn
+(defn ^:deprecated read-json-fn
   "Read one or more JSON objects.
   Returns an auto-closeable function that when called by default throws an exception
   if the read pathway is finished.  Input may be a character array or string (most efficient)
@@ -453,7 +458,7 @@
       (cons retval (lazy-seq (read-json-fn-seq json-fn))))))
 
 
-(defn read-json
+(defn ^:deprecated read-json
   "Drop in replacement for clojure.data.json/read and clojure.data.json/read-str.  For options
   see [[read-json-fn]]."
   [input & args]
@@ -463,7 +468,7 @@
     retval))
 
 
-(defn parse-json-fn
+(defn ^:deprecated parse-json-fn
   "Return a function from input->json.  Reuses the parse context and thus when
   parsing many small JSON inputs where you intend to get one and only one JSON
   object from them this pathway is a bit more efficient than read-json.
