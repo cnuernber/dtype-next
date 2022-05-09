@@ -21,16 +21,16 @@
   (:require [tech.v3.tensor-api]
             [tech.v3.datatype.base]))
 
+(defn ->DataTensor
+  "Positional factory function for class tech.v3.tensor_api.DataTensor."
+  ([buffer dimensions rank index-system cached-io metadata]
+  (tech.v3.tensor-api/->DataTensor buffer dimensions rank index-system cached-io metadata)))
+
+
 (defn ->DirectTensor
   "Positional factory function for class tech.v3.tensor_api.DirectTensor."
   ([buffer dimensions rank index-system cached-io y x c metadata]
   (tech.v3.tensor-api/->DirectTensor buffer dimensions rank index-system cached-io y x c metadata)))
-
-
-(defn ->Tensor
-  "Positional factory function for class tech.v3.tensor_api.Tensor."
-  ([buffer dimensions rank index-system cached-io metadata]
-  (tech.v3.tensor-api/->Tensor buffer dimensions rank index-system cached-io metadata)))
 
 
 (defn ->jvm
@@ -52,7 +52,7 @@
     `:jvm-heap`.
   * `:resource-type` - One of `tech.v3.resource/track` `:track-type` options.  If allocating
      native tensors, `nil` corresponds to `:gc:`."
-  (^{:tag tech.v3.tensor_api.Tensor} [data & args]
+  (^{:tag tech.v3.datatype.NDBuffer} [data & args]
   (apply tech.v3.tensor-api/->tensor data args)))
 
 
@@ -129,7 +129,7 @@ user> (dtt/compute-tensor [2 2 2] (fn [& args] (vec args)) :object)
 (defn construct-tensor
   "Construct an implementation of tech.v3.datatype.NDBuffer from a buffer and
   a dimensions object.  See dimensions/dimensions."
-  (^{:tag tech.v3.tensor_api.Tensor} [buffer dimensions & args]
+  (^{:tag tech.v3.datatype.NDBuffer} [buffer dimensions & args]
   (apply tech.v3.tensor-api/construct-tensor buffer dimensions args)))
 
 

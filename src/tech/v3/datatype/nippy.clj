@@ -9,7 +9,7 @@
   (:import [tech.v3.datatype Buffer]
            [tech.v3.datatype.array_buffer ArrayBuffer]
            [tech.v3.datatype.native_buffer NativeBuffer]
-           [tech.v3.tensor_api Tensor DirectTensor]))
+           [tech.v3.tensor_api DataTensor DirectTensor]))
 
 
 (defn buffer->data
@@ -66,7 +66,7 @@
 
 
 (nippy/extend-freeze
- Tensor :tech.v3/tensor
+ DataTensor :tech.v3/tensor
  [buf out]
  (nippy/-freeze-without-meta! (tensor->data buf) out))
 

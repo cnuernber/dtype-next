@@ -213,11 +213,11 @@
 (dtype-pp/implement-tostring-print NDBuffer)
 
 
-(deftype Tensor [buffer dimensions
-                 ^long rank
-                 ^LongNDReader index-system
-                 ^Buffer cached-io
-                 metadata]
+(deftype DataTensor [buffer dimensions
+                     ^long rank
+                     ^LongNDReader index-system
+                     ^Buffer cached-io
+                     metadata]
   dtype-proto/PECount
   (ecount [t] (.lsize t))
   NDBuffer
@@ -327,12 +327,12 @@
   IObj
   (meta [_item] metadata)
   (withMeta [_item metadata]
-    (Tensor. buffer dimensions rank index-system cached-io metadata))
+    (DataTensor. buffer dimensions rank index-system cached-io metadata))
   Object
   (toString [t] (tens-pp/tensor->string t)))
 
 
-(dtype-pp/implement-tostring-print Tensor)
+(dtype-pp/implement-tostring-print DataTensor)
 
 
 (casting/add-object-datatype! :tensor NDBuffer false)
@@ -456,7 +456,7 @@
   IObj
   (meta [_item] metadata)
   (withMeta [_item metadata]
-    (Tensor. buffer dimensions rank index-system cached-io metadata))
+    (DataTensor. buffer dimensions rank index-system cached-io metadata))
   Object
   (toString [t] (tens-pp/tensor->string t)))
 
@@ -467,7 +467,7 @@
 (defn construct-tensor
   "Construct an implementation of tech.v3.datatype.NDBuffer from a buffer and
   a dimensions object.  See dimensions/dimensions."
-  ^Tensor [buffer dimensions & [metadata]]
+  ^NDBuffer [buffer dimensions & [metadata]]
   (try
     (let [nd-desc  (dims/->global->local dimensions)]
       (if (dims/direct? dimensions)
@@ -488,13 +488,13 @@
                            (dtype-base/->reader buffer))
                          y x c
                          metadata))
-        (Tensor. buffer dimensions
-                 (.rank nd-desc)
-                 nd-desc
-                 (if (dtype-proto/convertible-to-buffer? buffer)
-                   (dtype-proto/->buffer buffer)
-                   (dtype-base/->reader buffer))
-                 metadata)))
+        (DataTensor. buffer dimensions
+                     (.rank nd-desc)
+                     nd-desc
+                     (if (dtype-proto/convertible-to-buffer? buffer)
+                       (dtype-proto/->buffer buffer)
+                       (dtype-base/->reader buffer))
+                     metadata)))
     (catch Throwable e
       (log/errorf "Failed to produce tensor for dimensions %s, (reduced) %s"
                   (pr-str (select-keys dimensions [:shape :strides]))
@@ -550,8 +550,8 @@
     `:jvm-heap`.
   * `:resource-type` - One of `tech.v3.resource/track` `:track-type` options.  If allocating
      native tensors, `nil` corresponds to `:gc:`."
-  ^Tensor [data & {:keys [datatype container-type]
-                   :as options}]
+  ^NDBuffer [data & {:keys [datatype container-type]
+                     :as options}]
   (let [data-shape (dtype-base/shape data)
         datatype (if (dtype-base/array? data)
                    (dtype-base/nested-array-elemwise-datatype data)
