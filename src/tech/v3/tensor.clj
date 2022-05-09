@@ -21,18 +21,6 @@
   (:require [tech.v3.tensor-api]
             [tech.v3.datatype.base]))
 
-(defn ->DataTensor
-  "Positional factory function for class tech.v3.tensor_api.DataTensor."
-  ([buffer dimensions rank index-system cached-io metadata]
-  (tech.v3.tensor-api/->DataTensor buffer dimensions rank index-system cached-io metadata)))
-
-
-(defn ->DirectTensor
-  "Positional factory function for class tech.v3.tensor_api.DirectTensor."
-  ([buffer dimensions rank index-system cached-io y x c metadata]
-  (tech.v3.tensor-api/->DirectTensor buffer dimensions rank index-system cached-io y x c metadata)))
-
-
 (defn ->jvm
   "Conversion to storage that is efficient for the jvm.
   Base storage is either jvm-array or persistent-vector."

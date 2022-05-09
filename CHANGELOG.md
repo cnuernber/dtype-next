@@ -1,7 +1,15 @@
+## 9.028
+ * JSON parsing in this library is deprecated.  Please use the charred library for fast json and
+   csv parsing.
+ * The Tensor deftype is changed to DataTensor as the auto-generated ->Tensor function causes
+   issues with the compilation of the `->tensor` public API function.  Also the function to
+   create the data classes concretely have now been private.
+
+
 ## 9.022
  * fast json parsing - as fast as anything on the JVM and faster than most - with options for
    even faster if you don't need everything to be immutable.
- 
+
 ## 9.021
  * `:trim-leading-whitespace?`, `:trim-trailing-whitespace?`, and `:nil-empty-values?` are
     all supported in csv parsing to bring feature set up to par with univocity.  These changes
@@ -12,12 +20,12 @@
 
 ## 9.019
  * Move to cached thread pool for queue-iter.
- 
+
 ## 9.018
  * Fast [csv parsing](https://cnuernber.github.io/dtype-next/tech.v3.datatype.char-input.html).
  * Related, function to take an iterator and realize it into a queue in an offline thread
    returning a new iterator - [queue-iter](https://cnuernber.github.io/dtype-next/tech.v3.parallel.queue-iter.html).
- 
+
 ## 9.017
  * `(argops/argfilter)` respects boolean/double-nan rules below.
 
