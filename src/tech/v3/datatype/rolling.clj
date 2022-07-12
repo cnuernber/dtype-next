@@ -72,10 +72,12 @@ tech.v3.datatype.rolling> (window-ranges->window-reader
     (reify ObjectReader
       (lsize [this] n-win)
       (readObject [this idx]
-        (let [^WindowRange range (.readObject win-ranges idx)
-              win-start (.start-idx range)
-              win-n-elems (.n-elems range)
-              win-end (+ win-start (.n-elems range))]
+        (let [range (dtype-base/->reader (.readObject win-ranges idx))
+              win-n-elems (.lsize range)
+              win-start (long (if (== 0 win-n-elems)
+                                0
+                                (.readLong range 0)))
+              win-end (+ win-start win-n-elems)]
           ;;Sub-buffer will always be faster than anything else and allows
           ;;conversion of src-data back into array/native buffer
           (if (and (>= win-start 0)
