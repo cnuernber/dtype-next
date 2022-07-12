@@ -10,10 +10,12 @@
   Available datatypes for the binding layer:
 
   * `:int8` `:int16` `:int32` `:int64` `:float32` `:float64` `:pointer` `:pointer?`
-    `:size-t`.
+    `:size-t`.  A `:pointer?` type means the pointer could potentially be null or zero while
+    `:pointer` will throw an error if a null or zero pointer is passed in.
+  * `:pointer`, `:pointer?`, `:size-t` are all types that change their underlying
+     definition depending on if the system is 32 bit or 64 bit.
 
-  `:pointer`, `:pointer?`, `:size-t` are all types that change their underlying
-  definition depending on if the system is 32 bit or 64 bit.
+
 
   Note that unsigned types will work but the interface will have to be defined in
   terms of their signed analogues.

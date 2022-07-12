@@ -835,7 +835,7 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
 
 (extend-type Iterable
   dtype-proto/PDatatype
-  (datatype [item] :iterable))
+  (datatype [item] :object))
 
 
 (extend-type APersistentMap
