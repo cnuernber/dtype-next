@@ -72,6 +72,9 @@ reader/writing/copying all work for native and jvm heap datasets.  Tensors work.
 * https://github.com/epiccastle/spire
 * https://github.com/babashka/babashka-sql-pods
 
+## Test Dependencies
+
+* Intel® Math Kernel Library - Use your system package manager to install `libmkl-rt`
 
 ## License
 
