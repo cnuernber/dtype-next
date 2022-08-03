@@ -31,7 +31,7 @@ nil
 user> (dt-grad/gradient1d [1 2 4 7 11 16])
 [1.0 1.5 2.5 3.5 4.5 5.0]
 user> (dt-grad/gradient1d [1 2 4 7 11 16] 2)
-[0.5 0.75 1.25 1.75 2.25 2.5]
+[1.5 2.0 2.5 3.5 4.0 4.5]
 ```"
   ([data h]
    (let [data (dt-base/->buffer data)
@@ -41,9 +41,9 @@ user> (dt-grad/gradient1d [1 2 4 7 11 16] 2)
      (reify DoubleReader
        (lsize [this] n-data)
        (readDouble [this idx]
-         (let [prev-idx (pmath/max 0 (- idx 1))
-               next-idx (pmath/min n-data-dec (+ idx 1))
-               width (double (* h (- next-idx prev-idx)))]
+         (let [prev-idx (pmath/max 0 (- idx h))
+               next-idx (pmath/min n-data-dec (+ idx h))
+               width (double (- next-idx prev-idx))]
            (pmath// (- (.readDouble data next-idx)
                        (.readDouble data prev-idx))
                     width))))))
