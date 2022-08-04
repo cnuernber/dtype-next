@@ -135,7 +135,7 @@
      (when (dtype-proto/convertible-to-reader? item)
        (dtype-proto/->reader item))))
   (^Buffer [item read-datatype]
-   (casting/ensure-valid-datatype read-datatype)
+   ;(casting/ensure-valid-datatype read-datatype)
    (cond
      (nil? item) item
      (= read-datatype (dtype-proto/elemwise-datatype item))
