@@ -9,19 +9,21 @@
   (:import [tech.v3.datatype Buffer DoubleReader LongReader ObjectReader]))
 
 
-(set! *unchecked-math* true)
+(set! *unchecked-math* #_true :warn-on-boxed)
 
 
 (defn gradient1d
-  "Implement gradient as `(f(x+h)-f(x-h))/2*h`.
-  At the boundaries use `(f(x)-f(x-h))/h`.
+  "Implement gradient as `(f(x+1)-f(x-1))/2*dx`.
+  At the boundaries use `(f(x)-f(x-1))/dx`.
   Returns a lazy representation, use clone to realize.
 
   Calculates the gradient inline returning a double reader.  For datetime types
   please convert to epoch-milliseconds first and the result will be in milliseconds.
 
-  h is always a single integer scalar and defaults to 1.  Returns a double reader
-  of the same length as data.
+  dx is a non-zero floating-point scalar and defaults to 1,
+  representing the signed offset between successive sample points.
+
+  Returns a double reader of the same length as data.
 
   Example:
 
@@ -30,12 +32,12 @@ user> (require '[tech.v3.datatype.gradient :as dt-grad])
 nil
 user> (dt-grad/gradient1d [1 2 4 7 11 16])
 [1.0 1.5 2.5 3.5 4.5 5.0]
-user> (dt-grad/gradient1d [1 2 4 7 11 16] 2)
+user> (dt-grad/gradient1d [1 2 4 7 11 16] 2.)
 [0.5 0.75 1.25 1.75 2.25 2.5]
 ```"
-  ([data h]
+  ([data dx]
    (let [data (dt-base/->buffer data)
-         h (long h)
+         dx (double dx)
          n-data (.lsize data)
          n-data-dec (dec n-data)]
      (reify DoubleReader
@@ -43,12 +45,12 @@ user> (dt-grad/gradient1d [1 2 4 7 11 16] 2)
        (readDouble [this idx]
          (let [prev-idx (pmath/max 0 (- idx 1))
                next-idx (pmath/min n-data-dec (+ idx 1))
-               width (double (* h (- next-idx prev-idx)))]
+               width (double (* dx (- next-idx prev-idx)))]
            (pmath// (- (.readDouble data next-idx)
                        (.readDouble data prev-idx))
                     width))))))
   ([data]
-   (gradient1d data 1)))
+   (gradient1d data 1.)))
 
 
 (defmacro ^:private append-diff
