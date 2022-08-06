@@ -1,3 +1,8 @@
+## 9.030
+ * Documentation fixes (and correctness fixes) for gradient1d and readme note.
+ * Added datatype entries for `:big-integer` and `:big-decimal`.
+
+
 ## 9.028
  * JSON parsing in this library is deprecated.  Please use the charred library for fast json and
    csv parsing.
