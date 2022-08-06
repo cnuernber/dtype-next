@@ -9,7 +9,7 @@
   (:import [tech.v3.datatype Buffer DoubleReader LongReader ObjectReader]))
 
 
-(set! *unchecked-math* #_true :warn-on-boxed)
+(set! *unchecked-math* true)
 
 
 (defn gradient1d
