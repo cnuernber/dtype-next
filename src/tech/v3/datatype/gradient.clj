@@ -43,7 +43,8 @@ user> (dt-grad/gradient1d [1 2 4 7 11 16] 2.)
      (reify DoubleReader
        (lsize [this] n-data)
        (readDouble [this idx]
-         (let [prev-idx (pmath/max 0 (- idx 1))
+         (let [idx (long idx)
+               prev-idx (pmath/max 0 (- idx 1))
                next-idx (pmath/min n-data-dec (+ idx 1))
                width (double (* dx (- next-idx prev-idx)))]
            (pmath// (- (.readDouble data next-idx)
