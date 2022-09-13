@@ -214,6 +214,8 @@
         (make-double-unary-op :tech.numerics/rint (Math/rint x))
         (make-double-unary-op :tech.numerics/get-significand (unchecked-double (get-significand x)))
         (make-numeric-object-unary-op :tech.numerics/- (- x))
+        (make-numeric-object-unary-op :tech.numerics/min x)
+        (make-numeric-object-unary-op :tech.numerics/max x)
         (make-float-double-unary-op :tech.numerics/logistic
                                     (/ 1.0
                                        (+ 1.0 (Math/exp (- x)))))

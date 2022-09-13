@@ -538,6 +538,8 @@ tech.v3.datatype.functional> (meta regressor)
 
 
 (defn max
+  ([x]
+  (tech.v3.datatype.functional-api/max x))
   ([x y]
   (tech.v3.datatype.functional-api/max x y))
   ([x y & args]
@@ -567,6 +569,8 @@ tech.v3.datatype.functional> (meta regressor)
 
 
 (defn min
+  ([x]
+  (tech.v3.datatype.functional-api/min x))
   ([x y]
   (tech.v3.datatype.functional-api/min x y))
   ([x y & args]
