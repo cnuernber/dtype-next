@@ -21,7 +21,7 @@
                                bit-or bit-flip bit-clear
                                bit-shift-left bit-shift-right unsigned-bit-shift-right
                                quot rem cast not and or
-                               neg? even? zero? odd? pos?])
+                               neg? even? zero? odd? pos? abs finite? infinite?])
 
   (export-symbols/write-api! 'tech.v3.datatype.datetime-api
                              'tech.v3.datatype.datetime

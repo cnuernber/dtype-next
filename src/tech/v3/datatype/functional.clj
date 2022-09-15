@@ -12,7 +12,7 @@
             [tech.v3.datatype.rolling]
             [tech.v3.datatype.statistics]
             [tech.v3.datatype.unary-pred])
-  (:refer-clojure :exclude [+ - / * <= < >= > identity min max bit-xor bit-and bit-and-not bit-not bit-set bit-test bit-or bit-flip bit-clear bit-shift-left bit-shift-right unsigned-bit-shift-right quot rem cast not and or neg? even? zero? odd? pos?]))
+  (:refer-clojure :exclude [+ - / * <= < >= > identity min max bit-xor bit-and bit-and-not bit-not bit-set bit-test bit-or bit-flip bit-clear bit-shift-left bit-shift-right unsigned-bit-shift-right quot rem cast not and or neg? even? zero? odd? pos? abs finite? infinite?]))
 
 (defn *
   ([x y]

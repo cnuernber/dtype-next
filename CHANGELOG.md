@@ -1,4 +1,4 @@
-## 9.031
+## 9.032
  * unary version of tech.v3.datatype.functional min and max.
  * [issue 61](https://github.com/cnuernber/dtype-next/issues/61) - Fix annoying warnings for Clojure 1.11.
 
