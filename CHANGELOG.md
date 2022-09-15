@@ -1,3 +1,7 @@
+## 9.031
+ * unary version of tech.v3.datatype.functional min and max.
+ * [issue 61](https://github.com/cnuernber/dtype-next/issues/61) - Fix annoying warnings for Clojure 1.11.
+
 ## 9.030
  * Documentation fixes (and correctness fixes) for gradient1d and readme note.
  * Added datatype entries for `:big-integer` and `:big-decimal`.

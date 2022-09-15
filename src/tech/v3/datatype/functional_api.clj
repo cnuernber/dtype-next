@@ -43,8 +43,8 @@
                             bit-xor bit-and bit-and-not bit-not bit-set bit-test
                             bit-or bit-flip bit-clear
                             bit-shift-left bit-shift-right unsigned-bit-shift-right
-                            quot rem cast not and or
-                            neg? even? zero? odd? pos?]))
+                            quot rem cast not and or neg? even? zero? odd? pos?
+                            finite? abs infinite?]))
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)

@@ -1,9 +1,9 @@
-(defproject cnuernber/dtype-next "9.031-SNAPSHOT"
+(defproject cnuernber/dtype-next "9.031"
   :description "A Clojure library designed to aid in the implementation of high performance algorithms and systems."
   :url "http://github.com/cnuernber/dtype-next"
   :license {:name "EPL-2.0"
             :url "https://www.eclipse.org/legal/epl-2.0/"}
-  :dependencies [[org.clojure/clojure              "1.10.3" :scope "provided"]
+  :dependencies [[org.clojure/clojure              "1.11.1" :scope "provided"]
                  [org.ow2.asm/asm                  "9.0"]
                  [insn                             "0.5.2"]
                  [camel-snake-kebab                "0.4.2"]
