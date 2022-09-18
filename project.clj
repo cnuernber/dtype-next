@@ -15,7 +15,7 @@
                  [techascent/tech.resource         "5.05"]
                  [org.clj-commons/claypoole        "1.2.2"]
                  ;;Many things require guava, so we may as well have latest version
-                 [com.google.guava/guava           "30.1.1-jre"]]
+                 [com.google.guava/guava           "31.1-jre"]]
   :java-source-paths ["java" "third-party" "java_public_api"]
   :source-paths ["src" "classes" "third-party"]
   :profiles {:dev
