@@ -7,15 +7,18 @@
                  [org.ow2.asm/asm                  "9.0"]
                  [insn                             "0.5.2"]
                  [camel-snake-kebab                "0.4.2"]
-                 [it.unimi.dsi/fastutil            "8.2.1"]
                  [org.xerial.larray/larray-mmap    "0.4.1"]
                  [org.apache.commons/commons-math3 "3.6.1"]
                  [org.roaringbitmap/RoaringBitmap  "0.9.0"]
                  [com.github.wendykierp/JTransforms "3.1"]
                  [techascent/tech.resource         "5.05"]
-                 [org.clj-commons/claypoole        "1.2.2"]
-                 ;;Many things require guava, so we may as well have latest version
-                 [com.google.guava/guava           "31.1-jre"]]
+                 ;;ham fisted brings in:
+                 ;; {it.unimi.dsi/fastutil-core {:mvn/version "8.5.8"}
+                 ;;  org.clj-commons/claypoole  {:mvn/version "1.2.2"}
+                 ;;  com.google.guava/guava     {:mvn/version "31.1-jre"}}
+                 [com.cnuernber/ham-fisted         "1.000-beta-9"
+                  :exclusions [it.unimi.dsi/fastutil-core]]
+                 [it.unimi.dsi/fastutil            "8.5.8"]]
   :java-source-paths ["java" "third-party" "java_public_api"]
   :source-paths ["src" "classes" "third-party"]
   :profiles {:dev
