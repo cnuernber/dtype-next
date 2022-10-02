@@ -6,21 +6,26 @@ import clojure.lang.Sequential;
 import clojure.lang.RT;
 import clojure.lang.ISeq;
 import clojure.lang.Indexed;
+import clojure.lang.IDeref;
+import clojure.lang.IFn;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Collection;
 import java.util.RandomAccess;
+import java.util.function.DoubleConsumer;
+import java.util.function.LongConsumer;
+import java.util.function.LongBinaryOperator;
+import java.util.function.DoubleBinaryOperator;
 import java.util.stream.Stream;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.DoubleStream;
 import java.util.stream.StreamSupport;
+import ham_fisted.IMutList;
 
 
-public interface Buffer extends DatatypeBase, Iterable, IFnDef,
-				List, RandomAccess, Sequential,
-				Indexed
+public interface Buffer extends DatatypeBase, IMutList
 {
   boolean readBoolean(long idx);
   byte readByte(long idx);
@@ -47,114 +52,87 @@ public interface Buffer extends DatatypeBase, Iterable, IFnDef,
   default void accumPlusDouble(long idx, double val) {
     writeDouble( idx, readDouble(idx) + val );
   }
+  default void accPlusLong(int idx, long val) {
+    accumPlusLong(idx, val);
+  }
+  default void accPlusDouble(int idx, double val) {
+    accumPlusDouble( idx, val);
+  }
 
   default boolean allowsRead() { return true; }
   default boolean allowsWrite() { return false; }
   default Object elemwiseDatatype () { return Keyword.intern(null, "object"); }
   default int size() { return RT.intCast(lsize()); }
+  default int count() { return size(); }
   default Object get(int idx) { return readObject(idx); }
   default Object set(int idx, Object val) {
     Object current = get(idx);
     writeObject(idx, val);
     return current;
   }
-  default List subList(int start, int end) {
-    throw new UnsupportedOperationException("Unimplemented");
+  default long getLong(int idx) { return readLong(idx); }
+  default double getDouble(int idx) { return readDouble(idx); }
+  default boolean getBoolean(int idx) { return readBoolean(idx); }
+  default void setLong(int idx, long v) { writeLong(idx, v); }
+  default void setDouble(int idx, double v) { writeDouble(idx, v); }
+  default void setBoolean(int idx, boolean v) { writeBoolean(idx, v); }
+  //Ensure reductions happen in the appropriate space.
+  default Object reduce(IFn f) {
+    final long sz = lsize();
+    if (sz == 0 )
+      return f.invoke();
+    Object init = get(0);
+    for(long idx = 1; idx < sz && (!RT.isReduced(init)); ++idx) {
+      init = f.invoke(init, readObject(idx));
+    }
+    if (RT.isReduced(init))
+      return ((IDeref)init).deref();
+    return init;
   }
-  default ListIterator listIterator() {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default ListIterator listIterator(int idx) {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default int indexOf(Object obj) {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default int lastIndexOf(Object obj) {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default Object remove(int idx) {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default void add(int idx, Object obj) {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default void clear() {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default boolean retainAll(Collection c) {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default boolean removeAll(Collection c) {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default boolean add(Object obj) {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default boolean addAll(Collection c) {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default boolean addAll(int idx, Collection c) {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default boolean contains(Object c) {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default boolean containsAll(Collection c) {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default boolean remove(Object c) {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default boolean isEmpty() { return lsize() == 0; }
-  default Object[] toArray() {
-    int nElems = size();
-    Object[] data = new Object[nElems];
 
-    for(int idx=0; idx < nElems; ++idx) {
-      data[idx] = readObject(idx);
+  default Object reduce(IFn f, Object init) {
+    final long  sz = lsize();
+    for(long idx = 0; idx < sz && (!RT.isReduced(init)); ++idx) {
+      init = f.invoke(init, readObject(idx));
     }
-    return data;
+    if (RT.isReduced(init))
+      return ((IDeref)init).deref();
+    return init;
   }
-  default Object[] toArray(Object[] data) {
-    int nElems = size();
 
-    for(int idx=0; idx < nElems; ++idx) {
-      data[idx] = readObject(idx);
+  default Object kvreduce(IFn f, Object init) {
+    final long sz = lsize();
+    for(long idx = 0; idx < sz && (!RT.isReduced(init)); ++idx) {
+      init = f.invoke(init, idx, readObject(idx));
     }
-    return data;
+    if (RT.isReduced(init))
+      return ((IDeref)init).deref();
+    return init;
   }
-  default Iterator iterator() {
-    return new BufferIter(this);
+
+  default double doubleReduction(DoubleBinaryOperator op, double init) {
+    final long sz = size();
+    for(long idx = 0; idx < sz; ++idx)
+      init = op.applyAsDouble(init, readDouble(idx));
+    return init;
   }
-  default Object invoke(Object arg) {
-    long val = RT.uncheckedLongCast(arg);
-    val = val < 0 ? lsize() + val : val;
-    return readObject(val);
+
+  default long longReduction(LongBinaryOperator op, long init) {
+    final long sz = size();
+    for(long idx = 0; idx < sz; ++idx)
+      init = op.applyAsLong(init, readLong(idx));
+    return init;
   }
-  default Object invoke(Object arg, Object arg2) {
-    writeObject(RT.uncheckedLongCast(arg), arg2);
-    return null;
+
+  default public void doubleForEach(DoubleConsumer c) {
+    final long sz = lsize();
+    for (long idx = 0; idx < sz; ++idx)
+      c.accept(readDouble(idx));
   }
-  default Object applyTo(ISeq items) {
-    if (1 == items.count()) {
-      return invoke(items.first());
-    } else if (2 == items.count()) {
-      //Abstract method error
-      return invoke(items.first(), items.next().first());
-    }
-    else
-      throw new RuntimeException("Too many arguments to applyTo");
-  }
-  default Object nth(int idx) { return invoke(idx); }
-  default Object nth(int idx, Object notFound) {
-    int nelts = size();
-    idx = idx < 0 ? nelts + idx : idx;
-    if (idx >= 0 && idx < nelts) {
-      return readObject(idx);
-    } else {
-      return notFound;
-    }
+  default public void longForEach(LongConsumer c) {
+    final long sz = size();
+    for (long idx = 0; idx < sz; ++idx)
+      c.accept(readLong(idx));
   }
   default DoubleStream doubleStream() {
     return StreamSupport.doubleStream(new BufferDoubleSpliterator(this, 0, lsize(), null),false);
