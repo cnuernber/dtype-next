@@ -1,7 +1,7 @@
 (ns tech.v3.parallel.for
   "Serial and parallel iteration strategies across iterators and index spaces."
   (:require [tech.v3.datatype.errors :as errors]
-            [com.climate.claypoole :as claypoole])
+            [ham-fisted.api :as hamf])
   (:import [java.util.concurrent ForkJoinPool Callable Future ForkJoinTask]
            [java.util Spliterator Iterator ArrayList]
            [java.util.stream Stream]
@@ -149,18 +149,14 @@
   "pmap using the commonPool.  This is useful for interacting with other primitives, namely
   [[indexed-map-reduce]] which are also based on this pool."
   [map-fn & sequences]
-  (if (in-fork-join-task?)
-    (apply sequence (map map-fn) sequences)
-    (apply claypoole/pmap (ForkJoinPool/commonPool) map-fn sequences)))
+  (apply hamf/pmap map-fn sequences))
 
 
 (defn upmap
   "Unordered pmap using the commonPool.  This is useful for interacting with other primitives,
   namely [[indexed-map-reduce]] which are also based on this pool."
   [map-fn & sequences]
-  (if (in-fork-join-task?)
-    (apply sequence (map map-fn) sequences)
-    (apply claypoole/upmap (ForkJoinPool/commonPool) map-fn sequences)))
+  (apply hamf/upmap map-fn sequences))
 
 
 (defn as-spliterator

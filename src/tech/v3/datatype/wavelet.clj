@@ -4,6 +4,7 @@
   (:require [tech.v3.datatype.convolve :as dt-conv]
             [tech.v3.datatype.base :as dt-base]
             [tech.v3.tensor :as dtt]
+            [ham-fisted.api :as hamf]
             [com.github.ztellman.primitive-math :as pmath])
   (:import [tech.v3.datatype DoubleReader]))
 
@@ -34,13 +35,13 @@
   ([data wavelet-fn widths options]
    (let [dlen (dt-base/ecount data)]
      (->
-      (pmap (fn [width]
-              (let [width (double width)
-                    N (long (Math/min (* 10 width) (double dlen)))
-                    window (wavelet-fn N width options)]
-                ;;correlate doesn' involve reversing the window
-                (dt-conv/correlate1d data window (merge {:mode :same} options))))
-            widths)
+      (hamf/pmap (fn [width]
+                   (let [width (double width)
+                         N (long (Math/min (* 10 width) (double dlen)))
+                         window (wavelet-fn N width options)]
+                     ;;correlate doesn' involve reversing the window
+                     (dt-conv/correlate1d data window (merge {:mode :same} options))))
+                 widths)
       (dtt/->tensor :datatype :float64))))
   ([data wavelet-fn widths]
    (cwt data wavelet-fn widths nil)))
