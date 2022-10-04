@@ -76,6 +76,7 @@ public interface Buffer extends DatatypeBase, IMutList
   default void setLong(int idx, long v) { writeLong(idx, v); }
   default void setDouble(int idx, double v) { writeDouble(idx, v); }
   default void setBoolean(int idx, boolean v) { writeBoolean(idx, v); }
+  default Iterator iterator() { return new BufferIter(this); }
   //Ensure reductions happen in the appropriate space.
   default Object reduce(IFn f) {
     final long sz = lsize();

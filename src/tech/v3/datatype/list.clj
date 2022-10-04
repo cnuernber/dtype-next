@@ -115,10 +115,11 @@
     (when (>= ptr capacity) (.ensureCapacity this ptr))
     (.writeLong cached-io ptr value)
     (set! ptr (unchecked-inc ptr)))
-  (addObject [this value]
+  (add [this value]
     (when (>= ptr capacity) (.ensureCapacity this ptr))
     (.writeObject cached-io ptr value)
-    (set! ptr (unchecked-inc ptr)))
+    (set! ptr (unchecked-inc ptr))
+    true)
   (addAll [item coll]
     (if-let [data-buf (dtype-base/as-buffer coll)]
       (let [item-ecount (.lsize data-buf)]

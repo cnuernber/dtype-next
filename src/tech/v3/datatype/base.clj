@@ -362,7 +362,7 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
   [item idx value]
   (cond
     (number? idx)
-    ((->writer item) idx value)
+    (.set (->writer item) idx value)
     (sequential? idx)
     (let [sub-tens (dtype-proto/select item idx)]
       (if (= :scalar (argtypes/arg-type value))

@@ -10,7 +10,7 @@
 (deftest simple-packing
   (let [ld (dtype-dt/local-date)]
     (let [data-list (dtype/make-container :list :packed-local-date 0)]
-      (.addObject data-list ld)
+      (.add data-list ld)
       (is (= [ld]
              (vec data-list)))
       (is (= [ld]

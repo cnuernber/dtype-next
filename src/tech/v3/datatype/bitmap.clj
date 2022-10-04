@@ -239,8 +239,9 @@
     (set! cached-io nil))
   (addDouble [this arg]
     (.addLong this (unchecked-long arg)))
-  (addObject [this arg]
-    (.addLong this (long arg)))
+  (add [this arg]
+    (.addLong this (long arg))
+    true)
   (addAll [_this other]
     (if (instance? BitmapPrimitiveList other)
       (.or bitmap (.bitmap ^BitmapPrimitiveList other))
