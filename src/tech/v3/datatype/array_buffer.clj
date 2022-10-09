@@ -4,345 +4,570 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.pprint :as dtype-pp]
+            [ham-fisted.api :as hamf]
+            [ham-fisted.iterator :as iterator]
             [com.github.ztellman.primitive-math :as pmath])
-  (:import [clojure.lang IObj Counted Indexed IFn]
+  (:import [clojure.lang IObj Counted Indexed IFn IPersistentMap IReduceInit]
+           [ham_fisted ArrayLists ArrayLists$ArrayOwner ArrayLists$ILongArrayList
+            ArrayLists$ObjectArraySubList ArrayLists$ObjectArrayList
+            ArrayLists$ByteArraySubList ArrayLists$ShortArraySubList
+            ArrayLists$IntArraySubList ArrayLists$IntArrayList
+            ArrayLists$LongArraySubList ArrayLists$LongArrayList
+            ArrayLists$FloatArraySubList ArrayLists$CharArraySubList
+            ArrayLists$DoubleArraySubList ArrayLists$DoubleArrayList
+            ArrayLists$BooleanArraySubList ArrayLists$ILongArrayList
+            ArraySection Transformables
+            LongMutList Casts IMutList ImmutList ArrayImmutList MutList
+            MutList$SubMutList ChunkedList]
+           [ham_fisted.alists ByteArrayList ShortArrayList CharArrayList
+            BooleanArrayList FloatArrayList]
+           [tech.v3.datatype MutListBuffer]
            [tech.v3.datatype Buffer ArrayHelpers BufferCollection BinaryBuffer
             ByteConversions]
-           [java.util Arrays]))
+           [java.util Arrays RandomAccess List]
+           [java.lang.reflect Array]))
 
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
 
 
-(defmacro java-array-buffer->io
-  [datatype cast-dtype advertised-datatype buffer java-ary offset n-elems]
-  `(let [~'java-ary (typecast/datatype->array ~datatype ~java-ary)
-         {~'unpacking-read :unpacking-read
-          ~'packing-write :packing-write} (packing/buffer-packing-pair
-                                           ~advertised-datatype)]
-     (reify
-       dtype-proto/PToArrayBuffer
-       (convertible-to-array-buffer? [this#] true)
-       (->array-buffer [this#] ~buffer)
-       dtype-proto/PToBinaryBuffer
-       (convertible-to-binary-buffer? [this#]
-         (dtype-proto/convertible-to-binary-buffer? ~buffer))
-       (->binary-buffer [this#]
-         (dtype-proto/->binary-buffer ~buffer))
-       ;;Forward protocol methods that are efficiently implemented by the buffer
-       dtype-proto/PSubBuffer
-       (sub-buffer [this# offset# length#]
-         (-> (dtype-proto/sub-buffer ~buffer offset# length#)
-             (dtype-proto/->reader)))
-       dtype-proto/PDatatype
-       (datatype [this#] :object)
-       dtype-proto/PElemwiseReaderCast
-       (elemwise-reader-cast [this# new-dtype#] this#)
-       ~(typecast/datatype->io-type (casting/safe-flatten cast-dtype))
-       (elemwiseDatatype [rdr#] ~advertised-datatype)
-       (lsize [rdr#] ~n-elems)
-       (allowsRead [rdr#] true)
-       (allowsWrite [rdr#] true)
-       ~@(cond
-           (= cast-dtype :boolean)
-           [`(readBoolean [rdr# ~'idx]
-                          (aget ~'java-ary (pmath/+ ~offset ~'idx)))]
-           ;;For integer types, everything implements readlong.
-           ;;They also implement readX where X maps to exactly the datatype.
-           ;;For example byte arrays implement readLong and readByte.
-           (or (= cast-dtype :char) (casting/integer-type? cast-dtype))
-           (concat
-            [`(readLong [rdr# ~'idx]
-                        (casting/datatype->unchecked-cast-fn
-                         ~cast-dtype :int64
-                         (casting/datatype->unchecked-cast-fn
-                          ~datatype ~cast-dtype
-                          (aget ~'java-ary (pmath/+ ~offset ~'idx)))))
-             `(accumPlusLong
-               [rdr# idx# value#]
-               (ArrayHelpers/accumPlus ~'java-ary (pmath/+ ~offset idx#)
-                                       (->> value#
-                                            (casting/datatype->unchecked-cast-fn
-                                             :int64 ~cast-dtype)
-                                            (casting/datatype->unchecked-cast-fn
-                                             ~cast-dtype ~datatype))))]
-            (when-not (or (= :int64 cast-dtype)
-                          (= :uint32 cast-dtype)
-                          (= :uint64 cast-dtype))
-              ;;Exact reader fns for the exact datatype
-              [(cond
-                 (= cast-dtype :int8)
-                 `(readByte [rdr# ~'idx]
-                            (aget ~'java-ary (pmath/+ ~offset ~'idx)))
-                 (or (= cast-dtype :uint8)
-                     (= cast-dtype :int16))
-                 `(readShort [rdr# ~'idx]
-                             (casting/datatype->unchecked-cast-fn
-                              ~cast-dtype :int16
-                              (casting/datatype->unchecked-cast-fn
-                               ~datatype ~cast-dtype
-                               (aget ~'java-ary (pmath/+ ~offset ~'idx)))))
-                 (= cast-dtype :char)
-                 `(readChar [rdr# ~'idx]
-                            (aget ~'java-ary (pmath/+ ~offset ~'idx)))
-                 (or (= cast-dtype :uint16)
-                     (= cast-dtype :int32))
-                 `(readInt [rdr# ~'idx]
-                           (casting/datatype->unchecked-cast-fn
-                            ~cast-dtype :int32
-                            (casting/datatype->unchecked-cast-fn
-                             ~datatype ~cast-dtype
-                             (aget ~'java-ary (pmath/+ ~offset ~'idx)))))
-                 :else (throw (Exception. (format "Macro expansion error-%s"
-                                                  cast-dtype))))])
-            (if (= :char cast-dtype)
-              [`(readObject [rdr# ~'idx]
-                            (.readChar rdr# ~'idx))]
-              ;;Integer types may be representing packed objects
-              [`(readObject [~'rdr ~'idx]
-                            (if ~'unpacking-read
-                              (~'unpacking-read ~'rdr ~'idx)
-                              (.readLong ~'rdr ~'idx)))]))
-           (casting/float-type? cast-dtype)
-           [`(readDouble [rdr# ~'idx]
-                         (casting/datatype->unchecked-cast-fn
-                          ~datatype :float64
-                          (aget ~'java-ary (pmath/+ ~offset ~'idx))))
-            `(readFloat [rdr# ~'idx]
-                        (casting/datatype->unchecked-cast-fn
-                         ~datatype :float32
-                         (aget ~'java-ary (pmath/+ ~offset ~'idx))))
-            `(accumPlusDouble
-              [rdr# idx# value#]
-              (ArrayHelpers/accumPlus ~'java-ary (pmath/+ idx# ~offset)
-                                      (casting/datatype->unchecked-cast-fn
-                                       ~datatype ~cast-dtype value#)))]
-           :else
-           [`(readObject [rdr# ~'idx]
-                         (casting/datatype->unchecked-cast-fn
-                          ~cast-dtype :object
-                          (casting/datatype->unchecked-cast-fn
-                           ~datatype ~cast-dtype
-                           (aget ~'java-ary (pmath/+ ~offset ~'idx)))))])
-       ~@(cond
-           (= :boolean cast-dtype)
-           [`(writeBoolean [wtr# idx# val#]
-                           (ArrayHelpers/aset ~'java-ary (pmath/+ ~offset idx#) val#))]
-           (or (= :char cast-dtype) (casting/integer-type? cast-dtype))
-           (concat
-            [`(writeLong [rdr# ~'idx ~'value]
-                         (ArrayHelpers/aset
-                          ~'java-ary (pmath/+ ~offset ~'idx)
-                          (casting/datatype->unchecked-cast-fn
-                           ~cast-dtype ~datatype
-                           (casting/datatype->cast-fn
-                            :int64 ~cast-dtype ~'value))))]
-            (when-not (or (= :int64 cast-dtype)
-                          (= :uint32 cast-dtype)
-                          (= :uint64 cast-dtype))
-              ;;Exact reader fns for the exact datatype
-              [(cond
-                 (= cast-dtype :int8)
-                 `(writeByte [rdr# ~'idx ~'value]
-                            (ArrayHelpers/aset ~'java-ary (pmath/+ ~offset ~'idx) ~'value))
-                 (or (= cast-dtype :uint8)
-                     (= cast-dtype :int16))
-                 `(writeShort [rdr# ~'idx ~'value]
-                              (ArrayHelpers/aset ~'java-ary (pmath/+ ~offset ~'idx)
-                                    (casting/datatype->unchecked-cast-fn
-                                     ~cast-dtype ~datatype
-                                     (casting/datatype->cast-fn
-                                      :int16 ~cast-dtype ~'value))))
-                 (= cast-dtype :char)
-                 `(writeChar [rdr# ~'idx ~'value]
-                             (ArrayHelpers/aset ~'java-ary (pmath/+ ~offset ~'idx) ~'value))
-                 (or (= cast-dtype :uint16)
-                     (= cast-dtype :int32))
-                 `(writeInt [rdr# ~'idx ~'value]
-                            (ArrayHelpers/aset ~'java-ary (pmath/+ ~offset ~'idx)
-                                  (casting/datatype->unchecked-cast-fn
-                                   ~cast-dtype ~datatype
-                                   (casting/datatype->cast-fn
-                                    :int32 ~cast-dtype ~'value))))
-                 :else (throw (Exception. (format "Macro expansion error-%s"
-                                                  cast-dtype))))])
-            ;;Overload the writeObject pathway to use writeChar instead of writeLong
-            (if (= :char cast-dtype)
-              [`(writeObject [rdr# ~'idx ~'value]
-                             (.writeChar rdr# ~'idx (char ~'value)))]
-              [`(writeObject [~'rdr ~'idx ~'value]
-                             (if ~'packing-write
-                               (~'packing-write ~'rdr ~'idx ~'value)
-                               (.writeLong ~'rdr ~'idx (long ~'value))))]))
-           (casting/float-type? cast-dtype)
-           [`(writeDouble [rdr# ~'idx ~'value]
-                          (ArrayHelpers/aset ~'java-ary (pmath/+ ~offset ~'idx)
-                                (casting/datatype->unchecked-cast-fn
-                                 :float64 ~cast-dtype ~'value)))
-            `(writeFloat [rdr# ~'idx ~'value]
-                         (ArrayHelpers/aset ~'java-ary (pmath/+ ~offset ~'idx)
-                               (casting/datatype->unchecked-cast-fn
-                                :float32 ~cast-dtype ~'value)))]
-           :else
-           [`(writeObject [wtr# idx# val#]
-                          ;;Writing values is always checked, no options.
-                          (ArrayHelpers/aset ~'java-ary (pmath/+ ~offset idx#) val#))]))))
+(declare array-sub-list)
 
 
-(declare array-buffer->io)
-
-
-(deftype ArrayBuffer [ary-data ^long offset ^long n-elems datatype metadata
-                      ^:volatile-mutable ^Buffer cached-io]
-  dtype-proto/PElemwiseDatatype
-  (elemwise-datatype [_item] datatype)
-  dtype-proto/PDatatype
-  (datatype [_item] :array-buffer)
-  dtype-proto/PECount
-  (ecount [_item] n-elems)
-  dtype-proto/PEndianness
-  (endianness [_item] :little-endian)
-  dtype-proto/PElemwiseReaderCast
-  (elemwise-reader-cast [item _new-dtype]
-    (or cached-io (dtype-proto/->reader item)))
+(extend-type MutListBuffer
   dtype-proto/PToArrayBuffer
-  (convertible-to-array-buffer? [_item] true)
-  (->array-buffer [item] item)
-  dtype-proto/PToBinaryBuffer
-  (convertible-to-binary-buffer? [_item]
-    (and
-     (= datatype :int8)
-     (dtype-proto/convertible-to-binary-buffer? ary-data)))
-  (->binary-buffer [_item]
-    (-> (dtype-proto/->binary-buffer ary-data)
-        (dtype-proto/sub-buffer offset n-elems)))
+  (convertible-to-array-buffer? [item]
+    (dtype-proto/convertible-to-array-buffer? (.-data item)))
+  (->array-buffer [item]
+    (dtype-proto/->array-buffer (.-data item)))
   dtype-proto/PSubBuffer
-  (sub-buffer [_item off len]
-    (ArrayBuffer. ary-data
-                  (+ offset (int off))
-                  (int len)
-                  datatype
-                  metadata
-                  nil))
+  (sub-buffer [item off len]
+    (MutListBuffer. (.subList (.-data item) off (+ (int off) (int len)))
+                    (.-supportsWrite item)
+                    (.-elemwiseDatatype item)))
+  dtype-proto/PToBinaryBuffer
+  (convertible-to-binary-buffer? [item]
+    (dtype-proto/convertible-to-binary-buffer? (.-data item)))
+  (->binary-buffer [item]
+    (dtype-proto/->binary-buffer (.-data item)))
   dtype-proto/PSetConstant
-  (set-constant! [_this off elem-count value]
-    (let [offset (+ offset (int off))
-          elem-count (int elem-count)
-          end-offset (+ elem-count offset)
-          value (casting/cast value datatype)]
-      ;;arrays/fill is very, very fast
-      (case (dtype-proto/elemwise-datatype ary-data)
-        :boolean (Arrays/fill ^booleans ary-data offset end-offset (boolean value))
-        :int8 (Arrays/fill ^bytes ary-data offset end-offset (unchecked-byte value))
-        :int16 (Arrays/fill ^shorts ary-data offset end-offset (unchecked-short value))
-        :char (Arrays/fill ^chars ary-data offset end-offset (unchecked-char value))
-        :int32 (Arrays/fill ^ints ary-data offset end-offset (unchecked-int value))
-        :int64 (Arrays/fill ^longs ary-data offset end-offset (unchecked-long value))
-        :float32 (Arrays/fill ^floats ary-data offset
-                              end-offset (unchecked-float value))
-        :float64 (Arrays/fill ^doubles ary-data offset end-offset (unchecked-double value))
-        (Arrays/fill ^"[Ljava.lang.Object;" ary-data  offset end-offset value))))
+  (set-constant! [item off elem-count value]
+    (.fillRange (.-data item) (int off) (+ (int off) (int elem-count)) value))
   dtype-proto/PClone
   (clone [this]
-    (dtype-proto/make-container :jvm-heap datatype {} this))
+    (.cloneList this))
+  dtype-proto/PCopyRawData
+  (copy-raw->item! [raw-data ary-target target-offset options]
+    (dtype-proto/copy-raw->item! (.-data raw-data) ary-target target-offset options))
   dtype-proto/PToBuffer
-  (convertible-to-buffer? [_item] true)
-  (->buffer [item]
-    (if cached-io cached-io
-        (let [io
-              (array-buffer->io ary-data datatype item offset n-elems)]
-          (set! cached-io io)
-          io)))
-  dtype-proto/PToReader
-  (convertible-to-reader? [_item] true)
-  (->reader [item]
-    (dtype-proto/->buffer item))
+  (convertible-to-buffer? [item] true)
+  (->buffer [item] item)
   dtype-proto/PToWriter
-  (convertible-to-writer? [_item] true)
-  (->writer [item]
-    (dtype-proto/->buffer item))
-  IObj
-  (meta [_item] metadata)
-  (withMeta [_item metadata]
-    (ArrayBuffer. ary-data offset n-elems datatype metadata cached-io))
-  Counted
-  (count [item] (int (dtype-proto/ecount item)))
-  Indexed
-  (nth [item idx]
-    (nth (dtype-proto/->buffer item) idx))
-  (nth [item idx def-val]
-    (nth (dtype-proto/->buffer item) idx def-val))
-  IFn
-  (invoke [item idx]
-    (nth item (int idx)))
-  (invoke [item idx value]
-    ((dtype-proto/->writer item) idx value))
-  (applyTo [item argseq]
-    (case (count argseq)
-      1 (.invoke item (first argseq))
-      2 (.invoke item (first argseq) (second argseq))))
-  BufferCollection
-  (iterator [this]
-    (dtype-proto/->buffer this)
-    (.iterator cached-io))
-  (size [this] (int (dtype-proto/ecount this)))
-  (toArray [this]
-    (dtype-proto/->buffer this)
-    (.toArray cached-io))
-  Object
-  (toString [item]
-    (dtype-pp/buffer->string item "array-buffer")))
+  (convertible-to-writer? [item] true)
+  (->writer [item] item)
+  dtype-proto/PToReader
+  (convertible-to-reader? [item] true)
+  (->reader [item] item))
 
 
-(dtype-pp/implement-tostring-print ArrayBuffer)
+(defmethod print-method MutListBuffer
+  [buf w]
+  (.write ^java.io.Writer w (dtype-pp/buffer->string buf "buffer")))
+
+
+(extend-type MutList
+  dtype-proto/PElemwiseDatatype
+  (elemwise-datatype [buf] :object)
+  dtype-proto/PSubBuffer
+  (sub-buffer [item off len]
+    (.subList item off (+ (int off) (int len))))
+  dtype-proto/PSetConstant
+  (set-constant! [item off elem-count value]
+    (.fillRange item (int off) (+ (int off) (int elem-count)) value))
+  dtype-proto/PClone
+  (clone [this]
+    (.cloneList this))
+  dtype-proto/PToBuffer
+  (convertible-to-buffer? [item] true)
+  (->buffer [item] (MutListBuffer. item true :object))
+  dtype-proto/PToWriter
+  (convertible-to-writer? [item] true)
+  (->writer [item] (dtype-proto/->buffer item))
+  dtype-proto/PToReader
+  (convertible-to-reader? [item] true)
+  (->reader [item] (dtype-proto/->buffer item)))
+
+
+(extend-type MutList$SubMutList
+  dtype-proto/PElemwiseDatatype
+  (elemwise-datatype [buf] :object)
+  dtype-proto/PSubBuffer
+  (sub-buffer [item off len]
+    (.subList item off (+ (int off) (int len))))
+  dtype-proto/PSetConstant
+  (set-constant! [item off elem-count value]
+    (.fillRange item (int off) (+ (int off) (int elem-count)) value))
+  dtype-proto/PClone
+  (clone [this]
+    (.cloneList this))
+  dtype-proto/PToBuffer
+  (convertible-to-buffer? [item] true)
+  (->buffer [item] (MutListBuffer. item true :object))
+  dtype-proto/PToWriter
+  (convertible-to-writer? [item] true)
+  (->writer [item] (dtype-proto/->buffer item))
+  dtype-proto/PToReader
+  (convertible-to-reader? [item] true)
+  (->reader [item] (dtype-proto/->buffer item)))
+
+
+(extend-type ImmutList
+  dtype-proto/PElemwiseDatatype
+  (elemwise-datatype [buf] :object)
+  dtype-proto/PSubBuffer
+  (sub-buffer [item off len]
+    (.subList item off (+ (int off) (int len))))
+  dtype-proto/PClone
+  (clone [this] this)
+  dtype-proto/PToBuffer
+  (convertible-to-buffer? [item] true)
+  (->buffer [item] (MutListBuffer. item false :object))
+  dtype-proto/PToWriter
+  (convertible-to-writer? [item] false)
+  dtype-proto/PToReader
+  (convertible-to-reader? [item] true)
+  (->reader [item] (dtype-proto/->buffer item)))
+
+
+(extend-type ArrayImmutList
+  dtype-proto/PElemwiseDatatype
+  (elemwise-datatype [buf] :object)
+  dtype-proto/PSubBuffer
+  (sub-buffer [item off len]
+    (.subList ^List item off (+ (int off) (int len))))
+  dtype-proto/PClone
+  (clone [this] this)
+  dtype-proto/PToBuffer
+  (convertible-to-buffer? [item] true)
+  (->buffer [item] (MutListBuffer. item false :object))
+  dtype-proto/PToWriter
+  (convertible-to-writer? [item] false)
+  dtype-proto/PToReader
+  (convertible-to-reader? [item] true)
+  (->reader [item] (dtype-proto/->buffer item)))
+
+
+(defrecord ArrayBuffer [ary-data ^long offset ^long n-elems dtype]
+  dtype-proto/PToArrayBuffer
+  (convertible-to-array-buffer? [buf] true)
+  (->array-buffer [buf] buf)
+  dtype-proto/PElemwiseDatatype
+  (elemwise-datatype [buf] dtype)
+  dtype-proto/PECount
+  (ecount [item] n-elems)
+  dtype-proto/PToBuffer
+  (convertible-to-buffer? [item] true)
+  (->buffer [item] (MutListBuffer.
+                    (array-sub-list dtype ary-data offset (+ offset n-elems) (meta item))
+                    true dtype))
+  dtype-proto/PToWriter
+  (convertible-to-writer? [item] true)
+  (->writer [item] (dtype-proto/->buffer item))
+  dtype-proto/PToReader
+  (convertible-to-reader? [item] true)
+  (->reader [item] (dtype-proto/->buffer item)))
 
 
 (casting/add-object-datatype! :array-buffer ArrayBuffer false)
 
 
-(defn- array-buffer->io
-  [ary-data datatype ^ArrayBuffer item offset n-elems]
-  (let [offset (long offset)
-        n-elems (long n-elems)]
-    (case [(dtype-proto/elemwise-datatype ary-data)
-           (casting/un-alias-datatype datatype)]
-      [:boolean :boolean] (java-array-buffer->io :boolean :boolean datatype item
-                                                 ary-data offset n-elems)
-      [:int8 :uint8] (java-array-buffer->io :int8 :uint8 datatype item
-                                            ary-data offset n-elems)
-      [:int8 :int8] (java-array-buffer->io :int8 :int8 datatype item
-                                           ary-data offset n-elems)
-      [:int16 :uint16] (java-array-buffer->io :int16 :uint16 datatype item
-                                              ary-data offset n-elems)
-      [:int16 :int16] (java-array-buffer->io :int16 :int16 datatype item
-                                             ary-data offset n-elems)
-      [:char :char] (java-array-buffer->io :char :char datatype item
-                                           ary-data offset n-elems)
-      [:int32 :uint32] (java-array-buffer->io :int32 :uint32 datatype item
-                                              ary-data offset n-elems)
-      [:int32 :int32] (java-array-buffer->io :int32 :int32 datatype item
-                                             ary-data offset n-elems)
-      [:int64 :uint64] (java-array-buffer->io :int64 :uint64 datatype item
-                                              ary-data offset n-elems)
-      [:int64 :int64] (java-array-buffer->io :int64 :int64 datatype item
-                                             ary-data offset n-elems)
-      [:float32 :float32] (java-array-buffer->io :float32 :float32 datatype item
-                                                 ary-data offset n-elems)
-      [:float64 :float64] (java-array-buffer->io :float64 :float64 datatype item
-                                                 ary-data offset n-elems)
-      (java-array-buffer->io :object :object datatype item ary-data offset n-elems))))
+(defmacro bind-array-list
+  [alist-type ewise-dtype]
+  `(extend-type ~alist-type
+     dtype-proto/PDatatype
+     (datatype [this#] :array-buffer)
+     dtype-proto/PElemwiseDatatype
+     (elemwise-datatype [~'this] ~ewise-dtype)
+     dtype-proto/PElemwiseDatatype
+     (elemwise-datatype [~'this] ~ewise-dtype)
+     dtype-proto/PElemwiseReaderCast
+     (elemwise-reader-cast [this# new-dtype#] this#)
+     dtype-proto/PSubBuffer
+     (sub-buffer [this# offset# length#]
+       (let [offset# (int offset#)
+             length# (int length#)]
+         (.subList this# offset# (+ offset# length#))))
+     dtype-proto/PClone
+     (clone [this#] (.cloneList this#))
+     dtype-proto/PSetConstant
+     (set-constant! [this# offset# elem-count# value#]
+       (let [offset# (int offset#)
+             elem-count# (int elem-count#)]
+         (.fillRange this# offset# (+ offset# elem-count#) value#)))
+     dtype-proto/PToBuffer
+     (convertible-to-buffer? [this#] true)
+     (->buffer [this#]
+       (MutListBuffer. this# true (dtype-proto/elemwise-datatype this#)))
+     dtype-proto/PToWriter
+     (convertible-to-writer? [item#] true)
+     (->writer [item#] (dtype-proto/->buffer item#))
+     dtype-proto/PToReader
+     (convertible-to-reader? [item#] true)
+     (->reader [item#] (dtype-proto/->buffer item#))
+     dtype-proto/PToArrayBuffer
+     (convertible-to-array-buffer? [buf#] true)
+     (->array-buffer [buf#]
+       (let [section# (.getArraySection buf#)
+             sidx# (.-sidx section#)
+             eidx# (.-eidx section#)]
+         (ArrayBuffer. (.-array section#) sidx# (.size section#)
+                       (dtype-proto/elemwise-datatype buf#))))
+     dtype-proto/PCopyRawData
+     (copy-raw->item! [raw-data# ary-target# target-offset# options#]
+       (dtype-proto/copy-raw->item! (dtype-proto/->array-buffer raw-data#)
+                                    ary-target# target-offset# options#))))
+
+
+(bind-array-list ArrayLists$ObjectArraySubList
+                 '(casting/object-class->datatype (.containedType this)))
+(bind-array-list ArrayLists$ObjectArrayList
+                 '(casting/object-class->datatype (.containedType this)))
+(bind-array-list ArrayLists$BooleanArraySubList :boolean)
+(bind-array-list BooleanArrayList :boolean)
+(bind-array-list ArrayLists$ByteArraySubList :int8)
+(bind-array-list ByteArrayList :int8)
+(bind-array-list ArrayLists$ShortArraySubList :int16)
+(bind-array-list ShortArrayList :int16)
+(bind-array-list ArrayLists$CharArraySubList :char)
+(bind-array-list CharArrayList :char)
+(bind-array-list ArrayLists$IntArraySubList :int32)
+(bind-array-list ArrayLists$IntArrayList :int32)
+(bind-array-list ArrayLists$LongArraySubList :int64)
+(bind-array-list ArrayLists$LongArrayList :int64)
+(bind-array-list ArrayLists$FloatArraySubList :float32)
+(bind-array-list FloatArrayList :float32)
+(bind-array-list ArrayLists$DoubleArraySubList :float64)
+(bind-array-list ArrayLists$DoubleArrayList :float64)
+
+
+(defmacro ^:private host->long-uint8
+  [v]
+  `(Byte/toUnsignedInt ~v))
+
+(defmacro ^:private long->host-uint8
+  [v]
+  `(unchecked-byte (casting/datatype->cast-fn :int64 :uint8 ~v)))
+
+(defmacro ^:private object->host-uint8
+  [v]
+  `(long->host-uint8 (Casts/longCast ~v)))
+
+(defmacro ^:private host->long-uint16
+  [v]
+  `(Short/toUnsignedInt ~v))
+
+(defmacro ^:private long->host-uint16
+  [v]
+  `(unchecked-short (casting/datatype->cast-fn :int64 :uint16 ~v)))
+
+(defmacro ^:private object->host-uint16
+  [v]
+  `(long->host-uint16 (Casts/longCast ~v)))
+
+
+(defmacro ^:private host->long-uint32
+  [v]
+  `(Integer/toUnsignedLong ~v))
+
+(defmacro ^:private long->host-uint32
+  [v]
+  `(unchecked-int (casting/datatype->cast-fn :int64 :uint32 ~v)))
+
+(defmacro ^:private object->host-uint32
+  [v]
+  `(long->host-uint32 (Casts/longCast ~v)))
+
+
+(defmacro ^:private host->long-uint64
+  [v]
+  `~v)
+
+(defmacro ^:private long->host-uint64
+  [v]
+  `(unchecked-long (casting/datatype->cast-fn :int64 :uint64 ~v)))
+
+(defmacro ^:private object->host-uint64
+  [v]
+  `(long->host-uint64 (Casts/longCast ~v)))
+
+
+(defmacro make-unsigned-sub-list
+  [list-name ary-type host->long long->host object->host]
+  `(deftype ~list-name
+       [~(with-meta 'data {:tag ary-type})
+        ~(with-meta 'sidx {:tag 'long})
+        ~(with-meta 'n-elems {:tag 'long})
+        ~(with-meta 'm {:tag 'IPersistentMap})]
+     Object
+     (equals [this# other#] (.equiv this# other#))
+     (hashCode [this#] (.hasheq this#))
+     (toString [this#] (Transformables/sequenceToString this#))
+     LongMutList
+     (meta [this#] ~'m)
+     (withMeta [this# newm#] (with-meta (.subList this# 0 ~'n-elems) newm#))
+     (size [this#] ~'n-elems)
+     (getLong [this# idx#]
+       (~host->long (aget ~'data (+ (ArrayLists/checkIndex idx# ~'n-elems) ~'sidx))))
+     (setLong [this# idx# v#]
+       (ArrayHelpers/aset
+        ~'data
+        (+ (ArrayLists/checkIndex idx# ~'n-elems) ~'sidx)
+        (~long->host v#)))
+     (subList [this# ssidx# seidx#]
+       (ChunkedList/sublistCheck ssidx# seidx# ~'n-elems)
+       (~(symbol (str list-name ".")) ~'data (+ ~'sidx ssidx#) (- seidx# ssidx#) ~'m))
+     ArrayLists$ArrayOwner
+     (fill [this# ssidx# seidx# v#]
+       (ArrayLists/checkIndexRange ~'n-elems ssidx# seidx#)
+       (Arrays/fill ~'data (+ ~'sidx ssidx#) (+ ~'sidx seidx#) (~object->host v#)))
+     (copyOfRange [this# ssidx# seidx#]
+       (ArrayLists/checkIndexRange ~'n-elems ssidx# seidx#)
+       (Arrays/copyOfRange ~'data (+ ~'sidx ssidx#) (+ ~'sidx seidx#)))
+     (copyOf [this# len#]
+       (Arrays/copyOfRange ~'data ~'sidx (+ ~'sidx len#)))
+     (getArraySection [this#]
+       (ArraySection. ~'data ~'sidx (+ ~'sidx ~'n-elems)))))
+
+
+(make-unsigned-sub-list UByteArraySubList bytes
+                        host->long-uint8
+                        long->host-uint8
+                        object->host-uint8)
+(bind-array-list UByteArraySubList :uint8)
+
+(make-unsigned-sub-list UShortArraySubList shorts
+                        host->long-uint16
+                        long->host-uint16
+                        object->host-uint16)
+(bind-array-list UShortArraySubList :uint16)
+
+(make-unsigned-sub-list UIntArraySubList ints
+                        host->long-uint32
+                        long->host-uint32
+                        object->host-uint32)
+(bind-array-list UIntArraySubList :uint32)
+
+(make-unsigned-sub-list ULongArraySubList longs
+                        host->long-uint64
+                        long->host-uint64
+                        object->host-uint64)
+(bind-array-list ULongArraySubList :uint64)
+
+
+(definterface IGrowableList
+  (^Object ensureCapacity [^long newlen]))
+
+
+(defmacro make-unsigned-list
+  [lname ary-tag host->long long->host object->host sublname]
+  `(deftype ~lname [~(with-meta 'data {:unsynchronized-mutable true
+                                       :tag ary-tag})
+                    ~(with-meta 'n-elems {:unsynchronized-mutable true
+                                          :tag 'long})
+                    ~(with-meta 'm {:tag 'IPersistentMap})]
+     Object
+     (hashCode [this#] (.hasheq this#))
+     (equals [this# other#] (.equiv this# other#))
+     (toString [this#] (Transformables/sequenceToString this#))
+     IGrowableList
+     (ensureCapacity [this# newlen#]
+       (when (> newlen# (alength ~'data))
+         (set! ~'data (.copyOf this# (ArrayLists/newArrayLen newlen#))))
+       ~'data)
+     LongMutList
+     (meta [this#] ~'m)
+     (withMeta [this# newm#] (with-meta (.subList this# 0 ~'n-elems) newm#))
+     (size [this#] (unchecked-int ~'n-elems))
+     (getLong [this# idx#] (~host->long (aget ~'data (ArrayLists/checkIndex idx# ~'n-elems))))
+     (setLong [this# idx# v#] (ArrayHelpers/aset ~'data
+                                                 (ArrayLists/checkIndex idx# ~'n-elems)
+                                                 (~long->host v#)))
+     (subList [this# sidx# eidx#]
+       (ChunkedList/sublistCheck sidx# eidx# ~'n-elems)
+       (~(symbol (str sublname ".")) ~'data sidx# (- eidx# sidx#) ~'m))
+
+     (addLong [this# v#]
+       (let [curlen# ~'n-elems
+             newlen# (unchecked-inc ~'n-elems)
+             ~(with-meta 'b {:tag ary-tag}) (.ensureCapacity this# newlen#)]
+         (ArrayHelpers/aset ~'b curlen# (~long->host v#))
+         (set! ~'n-elems newlen#)))
+     (add [this# idx# obj#]
+       (ArrayLists/checkIndex idx# ~'n-elems)
+       (if (== idx# ~'n-elems)
+         (.add this# obj#)
+         (let [bval# (~object->host obj#)
+               curlen# ~'n-elems
+               newlen# (unchecked-inc curlen#)
+               ~(with-meta 'd {:tag ary-tag}) (.ensureCapacity this# newlen#)]
+           (System/arraycopy ~'d idx# ~'d (unchecked-inc idx#) (- curlen# idx#))
+           (ArrayHelpers/aset ~'d idx# (~object->host bval#))
+           (set! ~'n-elems newlen#))))
+     (addAllReducible [this# c#]
+       (let [sz# (.size this#)]
+         (cond
+           (instance? RandomAccess c#)
+           (do
+             (let [~(with-meta 'c {:tag 'List}) c#
+                   curlen# ~'n-elems
+                   newlen# (+ curlen# (.size ~'c))]
+               (.ensureCapacity this# newlen#)
+               (set! ~'n-elems newlen#)
+               (.fillRange this# curlen# ~'c)))
+           (instance? IReduceInit c#)
+           (reduce #(do (.add this# %2) %1) this# c#)
+           :else
+           (iterator/doiter obj# c# (.add this# obj#)))
+         (not (== sz# ~'n-elems))))
+     (removeRange [this# sidx# eidx#]
+       (ArrayLists/checkIndexRange ~'n-elems sidx# eidx#)
+       (System/arraycopy ~'data sidx# ~'data eidx# (- ~'n-elems eidx#))
+       (set! ~'n-elems (- ~'n-elems (- eidx# sidx#))))
+     ArrayLists$ArrayOwner
+     (fill [this# sidx# eidx# v#]
+       (ArrayLists/checkIndexRange ~'n-elems sidx# eidx#)
+       (Arrays/fill ~'data sidx# eidx# (~object->host v#)))
+     (copyOfRange [this# sidx# eidx#]
+       (Arrays/copyOfRange ~'data sidx# eidx#))
+     (copyOf [this# len#]
+       (Arrays/copyOf ~'data len#))
+     (getArraySection [this#]
+       (ArraySection. ~'data 0 ~'n-elems))))
+
+
+(make-unsigned-list UByteArrayList bytes host->long-uint8 long->host-uint8
+                    object->host-uint8 UByteArraySubList)
+(bind-array-list UByteArrayList :uint8)
+
+(make-unsigned-list UShortArrayList shorts host->long-uint16 long->host-uint16
+                    object->host-uint16 UShortArraySubList)
+(bind-array-list UShortArrayList :uint16)
+
+(make-unsigned-list UIntArrayList ints host->long-uint32 long->host-uint32
+                    object->host-uint32 UIntArraySubList)
+(bind-array-list UIntArrayList :uint32)
+
+(make-unsigned-list ULongArrayList longs host->long-uint64 long->host-uint64
+                    object->host-uint64 ULongArraySubList)
+(bind-array-list ULongArrayList :uint64)
+
+
+(defn- host-array
+  [dtype ^long n-elems]
+  (case dtype
+    :boolean (clojure.core/boolean-array n-elems)
+    :int8 (clojure.core/byte-array n-elems)
+    :int16 (clojure.core/short-array n-elems)
+    :char (clojure.core/char-array n-elems)
+    :int32 (clojure.core/int-array n-elems)
+    :int64 (clojure.core/long-array n-elems)
+    :float32 (clojure.core/float-array n-elems)
+    :float64 (clojure.core/double-array n-elems)
+    (clojure.core/make-array (or (casting/datatype->object-class dtype) Object) n-elems)))
+
+
+(declare array-list)
+
+
+(defn- ensure-array
+  [item]
+  (when (nil? item) (throw (Exception. "Nil data passed in")))
+  (when-not (.isArray (.getClass ^Object item))
+    (throw (Exception. "Data passed in is not an array")))
+  item)
+
+
+(defn- ensure-datatypes
+  [ary-dtype buf-dtype]
+  (when-not (or (identical? ary-dtype (casting/datatype->host-datatype buf-dtype)))
+    (throw (Exception. (str "Array datatype " ary-dtype " and buffer datatype " buf-dtype
+                            "are not compatible"))))
+  buf-dtype)
+
+
+(defn array-sub-list
+  (^IMutList [dtype] (array-sub-list dtype 0))
+  (^IMutList [dtype data]
+   (let [data (if (number? data) data (hamf/->reducible data))
+         n-elems (cond
+                   (number? data)
+                   (long data)
+                   (instance? RandomAccess data)
+                   (.size ^List data))]
+     (if n-elems
+       (let [src-data (host-array (casting/datatype->host-datatype dtype) n-elems)
+             m (meta data)
+             retval (case dtype
+                        (case dtype
+                          :uint8 (UByteArraySubList. src-data 0 n-elems m)
+                          :uint16 (UShortArraySubList. src-data 0 n-elems m)
+                          :uint32 (UIntArraySubList. src-data 0 n-elems m)
+                          :uint64 (ULongArraySubList. src-data 0 n-elems m)
+                          (ArrayLists/toList src-data)))]
+         (when (instance? RandomAccess data)
+           (.fillRange ^IMutList retval 0 data))
+         retval)
+       (let [alist (array-list dtype data)]
+         (hamf/subvec alist 0)))))
+  (^IMutList [dtype data sidx eidx m]
+   (ensure-datatypes (dtype-proto/elemwise-datatype data) dtype)
+   (case dtype
+     :uint8 (UByteArraySubList. data sidx eidx m)
+     :uint16 (UShortArraySubList. data sidx eidx m)
+     :uint32 (UIntArraySubList. data sidx eidx m)
+     :uint64 (ULongArraySubList. data sidx eidx m)
+     (ArrayLists/toList data (long sidx) (long eidx) ^IPersistentMap m))))
+
+
+(defn array-list
+  (^IMutList [dtype] (array-list dtype 0))
+  (^IMutList [dtype data]
+   (let [data (if (number? data) data (hamf/->reducible data))
+         n-elems (cond (number? data)
+                       (long data)
+                       (instance? RandomAccess data)
+                       (.size ^List data)
+                       :else
+                       4)
+         src-data (host-array (casting/datatype->host-datatype dtype) n-elems)
+         ^IMutList retval (case dtype
+                            :boolean (BooleanArrayList. src-data 0 nil)
+                            :int8 (ByteArrayList. src-data 0 nil)
+                            :uint8 (UByteArrayList. src-data 0 nil)
+                            :int16 (ShortArrayList. src-data 0 nil)
+                            :uint16 (UShortArrayList. src-data 0 nil)
+                            :char (CharArrayList. src-data 0 nil)
+                            :int32 (ArrayLists$IntArrayList. src-data 0 nil)
+                            :uint32 (UIntArrayList. src-data 0 nil)
+                            :int64 (ArrayLists$LongArrayList. src-data 0 nil)
+                            :uint64 (ULongArrayList. src-data 0 nil)
+                            :float32 (FloatArrayList. src-data 0 nil)
+                            :float64 (ArrayLists$DoubleArrayList. src-data 0 nil)
+                            (ArrayLists$ObjectArrayList. src-data 0 nil))]
+     (when-not (number? data)
+       (.addAllReducible retval data))
+     retval)))
+
 
 
 (defn array-buffer
   ([java-ary]
-   (ArrayBuffer. java-ary 0 (dtype-proto/ecount java-ary)
-                 (dtype-proto/elemwise-datatype java-ary)
-                 {}
-                 nil))
+   (array-buffer java-ary (dtype-proto/elemwise-datatype java-ary)))
   ([java-ary buf-dtype]
-   (ArrayBuffer. java-ary 0 (dtype-proto/ecount java-ary) buf-dtype {}
-                 nil)))
+   (let [ary-dtype (dtype-proto/elemwise-datatype java-ary)]
+     (ArrayBuffer. (ensure-array java-ary) 0 (Array/getLength java-ary)
+                   (ensure-datatypes ary-dtype buf-dtype)))))
 
 
 (defn array-buffer->map
@@ -352,8 +577,8 @@
   {:java-array (.ary-data ary-buf)
    :offset (.offset ary-buf)
    :length (.n-elems ary-buf)
-   :datatype (.datatype ary-buf)
-   :metadata (.metadata ary-buf)})
+   :datatype (.dtype ary-buf)
+   :metadata (.meta ary-buf)})
 
 
 (defn is-array-type?
@@ -406,25 +631,20 @@
                     (ArrayBuffer. item# 0
                                   (alength (typecast/datatype->array ~ary-type
                                                                      item#))
-                                  (dtype-proto/elemwise-datatype item#)
-                                  {}
-                                  nil))
+                                  (dtype-proto/elemwise-datatype item#)))
                   dtype-proto/PSubBuffer
                   (sub-buffer [item# off# len#]
-                    (ArrayBuffer. item#
-                                  (int off#)
-                                  (int len#)
-                                  (dtype-proto/elemwise-datatype item#)
-                                  {}
-                                  nil))
+                    (.subList (hamf/->random-access item#) off# (+ (long off#) (long len#))))
+                  dtype-proto/PToBuffer
+                  (convertible-to-buffer? [item#] true)
+                  (->buffer [item#] (MutListBuffer. (hamf/->random-access item#) true
+                                                    (dtype-proto/elemwise-datatype item#)))
                   dtype-proto/PToReader
                   (convertible-to-reader? [item#] true)
-                  (->reader [item#]
-                    (dtype-proto/->reader (array-buffer item#)))
+                  (->reader [item#] (dtype-proto/->buffer item#))
                   dtype-proto/PToWriter
                   (convertible-to-writer? [item#] true)
-                  (->writer [item#]
-                    (dtype-proto/->writer (array-buffer item#)))))))))))
+                  (->writer [item#] (dtype-proto/->buffer item#))))))))))
 
 
 (initial-implement-arrays)

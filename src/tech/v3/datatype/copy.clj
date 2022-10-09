@@ -79,7 +79,7 @@
     (let [ary-buf ^ArrayBuffer item
           ary (.ary-data ary-buf)
           ary-off (* (.offset ary-buf)
-                     (casting/numeric-byte-width (.elemwise-datatype ary-buf)))]
+                     (casting/numeric-byte-width (.datatype ary-buf)))]
       [ary (+ ary-off (array-base-offset ary))])
     (array-buffer/is-array-type? item)
     (array-base-offset item)

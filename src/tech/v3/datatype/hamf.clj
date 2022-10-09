@@ -34,6 +34,10 @@
      (datatype [this#] :array-buffer)
      dtype-proto/PElemwiseDatatype
      (elemwise-datatype [~'this] ~ewise-dtype)
+     dtype-proto/PElemwiseDatatype
+     (elemwise-datatype [~'this] ~ewise-dtype)
+     dtype-proto/PElemwiseReaderCast
+     (elemwise-reader-cast [this# new-dtype#] this#)
      dtype-proto/PSubBuffer
      (sub-buffer [this# offset# length#]
        (.subList this# offset# (+ offset# length#)))

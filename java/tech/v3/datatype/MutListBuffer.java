@@ -9,6 +9,7 @@ import java.util.function.DoubleBinaryOperator;
 import java.util.List;
 import ham_fisted.IMutList;
 import ham_fisted.ArrayLists;
+import ham_fisted.Transformables;
 import clojure.lang.IObj;
 import clojure.lang.IPersistentMap;
 import clojure.lang.IFn;
@@ -37,6 +38,10 @@ public class MutListBuffer implements Buffer {
   public IPersistentMap meta() { return data.meta(); }
   public IObj withMeta(IPersistentMap m) {
     return new MutListBuffer((IMutList)data.withMeta(m), supportsWrite, elemwiseDatatype); }
+  public int hashCode() { return data.hashCode(); }
+  public boolean equals(Object other) { return data.equals(other); }
+  public int hasheq() { return data.hasheq(); }
+  public boolean equiv(Object other) { return data.equiv(other); }
   public String toString() { return data.toString(); }
   public boolean readBoolean(long idx) { return data.getBoolean((int)idx); }
   public byte readByte(long idx) { return (byte)data.getLong((int)idx); }
@@ -58,18 +63,18 @@ public class MutListBuffer implements Buffer {
   public void writeObject(long idx, Object val) { data.set((int)idx, val); }
   public Object get(int idx) { return data.get(idx); }
   public Object set(int idx, Object val) { return data.set(idx, val); }
-  // public void accPlusLong(int idx, long val) {
-  //   data.accPlusLong(idx, val);
-  // }
-  // public void accPlusDouble(int idx, double val) {
-  //   data.accPlusDouble(idx, val);
-  // }
-  // public void accumPlusLong(long idx, long val) {
-  //   data.accPlusLong((int)idx, val);
-  // }
-  // public void accumPlusDouble(long idx, double val) {
-  //   data.accPlusDouble((int)idx, val);
-  // }
+  public void accPlusLong(int idx, long val) {
+    data.accPlusLong(idx, val);
+  }
+  public void accPlusDouble(int idx, double val) {
+    data.accPlusDouble(idx, val);
+  }
+  public void accumPlusLong(long idx, long val) {
+    data.accPlusLong((int)idx, val);
+  }
+  public void accumPlusDouble(long idx, double val) {
+    data.accPlusDouble((int)idx, val);
+  }
   public Object reduce(IFn f) {
     return data.reduce(f);
   }
@@ -79,11 +84,17 @@ public class MutListBuffer implements Buffer {
   public Object kvreduce(IFn f, Object init) {
     return data.kvreduce(f, init);
   }
+  public Object genericReduction(Object rfn, Object init) {
+    return data.genericReduction(rfn, init);
+  }
   public double doubleReduction(DoubleBinaryOperator op, double init) {
     return data.doubleReduction(op, init);
   }
   public long longReduction(LongBinaryOperator op, long init) {
     return data.longReduction(op, init);
+  }
+  public void forEach(Consumer c) {
+    data.forEach(c);
   }
   public void doubleForEach(DoubleConsumer c) {
     data.doubleForEach(c);
