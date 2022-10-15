@@ -36,6 +36,9 @@
 
 
 (extend-type MutListBuffer
+  dtype-proto/PElemwiseReaderCast
+  (elemwise-reader-cast [this new-dtype]
+    (dtype-proto/elemwise-reader-cast (.-data this) new-dtype))
   dtype-proto/PToArrayBuffer
   (convertible-to-array-buffer? [item]
     (dtype-proto/convertible-to-array-buffer? (.-data item)))
@@ -79,6 +82,8 @@
 (extend-type MutList
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [buf] :object)
+  dtype-proto/PElemwiseReaderCast
+  (elemwise-reader-cast [this new-dtype] (dtype-proto/->buffer this))
   dtype-proto/PSubBuffer
   (sub-buffer [item off len]
     (.subList item off (+ (int off) (int len))))
@@ -102,6 +107,8 @@
 (extend-type MutList$SubMutList
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [buf] :object)
+  dtype-proto/PElemwiseReaderCast
+  (elemwise-reader-cast [this new-dtype] (dtype-proto/->buffer this))
   dtype-proto/PSubBuffer
   (sub-buffer [item off len]
     (.subList item off (+ (int off) (int len))))
@@ -125,6 +132,8 @@
 (extend-type ImmutList
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [buf] :object)
+  dtype-proto/PElemwiseReaderCast
+  (elemwise-reader-cast [this new-dtype] (dtype-proto/->buffer this))
   dtype-proto/PSubBuffer
   (sub-buffer [item off len]
     (.subList item off (+ (int off) (int len))))
@@ -146,6 +155,8 @@
   dtype-proto/PSubBuffer
   (sub-buffer [item off len]
     (.subList ^List item off (+ (int off) (int len))))
+  dtype-proto/PElemwiseReaderCast
+  (elemwise-reader-cast [this new-dtype] (dtype-proto/->buffer this))
   dtype-proto/PClone
   (clone [this] this)
   dtype-proto/PToBuffer
@@ -164,6 +175,8 @@
   (->array-buffer [buf] buf)
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [buf] dtype)
+  dtype-proto/PElemwiseReaderCast
+  (elemwise-reader-cast [this new-dtype] (dtype-proto/->buffer this))
   dtype-proto/PECount
   (ecount [item] n-elems)
   dtype-proto/PToBuffer
@@ -171,12 +184,22 @@
   (->buffer [item] (MutListBuffer.
                     (array-sub-list dtype ary-data offset (+ offset n-elems) (meta item))
                     true dtype))
+  dtype-proto/PSubBuffer
+  (sub-buffer [item off len]
+    (let [off (int off)
+          len (int len)
+          alen (Array/getLength ary-data)]
+      (when (> (+ off len) alen)
+        (throw (RuntimeException. (str "Out of range - extent: " (+ off len) " - alength: " alen))))
+      (with-meta (ArrayBuffer. ary-data (+ offset off) len dtype) (meta item))))
   dtype-proto/PToWriter
   (convertible-to-writer? [item] true)
   (->writer [item] (dtype-proto/->buffer item))
   dtype-proto/PToReader
   (convertible-to-reader? [item] true)
-  (->reader [item] (dtype-proto/->buffer item)))
+  (->reader [item] (dtype-proto/->buffer item))
+  dtype-proto/PEndianness
+  (endianness [item] :little-endian))
 
 
 (casting/add-object-datatype! :array-buffer ArrayBuffer false)
@@ -224,7 +247,9 @@
      dtype-proto/PCopyRawData
      (copy-raw->item! [raw-data# ary-target# target-offset# options#]
        (dtype-proto/copy-raw->item! (dtype-proto/->array-buffer raw-data#)
-                                    ary-target# target-offset# options#))))
+                                    ary-target# target-offset# options#))
+     dtype-proto/PEndianness
+     (endianness [item#] :little-endian)))
 
 
 (defn ^:private obj-cls->dtype
@@ -522,12 +547,13 @@
          (hamf/subvec alist 0)))))
   (^IMutList [dtype data sidx eidx m]
    (ensure-datatypes (dtype-proto/elemwise-datatype data) dtype)
-   (case dtype
-     :uint8 (UByteArraySubList. data sidx eidx m)
-     :uint16 (UShortArraySubList. data sidx eidx m)
-     :uint32 (UIntArraySubList. data sidx eidx m)
-     :uint64 (ULongArraySubList. data sidx eidx m)
-     (ArrayLists/toList data (long sidx) (long eidx) ^IPersistentMap m))))
+   (let [ne (- (long eidx) (long sidx))]
+     (case dtype
+       :uint8 (UByteArraySubList. data sidx ne m)
+       :uint16 (UShortArraySubList. data sidx ne m)
+       :uint32 (UIntArraySubList. data sidx ne m)
+       :uint64 (ULongArraySubList. data sidx ne m)
+       (ArrayLists/toList data (long sidx) (long eidx) ^IPersistentMap m)))))
 
 
 (defn array-list
@@ -640,16 +666,16 @@
                             (.getClass)
                             (.getComponentType)
                             (casting/object-class->datatype))))
+                  dtype-proto/PElemwiseReaderCast
+                  (elemwise-reader-cast [this# new-dtype#] (dtype-proto/->buffer this#))
                   dtype-proto/PDatatype
                   (datatype [item#] ~ary-dtype)
                   dtype-proto/PECount
                   (ecount [item#]
                     (alength
                      (typecast/datatype->array ~ary-type item#)))
-                  ;;Java stores array data in memory as big-endian.  Holdover
-                  ;;from Sun Spark architecture.
                   dtype-proto/PEndianness
-                  (endianness [item#] :big-endian)
+                  (endianness [item#] :little-endian)
                   dtype-proto/PToArrayBuffer
                   (convertible-to-array-buffer? [item#] true)
                   (->array-buffer [item#]

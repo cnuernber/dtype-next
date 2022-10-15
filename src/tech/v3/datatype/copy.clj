@@ -193,9 +193,9 @@
 (extend-type ArrayBuffer
   dtype-proto/PCopyRawData
   (copy-raw->item! [raw-data ary-target target-offset options]
-    [(copy! raw-data (dtype-proto/sub-buffer ary-target target-offset (.n-elems raw-data))
-            (get options :unchecked?))
-     (+ (long target-offset) (.n-elems raw-data))]))
+    (copy! raw-data (dtype-proto/sub-buffer ary-target target-offset (.n-elems raw-data))
+           (get options :unchecked?))
+    [ary-target (+ (long target-offset) (.n-elems raw-data))]))
 
 
 (comment

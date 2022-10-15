@@ -7,8 +7,12 @@
             [tech.v3.datatype.array-buffer :as array-buffer]
             [tech.v3.datatype.native-buffer :as native-buffer]
             [tech.v3.datatype.casting :as casting]
-            [tech.v3.datatype.reductions :as reductions])
-  (:import [tech.v3.datatype.array_buffer ArrayBuffer]))
+            [tech.v3.datatype.reductions :as reductions]
+            [tech.v3.datatype.argtypes :as argtypes]
+            [ham-fisted.lazy-noncaching :as lznc])
+  (:import [tech.v3.datatype.array_buffer ArrayBuffer]
+           [org.apache.commons.math3.exception NotANumberException]
+           [ham_fisted IMutList]))
 
 
 (defn copy!
@@ -27,7 +31,12 @@
   (errors/when-not-error
    elem-seq-or-count
    "nil elem-seq-or-count passed into make-container")
-  (array-buffer/array-sub-list datatype elem-seq-or-count))
+  (if (#{:scalar :iterable} (argtypes/arg-type elem-seq-or-count))
+    (array-buffer/array-sub-list datatype elem-seq-or-count)
+    (let [rdr (dtype-base/->reader elem-seq-or-count)
+          data (array-buffer/array-sub-list datatype (.lsize rdr))]
+      (copy! elem-seq-or-count data options)
+      data)))
 
 
 (defmethod dtype-proto/make-container :java-array
@@ -96,6 +105,23 @@
                                  elem-seq-or-count))))
 
 
+(defn- apply-nan-strat
+  [datatype nan-strategy data]
+  (if (or (identical? datatype :float32)
+          (identical? datatype :float64))
+    (case (or nan-strategy :keep)
+      :keep data
+      :remove (lznc/filter (fn [^double v]
+                             (not (Double/isNaN v)))
+                           data)
+      :exception (lznc/map (fn ^double [^double v]
+                             (when-not (Double/isNaN v)
+                               (throw (NotANumberException.)))
+                             v)
+                           data))
+    data))
+
+
 (defn ->array-buffer
   "Perform a NaN-aware conversion into an array buffer.  Default
   nan-strategy is :keep.
@@ -108,20 +134,12 @@
   (^ArrayBuffer [datatype {:keys [nan-strategy]
                            :or {nan-strategy :keep}
                            :as _options} item]
-   (let [nan-strategy (if (or (= datatype :float32)
-                              (= datatype :float64))
-                        nan-strategy
-                        :keep)]
-     (if (= nan-strategy :keep)
-       (if (and (= datatype (dtype-base/elemwise-datatype item))
-                (dtype-base/as-array-buffer item))
-         (dtype-base/as-array-buffer item)
-         (make-container datatype item))
-       (->> (reductions/reader->double-spliterator (dtype-base/->reader
-                                                    item
-                                                    :float64)
-                                                   nan-strategy)
-            (make-container datatype)))))
+   (let [item (apply-nan-strat datatype nan-strategy item)
+         data (if (and (= datatype (dtype-base/elemwise-datatype item))
+                       (dtype-base/as-array-buffer item))
+                (dtype-base/as-array-buffer item)
+                (make-container datatype item))]
+     (dtype-proto/->array-buffer data)))
   (^ArrayBuffer [datatype item]
    (->array-buffer datatype nil item))
   (^ArrayBuffer [item]
@@ -139,13 +157,15 @@
    (errors/when-not-error
     item
     "nil value passed into ->array")
-   (let [options (assoc options :nan-strategy nan-strategy)
-         array-buffer (->array-buffer datatype options item)]
-     (if (and (== (.offset array-buffer) 0)
-              (== (.n-elems array-buffer)
-                  (dtype-base/ecount (.ary-data array-buffer))))
-       (.ary-data array-buffer)
-       (.ary-data ^ArrayBuffer (make-container :jvm-heap datatype array-buffer)))))
+   (let [item (apply-nan-strat datatype nan-strategy item)
+         abuf (dtype-base/as-array-buffer item)]
+     (if (and abuf
+              (identical? (.-dtype abuf) datatype)
+              (== (.-offset abuf) 0)
+              (== (.-n-elems abuf)
+                  (dtype-base/ecount (.-ary-data abuf))))
+       (.-ary-data abuf)
+       (.toNativeArray ^IMutList (make-container :jvm-heap datatype item)))))
   ([datatype item]
    (->array datatype nil item))
   (^ArrayBuffer [item]

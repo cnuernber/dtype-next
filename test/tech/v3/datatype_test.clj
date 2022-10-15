@@ -1,6 +1,7 @@
 (ns tech.v3.datatype-test
   (:require [clojure.test :refer [deftest is testing]]
             [tech.v3.datatype :as dtype]
+            [tech.v3.datatype.nio-buffer :as nio-buffer]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.parallel.for :as parallel-for]
@@ -9,7 +10,8 @@
             [tech.v3.datatype.rolling :as rolling]
             [tech.v3.datatype.gradient :as dt-grad]
             [tech.v3.datatype.wavelet]
-            [tech.v3.datatype.datetime])
+            [tech.v3.datatype.datetime]
+            [ham-fisted.lazy-noncaching :as lznc])
   (:import [java.nio FloatBuffer]
            [java.util ArrayList]))
 
@@ -28,7 +30,7 @@
           (str [src-ctype dest-ctype src-dtype dst-dtype]))
       (is (= 10 (dtype/ecount buf))))
     (catch Throwable e
-      (throw (ex-info (str [src-ctype dest-ctype src-dtype dst-dtype])
+      (throw (ex-info (str src-ctype "<" src-dtype ">, " dest-ctype "<" dst-dtype ">")
                       {:error e}))
       (throw e))))
 
@@ -57,23 +59,21 @@
         ;;where we don't want to allocate dynamically an entire batch worth of data
         ;;every time but copy one image at a time into the packed buffer for upload
         ;;to the gpu.
-        double-array-seq (map (fn [data]
-                                (dtype/copy-raw->item! data input-ary 0)
-                                input-ary)
-                              input-seq)
+        double-array-seq (lznc/map (fn [data]
+                                     (dtype/copy-raw->item! data input-ary 0)
+                                     input-ary)
+                                   input-seq)
         output-doubles (double-array 100)]
     (dtype/copy-raw->item! double-array-seq output-doubles 0)
     (is (= (vec output-doubles) (mapv double (flatten input-seq))))))
 
 
 (deftest array-of-array-support
-  (let [^"[[D" src-data (make-array (Class/forName "[D") 5)
-        _ (doseq [idx (range 5)]
-            (aset src-data idx (double-array (repeat 10 idx))))
-        dst-data (float-array (* 5 10))]
+  (let [src-data (into-array (repeat 10 (double-array (range 10))))
+        dst-data (float-array 100)]
     ;;This should not hit any slow paths.
     (dtype/copy-raw->item! src-data dst-data 0)
-    (is (= (vec (float-array (flatten (map #(repeat 10 %) (range 5)))))
+    (is (= (vec (apply concat src-data))
            (vec dst-data)))))
 
 
@@ -131,7 +131,6 @@
 
           dtype-copy (fn []
                        (dtype/copy! src-nbuf dst-nbuf num-items))
-
 
           make-array (fn []
                        (dtype/make-container :java-array :float32 dst-buf))

@@ -438,7 +438,7 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
 
 
 (defn- inner-buffer-sub-buffer
-  [buf ^long offset ^Long len]
+  [buf ^long offset ^long len]
   (when-let [data-buf (as-concrete-buffer buf)]
     (with-meta
       (sub-buffer data-buf offset len)
