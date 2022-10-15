@@ -147,10 +147,10 @@ public class MutListBuffer implements Buffer, Cloneable {
   public Object genericReduction(Object rfn, Object init) {
     return data.genericReduction(rfn, init);
   }
-  public double doubleReduction(DoubleBinaryOperator op, double init) {
+  public Object doubleReduction(IFn.ODO op, Object init) {
     return data.doubleReduction(op, init);
   }
-  public long longReduction(LongBinaryOperator op, long init) {
+  public Object longReduction(IFn.OLO op, Object init) {
     return data.longReduction(op, init);
   }
   public void forEach(Consumer c) {

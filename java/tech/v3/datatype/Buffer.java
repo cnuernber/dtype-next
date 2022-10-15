@@ -111,30 +111,20 @@ public interface Buffer extends DatatypeBase, IMutList
     return init;
   }
 
-  default double doubleReduction(DoubleBinaryOperator op, double init) {
+  default Object doubleReduction(IFn.ODO op, Object init) {
     final long sz = size();
-    for(long idx = 0; idx < sz; ++idx)
-      init = op.applyAsDouble(init, readDouble(idx));
+    for(long idx = 0; idx < sz && !RT.isReduced(init); ++idx)
+      init = op.invokePrim(init, readDouble(idx));
     return init;
   }
 
-  default long longReduction(LongBinaryOperator op, long init) {
+  default Object longReduction(IFn.OLO op, Object init) {
     final long sz = size();
-    for(long idx = 0; idx < sz; ++idx)
-      init = op.applyAsLong(init, readLong(idx));
+    for(long idx = 0; idx < sz && !RT.isReduced(init); ++idx)
+      init = op.invokePrim(init, readLong(idx));
     return init;
   }
 
-  default public void doubleForEach(DoubleConsumer c) {
-    final long sz = lsize();
-    for (long idx = 0; idx < sz; ++idx)
-      c.accept(readDouble(idx));
-  }
-  default public void longForEach(LongConsumer c) {
-    final long sz = size();
-    for (long idx = 0; idx < sz; ++idx)
-      c.accept(readLong(idx));
-  }
   default DoubleStream doubleStream() {
     return StreamSupport.doubleStream(new BufferDoubleSpliterator(this, 0, lsize(), null),false);
   }

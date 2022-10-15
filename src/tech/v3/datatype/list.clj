@@ -6,11 +6,12 @@
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.pprint :as dtype-pp]
-            [tech.v3.datatype.array-buffer])
-  (:import [tech.v3.datatype Buffer]
+            [tech.v3.datatype.array-buffer :as array-buffer]
+            [ham-fisted.api :as hamf])
+  (:import [tech.v3.datatype Buffer MutListBuffer]
            [tech.v3.datatype.array_buffer IGrowableList]
            [clojure.lang IObj Counted IFn]
-           [ham_fisted ArrayLists]
+           [ham_fisted ArrayLists IMutList]
            [java.util List]))
 
 
@@ -108,42 +109,32 @@
   (addAllReducible [item coll]
     (if-let [data-buf (dtype-base/as-buffer coll)]
       (let [item-ecount (.lsize data-buf)
+            nelems (.lsize item)
             new-buf (.ensureCapacity item (+ ptr item-ecount))]
         (if (> item-ecount 256)
           (do
-            (dtype-cmc/copy! data-buf (dtype-base/sub-buffer ))
+            (dtype-cmc/copy! data-buf (dtype-base/sub-buffer item nelems (+ nelems item-ecount)))
             (set! ptr (+ ptr item-ecount)))
-          (parallel-for/doiter val coll (.add item val))))
-      (parallel-for/doiter val coll (.add item val)))
+          (hamf/fast-reduce (fn [^IMutList lhs rhs]
+                              (.add lhs rhs)
+                              lhs)
+                            item
+                            coll)))
+      (hamf/fast-reduce (fn [^IMutList lhs rhs]
+                          (.add lhs rhs)
+                          lhs)
+                        item
+                        coll))
     true)
   IObj
   (meta [_item] metadata)
   (withMeta [_item metadata]
     (ListImpl. buffer capacity ptr cached-io metadata))
-  Counted
-  (count [_item] (int ptr))
-  (nth [item idx]
-    (let [idx (if (< idx 0) (+ (.size item) idx) idx)]
-      (.readObject item idx)))
-  (nth [item idx def-val]
-    (let [idx (long (if (< idx 0) (+ (.size item) idx) idx))]
-      (if (and (>= idx 0) (< idx (.size item)))
-        (.readObject item idx)
-        def-val)))
-  IFn
-  (invoke [item idx]
-    (.nth item (int idx)))
-  (invoke [item idx value]
-    (let [idx (long idx)]
-      (check-idx idx ptr)
-      (.writeObject item idx value)))
-  (applyTo [item argseq]
-    (case (count argseq)
-      1 (.invoke item (first argseq))
-      2 (.invoke item (first argseq) (second argseq))))
   Object
   (toString [buffer]
-    (list->string buffer)))
+    (list->string buffer))
+  (equals [this other] (.equiv this other))
+  (hashCode [this] (.hasheq this)))
 
 
 (dtype-pp/implement-tostring-print ListImpl)
@@ -156,10 +147,13 @@
   "Make a new primitive list out of a container and a ptr that indicates the
   current write position."
   (^Buffer [initial-container ^long ptr]
-   (let [rw (dtype-base/->reader initial-container)]
-     (ListImpl. initial-container (dtype-base/ecount initial-container) ptr rw {})))
+   (if (dtype-proto/convertible-to-array-buffer? initial-container)
+     (MutListBuffer. (array-buffer/as-growable-list initial-container ptr) true
+                     (dtype-proto/elemwise-datatype initial-container))
+     (let [rw (dtype-base/->reader initial-container)]
+       (ListImpl. initial-container (dtype-base/ecount initial-container) ptr rw {}))))
   (^Buffer [datatype]
-   (make-list (dtype-cmc/make-container datatype 16) 0)))
+   (MutListBuffer. (array-buffer/array-list datatype) true datatype)))
 
 
 (defn wrap-container

@@ -417,8 +417,7 @@
            (set! ~'n-elems newlen#))))
      (addAllReducible [this# c#]
        (let [sz# (.size this#)]
-         (cond
-           (instance? RandomAccess c#)
+         (if (instance? RandomAccess c#)
            (do
              (let [~(with-meta 'c {:tag 'List}) c#
                    curlen# ~'n-elems
@@ -426,10 +425,10 @@
                (.ensureCapacity this# newlen#)
                (set! ~'n-elems newlen#)
                (.fillRange this# curlen# ~'c)))
-           (instance? IReduceInit c#)
-           (reduce #(do (.add this# %2) %1) this# c#)
-           :else
-           (iterator/doiter obj# c# (.add this# obj#)))
+           (Transformables/longReduce (fn [^IMutList lhs# ^long rhs#]
+                                        (.addLong lhs# rhs#)
+                                        lhs#)
+                                      this# c#))
          (not (== sz# ~'n-elems))))
      (removeRange [this# sidx# eidx#]
        (ArrayLists/checkIndexRange ~'n-elems sidx# eidx#)
@@ -532,7 +531,7 @@
 
 
 (defn array-list
-  (^IMutList [dtype] (array-list dtype 0))
+  (^IMutList [dtype] (array-list dtype 4))
   (^IMutList [dtype data]
    (let [data (if (number? data) data (hamf/->reducible data))
          n-elems (cond (number? data)
@@ -559,6 +558,31 @@
      (when-not (number? data)
        (.addAllReducible retval data))
      retval)))
+
+
+(defn as-growable-list
+  ^IMutList [data ^long ptr]
+  (when-not (dtype-proto/convertible-to-array-buffer? data)
+    (throw (RuntimeException. "Buffer not convertible to array buffer")))
+  (let [^ArrayBuffer abuf (dtype-proto/->array-buffer data)]
+    (when-not (== 0 (.-offset abuf))
+      (throw (RuntimeException. "Only non-sub-buffer containers can become growable lists.")))
+    (when-not (<= ptr (.-n-elems abuf))
+      (throw (RuntimeException. "ptr out of range of buffer size")))
+    (case (dtype-proto/elemwise-datatype abuf)
+      :boolean (BooleanArrayList. (.-ary-data abuf) ptr (meta data))
+      :int8 (ByteArrayList. (.-ary-data abuf) ptr (meta data))
+      :uint8 (UByteArrayList. (.-ary-data abuf) ptr (meta data))
+      :int16 (ShortArrayList. (.-ary-data abuf) ptr (meta data))
+      :uint16 (UShortArrayList. (.-ary-data abuf) ptr (meta data))
+      :char (CharArrayList. (.-ary-data abuf) ptr (meta data))
+      :int32 (ArrayLists$IntArrayList. (.-ary-data abuf) ptr (meta data))
+      :uint32 (UIntArrayList. (.-ary-data abuf) ptr (meta data))
+      :int64 (ArrayLists$LongArrayList. (.-ary-data abuf) ptr (meta data))
+      :uint64 (ULongArrayList. (.-ary-data abuf) ptr (meta data))
+      :float32 (FloatArrayList. (.-ary-data abuf) ptr (meta data))
+      :float64 (ArrayLists$DoubleArrayList. (.-ary-data abuf) ptr (meta data))
+      (ArrayLists$ObjectArrayList. (.-ary-data abuf) ptr (meta data)))))
 
 
 
@@ -737,10 +761,24 @@
                                 len))))
 
 
-(extend-type (Class/forName "[B")
-  dtype-proto/PToBinaryBuffer
+(extend-protocol dtype-proto/PToBinaryBuffer
+  (Class/forName "[B")
   (convertible-to-binary-buffer? [ary] true)
   (->binary-buffer [ary]
     (ByteArrayBinaryBufferLE. ary
                               (dtype-proto/->buffer ary)
-                              0 (alength ^bytes ary))))
+                              0 (alength ^bytes ary)))
+  ArrayLists$ByteArraySubList
+  (convertible-to-binary-buffer? [ary] true)
+  (->binary-buffer [ary]
+    (let [section (.getArraySection ary)]
+      (ByteArrayBinaryBufferLE. (.-array section)
+                                (dtype-proto/->buffer ary)
+                                (.-sidx section) (.size section))))
+  ByteArrayList
+  (convertible-to-binary-buffer? [ary] true)
+  (->binary-buffer [ary]
+    (let [section (.getArraySection ary)]
+      (ByteArrayBinaryBufferLE. (.-array section)
+                                (dtype-proto/->buffer ary)
+                                (.-sidx section) (.size section)))))

@@ -195,9 +195,9 @@
 
 (defn bool-reader->indexes
   "Given a reader, produce a filtered list of indexes filtering out 'false' values."
-  (^{:tag tech.v3.datatype.PrimitiveList} [options bool-item]
+  (^{:tag tech.v3.datatype.Buffer} [options bool-item]
   (tech.v3.datatype.unary-pred/bool-reader->indexes options bool-item))
-  (^{:tag tech.v3.datatype.PrimitiveList} [bool-item]
+  (^{:tag tech.v3.datatype.Buffer} [bool-item]
   (tech.v3.datatype.unary-pred/bool-reader->indexes bool-item)))
 
 

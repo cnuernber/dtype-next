@@ -424,9 +424,9 @@ user> (dt/make-list :float32 (range 10))
 #list<float32>[10]
 [0.000, 1.000, 2.000, 3.000, 4.000, 5.000, 6.000, 7.000, 8.000, 9.000]
 ```"
-  (^{:tag tech.v3.datatype.PrimitiveList} [datatype n-elems-or-data]
+  (^{:tag tech.v3.datatype.Buffer} [datatype n-elems-or-data]
   (tech.v3.datatype-api/make-list datatype n-elems-or-data))
-  (^{:tag tech.v3.datatype.PrimitiveList} [datatype]
+  (^{:tag tech.v3.datatype.Buffer} [datatype]
   (tech.v3.datatype-api/make-list datatype)))
 
 
@@ -470,7 +470,7 @@ user> (dtype/make-reader :float32 5 (* idx 2))
   a compilation error if older versions of dtype-next are included and is
   the equivalent (in latest versions of dtype-next) to
   `(make-list datatype n-elems)`."
-  (^{:tag tech.v3.datatype.PrimitiveList} [datatype n-elems]
+  (^{:tag tech.v3.datatype.Buffer} [datatype n-elems]
   (tech.v3.datatype-api/prealloc-list datatype n-elems)))
 
 

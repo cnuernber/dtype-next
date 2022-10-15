@@ -21,7 +21,6 @@
             Comparators$LongComp
             Comparators$DoubleComp
             BinaryPredicate
-            PrimitiveList
             IndexReduction
             Buffer
             UnaryOperator BinaryOperator
@@ -528,9 +527,9 @@
   (if-not (= :bitmap storage-datatype)
     (reify IndexReduction
       (reduceIndex [this batch-data ctx idx]
-        (let [^PrimitiveList ctx (if ctx
-                                   ctx
-                                   (unary-pred/make-index-list storage-datatype))]
+        (let [^Buffer ctx (if ctx
+                            ctx
+                            (unary-pred/make-index-list storage-datatype))]
           (.addLong ctx idx)
           ctx))
       (reduceReductions [this lhs-ctx rhs-ctx]

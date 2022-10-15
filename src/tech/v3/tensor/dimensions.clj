@@ -10,10 +10,11 @@
             [tech.v3.datatype.index-algebra :as idx-alg]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
+            [tech.v3.datatype.array-buffer :as abuf]
             [tech.v3.datatype.errors
              :refer [when-not-error]
              :as errors])
-  (:import [tech.v3.datatype Buffer PrimitiveList ObjectReader
+  (:import [tech.v3.datatype Buffer ObjectReader
             LongReader LongNDReader ListPersistentVector]
            [java.util List]))
 
@@ -247,7 +248,7 @@
         offsets (dtype-base/->reader offsets)
         addr (int addr)
         n-elems (.lsize strides)
-        ^PrimitiveList retval (dtype-cmc/make-container :list :int32 0)]
+        retval (abuf/array-list :int32)]
     (loop [idx 0
            addr addr]
       (if (< idx n-elems)
