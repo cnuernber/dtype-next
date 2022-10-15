@@ -7,6 +7,9 @@ import java.util.function.DoubleConsumer;
 import java.util.function.LongBinaryOperator;
 import java.util.function.DoubleBinaryOperator;
 import java.util.List;
+import java.util.Comparator;
+import java.util.Collection;
+import java.util.Random;
 import ham_fisted.IMutList;
 import ham_fisted.ArrayLists;
 import ham_fisted.Transformables;
@@ -15,9 +18,15 @@ import clojure.lang.IPersistentMap;
 import clojure.lang.IFn;
 import clojure.lang.IDeref;
 import clojure.lang.Keyword;
+import it.unimi.dsi.fastutil.objects.ObjectArrays;
+import it.unimi.dsi.fastutil.ints.IntArrays;
+import it.unimi.dsi.fastutil.ints.IntComparator;
+import it.unimi.dsi.fastutil.longs.LongComparator;
+import it.unimi.dsi.fastutil.floats.FloatComparator;
+import it.unimi.dsi.fastutil.doubles.DoubleComparator;
 
 
-public class MutListBuffer implements Buffer {
+public class MutListBuffer implements Buffer, Cloneable {
   public final IMutList data;
   public final boolean supportsWrite;
   public final Keyword elemwiseDatatype;
@@ -27,17 +36,24 @@ public class MutListBuffer implements Buffer {
     supportsWrite = _supportsWrite;
     elemwiseDatatype = ewiseDt;
   }
+  MutListBuffer(MutListBuffer other, Object _data) {
+    data = (IMutList)_data;
+    supportsWrite = other.supportsWrite;
+    elemwiseDatatype = other.elemwiseDatatype;
+  }
   public boolean allowsRead() { return true; }
   public boolean allowsWrite() { return supportsWrite; }
   public Object elemwiseDatatype () { return elemwiseDatatype; }
   public List subList(int sidx, int eidx) {
-    return new MutListBuffer((IMutList)data.subList(sidx, eidx), supportsWrite, elemwiseDatatype);
+    return new MutListBuffer(this, (IMutList)data.subList(sidx, eidx));
   }
-  public IMutList cloneList() { return new MutListBuffer((IMutList)data.cloneList(), supportsWrite, elemwiseDatatype); }
+  public IMutList cloneList() { return new MutListBuffer(this, data.cloneList()); }
+  public Object clone() { return cloneList(); }
   public long lsize() { return data.size(); }
   public IPersistentMap meta() { return data.meta(); }
   public IObj withMeta(IPersistentMap m) {
-    return new MutListBuffer((IMutList)data.withMeta(m), supportsWrite, elemwiseDatatype); }
+    return new MutListBuffer(this, data.withMeta(m));
+  }
   public int hashCode() { return data.hashCode(); }
   public boolean equals(Object other) { return data.equals(other); }
   public int hasheq() { return data.hasheq(); }
@@ -63,6 +79,50 @@ public class MutListBuffer implements Buffer {
   public void writeObject(long idx, Object val) { data.set((int)idx, val); }
   public Object get(int idx) { return data.get(idx); }
   public Object set(int idx, Object val) { return data.set(idx, val); }
+  public void setBoolean(int idx, boolean v) { data.setBoolean(idx, v); }
+  public void setLong(int idx, long v) { data.setLong(idx, v);; }
+  public void setDouble(int idx, double v) { data.setDouble(idx, v); }
+  public boolean getBoolean(int idx) { return data.getBoolean(idx); }
+  public long getLong(int idx) { return data.getLong(idx); }
+  public double getDouble(int idx) { return data.getDouble(idx); }
+  public boolean add(Object v) { return data.add(v); }
+  public void add(int idx, Object v) { data.add(idx, v); }
+  public void addBoolean(boolean v) { data.addBoolean(v); }
+  public void addLong(long v) { data.addLong(v); }
+  public void addDouble(double v) { data.addDouble(v); }
+  public boolean addAll(Collection c) {
+    return data.addAll(c);
+  }
+  @SuppressWarnings("unchecked")
+  public boolean addAllReducible(Object obj) {
+    return data.addAllReducible(obj);
+  }
+  public void removeRange(int startidx, int endidx) {
+    data.removeRange(startidx, endidx);
+  }
+  @SuppressWarnings("unchecked")
+  public void fillRange(int startidx, final int endidx, Object v) {
+    data.fillRange(startidx, endidx, v);
+  }
+  @SuppressWarnings("unchecked")
+  public void fillRange(int startidx, List v) {
+    data.fillRange(startidx, v);
+  }
+  public Object toNativeArray() { return data.toNativeArray(); }
+  public int[] toIntArray() { return data.toIntArray(); }
+  public long[] toLongArray() { return data.toLongArray(); }
+  public float[] toFloatArray() { return data.toFloatArray(); }
+  public double[] toDoubleArray() { return data.toDoubleArray(); }
+  public IntComparator indexComparator() { return data.indexComparator(); }
+  public IntComparator indexComparator(Comparator c) { return data.indexComparator(c); }
+  public int[] sortIndirect(Comparator c) { return data.sortIndirect(c); }
+  public void sort(Comparator c) { data.sort(c); }
+  public List immutSort(Comparator c) { return new MutListBuffer( this, data.immutSort(c) ); }
+  public void shuffle(Random r) { data.shuffle(r); }
+  public List immutShuffle(Random r) { return new MutListBuffer( this, data.immutShuffle(r) ); }
+  public List reindex(int[] indexes) { return new MutListBuffer( this, data.reindex(indexes) ); }
+  public int binarySearch(Object v, Comparator c) { return data.binarySearch(v, c); }
+  public List reverse() { return new MutListBuffer(this, data.reverse()); }
   public void accPlusLong(int idx, long val) {
     data.accPlusLong(idx, val);
   }

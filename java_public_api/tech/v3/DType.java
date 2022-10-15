@@ -451,8 +451,8 @@ public class DType {
    * This object has fast conversions to buffers, fast copy semantics, and fast append
    * semantics.
    */
-  public static PrimitiveList makeList(Object dtype) {
-    return (PrimitiveList)makeListFn.invoke(dtype);
+  public static Buffer makeList(Object dtype) {
+    return (Buffer)makeListFn.invoke(dtype);
   }
   /**
    * Elemwentwise-map a function create a new lazy buffer.  Operations are performed upon

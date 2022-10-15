@@ -5,7 +5,8 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.protocols :as dtype-proto]
-            [tech.v3.datatype.errors :as errors])
+            [tech.v3.datatype.errors :as errors]
+            [ham-fisted.api :as hamf])
   (:import [sun.misc Unsafe]
            [tech.v3.datatype.native_buffer NativeBuffer]
            [tech.v3.datatype ArrayHelpers]
@@ -79,7 +80,7 @@
     (let [ary-buf ^ArrayBuffer item
           ary (.ary-data ary-buf)
           ary-off (* (.offset ary-buf)
-                     (casting/numeric-byte-width (.datatype ary-buf)))]
+                     (casting/numeric-byte-width (.dtype ary-buf)))]
       [ary (+ ary-off (array-base-offset ary))])
     (array-buffer/is-array-type? item)
     (array-base-offset item)
@@ -94,27 +95,10 @@
         [dst dst-off] (unpack-copy-item dst-buf)
         byte-width (casting/numeric-byte-width
                     (casting/un-alias-datatype src-dt))]
-    (if (< n-elems 1024)
-      (.copyMemory (native-buffer/unsafe)
-                   src (long src-off)
-                   dst (long dst-off)
-                   (* n-elems byte-width))
-      (parallel-for/indexed-map-reduce
-       n-elems
-       (fn [^long start-idx ^long group-len]
-         (let [[src src-off] (unpack-copy-item
-                              (dtype-base/sub-buffer src-buf
-                                                     start-idx group-len))
-               [dst dst-off] (unpack-copy-item
-                              (dtype-base/sub-buffer dst-buf
-                                                     start-idx group-len))]
-           (.copyMemory (native-buffer/unsafe)
-                        src (long src-off)
-                        dst (long dst-off)
-                        (* group-len byte-width))))))))
-
-
-(defonce fast-copy-fn* (atom unsafe-copy-memory))
+    (.copyMemory (native-buffer/unsafe)
+                 src (long src-off)
+                 dst (long dst-off)
+                 (* n-elems byte-width))))
 
 
 (defn high-perf-copy!
@@ -150,22 +134,12 @@
               (instance? ArrayBuffer dst-buf))
          (let [^ArrayBuffer src src-buf
                ^ArrayBuffer dst dst-buf]
-           (if (< n-elems (* 1024 1024))
-             (do
-               (System/arraycopy (.ary-data src) (.offset src)
-                                 (.ary-data dst) (.offset dst)
-                                 (.n-elems src)))
-             (do
-               ;;Parallelize the copy op.
-               (parallel-for/indexed-map-reduce
-                n-elems
-                (fn [^long start-idx ^long group-len]
-                  (System/arraycopy (.ary-data src) (+ (.offset src) start-idx)
-                                    (.ary-data dst) (+ (.offset dst) start-idx)
-                                    group-len))))))
+           (System/arraycopy (.ary-data src) (.offset src)
+                             (.ary-data dst) (.offset dst)
+                             (.n-elems src)))
          (= (dtype-proto/endianness src-buf)
             (dtype-proto/endianness dst-buf))
-         (@fast-copy-fn* src-buf dst-buf src-dt n-elems)
+         (unsafe-copy-memory src-buf dst-buf src-dt n-elems)
          :else
          (generic-copy! src dst))
        dst)))
@@ -183,9 +157,9 @@
    (let [src-dtype (dtype-base/elemwise-datatype src)
          dst-dtype (dtype-base/elemwise-datatype dst)
          equal-dtype? (if unchecked?
-                        (= (casting/host-flatten src-dtype)
-                           (casting/host-flatten dst-dtype))
-                        (= src-dtype dst-dtype))
+                        (identical? (casting/host-flatten src-dtype)
+                                    (casting/host-flatten dst-dtype))
+                        (identical? src-dtype dst-dtype))
          src-buf (or (dtype-base/as-array-buffer src)
                      (dtype-base/as-native-buffer src))
          dst-buf (or (dtype-base/as-array-buffer dst)
@@ -199,23 +173,29 @@
        (dtype-base/->reader src)
        (generic-copy! src dst)
        :else
-       (do
-         (when-not (instance? Iterable src)
-           (throw (Exception. "Src must be either convertible to reader or iterable")))
-         (let [iter (.iterator ^Iterable src)
-              writer (dtype-base/->writer dst)
-               cast-fn (if unchecked?
-                         (@casting/*unchecked-cast-table* dst-dtype)
-                         (@casting/*cast-table* dst-dtype))]
-          ;;and off we go
-          (loop [continue? (.hasNext iter)
-                 idx 0]
-            (when continue?
-              (.writeObject writer idx (cast-fn (.next iter)))
-              (recur (.hasNext iter) (unchecked-inc idx)))))))
+       (let [src (hamf/->collection src)
+             iter (.iterator ^Iterable src)
+             writer (dtype-base/->writer dst)
+             cast-fn (if unchecked?
+                       (@casting/*unchecked-cast-table* dst-dtype)
+                       (@casting/*cast-table* dst-dtype))]
+         ;;and off we go
+         (loop [continue? (.hasNext iter)
+                idx 0]
+           (when continue?
+             (.writeObject writer idx (cast-fn (.next iter)))
+             (recur (.hasNext iter) (unchecked-inc idx))))))
      dst))
   ([src dst]
    (copy! src dst false)))
+
+
+(extend-type ArrayBuffer
+  dtype-proto/PCopyRawData
+  (copy-raw->item! [raw-data ary-target target-offset options]
+    [(copy! raw-data (dtype-proto/sub-buffer ary-target target-offset (.n-elems raw-data))
+            (get options :unchecked?))
+     (+ (long target-offset) (.n-elems raw-data))]))
 
 
 (comment

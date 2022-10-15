@@ -27,28 +27,7 @@
   (errors/when-not-error
    elem-seq-or-count
    "nil elem-seq-or-count passed into make-container")
-  (if (or (number? elem-seq-or-count)
-          (dtype-proto/convertible-to-buffer? elem-seq-or-count))
-    (let [n-elems (long (if (number? elem-seq-or-count)
-                          elem-seq-or-count
-                          (dtype-base/ecount elem-seq-or-count)))
-          ary-data
-          (case (casting/host-flatten datatype)
-            :boolean (boolean-array n-elems)
-            :int8 (byte-array n-elems)
-            :int16 (short-array n-elems)
-            :char (char-array n-elems)
-            :int32 (int-array n-elems)
-            :int64 (long-array n-elems)
-            :float32 (float-array n-elems)
-            :float64 (double-array n-elems)
-            (make-array (casting/datatype->object-class datatype) n-elems))
-          ary-buf (array-buffer/array-buffer ary-data datatype)]
-      (when-not (number? elem-seq-or-count)
-        (copy! elem-seq-or-count ary-buf options))
-      ary-buf)
-    (-> (dtype-proto/make-container :list datatype options elem-seq-or-count)
-        (dtype-base/as-array-buffer))))
+  (array-buffer/array-sub-list datatype elem-seq-or-count))
 
 
 (defmethod dtype-proto/make-container :java-array

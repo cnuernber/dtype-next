@@ -5,43 +5,17 @@
             [tech.v3.datatype.errors :refer [check-idx] :as errors]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.parallel.for :as parallel-for]
-            [tech.v3.datatype.pprint :as dtype-pp])
-  (:import [tech.v3.datatype PrimitiveList Buffer]
+            [tech.v3.datatype.pprint :as dtype-pp]
+            [tech.v3.datatype.array-buffer])
+  (:import [tech.v3.datatype Buffer]
+           [tech.v3.datatype.array_buffer IGrowableList]
            [clojure.lang IObj Counted IFn]
+           [ham_fisted ArrayLists]
            [java.util List]))
 
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
-
-;;Some overlap here between ArrayList and ObjectArrayList with the only meaningful difference
-;;being that ObjectArrayList gives us access to the underlying object array.
-
-
-(defn- ensure-capacity
-  ([buffer-data ^long desired-size ^long capacity]
-   (if (> capacity desired-size)
-     buffer-data
-     ;;TODO - research ideal buffer growth algorithms
-     ;;Once things get huge you have to be careful.
-     (let [new-capacity (long (if (< desired-size (* 1024 1024))
-                                (max (* 2 desired-size) 10)
-                                (long (* 1.25 desired-size))))]
-       (if-let [ary-buf (dtype-base/as-array-buffer buffer-data)]
-         (let [new-buffer (dtype-cmc/make-container :jvm-heap
-                                                    (.elemwise-datatype ary-buf)
-                                                    new-capacity)]
-           (dtype-cmc/copy! buffer-data (dtype-base/sub-buffer new-buffer 0 capacity))
-           new-buffer)
-         (let [native-buf (dtype-base/->native-buffer buffer-data)
-               new-buffer (dtype-cmc/make-container
-                           :native-heap (.elemwise-datatype native-buf)
-                           new-capacity
-                           {:endianness (.endianness native-buf)
-                            :resource-type (.resource-type native-buf)})]
-           (dtype-cmc/copy! buffer-data (dtype-base/sub-buffer new-buffer 0 capacity))
-           new-buffer))))))
-
 
 (defn- list->string
   ^String [list-item]
@@ -53,38 +27,56 @@
                    ^:unsynchronized-mutable ^long ptr
                    ^:unsynchronized-mutable ^Buffer cached-io
                    metadata]
+  IGrowableList
+  (ensureCapacity [_item new-size]
+    buffer
+    (if (>= capacity new-size)
+      buffer
+      ;;TODO - research ideal buffer growth algorithms
+      ;;Once things get huge you have to be careful.
+      (let [new-capacity (ArrayLists/newArrayLen new-size)
+            old-buf buffer
+            native-buf (dtype-base/->native-buffer old-buf)
+            new-buffer (dtype-cmc/make-container
+                        :native-heap (.elemwise-datatype native-buf)
+                        new-capacity
+                        {:endianness (.endianness native-buf)
+                         :resource-type (.resource-type native-buf)})]
+        (dtype-cmc/copy! old-buf (dtype-base/sub-buffer new-buffer 0 capacity))
+        (set! buffer new-buffer)
+        (set! capacity (long new-capacity))
+        (set! cached-io (dtype-base/->buffer new-buffer))
+        new-buffer)))
+
   Buffer
   (elemwiseDatatype [_this] (dtype-base/elemwise-datatype buffer))
   (lsize [_this] ptr)
   (allowsRead [_this] true)
   (allowsWrite [_this] true)
-  (readBoolean [_this idx] (check-idx idx ptr) (.readBoolean cached-io idx))
-  (readByte [_this idx] (check-idx idx ptr) (.readByte cached-io idx))
-  (readShort [_this idx] (check-idx idx ptr) (.readShort cached-io idx))
-  (readChar [_this idx] (check-idx idx ptr) (.readChar cached-io idx))
-  (readInt [_this idx] (check-idx idx ptr) (.readInt cached-io idx))
-  (readLong [_this idx] (check-idx idx ptr) (.readLong cached-io idx))
-  (readFloat [_this idx] (check-idx idx ptr) (.readFloat cached-io idx))
-  (readDouble [_this idx] (check-idx idx ptr) (.readDouble cached-io idx))
-  (readObject [_this idx] (check-idx idx ptr) (.readObject cached-io idx))
-  (writeBoolean [_this idx val] (check-idx idx ptr) (.writeBoolean cached-io idx val))
-  (writeByte [_this idx val] (check-idx idx ptr) (.writeByte cached-io idx val))
-  (writeShort [_this idx val] (check-idx idx ptr) (.writeShort cached-io idx val))
-  (writeChar [_this idx val] (check-idx idx ptr) (.writeChar cached-io idx val))
-  (writeInt [_this idx val] (check-idx idx ptr) (.writeInt cached-io idx val))
-  (writeLong [_this idx val] (check-idx idx ptr) (.writeLong cached-io idx val))
-  (writeFloat [_this idx val] (check-idx idx ptr) (.writeFloat cached-io idx val))
-  (writeDouble [_this idx val] (check-idx idx ptr) (.writeDouble cached-io idx val))
-  (writeObject [_this idx val] (check-idx idx ptr) (.writeObject cached-io idx val))
+  (readBoolean [_this idx] (.readBoolean cached-io idx))
+  (readByte [_this idx] (.readByte cached-io idx))
+  (readShort [_this idx] (.readShort cached-io idx))
+  (readChar [_this idx] (.readChar cached-io idx))
+  (readInt [_this idx]  (.readInt cached-io idx))
+  (readLong [_this idx]  (.readLong cached-io idx))
+  (readFloat [_this idx]  (.readFloat cached-io idx))
+  (readDouble [_this idx]  (.readDouble cached-io idx))
+  (readObject [_this idx]  (.readObject cached-io idx))
+  (writeBoolean [_this idx val] (.writeBoolean cached-io idx val))
+  (writeByte [_this idx val] (.writeByte cached-io idx val))
+  (writeShort [_this idx val] (.writeShort cached-io idx val))
+  (writeChar [_this idx val] (.writeChar cached-io idx val))
+  (writeInt [_this idx val] (.writeInt cached-io idx val))
+  (writeLong [_this idx val] (.writeLong cached-io idx val))
+  (writeFloat [_this idx val] (.writeFloat cached-io idx val))
+  (writeDouble [_this idx val] (.writeDouble cached-io idx val))
+  (writeObject [_this idx val] (.writeObject cached-io idx val))
   dtype-proto/PDatatype
   (datatype [_this] :list)
   dtype-proto/PElemwiseReaderCast
   (elemwise-reader-cast [item _new-dtype] item)
   dtype-proto/PToArrayBuffer
-  (convertible-to-array-buffer? [_this]
-    (dtype-proto/convertible-to-array-buffer? buffer))
-  (->array-buffer [_this]
-    (dtype-proto/->array-buffer (dtype-base/sub-buffer buffer 0 ptr)))
+  (convertible-to-array-buffer? [_this] false)
   dtype-proto/PToNativeBuffer
   (convertible-to-native-buffer? [_this]
     (dtype-proto/convertible-to-native-buffer? buffer))
@@ -95,13 +87,6 @@
     (let [new-buf (dtype-proto/clone (dtype-base/sub-buffer buffer 0 ptr))]
       (ListImpl. new-buf ptr ptr
                  (dtype-proto/->buffer new-buf) metadata)))
-  PrimitiveList
-  (ensureCapacity [_item new-size]
-    (let [new-buf (ensure-capacity buffer new-size capacity)]
-      (when-not (identical? new-buf buffer)
-        (set! buffer new-buf)
-        (set! capacity (dtype-base/ecount new-buf))
-        (set! cached-io (dtype-base/->buffer new-buf)))))
   (addBoolean [this value]
     ;;Check is done here to avoid fn call when not necessary
     (when (>= ptr capacity) (.ensureCapacity this ptr))
@@ -120,13 +105,13 @@
     (.writeObject cached-io ptr value)
     (set! ptr (unchecked-inc ptr))
     true)
-  (addAll [item coll]
+  (addAllReducible [item coll]
     (if-let [data-buf (dtype-base/as-buffer coll)]
-      (let [item-ecount (.lsize data-buf)]
+      (let [item-ecount (.lsize data-buf)
+            new-buf (.ensureCapacity item (+ ptr item-ecount))]
         (if (> item-ecount 256)
           (do
-            (.ensureCapacity item (+ ptr item-ecount))
-            (dtype-cmc/copy! data-buf (dtype-base/sub-buffer buffer ptr item-ecount))
+            (dtype-cmc/copy! data-buf (dtype-base/sub-buffer ))
             (set! ptr (+ ptr item-ecount)))
           (parallel-for/doiter val coll (.add item val))))
       (parallel-for/doiter val coll (.add item val)))
@@ -164,16 +149,16 @@
 (dtype-pp/implement-tostring-print ListImpl)
 
 
-(casting/add-object-datatype! :list PrimitiveList false)
+(casting/add-object-datatype! :list Buffer false)
 
 
 (defn make-list
   "Make a new primitive list out of a container and a ptr that indicates the
   current write position."
-  (^PrimitiveList [initial-container ^long ptr]
+  (^Buffer [initial-container ^long ptr]
    (let [rw (dtype-base/->reader initial-container)]
      (ListImpl. initial-container (dtype-base/ecount initial-container) ptr rw {})))
-  (^PrimitiveList [datatype]
+  (^Buffer [datatype]
    (make-list (dtype-cmc/make-container datatype 16) 0)))
 
 

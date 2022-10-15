@@ -31,8 +31,7 @@
             [clojure.set :as set])
   (:import [tech.v3.datatype BinaryOperator Buffer
             LongReader DoubleReader ObjectReader
-            BinaryOperator
-            PrimitiveList ArrayHelpers]
+            BinaryOperator ArrayHelpers]
            [org.roaringbitmap RoaringBitmap]
            [java.util List]
            [org.apache.commons.math3.stat.regression SimpleRegression])
@@ -388,7 +387,7 @@
         (parallel-for/indexed-map-reduce
          n-spans
          (fn [^long start-idx ^long group-len]
-           (let [^PrimitiveList new-data (dtype-list/make-list :float64)
+           (let [^Buffer new-data (dtype-list/make-list :float64)
                  new-indexes (RoaringBitmap.)]
              (dotimes [idx group-len]
                (let [idx (pmath/+ idx start-idx)

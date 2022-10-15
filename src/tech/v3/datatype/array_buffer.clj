@@ -18,7 +18,7 @@
             ArrayLists$BooleanArraySubList ArrayLists$ILongArrayList
             ArraySection Transformables
             LongMutList Casts IMutList ImmutList ArrayImmutList MutList
-            MutList$SubMutList ChunkedList]
+            MutList$SubMutList ChunkedList TypedList]
            [ham_fisted.alists ByteArrayList ShortArrayList CharArrayList
             BooleanArrayList FloatArrayList]
            [tech.v3.datatype MutListBuffer]
@@ -188,11 +188,9 @@
      dtype-proto/PDatatype
      (datatype [this#] :array-buffer)
      dtype-proto/PElemwiseDatatype
-     (elemwise-datatype [~'this] ~ewise-dtype)
-     dtype-proto/PElemwiseDatatype
-     (elemwise-datatype [~'this] ~ewise-dtype)
+     (elemwise-datatype [~'this] (~ewise-dtype ~'this))
      dtype-proto/PElemwiseReaderCast
-     (elemwise-reader-cast [this# new-dtype#] this#)
+     (elemwise-reader-cast [this# new-dtype#] (dtype-proto/->buffer this#))
      dtype-proto/PSubBuffer
      (sub-buffer [this# offset# length#]
        (let [offset# (int offset#)
@@ -229,26 +227,29 @@
                                     ary-target# target-offset# options#))))
 
 
-(bind-array-list ArrayLists$ObjectArraySubList
-                 '(casting/object-class->datatype (.containedType this)))
-(bind-array-list ArrayLists$ObjectArrayList
-                 '(casting/object-class->datatype (.containedType this)))
-(bind-array-list ArrayLists$BooleanArraySubList :boolean)
-(bind-array-list BooleanArrayList :boolean)
-(bind-array-list ArrayLists$ByteArraySubList :int8)
-(bind-array-list ByteArrayList :int8)
-(bind-array-list ArrayLists$ShortArraySubList :int16)
-(bind-array-list ShortArrayList :int16)
-(bind-array-list ArrayLists$CharArraySubList :char)
-(bind-array-list CharArrayList :char)
-(bind-array-list ArrayLists$IntArraySubList :int32)
-(bind-array-list ArrayLists$IntArrayList :int32)
-(bind-array-list ArrayLists$LongArraySubList :int64)
-(bind-array-list ArrayLists$LongArrayList :int64)
-(bind-array-list ArrayLists$FloatArraySubList :float32)
-(bind-array-list FloatArrayList :float32)
-(bind-array-list ArrayLists$DoubleArraySubList :float64)
-(bind-array-list ArrayLists$DoubleArrayList :float64)
+(defn ^:private obj-cls->dtype
+  [this]
+  (casting/object-class->datatype (.containedType ^TypedList this)))
+
+
+(bind-array-list ArrayLists$ObjectArraySubList obj-cls->dtype)
+(bind-array-list ArrayLists$ObjectArrayList obj-cls->dtype)
+(bind-array-list ArrayLists$BooleanArraySubList (constantly :boolean))
+(bind-array-list BooleanArrayList (constantly :boolean))
+(bind-array-list ArrayLists$ByteArraySubList (constantly :int8))
+(bind-array-list ByteArrayList (constantly :int8))
+(bind-array-list ArrayLists$ShortArraySubList (constantly :int16))
+(bind-array-list ShortArrayList (constantly :int16))
+(bind-array-list ArrayLists$CharArraySubList (constantly :char))
+(bind-array-list CharArrayList (constantly :char))
+(bind-array-list ArrayLists$IntArraySubList (constantly :int32))
+(bind-array-list ArrayLists$IntArrayList (constantly :int32))
+(bind-array-list ArrayLists$LongArraySubList (constantly :int64))
+(bind-array-list ArrayLists$LongArrayList (constantly :int64))
+(bind-array-list ArrayLists$FloatArraySubList (constantly :float32))
+(bind-array-list FloatArrayList (constantly :float32))
+(bind-array-list ArrayLists$DoubleArraySubList (constantly :float64))
+(bind-array-list ArrayLists$DoubleArrayList (constantly :float64))
 
 
 (defmacro ^:private host->long-uint8
@@ -344,25 +345,25 @@
                         host->long-uint8
                         long->host-uint8
                         object->host-uint8)
-(bind-array-list UByteArraySubList :uint8)
+(bind-array-list UByteArraySubList (constantly :uint8))
 
 (make-unsigned-sub-list UShortArraySubList shorts
                         host->long-uint16
                         long->host-uint16
                         object->host-uint16)
-(bind-array-list UShortArraySubList :uint16)
+(bind-array-list UShortArraySubList (constantly :uint16))
 
 (make-unsigned-sub-list UIntArraySubList ints
                         host->long-uint32
                         long->host-uint32
                         object->host-uint32)
-(bind-array-list UIntArraySubList :uint32)
+(bind-array-list UIntArraySubList (constantly :uint32))
 
 (make-unsigned-sub-list ULongArraySubList longs
                         host->long-uint64
                         long->host-uint64
                         object->host-uint64)
-(bind-array-list ULongArraySubList :uint64)
+(bind-array-list ULongArraySubList (constantly :uint64))
 
 
 (definterface IGrowableList
@@ -448,19 +449,19 @@
 
 (make-unsigned-list UByteArrayList bytes host->long-uint8 long->host-uint8
                     object->host-uint8 UByteArraySubList)
-(bind-array-list UByteArrayList :uint8)
+(bind-array-list UByteArrayList (constantly :uint8))
 
 (make-unsigned-list UShortArrayList shorts host->long-uint16 long->host-uint16
                     object->host-uint16 UShortArraySubList)
-(bind-array-list UShortArrayList :uint16)
+(bind-array-list UShortArrayList (constantly :uint16))
 
 (make-unsigned-list UIntArrayList ints host->long-uint32 long->host-uint32
                     object->host-uint32 UIntArraySubList)
-(bind-array-list UIntArrayList :uint32)
+(bind-array-list UIntArrayList (constantly :uint32))
 
 (make-unsigned-list ULongArrayList longs host->long-uint64 long->host-uint64
                     object->host-uint64 ULongArraySubList)
-(bind-array-list ULongArrayList :uint64)
+(bind-array-list ULongArrayList (constantly :uint64))
 
 
 (defn- host-array
@@ -635,6 +636,10 @@
                   dtype-proto/PSubBuffer
                   (sub-buffer [item# off# len#]
                     (.subList (hamf/->random-access item#) off# (+ (long off#) (long len#))))
+                  dtype-proto/PCopyRawData
+                  (copy-raw->item! [raw-data# ary-target# target-offset# options#]
+                    (dtype-proto/copy-raw->item! (dtype-proto/->array-buffer raw-data#)
+                                                 ary-target# target-offset# options#))
                   dtype-proto/PToBuffer
                   (convertible-to-buffer? [item#] true)
                   (->buffer [item#] (MutListBuffer. (hamf/->random-access item#) true

@@ -13,7 +13,7 @@
             [tech.v3.datatype.array-buffer])
   (:import [org.roaringbitmap RoaringBitmap]
            [tech.v3.datatype SimpleLongSet LongReader LongBitmapIter BitmapMap
-            PrimitiveList Buffer]
+            Buffer]
            [tech.v3.datatype.array_buffer ArrayBuffer]
            [clojure.lang LongRange]
            [java.lang.reflect Field]))
@@ -230,10 +230,9 @@
   (BitmapMap. (->bitmap bitmap) value))
 
 
-(deftype BitmapPrimitiveList [^RoaringBitmap bitmap
+(deftype BitmapBuffer [^RoaringBitmap bitmap
                               ^:unsynchronized-mutable ^Buffer cached-io]
-  PrimitiveList
-  (ensureCapacity [_this _cap])
+  Buffer
   (addLong [_this arg]
     (.add bitmap (unchecked-int arg))
     (set! cached-io nil))
@@ -243,8 +242,8 @@
     (.addLong this (long arg))
     true)
   (addAll [_this other]
-    (if (instance? BitmapPrimitiveList other)
-      (.or bitmap (.bitmap ^BitmapPrimitiveList other))
+    (if (instance? BitmapBuffer other)
+      (.or bitmap (.bitmap ^BitmapBuffer other))
       (parallel-for/doiter
        value other
        (.add bitmap (unchecked-int value))))
@@ -270,11 +269,12 @@
   (as-roaring-bitmap [_item] bitmap))
 
 
-(defn bitmap-as-primitive-list
-  "Return a bitmap as an implementation of a primitive list.  This allows code dependent upon
-  primitive lists to be write to bitmaps."
-  (^PrimitiveList [bitmap]
+(defn bitmap-as-buffer-list
+  "Return a bitmap as an implementation of a Buffer implementation that has an
+  add,addLong implementations.  This allows code dependent upon
+  .add, .addLong to be write to bitmaps."
+  (^Buffer [bitmap]
    (let [bitmap (dtype-proto/as-roaring-bitmap bitmap)]
-     (BitmapPrimitiveList. bitmap nil)))
-  (^PrimitiveList []
-   (bitmap-as-primitive-list (RoaringBitmap.))))
+     (BitmapBuffer. bitmap nil)))
+  (^Buffer []
+   (bitmap-as-buffer-list (RoaringBitmap.))))

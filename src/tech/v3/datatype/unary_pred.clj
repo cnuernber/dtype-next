@@ -11,7 +11,7 @@
             UnaryPredicates$BooleanUnaryPredicate
             UnaryPredicates$DoubleUnaryPredicate
             UnaryPredicates$ObjectUnaryPredicate BooleanConversions
-            BooleanReader PrimitiveList]
+            BooleanReader Buffer]
            [tech.v3.datatype.monotonic_range Int64Range]
            [java.util List]
            [java.util.function DoublePredicate Predicate]
@@ -213,12 +213,12 @@
     :int32
     :int64))
 
-(deftype IndexList [^PrimitiveList list
+(deftype IndexList [^Buffer list
                     ^{:unsynchronized-mutable true
                       :tag long} last-value
                     ^{:unsynchronized-mutable true
                       :tag long} increment]
-  PrimitiveList
+  Buffer
   (addLong [_this lval]
     (when-not (== last-value -1)
       (let [new-incr (- lval last-value)]
@@ -239,7 +239,7 @@
 
 
 (defn make-index-list
-  ^PrimitiveList [dtype]
+  ^Buffer [dtype]
   (let [list (dtype-list/make-list dtype)]
     (IndexList. list -1 -1)))
 
@@ -254,7 +254,7 @@
           ^Int64Range rrange (when (instance? Int64Range rhs) rhs)]
       (if (and lrange rrange (== (.start rrange) (+ (.start lrange) (.n-elems lrange))))
         (Int64Range. (.start lrange) 1 (+ (.n-elems lrange) (.n-elems rrange)) nil)
-        (let [^PrimitiveList llist (if (instance? PrimitiveList lhs)
+        (let [^Buffer llist (if (instance? Buffer lhs)
                                      lhs
                                      (doto (dtype-list/make-list index-space)
                                        (.addAll lrange)))]
@@ -264,7 +264,7 @@
 
 (defn bool-reader->indexes
   "Given a reader, produce a filtered list of indexes filtering out 'false' values."
-  (^PrimitiveList [{:keys [storage-type] :as _options} bool-item]
+  (^Buffer [{:keys [storage-type] :as _options} bool-item]
    (let [n-elems (dtype-base/ecount bool-item)
          reader (dtype-base/->reader bool-item)
          storage-type (or storage-type
@@ -274,7 +274,7 @@
       (fn [^long start-idx ^long len]
         (let [start-idx (long start-idx)
               len (long len)
-              ^PrimitiveList idx-data (case storage-type
+              ^Buffer idx-data (case storage-type
                                         :int32 (make-index-list :int32)
                                         ;; :bitmap `(RoaringBitmap.)
                                         :int64 (make-index-list :int64))]
@@ -284,5 +284,5 @@
                 (.addLong idx-data iter-idx))))
           @idx-data))
       (partial reduce #(merge-index-list-results storage-type %1 %2)))))
-  (^PrimitiveList [bool-item]
+  (^Buffer [bool-item]
    (bool-reader->indexes nil bool-item)))
