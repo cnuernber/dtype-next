@@ -23,6 +23,9 @@ import java.util.stream.LongStream;
 import java.util.stream.DoubleStream;
 import java.util.stream.StreamSupport;
 import ham_fisted.IMutList;
+import ham_fisted.Reductions;
+import ham_fisted.ForkJoinPatterns;
+import ham_fisted.ParallelOptions;
 
 
 public interface Buffer extends DatatypeBase, IMutList
@@ -45,6 +48,10 @@ public interface Buffer extends DatatypeBase, IMutList
   void writeFloat(long idx, float val);
   void writeDouble(long idx, double val);
   void writeObject(long idx, Object val);
+
+  default Buffer subBuffer(long sidx, long eidx) {
+    return (Buffer)subList(RT.intCast(sidx), RT.intCast(eidx));
+  }
 
   default void accumPlusLong(long idx, long val) {
     writeLong( idx, readLong(idx) + val );
@@ -125,13 +132,41 @@ public interface Buffer extends DatatypeBase, IMutList
     return init;
   }
 
-  default DoubleStream doubleStream() {
-    return StreamSupport.doubleStream(new BufferDoubleSpliterator(this, 0, lsize(), null),false);
+  default Object parallelReduction(IFn initValFn, IFn rfn, IFn mergeFn,
+				   ParallelOptions options) {
+    final IFn gfn = new IFnDef() {
+	public Object invoke(Object osidx, Object oeidx) {
+	  final long sidx = RT.longCast(osidx);
+	  final long eidx = RT.longCast(oeidx);
+	  return Reductions.serialReduction(rfn, initValFn.invoke(), subBuffer(sidx, eidx));
+	}
+      };
+    final Iterable groups = (Iterable) ForkJoinPatterns.parallelIndexGroups(lsize(), gfn, options);
+    final Iterator giter = groups.iterator();
+    Object initObj = giter.next();
+    while(giter.hasNext())
+      initObj = mergeFn.invoke(initObj, giter.next());
+    return initObj;
   }
-  default LongStream longStream() {
-    return LongStream.range(0, size()).map(i -> readLong(i));
+
+  default LongStream indexStream(boolean parallel) {
+    LongStream retval =  LongStream.range(0, lsize());
+    return parallel ? retval.parallel() : retval;
   }
-  default IntStream intStream() {
-    return IntStream.range(0, size()).map(i -> readInt(i));
+
+  default Stream objStream(boolean parallel) {
+    return indexStream(parallel).mapToObj((long idx)->readObject(idx));
+  }
+
+  default DoubleStream doubleStream(boolean parallel) {
+    return indexStream(parallel).mapToDouble((long idx)->readDouble(idx));
+  }
+
+  default LongStream longStream(boolean parallel) {
+    return indexStream(parallel).map((long idx)->readLong(idx));
+  }
+
+  default IntStream intStream(boolean parallel) {
+    return indexStream(parallel).mapToInt((long idx)->readInt(idx));
   }
 };

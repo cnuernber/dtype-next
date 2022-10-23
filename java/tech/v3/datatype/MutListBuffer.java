@@ -6,6 +6,10 @@ import java.util.function.LongConsumer;
 import java.util.function.DoubleConsumer;
 import java.util.function.LongBinaryOperator;
 import java.util.function.DoubleBinaryOperator;
+import java.util.stream.Stream;
+import java.util.stream.LongStream;
+import java.util.stream.DoubleStream;
+import java.util.stream.IntStream;
 import java.util.List;
 import java.util.Comparator;
 import java.util.Collection;
@@ -13,11 +17,13 @@ import java.util.Random;
 import ham_fisted.IMutList;
 import ham_fisted.ArrayLists;
 import ham_fisted.Transformables;
+import ham_fisted.ParallelOptions;
 import clojure.lang.IObj;
 import clojure.lang.IPersistentMap;
 import clojure.lang.IFn;
 import clojure.lang.IDeref;
 import clojure.lang.Keyword;
+import clojure.lang.RT;
 import it.unimi.dsi.fastutil.objects.ObjectArrays;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 import it.unimi.dsi.fastutil.ints.IntComparator;
@@ -153,6 +159,9 @@ public class MutListBuffer implements Buffer, Cloneable {
   public Object longReduction(IFn.OLO op, Object init) {
     return data.longReduction(op, init);
   }
+  public Object parallelReduction(IFn initValFn, IFn rfn, IFn mergeFn, ParallelOptions options) {
+    return data.parallelReduction(initValFn, rfn, mergeFn, options);
+  }
   public void forEach(Consumer c) {
     data.forEach(c);
   }
@@ -164,5 +173,25 @@ public class MutListBuffer implements Buffer, Cloneable {
   }
   public void genericForEach(Consumer c) {
     data.genericForEach(c);
+  }
+
+  public LongStream indexStream(boolean parallel) {
+    return data.indexStream(parallel);
+  }
+
+  public Stream objStream(boolean parallel) {
+    return data.objStream(parallel);
+  }
+
+  public DoubleStream doubleStream(boolean parallel) {
+    return data.doubleStream(parallel);
+  }
+
+  public LongStream longStream(boolean parallel) {
+    return data.longStream(parallel);
+  }
+
+  public IntStream intStream(boolean parallel) {
+    return indexStream(parallel).mapToInt((long idx)->RT.intCast(getLong((int)idx)));
   }
 }

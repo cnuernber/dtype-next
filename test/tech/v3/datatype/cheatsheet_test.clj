@@ -20,7 +20,7 @@
   (let [test-tens (tens/->tensor (partition 3 (range 9)))
         ;;This actually tests quite a lot but type promotion is one
         ;;thing.
-        result-tens (dtype-fn/+ 2 (tens/select test-tens [1 0] :all))]
+        result-tens (dtype-fn/+ 2 (tens/select test-tens [1 0]))]
     (is (= [[5 6 7]
             [2 3 4]]
            (tens/->jvm result-tens)))))
