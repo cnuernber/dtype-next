@@ -3,13 +3,14 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.datatype.protocols :as dtype-proto]
-            [tech.v3.datatype.double-ops :refer [get-significand]])
+            [tech.v3.datatype.double-ops :refer [get-significand]]
+            [ham-fisted.api :as hamf])
   (:import [tech.v3.datatype LongReader DoubleReader ObjectReader
             UnaryOperator Buffer
             UnaryOperators$DoubleUnaryOperator
             UnaryOperators$ObjectUnaryOperator]
-           [clojure.lang IFn]
-           [java.util.function DoubleUnaryOperator]))
+           [clojure.lang IFn IFn$LL IFn$DD]
+           [java.util.function DoubleUnaryOperator LongUnaryOperator]))
 
 
 (set! *warn-on-reflection* true)
@@ -26,6 +27,11 @@
        (reify UnaryOperators$DoubleUnaryOperator
          (unaryDouble [this arg]
            (.applyAsDouble item arg))))
+     (instance? LongUnaryOperator item)
+     (let [^LongUnaryOperator item item]
+       (reify UnaryOperators$LongUnaryOperator
+         (unaryLong [this arg]
+           (.applyAsLong item arg))))
      (instance? java.util.function.UnaryOperator item)
      (let [^java.util.function.UnaryOperator item item]
        (reify UnaryOperators$ObjectUnaryOperator

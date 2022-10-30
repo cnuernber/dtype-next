@@ -5,11 +5,13 @@
             [tech.v3.datatype.casting :as casting]
             ;;Complete clojure range support
             [tech.v3.datatype.clj-range :as clj-range]
-            [tech.v3.datatype.errors :as errors])
-  (:import [tech.v3.datatype LongReader]
+            [tech.v3.datatype.errors :as errors]
+            [ham-fisted.api :as hamf])
+  (:import [tech.v3.datatype LongReader DoubleReader]
            [clojure.lang LongRange IObj IPersistentMap Range MapEntry]
            [java.lang.reflect Field]
-           [java.util Map]))
+           [java.util Map]
+           [ham_fisted Ranges Ranges$LongRange Ranges$DoubleRange]))
 
 
 (set! *warn-on-reflection* true)
@@ -19,40 +21,35 @@
 (declare make-range)
 
 
-(deftype Int64Range [^long start ^long increment ^long n-elems
-                     ^IPersistentMap metadata]
+(extend-type Ranges$LongRange
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [_item] :int64)
-  LongReader
-  (lsize [_item] n-elems)
-  (readLong [_item idx]
-    (errors/check-idx idx n-elems)
-    (+ start (* increment idx)))
   dtype-proto/PSubBuffer
   (sub-buffer [item offset len]
-    (let [offset (long offset)
-          len (long len)]
-      (when (> (- len offset) (.lsize item))
-        (throw (Exception. "Length out of range")))
-      (let [new-start (+ start (* offset increment))]
-        (Int64Range. new-start
-                     increment
-                     len
-                     metadata))))
+    (.subList item (long offset) (long len)))
   dtype-proto/PConstantTimeMinMax
-  (has-constant-time-min-max? [_item] true)
-  (constant-time-min [item] (dtype-proto/range-min item))
-  (constant-time-max [item] (dtype-proto/range-max item))
+  (has-constant-time-min-max? [item] true)
+  (constant-time-min [item]
+    (if (pos? (.-step item))
+      (.-start item)
+      (item -1)))
+  (constant-time-max [item]
+    (if (pos? (.-step item))
+      (item -1)
+      (.-start item)))
   dtype-proto/PRangeConvertible
   (convertible-to-range? [_item] true)
   (->range [item _options] item)
   dtype-proto/PClone
-  (clone [_this] (Int64Range. start increment n-elems metadata))
+  (clone [_this] _this)
   dtype-proto/PRange
-  (range-select [_lhs rhs]
+  (range-select [lhs rhs]
     (let [r-start (long (dtype-proto/range-start rhs))
           r-n-elems (long (dtype-proto/ecount rhs))
           r-inc (long (dtype-proto/range-increment rhs))
+          start (.-start lhs)
+          increment (.-step lhs)
+          n-elems (.-nElems lhs)
           ;;As start is included in n-elems, (* inc (dec n-elems))
           ;;is stop.
           r-stop (+ r-start (* (dec r-n-elems) r-inc))
@@ -63,64 +60,81 @@
         (throw (Exception. (format "select-ranges - %s %s - righthand side out of range"
                                    [start increment n-elems]
                                    [r-start r-inc r-n-elems]))))
-      (Int64Range. new-start new-inc r-n-elems {})))
-  (range-start [_item] start)
-  (range-increment [_item] increment)
-  (range-min [_item]
-    (when (= 0 n-elems)
-      (throw (Exception. "Range is empty")))
-    (if (> increment 0)
-      start
-      (+ start (* (dec n-elems) increment))))
-  (range-max [_item]
-    (when (= 0 n-elems)
-      (throw (Exception. "Range is empty")))
-    (if (> increment 0)
-      (+ start (* (dec n-elems) increment))
-      start))
-  (range-offset [_item offset]
-    (Int64Range. (+ start (long offset))
-                 increment n-elems metadata))
-  (range->reverse-map [item]
-    (reify Map
-      (size [m] n-elems)
-      (containsKey [m arg]
-        (when (and arg
-                   (casting/integer-type?
-                    (dtype-proto/elemwise-datatype arg)))
-          (let [arg (long arg)
-                rel-arg (- arg start)]
-            (and (== 0 (rem rel-arg increment))
-                 (>= arg (long (.range-min item)))
-                 (<= arg (long (.range-max item)))))))
-      (isEmpty [m] (== 0 (.size m)))
-      (entrySet [m]
-        ;;This could be bad
-        (->> item
-             (map-indexed (fn [idx range-val]
-                            (MapEntry. range-val idx)))
-             set))
-      (getOrDefault [m k default-value]
-        (if (and k (casting/integer-type? (dtype-proto/elemwise-datatype k)))
-          (let [arg (long k)
-                rel-arg (- arg start)]
-            (if (and (== 0 (rem rel-arg increment))
-                     (>= arg (long (.range-min item)))
-                     (<= arg (long (.range-max item))))
-              (quot rel-arg increment)
-              default-value))
-          default-value))
-      (get [m k]
-        (let [arg (long k)
-              rel-arg (- arg start)]
-          (when (and (== 0 (rem rel-arg increment))
-                     (>= arg (long (.range-min item)))
-                     (<= arg (long (.range-max item))))
-            (quot rel-arg increment))))))
-  IObj
-  (meta [_this] metadata)
-  (withMeta [_this metadata]
-    (Int64Range. start increment n-elems metadata)))
+      (Ranges$LongRange. new-start (+ new-start (* r-n-elems new-inc)) new-inc {})))
+  (range-start [item] (.-start item))
+  (range-increment [item] (.-step item))
+  (range-min [item] (dtype-proto/constant-time-min item))
+  (range-max [item] (dtype-proto/constant-time-max item))
+  (range-offset [item offset] (Ranges$LongRange. (+ (.-start item) (long offset))
+                                                 (+ (.-end item) (long offset))
+                                                 (.-step item)
+                                                 (meta item)))
+  dtype-proto/PToBuffer
+  (convertible-to-buffer? [item] true)
+  (->buffer [item] (reify LongReader
+                     (lsize [b] (.-nElems item))
+                     (readLong [b idx] (.lgetLong item idx))))
+  dtype-proto/PToReader
+  (convertible-to-reader? [item] true)
+  (->reader [item] (dtype-proto/->buffer item)))
+
+
+(extend-type Ranges$DoubleRange
+  dtype-proto/PElemwiseDatatype
+  (elemwise-datatype [_item] :float64)
+  dtype-proto/PSubBuffer
+  (sub-buffer [item offset len]
+    (.subList item (long offset) (long len)))
+  dtype-proto/PConstantTimeMinMax
+  (has-constant-time-min-max? [item] true)
+  (constant-time-min [item]
+    (if (pos? (.-step item))
+      (.-start item)
+      (item -1)))
+  (constant-time-max [item]
+    (if (pos? (.-step item))
+      (item -1)
+      (.-start item)))
+  dtype-proto/PRangeConvertible
+  (convertible-to-range? [_item] true)
+  (->range [item _options] item)
+  dtype-proto/PClone
+  (clone [_this] _this)
+  dtype-proto/PRange
+  (range-select [lhs rhs]
+    (let [r-start (long (dtype-proto/range-start rhs))
+          r-n-elems (long (dtype-proto/ecount rhs))
+          r-inc (long (dtype-proto/range-increment rhs))
+          start (.-start lhs)
+          increment (.-step lhs)
+          n-elems (.-nElems lhs)
+          ;;As start is included in n-elems, (* inc (dec n-elems))
+          ;;is stop.
+          r-stop (+ r-start (* (dec r-n-elems) r-inc))
+          new-start (+ start (* r-start increment))
+          new-inc (* r-inc increment)]
+      (when (or (> r-stop n-elems)
+                (>= r-start n-elems))
+        (throw (Exception. (format "select-ranges - %s %s - righthand side out of range"
+                                   [start increment n-elems]
+                                   [r-start r-inc r-n-elems]))))
+      (Ranges$DoubleRange. new-start (+ new-start (* r-n-elems new-inc)) new-inc {})))
+  (range-start [item] (.-start item))
+  (range-increment [item] (.-step item))
+  (range-min [item] (dtype-proto/constant-time-min item))
+  (range-max [item] (dtype-proto/constant-time-max item))
+  (range-offset [item offset] (Ranges$DoubleRange. (+ (.-start item) (long offset))
+                                                   (+ (.-end item) (long offset))
+                                                   (.-step item)
+                                                   (meta item)))
+  dtype-proto/PToBuffer
+  (convertible-to-buffer? [item] true)
+  (->buffer [item] (reify DoubleReader
+                     (lsize [b] (.-nElems item))
+                     (readDouble [b idx] (.lgetDouble item idx))))
+  dtype-proto/PToReader
+  (convertible-to-reader? [item] true)
+  (->reader [item] (dtype-proto/->buffer item)))
 
 
 (extend-protocol dtype-proto/PRangeConvertible
@@ -155,14 +169,7 @@
          increment (long increment)]
      (when (== 0 increment)
        (throw (Exception. "Infinite range detected - zero increment")))
-     (let [n-elems (if (> increment 0)
-                     (quot (+ (max 0 (- end start))
-                              (dec increment))
-                           increment)
-                     (quot (+ (min 0 (- end start))
-                              (inc increment))
-                           increment))]
-       (Int64Range. start increment n-elems {}))))
+     (Ranges$LongRange. start end increment {})))
   ([start end increment]
    (make-range start end increment (dtype-proto/elemwise-datatype start)))
   ([start end]
@@ -178,7 +185,7 @@
     (let [start (long (first rng))
           step (long (.get ^Field clj-range/lr-step-field rng))
           n-elems (.count rng)]
-      (Int64Range. start step n-elems {}))))
+      (Ranges$LongRange. start (+ start (* n-elems step)) step {}))))
 
 
 (extend-type Range
@@ -192,7 +199,7 @@
     (let [start (long (first rng))
           step (long  (.get ^Field clj-range/r-step-field rng))
           n-elems (.count rng)]
-      (Int64Range. start step n-elems {}))))
+      (Ranges$LongRange. start (+ start (* n-elems step)) step {}))))
 
 
 (defn reverse-range

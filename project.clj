@@ -14,9 +14,8 @@
                  [techascent/tech.resource         "5.05"]
                  ;;ham fisted brings in:
                  ;; {it.unimi.dsi/fastutil-core {:mvn/version "8.5.8"}
-                 ;;  org.clj-commons/claypoole  {:mvn/version "1.2.2"}
                  ;;  com.google.guava/guava     {:mvn/version "31.1-jre"}}
-                 [com.cnuernber/ham-fisted         "1.000-beta-24"]]
+                 [com.cnuernber/ham-fisted         "1.000-beta-29"]]
   :java-source-paths ["java" "third-party" "java_public_api"]
   :source-paths ["src" "classes" "third-party"]
   :profiles {:dev

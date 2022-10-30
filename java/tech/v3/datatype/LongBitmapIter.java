@@ -19,12 +19,6 @@ public class LongBitmapIter implements BufferIterator
     return Integer.toUnsignedLong( iter.next() );
   }
 
-  public boolean nextBoolean() { return BooleanConversions.from(nextLong()); }
-  public byte nextByte() { return RT.byteCast(nextLong()); }
-  public short nextShort() { return RT.shortCast(nextLong()); }
-  public char nextChar() { return (char)nextLong(); }
-  public int nextInt() { return RT.intCast(nextLong()); }
-  public float nextFloat() { return RT.floatCast(nextLong()); }
   public double nextDouble() { return (double)nextLong(); }
   public Object next() { return nextLong(); }
 }

@@ -135,10 +135,7 @@
   (simple? [item])
   (get-offset [item])
   (get-reader [item])
-  (get-n-repetitions [item])
-  (reverse-index-map [item]
-    "Return a map implementation that maps indexes from local-space
-back into Y global space indexes."))
+  (get-n-repetitions [item]))
 
 
 (defn- fixup-reverse-v
@@ -210,26 +207,6 @@ back into Y global space indexes."))
   (get-offset [_item] offset)
   (get-reader [_item] (simplify-range->direct reader))
   (get-n-repetitions [_item] repetitions)
-  (reverse-index-map [_item]
-    (let [^Map src-map (reverse-index-map reader)]
-      (reify Map
-        (size [m] (.size src-map))
-        (entrySet [m]
-          (->> (.entrySet src-map)
-               (map (fn [[k v]]
-                      (MapEntry.
-                       k
-                       (fixup-reverse-v v n-reader-elems
-                                        offset repetitions))))
-               set))
-        (getOrDefault [m k default]
-          (let [retval (.getOrDefault src-map k default)]
-            (if (identical? retval default)
-              default
-              (fixup-reverse-v retval n-reader-elems offset repetitions))))
-        (get [m k]
-          (when-let [v (.get src-map k)]
-            (fixup-reverse-v v n-reader-elems offset repetitions))))))
   dtype-proto/PSubBuffer
   (sub-buffer [item new-offset len]
     (let [new-offset (long new-offset)
@@ -390,6 +367,4 @@ back into Y global space indexes."))
   (simple? [item] true)
   (get-offset [item] 0)
   (get-reader [item] item)
-  (get-n-repetitions [item] 1)
-  (reverse-index-map [item]
-    (base-dimension->reverse-long-map item)))
+  (get-n-repetitions [item] 1))

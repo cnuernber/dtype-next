@@ -6,15 +6,6 @@ import clojure.lang.Keyword;
 
 public interface ObjectTensorReader extends NDBuffer {
   default Object elemwiseDatatype() { return Keyword.intern(null, "float64"); }
-  default boolean ndReadBoolean(long idx) {
-    return BooleanConversions.from(ndReadObject(idx));
-  }
-  default boolean ndReadBoolean(long y, long x) {
-    return BooleanConversions.from(ndReadObject(y,x));
-  }
-  default boolean ndReadBoolean(long y, long x, long c) {
-    return BooleanConversions.from(ndReadObject(y,x,c));
-  }
   default long ndReadLong(long idx) {
     return NumericConversions.longCast(ndReadObject(idx));
   }

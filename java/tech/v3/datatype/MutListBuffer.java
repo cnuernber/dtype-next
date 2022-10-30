@@ -65,35 +65,20 @@ public class MutListBuffer implements Buffer, Cloneable {
   public int hasheq() { return data.hasheq(); }
   public boolean equiv(Object other) { return data.equiv(other); }
   public String toString() { return data.toString(); }
-  public boolean readBoolean(long idx) { return data.getBoolean((int)idx); }
-  public byte readByte(long idx) { return (byte)data.getLong((int)idx); }
-  public short readShort(long idx) { return (short)data.getLong((int)idx); }
-  public char readChar(long idx) { return (char)data.getLong((int)idx); }
-  public int readInt(long idx) { return (int)data.getLong((int)idx); }
   public long readLong(long idx) { return data.getLong((int)idx); }
-  public float readFloat(long idx) { return (float)data.getDouble((int)idx); }
   public double readDouble(long idx) { return (double)data.getDouble((int)idx); }
   public Object readObject(long idx) { return data.get((int)idx); }
-  public void writeBoolean(long idx, boolean val) { data.setBoolean((int)idx, val); }
-  public void writeByte(long idx, byte val) { data.setLong((int)idx, val); }
-  public void writeShort(long idx, short val) { data.setLong((int)idx, val); }
-  public void writeChar(long idx, char val) { data.setLong((int)idx, (long)val); }
-  public void writeInt(long idx, int val) { data.setLong((int)idx, val); }
   public void writeLong(long idx, long val) { data.setLong((int)idx, val); }
-  public void writeFloat(long idx, float val) { data.setDouble((int)idx, val); }
   public void writeDouble(long idx, double val) { data.setDouble((int)idx, val); }
   public void writeObject(long idx, Object val) { data.set((int)idx, val); }
   public Object get(int idx) { return data.get(idx); }
   public Object set(int idx, Object val) { return data.set(idx, val); }
-  public void setBoolean(int idx, boolean v) { data.setBoolean(idx, v); }
   public void setLong(int idx, long v) { data.setLong(idx, v);; }
   public void setDouble(int idx, double v) { data.setDouble(idx, v); }
-  public boolean getBoolean(int idx) { return data.getBoolean(idx); }
   public long getLong(int idx) { return data.getLong(idx); }
   public double getDouble(int idx) { return data.getDouble(idx); }
   public boolean add(Object v) { return data.add(v); }
   public void add(int idx, Object v) { data.add(idx, v); }
-  public void addBoolean(boolean v) { data.addBoolean(v); }
   public void addLong(long v) { data.addLong(v); }
   public void addDouble(double v) { data.addDouble(v); }
   public boolean addAll(Collection c) {

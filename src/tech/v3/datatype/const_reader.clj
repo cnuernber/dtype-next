@@ -2,7 +2,8 @@
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.monotonic-range :as monotonic-range])
-  (:import [tech.v3.datatype ObjectReader LongReader DoubleReader BooleanReader Buffer]))
+  (:import [tech.v3.datatype ObjectReader LongReader DoubleReader Buffer]
+           [ham_fisted Casts]))
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
@@ -21,12 +22,13 @@
    (let [item-dtype (if item (dtype-proto/elemwise-datatype item) :object)
          n-elems (long n-elems)]
      (cond
-       (= :boolean item-dtype)
-       (let [item (boolean item)]
-         (reify BooleanReader
+       (identical? :boolean item-dtype)
+       (let [item (Casts/booleanCast item)]
+         (reify LongReader
            (elemwiseDatatype [rdr] item-dtype)
            (lsize [rdr] n-elems)
-           (readBoolean [rdr idx] item)
+           (readLong [rdr idx] (Casts/longCast item))
+           (readObject [rdr idx] item)
            dtype-proto/PElemwiseReaderCast
            (elemwise-reader-cast [rdr new-dtype] rdr)
            dtype-proto/PConstantTimeMinMax

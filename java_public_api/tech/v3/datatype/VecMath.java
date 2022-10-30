@@ -6,7 +6,6 @@ import static tech.v3.Clj.*;
 import static tech.v3.DType.*;
 import clojure.lang.RT;
 import clojure.lang.IFn;
-import tech.v3.datatype.BooleanReader;
 
 /**
  * <p>Functional lazy math abstraction built for performing elemwise mathematical
@@ -135,9 +134,9 @@ public class VecMath
     Buffer rdr = null;
     if (elemwiseComp instanceof IFn) {
       IFn compFn = (IFn)elemwiseComp;
-      rdr = new BooleanReader() {
+      rdr = new ObjectReader() {
 	  public long lsize() { return lhsBuf.lsize(); }
-	  public boolean readBoolean(long idx) {
+	  public Object readObject(long idx) {
 	    return boolCast(compFn.invoke(lhsBuf.readObject(idx)));
 	  }
 	};

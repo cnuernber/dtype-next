@@ -168,10 +168,7 @@ Note that this makes no mention of indianness; buffers are in the format of the 
   (range-min [item])
   (range-max [item])
   (range-offset [item offset]
-    "Offset this range by this offset.  Returns")
-  (range->reverse-map [item]
-    "Return a map whose keys are the values of the range
-and whose values are the indexes that produce those values in the reader."))
+    "Offset this range by this offset.  Returns same length range with start,end offset."))
 
 
 (defprotocol PEndianness

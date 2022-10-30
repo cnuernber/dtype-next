@@ -13,10 +13,12 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Collection;
 import java.util.RandomAccess;
+import java.util.Spliterator;
 import java.util.function.DoubleConsumer;
 import java.util.function.LongConsumer;
 import java.util.function.LongBinaryOperator;
 import java.util.function.DoubleBinaryOperator;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
@@ -26,27 +28,19 @@ import ham_fisted.IMutList;
 import ham_fisted.Reductions;
 import ham_fisted.ForkJoinPatterns;
 import ham_fisted.ParallelOptions;
+import ham_fisted.Casts;
+import ham_fisted.IFnDef;
 
 
 public interface Buffer extends DatatypeBase, IMutList
 {
-  boolean readBoolean(long idx);
-  byte readByte(long idx);
-  short readShort(long idx);
-  char readChar(long idx);
-  int readInt(long idx);
-  long readLong(long idx);
-  float readFloat(long idx);
-  double readDouble(long idx);
+  default byte readByte(long idx) { return RT.byteCast(readLong(idx)); }
+  default long readLong(long idx) { return Casts.longCast(readObject(idx)); }
+  default double readDouble(long idx) { return Casts.doubleCast(readObject(idx)); }
   Object readObject(long idx);
-  void writeBoolean(long idx, boolean val);
-  void writeByte(long idx, byte val);
-  void writeShort(long idx, short val);
-  void writeChar(long idx, char val);
-  void writeInt(long idx, int val);
-  void writeLong(long idx, long val);
-  void writeFloat(long idx, float val);
-  void writeDouble(long idx, double val);
+  default void writeByte(long idx, byte v) { writeLong(idx,v); }
+  default void writeLong(long idx, long val) { writeObject(idx,val); }
+  default void writeDouble(long idx, double val) { writeDouble(idx,val); }
   void writeObject(long idx, Object val);
 
   default Buffer subBuffer(long sidx, long eidx) {
@@ -79,10 +73,8 @@ public interface Buffer extends DatatypeBase, IMutList
   }
   default long getLong(int idx) { return readLong(idx); }
   default double getDouble(int idx) { return readDouble(idx); }
-  default boolean getBoolean(int idx) { return readBoolean(idx); }
   default void setLong(int idx, long v) { writeLong(idx, v); }
   default void setDouble(int idx, double v) { writeDouble(idx, v); }
-  default void setBoolean(int idx, boolean v) { writeBoolean(idx, v); }
   default Iterator iterator() { return new BufferIter(this); }
   //Ensure reductions happen in the appropriate space.
   default Object reduce(IFn f) {
@@ -134,19 +126,83 @@ public interface Buffer extends DatatypeBase, IMutList
 
   default Object parallelReduction(IFn initValFn, IFn rfn, IFn mergeFn,
 				   ParallelOptions options) {
-    final IFn gfn = new IFnDef() {
-	public Object invoke(Object osidx, Object oeidx) {
-	  final long sidx = RT.longCast(osidx);
-	  final long eidx = RT.longCast(oeidx);
+    return Reductions.parallelIndexGroupReduce(new IFnDef.LLO() {
+	public Object invokePrim(long sidx, long eidx) {
 	  return Reductions.serialReduction(rfn, initValFn.invoke(), subBuffer(sidx, eidx));
 	}
-      };
-    final Iterable groups = (Iterable) ForkJoinPatterns.parallelIndexGroups(lsize(), gfn, options);
-    final Iterator giter = groups.iterator();
-    Object initObj = giter.next();
-    while(giter.hasNext())
-      initObj = mergeFn.invoke(initObj, giter.next());
-    return initObj;
+      }, lsize(), mergeFn, options);
+  }
+
+  class BufferSpliterator implements Spliterator {
+    private final Buffer list;
+    private final long sidx;
+    private long eidx;
+    long curIdx;
+
+    BufferSpliterator(Buffer list, long sidx, long eidx) {
+      this.list = list;
+      this.sidx = sidx;
+      this.eidx = eidx;
+      curIdx = sidx;
+    }
+
+    BufferSpliterator(Buffer list) {
+      this(list, 0, list.lsize());
+    }
+
+    public Spliterator trySplit() {
+      final long nsidx = (eidx - sidx) / 2;
+      final Spliterator retval = new BufferSpliterator(list, nsidx, eidx);
+      eidx = nsidx;
+      return retval;
+    }
+
+    public long estimateSize() { return eidx - sidx; }
+
+    public boolean tryAdvance(Consumer action) {
+      if (action == null)
+	throw new NullPointerException();
+      final boolean retval = curIdx < eidx;
+      if(retval) {
+	action.accept(list.readObject(curIdx));
+	++curIdx;
+      }
+      return retval;
+    }
+
+    public void forEachRemaining(Consumer c) {
+      final long ee = eidx;
+      final Buffer ll = list;
+      if(c instanceof DoubleConsumer) {
+	final DoubleConsumer dc = (DoubleConsumer)c;
+	for(long cc = curIdx; cc < ee; ++cc) {
+	  dc.accept(ll.readDouble(cc));
+	}
+	curIdx = eidx;
+	return;
+      }
+      else if (c instanceof LongConsumer) {
+	final LongConsumer dc = (LongConsumer)c;
+	for(long cc = curIdx; cc < ee; ++cc) {
+	  dc.accept(ll.readLong(cc));
+	}
+	curIdx = eidx;
+	return;
+      }
+      for(long cc = curIdx; cc < ee; ++cc) {
+	c.accept(ll.readObject(cc));
+      }
+      curIdx = eidx;
+    }
+
+    public int characteristics() {
+      return Spliterator.ORDERED | Spliterator.SIZED
+	| Spliterator.SUBSIZED | Spliterator.IMMUTABLE;
+    }
+  }
+
+  default Spliterator spliterator() {
+    return new BufferSpliterator(this);
   }
 
   default LongStream indexStream(boolean parallel) {
@@ -167,6 +223,6 @@ public interface Buffer extends DatatypeBase, IMutList
   }
 
   default IntStream intStream(boolean parallel) {
-    return indexStream(parallel).mapToInt((long idx)->readInt(idx));
+    return indexStream(parallel).mapToInt((long idx)->RT.intCast(readLong(idx)));
   }
 };

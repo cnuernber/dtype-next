@@ -4,12 +4,6 @@ import java.util.Iterator;
 
 public interface BufferIterator extends ElemwiseDatatype, Iterator
 {
-  boolean nextBoolean();
-  byte nextByte();
-  short nextShort();
-  char nextChar();
-  int nextInt();
   long nextLong();
-  float nextFloat();
   double nextDouble();
 }
