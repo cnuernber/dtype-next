@@ -3,11 +3,16 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.reductions :as reductions]
+            [ham-fisted.api :as hamf]
             [com.github.ztellman.primitive-math :as pmath])
   (:import [tech.v3.datatype LongReader DoubleReader ObjectReader
-            BinaryOperator Buffer
-            BinaryOperators$ObjectBinaryOperator]
-           [clojure.lang IFn]))
+            BinaryOperator Buffer BinaryOperators$DoubleBinaryOperator
+            BinaryOperators$LongBinaryOperator
+            UnaryOperator UnaryOperators$LongUnaryOperator
+            UnaryOperators$DoubleUnaryOperator]
+           [clojure.lang IFn IFn$LLL IFn$DDD]
+           [ham_fisted Casts]))
 
 
 (set! *warn-on-reflection* true)
@@ -20,14 +25,21 @@
      item
      (instance? java.util.function.BinaryOperator item)
      (let [^java.util.function.BinaryOperator item item]
-       (reify BinaryOperators$ObjectBinaryOperator
+       (reify BinaryOperator
          (binaryObject [this lhs rhs]
            (.apply item lhs rhs))))
-     (instance? IFn item)
-     (let [^IFn item item]
-       (reify BinaryOperators$ObjectBinaryOperator
-         (binaryObject [this lhs rhs]
-           (.invoke item lhs rhs))))))
+     (instance? IFn$LLL item)
+     (reify BinaryOperators$LongBinaryOperator
+       (binaryLong [this l r]
+         (.invokePrim ^IFn$LLL item l r)))
+     (instance? IFn$DDD item)
+     (reify BinaryOperators$DoubleBinaryOperator
+       (binaryDouble [this l r]
+         (.invokePrim ^IFn$DDD item l r)))
+     :else
+     (reify BinaryOperator
+       (binaryObject [this lhs rhs]
+         (item lhs rhs)))))
   (^BinaryOperator [item] (->operator item :_unnamed)))
 
 
@@ -48,6 +60,52 @@
        (dispatch/typed-map-2 binary-op res-dtype lhs rhs))))
   (^Iterable [binary-op lhs rhs]
    (iterable binary-op (dtype-base/elemwise-datatype lhs) lhs rhs)))
+
+
+(defn unary-op-l
+  "Create a unary op from a binary op and a constant passed in as the left argument"
+  [^BinaryOperator b v]
+  (let [op-space (casting/widest-datatype
+                  (dtype-base/elemwise-datatype v)
+                  (get (meta b) :operation-space :boolean))]
+    (-> (case (casting/simple-operation-space op-space)
+          :int64
+          (let [v (Casts/longCast v)]
+            (reify UnaryOperators$LongUnaryOperator
+              (unaryLong [this vv]
+                (.binaryLong b v vv))))
+          :float64
+          (let [v (Casts/doubleCast v)]
+            (reify UnaryOperators$DoubleUnaryOperator
+              (unaryDouble [this vv]
+                (.binaryDouble b v vv))))
+          (reify UnaryOperator
+            (unaryObject [this vv]
+              (.binaryObject b v vv))))
+        (with-meta (meta b)))))
+
+(defn unary-op-r
+  "Create a unary op from a binary op and a constant passed in as the right argument"
+  [^BinaryOperator b v]
+  (let [op-space (casting/widest-datatype
+                  (dtype-base/elemwise-datatype v)
+                  (get (meta b) :operation-space :boolean))]
+    (-> (case (casting/simple-operation-space op-space)
+          :int64
+          (let [v (Casts/longCast v)]
+            (reify UnaryOperators$LongUnaryOperator
+              (unaryLong [this vv]
+                (.binaryLong b vv v))))
+          :float64
+          (let [v (Casts/doubleCast v)]
+            (reify UnaryOperators$DoubleUnaryOperator
+              (unaryDouble [this vv]
+                (.binaryDouble b vv v))))
+          (reify UnaryOperator
+            (unaryObject [this vv]
+              (.binaryObject b vv v))))
+        (with-meta {:operation-space op-space}))))
+
 
 (defn reader
   (^Buffer [^BinaryOperator binop res-dtype lhs rhs]
@@ -94,19 +152,7 @@
       dtype-proto/POperator
       (op-name [item#] ~opname)
       BinaryOperator
-      (binaryBoolean [this# ~'x ~'y]
-        (throw (Exception. (format "Operation %s is not a boolean operation"
-                                   ~opname))))
-      ;;Use checked casts here
-      (binaryByte [this# ~'x ~'y] (byte ~scalar-op))
-      (binaryShort [this# ~'x ~'y] (short ~scalar-op))
-      (binaryChar [this# ~'x ~'y]
-        (let [~'x (unchecked-int ~'x)
-              ~'y (unchecked-int ~'y)]
-          (char ~scalar-op)))
-      (binaryInt [this# ~'x ~'y] ~scalar-op)
       (binaryLong [this# ~'x ~'y] ~scalar-op)
-      (binaryFloat [this# ~'x ~'y] ~scalar-op)
       (binaryDouble [this# ~'x ~'y] ~scalar-op)
       (binaryObject [this# ~'x ~'y]
         (let [~'x (as-number ~'x)
@@ -122,30 +168,8 @@
    `(-> (reify
           dtype-proto/POperator
           (op-name [item#] ~opname)
-          BinaryOperator
-          (binaryBoolean [this# ~'x ~'y]
-            (throw (Exception. (format "Operation %s is not a boolean operation"
-                                       ~opname))))
-          ;;Use checked casts here
-          (binaryByte [this# ~'x ~'y]
-            (throw (Exception. (format "Operation %s is not a byte operation"
-                                       ~opname))))
-          (binaryShort [this# ~'x ~'y]
-            (throw (Exception. (format "Operation %s is not a short operation"
-                                       ~opname))))
-          (binaryChar [this# ~'x ~'y]
-            (throw (Exception. (format "Operation %s is not a char operation"
-                                       ~opname))))
-          (binaryInt [this# ~'x ~'y]
-            (throw (Exception. (format "Operation %s is not an integer operation"
-                                       ~opname))))
-          (binaryLong [this# ~'x ~'y]
-            (throw (Exception. (format "Operation %s is not an long operation"
-                                       ~opname))))
-          (binaryFloat [this# ~'x ~'y] ~scalar-op)
+          BinaryOperators$DoubleBinaryOperator
           (binaryDouble [this# ~'x ~'y] ~scalar-op)
-          (binaryObject [this# ~'x ~'y]
-            (.binaryDouble this# (double ~'x) (double ~'y)))
           (initialDoubleReductionValue [this] (double ~identity-value)))
         (vary-meta assoc :operation-space :float32)))
   ([opname scalar-op]
@@ -157,30 +181,8 @@
   `(-> (reify
          dtype-proto/POperator
          (op-name [item#] ~opname)
-         BinaryOperator
-         (binaryBoolean [this# ~'x ~'y]
-           (throw (Exception. (format "Operation %s is not a boolean operation"
-                                      ~opname))))
-         ;;Use checked casts here
-         (binaryByte [this# ~'x ~'y]
-           (throw (Exception. (format "Operation %s is not a byte operation"
-                                      ~opname))))
-         (binaryShort [this# ~'x ~'y]
-           (throw (Exception. (format "Operation %s is not a short operation"
-                                      ~opname))))
-         (binaryChar [this# ~'x ~'y]
-           (throw (Exception. (format "Operation %s is not a char operation"
-                                      ~opname))))
-         (binaryInt [this# ~'x ~'y] ~scalar-op)
-         (binaryLong [this# ~'x ~'y] ~scalar-op)
-         (binaryFloat [this# ~'x ~'y]
-           (throw (Exception. (format "Operation %s is not a float operation"
-                                      ~opname))))
-         (binaryDouble [this# ~'x ~'y]
-           (throw (Exception. (format "Operation %s is not a float operation"
-                                      ~opname))))
-         (binaryObject [this# ~'x ~'y]
-           (.binaryLong this# (long ~'x) (long ~'y))))
+         BinaryOperators$LongBinaryOperator
+         (binaryLong [this# ~'x ~'y] ~scalar-op))
        (vary-meta assoc :operation-space :int32)))
 
 
@@ -214,3 +216,18 @@
         (make-float-double-binary-op :tech.numerics/ieee-remainder (Math/IEEEremainder x y))]
        (map #(vector (dtype-proto/op-name %) %))
        (into {})))
+
+
+(defn commutative-binary-reduce
+  "Perform a commutative binary reduction.  The space of the reduction will
+  be determined by the datatype of the reader."
+  [op rdr]
+  (if (dtype-base/reader? rdr)
+    (let [op-space (casting/simple-operation-space (dtype-base/elemwise-datatype rdr))
+          rdr (dtype-base/->reader rdr op-space)
+          op (->operator op)]
+      (case op-space
+        :int64 (reductions/commutative-binary-long op rdr)
+        :float64 (reductions/commutative-binary-double op rdr)
+        (reductions/commutative-binary-object op rdr)))
+    (hamf/fast-reduce op rdr)))

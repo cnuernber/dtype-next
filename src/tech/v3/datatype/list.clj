@@ -54,22 +54,10 @@
   (lsize [_this] ptr)
   (allowsRead [_this] true)
   (allowsWrite [_this] true)
-  (readBoolean [_this idx] (.readBoolean cached-io idx))
-  (readByte [_this idx] (.readByte cached-io idx))
-  (readShort [_this idx] (.readShort cached-io idx))
-  (readChar [_this idx] (.readChar cached-io idx))
-  (readInt [_this idx]  (.readInt cached-io idx))
   (readLong [_this idx]  (.readLong cached-io idx))
-  (readFloat [_this idx]  (.readFloat cached-io idx))
   (readDouble [_this idx]  (.readDouble cached-io idx))
   (readObject [_this idx]  (.readObject cached-io idx))
-  (writeBoolean [_this idx val] (.writeBoolean cached-io idx val))
-  (writeByte [_this idx val] (.writeByte cached-io idx val))
-  (writeShort [_this idx val] (.writeShort cached-io idx val))
-  (writeChar [_this idx val] (.writeChar cached-io idx val))
-  (writeInt [_this idx val] (.writeInt cached-io idx val))
   (writeLong [_this idx val] (.writeLong cached-io idx val))
-  (writeFloat [_this idx val] (.writeFloat cached-io idx val))
   (writeDouble [_this idx val] (.writeDouble cached-io idx val))
   (writeObject [_this idx val] (.writeObject cached-io idx val))
   dtype-proto/PDatatype
@@ -88,11 +76,6 @@
     (let [new-buf (dtype-proto/clone (dtype-base/sub-buffer buffer 0 ptr))]
       (ListImpl. new-buf ptr ptr
                  (dtype-proto/->buffer new-buf) metadata)))
-  (addBoolean [this value]
-    ;;Check is done here to avoid fn call when not necessary
-    (when (>= ptr capacity) (.ensureCapacity this ptr))
-    (.writeBoolean cached-io ptr value)
-    (set! ptr (unchecked-inc ptr)))
   (addDouble [this value]
     (when (>= ptr capacity) (.ensureCapacity this ptr))
     (.writeDouble cached-io ptr value)

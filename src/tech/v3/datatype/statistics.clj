@@ -366,9 +366,7 @@
   "Double sum of data using
   [Kahan compensated summation](https://en.wikipedia.org/wiki/Kahan_summation_algorithm)."
   (^double [data options]
-   (if (== 0 (dtype-base/ecount data))
-     0
-     (dtype-reductions/double-summation options data)))
+   (dtype-reductions/double-summation options data))
   (^double [data]
    (sum data nil)))
 

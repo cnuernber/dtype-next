@@ -31,16 +31,7 @@ public class UnaryPredicates
       return unaryLong(arg);
     }
   }
-  public interface ObjectUnaryPredicate extends UnaryPredicate, Predicate
-  {
-    default boolean unaryDouble(double arg) {
-      return unaryObject(arg);
-    }
-    default boolean unaryLong(long arg) {
-      return unaryObject(arg);
-    }
-    default boolean test(Object arg) {
-      return unaryObject(arg);
-    }
+  public interface ObjectUnaryPredicate extends UnaryPredicate, Predicate {
+    default boolean test(Object arg) { return unaryObject(arg); }
   }
 }

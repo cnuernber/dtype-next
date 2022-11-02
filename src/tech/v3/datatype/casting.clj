@@ -7,6 +7,7 @@
   (:import [java.util Map Set HashSet Collection]
            [java.util.concurrent ConcurrentHashMap]
            [clojure.lang RT Keyword]
+           [ham_fisted Casts]
            [java.util UUID]))
 
 (set! *warn-on-reflection* true)
@@ -169,7 +170,7 @@
             (quot (float-width dtype) 8)
             ;;char is a shitty uint16
             (identical? dtype :char)
-            (int-width :uint16)
+            (quot (int-width :uint16) 8)
             :else
             (throw (ex-info (format "datatype is not numeric: %s" dtype)
                             {:datatype dtype}))))))
@@ -244,7 +245,7 @@
     (boolean? item) (bool->number item)
     (char? item) (unchecked-int item)
     :else ;;punt!!
-    (double item)))
+    (Casts/doubleCast item)))
 
 
 (defn as-long
@@ -265,20 +266,7 @@
 
 (defmacro datatype->boolean
   [src-dtype item]
-  (cond
-    (numeric-type? src-dtype)
-    `(boolean (let [dval# (unchecked-double ~item)]
-                (and (not= 0.0 dval#) (not (Double/isNaN dval#)))))
-    (= :boolean src-dtype)
-    `(boolean ~item)
-    :else
-    `(boolean
-      (let [item# ~item]
-        (if (number? item#)
-          (boolean
-           (let [dval# (unchecked-double item#)]
-             (and (not= 0.0 dval#) (not (Double/isNaN dval#)))))
-          item#)))))
+  `(Casts/booleanCast ~item))
 
 ;; Save these because we are switching to unchecked soon
 

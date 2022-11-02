@@ -20,44 +20,6 @@
 (set! *unchecked-math* :warn-on-boxed)
 
 
-(defn- base-dimension->reverse-long-map
-  "This could be expensive in a lot of situations.  Hopefully the sequence is a range.
-  We return a map that does the sparse reverse mapping on get.  We can return a number
-  or a sequence.  The fallback is (argops/arggroup-by identity dim)"
-  ^Map [dim]
-  (cond
-    (number? dim)
-    (let [dim (long dim)]
-      (reify Map
-        (size [m] (unchecked-int dim))
-        (containsKey [m arg]
-          (and arg
-               (casting/integer-type?
-                (dtype-proto/elemwise-datatype arg))
-               (let [arg (long arg)]
-                 (and (>= arg 0)
-                      (< arg dim)))))
-        (isEmpty [m] (== dim 0))
-        (entrySet [m]
-          (->> (range dim)
-               (map-indexed (fn [idx range-val]
-                              (MapEntry. range-val idx)))
-               set))
-        (getOrDefault [m k default-value]
-          (if (and k (casting/integer-type? (dtype-proto/elemwise-datatype k)))
-            (let [arg (long k)]
-              (if (and (>= arg 0)
-                       (< arg dim))
-                [arg]
-                default-value))
-            default-value))
-        (get [m k] [(long k)])))
-    (dtype-proto/convertible-to-range? dim)
-    (dtype-proto/range->reverse-map (dtype-proto/->range dim {}))
-    :else
-    (argops/arggroup-by identity (dtype-proto/->reader dim))))
-
-
 (defn maybe-range-reader
   "Create a range if possible.  If not, return a reader that knows the found mins
   and maxes."

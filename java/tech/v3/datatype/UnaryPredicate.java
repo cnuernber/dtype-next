@@ -9,8 +9,7 @@ import java.util.function.LongPredicate;
 import ham_fisted.IFnDef;
 
 
-public interface UnaryPredicate extends ElemwiseDatatype, IFnDef.LO, IFnDef.DO,
-					Predicate
+public interface UnaryPredicate extends ElemwiseDatatype, IFnDef.LO, IFnDef.DO
 {
   default boolean unaryLong(long arg) { return unaryObject(arg); }
   default boolean unaryDouble(double arg) { return unaryObject(arg); }

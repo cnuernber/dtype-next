@@ -8,9 +8,10 @@
   (:import [tech.v3.datatype LongReader DoubleReader ObjectReader
             UnaryOperator Buffer
             UnaryOperators$DoubleUnaryOperator
-            UnaryOperators$ObjectUnaryOperator]
-           [clojure.lang IFn IFn$LL IFn$DD]
-           [java.util.function DoubleUnaryOperator LongUnaryOperator]))
+            UnaryOperators$LongUnaryOperator]
+           [clojure.lang IFn IFn$LL IFn$DD IFn$OLO IFn$ODO IFn$OL IFn$OD IFn$DL IFn$LD]
+           [java.util.function DoubleUnaryOperator LongUnaryOperator]
+           [ham_fisted Casts Reductions IFnDef$OLO IFnDef$ODO]))
 
 
 (set! *warn-on-reflection* true)
@@ -34,14 +35,35 @@
            (.applyAsLong item arg))))
      (instance? java.util.function.UnaryOperator item)
      (let [^java.util.function.UnaryOperator item item]
-       (reify UnaryOperators$ObjectUnaryOperator
+       (reify UnaryOperator
          (unaryObject [this arg]
            (.apply item arg))))
-     (instance? IFn item)
-     (let [^IFn item item]
-       (reify UnaryOperators$ObjectUnaryOperator
-         (unaryObject [this arg]
-           (.invoke item arg))))))
+     ;;Five cases we care about -
+     ;;long->long
+     ;;double->double
+     ;;obj->long
+     ;;obj->double
+     ;;obj->obj
+     (instance? IFn$LL item)
+     (reify UnaryOperators$LongUnaryOperator
+       (unaryLong [_t v]
+         (.invokePrim ^IFn$LL item v)))
+     (instance? IFn$DD item)
+     (reify UnaryOperators$DoubleUnaryOperator
+       (unaryDouble [_t v]
+         (.invokePrim ^IFn$DD item v)))
+     (instance? IFn$OL item)
+     (reify UnaryOperator
+       (unaryObject [_t v] (.invokePrim ^IFn$OL item v))
+       (unaryObjLong [_t v] (.invokePrim ^IFn$OL item v)))
+     (instance? IFn$OD item)
+     (reify UnaryOperator
+       (unaryObject [_t v] (.invokePrim ^IFn$OD item v))
+       (unaryObjDouble [_t v] (.invokePrim ^IFn$OD item v)))
+     :else
+     (reify UnaryOperator
+       (unaryObject [this arg]
+         (item arg)))))
   (^UnaryOperator [item] (->operator item :_unnamed)))
 
 
@@ -67,30 +89,120 @@
 (defn reader
   (^Buffer [unary-op res-dtype lhs]
    (let [unary-op (->operator unary-op)
-         op-space (casting/simple-operation-space res-dtype)
+         input-dtype (dtype-base/elemwise-datatype lhs)
+         op-space (casting/simple-operation-space res-dtype input-dtype)
          lhs (dtype-base/->reader lhs op-space)
          n-elems (.lsize lhs)]
+     ;;Five common cases -
+     ;;long->long
+     ;;double->double
+     ;;obj->long
+     ;;obj->double
+     ;;obj->obj
      (case op-space
        :int64
-       (reify LongReader
-         (elemwiseDatatype [rdr] res-dtype)
-         (lsize [rdr] n-elems)
-         (readLong [rdr idx] (.unaryLong unary-op (.readLong lhs idx))))
+       (let [wrap-rfn
+             (fn [rfn]
+               (if (instance? IFn$OLO rfn)
+                 (reify IFnDef$OLO
+                   (invokePrim [f acc v]
+                     (.invokePrim ^IFn$OLO rfn acc (.unaryLong unary-op v))))
+                 (reify IFnDef$OLO
+                   (invokePrim [f acc v]
+                     (rfn acc (.unaryLong unary-op v))))))]
+         (reify
+           LongReader
+           (elemwiseDatatype [rdr] res-dtype)
+           (lsize [rdr] n-elems)
+           (readLong [rdr idx] (.unaryLong unary-op (.readLong lhs idx)))
+           (longReduction [rdr rfn init-val]
+             (Reductions/serialReduction (wrap-rfn rfn) init-val lhs))
+           (parallelReduction [rdr initValFn rfn mergeFn options]
+             (Reductions/parallelReduction initValFn (wrap-rfn rfn) mergeFn lhs options))))
        :float64
-       (reify DoubleReader
-         (elemwiseDatatype [rdr] res-dtype)
-         (lsize [rdr] n-elems)
-         (readDouble [rdr idx] (.unaryDouble unary-op (.readDouble lhs idx))))
-       (reify ObjectReader
-         (elemwiseDatatype [rdr] res-dtype)
-         (lsize [rdr] n-elems)
-         (readObject [rdr idx] (.unaryObject unary-op (.readObject lhs idx)))))))
-  (^Buffer [^UnaryOperator unary-op lhs]
+       (let [wrap-rfn
+             (fn [rfn]
+               (if (instance? IFn$ODO rfn)
+                 (reify IFnDef$ODO
+                   (invokePrim [f acc v]
+                     (.invokePrim ^IFn$OLO rfn acc (.unaryDouble unary-op v))))
+                 (reify IFnDef$ODO
+                   (invokePrim [f acc v]
+                     (rfn acc (.unaryDouble unary-op v))))))]
+         (reify DoubleReader
+           (elemwiseDatatype [rdr] res-dtype)
+           (lsize [rdr] n-elems)
+           (readDouble [rdr idx] (.unaryDouble unary-op (.readDouble lhs idx)))
+           (doubleReduction [rdr rfn init-val]
+             (Reductions/serialReduction (wrap-rfn rfn) init-val lhs))
+           (parallelReduction [rdr initValFn rfn mergeFn options]
+             (Reductions/parallelReduction initValFn (wrap-rfn rfn) mergeFn lhs options))))
+       (case (casting/simple-operation-space res-dtype)
+         ;;obj->long transformation
+         :int64
+         (let [wrap-rfn (fn [rfn]
+                          (if (instance? IFn$OLO rfn)
+                            (fn [acc v]
+                              (.invokePrim ^IFn$OLO rfn acc (.unaryObjLong unary-op v)))
+                            (fn [rfn]
+                              (fn [acc v]
+                                (rfn acc (.unaryObject unary-op v))))))]
+           (reify
+             LongReader
+             (elemwiseDatatype [rdr] res-dtype)
+             (lsize [rdr] n-elems)
+             (readLong [rdr idx] (.unaryObjLong unary-op (.readObject lhs idx)))
+             (longReduction [rdr rfn init-val]
+               (Reductions/serialReduction (wrap-rfn rfn) init-val lhs))
+             (parallelReduction [rdr initValFn rfn mergeFn options]
+               (Reductions/parallelReduction initValFn (wrap-rfn rfn) mergeFn lhs options))))
+         :float64
+         (let [wrap-rfn (fn [rfn]
+                          (if (instance? IFn$ODO rfn)
+                            (fn [acc v]
+                              (.invokePrim ^IFn$ODO rfn acc (.unaryObjDouble unary-op v)))
+                            (fn [rfn]
+                              (fn [acc v]
+                                (rfn acc (.unaryObject unary-op v))))))]
+           (reify
+             DoubleReader
+             (elemwiseDatatype [rdr] res-dtype)
+             (lsize [rdr] n-elems)
+             (readDouble [rdr idx] (.unaryObjDouble unary-op (.readObject lhs idx)))
+             (doubleReduction [rdr rfn init-val]
+               (Reductions/serialReduction (wrap-rfn rfn) init-val lhs))
+             (parallelReduction [rdr initValFn rfn mergeFn options]
+               (Reductions/parallelReduction initValFn (wrap-rfn rfn) mergeFn lhs options))))
+         ;;Default obj->obj transformation
+         (let [wrap-rfn (fn [rfn] (fn [acc v] (rfn acc (.unaryObject unary-op v))))]
+           (reify ObjectReader
+             (elemwiseDatatype [rdr] res-dtype)
+             (lsize [rdr] n-elems)
+             (readObject [rdr idx] (.unaryObject unary-op (.readObject lhs idx)))
+             (reduce [rdr rfn init-val]
+               (Reductions/serialReduction (wrap-rfn rfn) init-val lhs))
+             (parallelReduction [rdr initValFn rfn mergeFn options]
+               (Reductions/parallelReduction initValFn (wrap-rfn rfn)
+                                             mergeFn lhs options))))))))
+  (^Buffer [unary-op lhs]
    (let [lhs-dtype (dtype-base/elemwise-datatype lhs)
-         op-dtype (if (instance? IFn unary-op)
-                    :object
-                    lhs-dtype)]
-     (reader unary-op op-dtype lhs))))
+         op-meta (meta unary-op)
+         res-dtype (if-let [rs (get op-meta :result-space)]
+                     rs
+                     (if-let [os (get op-meta :operation-space)]
+                       (casting/simple-operation-space os lhs-dtype)
+                       (cond
+                         (or (instance? IFn$OL unary-op)
+                             (instance? IFn$LL unary-op)
+                             (instance? IFn$DL unary-op))
+                         :int64
+                         (or (instance? IFn$OD unary-op)
+                             (instance? IFn$DD unary-op)
+                             (instance? IFn$LD unary-op))
+                         :float64
+                         :else
+                         :object)))]
+     (reader unary-op res-dtype lhs))))
 
 
 (defmacro make-double-unary-op
@@ -98,24 +210,9 @@
   `(-> (reify
          dtype-proto/POperator
          (op-name [item#] ~opname)
-         UnaryOperator
-         (unaryBoolean [this# x#]
-           (throw (Exception. (format "op %s not defined for boolean" ~opname))))
-         (unaryByte [this# x#]
-           (throw (Exception. (format "op %s not defined for byte" ~opname))))
-         (unaryShort [this# x#]
-           (throw (Exception. (format "op %s not defined for short" ~opname))))
-         (unaryChar [this# x#]
-           (throw (Exception. (format "op %s not defined for char" ~opname))))
-         (unaryInt [this# x#]
-           (throw (Exception. (format "op %s not defined for int" ~opname))))
-         (unaryLong [this# x#]
-           (throw (Exception. (format "op %s not defined for long" ~opname))))
-         (unaryFloat [this# x#]
-           (throw (Exception. (format "op %s not defined for float" ~opname))))
-         (unaryDouble [this# ~'x] ~opcode)
-         (unaryObject [this# x#] (.unaryDouble this# x#)))
-       (vary-meta assoc :operation-space :float64)))
+         UnaryOperators$DoubleUnaryOperator
+         (unaryDouble [this# ~'x] ~opcode))
+       (vary-meta assoc :operation-space :float64 :result-space :float64)))
 
 
 (defmacro make-numeric-object-unary-op
@@ -124,21 +221,13 @@
      dtype-proto/POperator
      (op-name [item#] ~opname)
      UnaryOperator
-     (unaryBoolean [this# x#]
-       (throw (Exception. (format "op %s not defined for boolean" ~opname))))
-     (unaryByte [this# ~'x] (byte ~opcode))
-     (unaryShort [this# ~'x] (short ~opcode))
-     (unaryChar [this# ~'x]
-       (throw (Exception. (format "op %s not defined for char" ~opname))))
-     (unaryInt [this# ~'x] ~opcode)
      (unaryLong [this# ~'x] ~opcode)
-     (unaryFloat [this# ~'x] ~opcode)
      (unaryDouble [this# ~'x] ~opcode)
      (unaryObject [this# ~'x]
        (if (casting/integer-type? (dtype-base/elemwise-datatype ~'x))
-         (let [~'x (unchecked-long ~'x)]
+         (let [~'x (Casts/longCast ~'x)]
            ~opcode)
-         (let [~'x (unchecked-double ~'x)]
+         (let [~'x (Casts/doubleCast ~'x)]
            ~opcode)))))
 
 
@@ -148,10 +237,8 @@
          dtype-proto/POperator
          (op-name [item#] ~opname)
          UnaryOperators$DoubleUnaryOperator
-         (unaryFloat [this# ~'x] ~opcode)
-         (unaryDouble [this# ~'x] ~opcode)
-         (unaryObject [this# x#] (.unaryDouble this# x#)))
-       (vary-meta assoc :operation-space :float32)))
+         (unaryDouble [this# ~'x] ~opcode))
+       (vary-meta assoc :operation-space :float32 :result-space :float64)))
 
 
 (defmacro make-numeric-unary-op
@@ -160,13 +247,7 @@
      dtype-proto/POperator
      (op-name [item#] ~opname)
      UnaryOperator
-     (unaryByte [this# ~'x] (byte ~opcode))
-     (unaryShort [this# ~'x] (short ~opcode))
-     (unaryChar [this# ~'x]
-       (throw (Exception. (format "op %s not defined for char" ~opname))))
-     (unaryInt [this# ~'x] ~opcode)
      (unaryLong [this# ~'x] ~opcode)
-     (unaryFloat [this# ~'x] ~opcode)
      (unaryDouble [this# ~'x] ~opcode)
      (unaryObject [this# x#] (.unaryDouble this# x#))))
 
@@ -176,24 +257,12 @@
   `(-> (reify
          dtype-proto/POperator
          (op-name [item#] ~opname)
-         UnaryOperator
-         (unaryBoolean [this# ~'x]
-           (throw (Exception. (format "op %s not defined for boolean" ~opname))))
-         (unaryByte [this# ~'x]
-           (throw (Exception. (format "op %s not defined for byte" ~opname))))
-         (unaryShort [this# ~'x]
-           (throw (Exception. (format "op %s not defined for short" ~opname))))
-         (unaryChar [this# x#]
-           (throw (Exception. (format "op %s not defined for char" ~opname))))
-         (unaryInt [this# ~'x]
-           (throw (Exception. (format "op %s not defined for char" ~opname))))
+         UnaryOperators$LongUnaryOperator
          (unaryLong [this# ~'x] ~opcode)
-         (unaryFloat [this# ~'x]
-           (throw (Exception. (format "op %s not defined for float" ~opname))))
          (unaryDouble [this# ~'x]
            (throw (Exception. (format "op %s not defined for double" ~opname))))
-         (unaryObject [this# x#] (.unaryLong this# (long x#))))
-       (vary-meta assoc :operation-space :int64)))
+         (unaryObject [this# x#] (.unaryLong this# (Casts/longCast x#))))
+       (vary-meta assoc :operation-space :int64 :result-space :int64)))
 
 
 (defmacro make-all-datatype-unary-op
@@ -202,13 +271,7 @@
      dtype-proto/POperator
      (op-name [item#] ~opname)
      UnaryOperator
-     (unaryBoolean [this# ~'x] ~opcode)
-     (unaryByte [this# ~'x] ~opcode)
-     (unaryShort [this# ~'x] ~opcode)
-     (unaryChar [this# ~'x] ~opcode)
-     (unaryInt [this# ~'x] ~opcode)
      (unaryLong [this# ~'x] ~opcode)
-     (unaryFloat [this# ~'x] ~opcode)
      (unaryDouble [this# ~'x] ~opcode)
      (unaryObject [this# ~'x] ~opcode)))
 

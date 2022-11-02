@@ -6,47 +6,47 @@
             [tech.v3.datatype.errors :as errors]
             [com.github.ztellman.primitive-math :as pmath])
   (:import [tech.v3.datatype BinaryPredicate Buffer
-            BinaryPredicates$BooleanBinaryPredicate
             BinaryPredicates$LongBinaryPredicate
-            BinaryPredicates$ObjectBinaryPredicate
-            BooleanConversions
+            BinaryPredicates$DoubleBinaryPredicate
             BooleanReader ObjectReader
             UnaryPredicate
-            UnaryPredicates$BooleanUnaryPredicate
             UnaryPredicates$LongUnaryPredicate
             UnaryPredicates$DoubleUnaryPredicate
             UnaryPredicates$ObjectUnaryPredicate]
-           [clojure.lang IFn]
+           [clojure.lang IFn IFn$LLO IFn$DDO]
            [org.apache.commons.math3.util Precision]
-           [java.util Comparator]))
+           [java.util Comparator]
+           [ham_fisted Casts]))
 
 (set! *warn-on-reflection* true)
 
 
 (defn ifn->binary-predicate
   (^BinaryPredicate [ifn opname]
-   (when-not (instance? IFn ifn)
-     (errors/throwf "Arg (%s) is not an instance of IFn" ifn))
-   (reify
-     BinaryPredicates$ObjectBinaryPredicate
-     (binaryObject [this lhs rhs]
-       (BooleanConversions/from (ifn lhs rhs)))
-     dtype-proto/POperator
-     (op-name [this] opname)))
-  (^BinaryPredicate [ifn]
-   (ifn->binary-predicate ifn :_unnamed)))
-
-
-(defn ifn->long-binary-predicate
-  (^BinaryPredicate [ifn opname]
-   (when-not (instance? IFn ifn)
-     (errors/throwf "Arg (%s) is not an instance of IFn" ifn))
-   (reify
-     BinaryPredicates$LongBinaryPredicate
-     (binaryObject [this lhs rhs]
-       (BooleanConversions/from (ifn lhs rhs)))
-     dtype-proto/POperator
-     (op-name [this] opname)))
+   (if (instance? BinaryPredicate ifn)
+     ifn
+     (cond
+       (instance? IFn$LLO ifn)
+       (reify
+         BinaryPredicates$LongBinaryPredicate
+         (binaryLong [this lhs rhs]
+           (Casts/booleanCast (.invokePrim ^IFn$LLO ifn lhs rhs)))
+         dtype-proto/POperator
+         (op-name [this] opname))
+       (instance? IFn$DDO ifn)
+       (reify
+         BinaryPredicates$DoubleBinaryPredicate
+         (binaryDouble [this lhs rhs]
+           (Casts/booleanCast (.invokePrim ^IFn$DDO ifn lhs rhs)))
+         dtype-proto/POperator
+         (op-name [this] opname))
+       :else
+       (reify
+         BinaryPredicate
+         (binaryObject [this lhs rhs]
+           (Casts/booleanCast (ifn lhs rhs)))
+         dtype-proto/POperator
+         (op-name [this] opname)))))
   (^BinaryPredicate [ifn]
    (ifn->binary-predicate ifn :_unnamed)))
 
@@ -58,7 +58,7 @@
      (instance? Comparator item)
      (let [^Comparator item item]
        (reify
-         BinaryPredicates$ObjectBinaryPredicate
+         BinaryPredicate
          (binaryObject [this lhs rhs]
            (== 0 (.compare item lhs rhs)))
          dtype-proto/POperator
@@ -66,7 +66,7 @@
      (instance? java.util.function.BiPredicate item)
      (let [^java.util.function.BiPredicate item item]
        (reify
-         BinaryPredicates$ObjectBinaryPredicate
+         BinaryPredicate
          (binaryObject [this lhs rhs]
            (.test item lhs rhs))
          dtype-proto/POperator
@@ -89,28 +89,21 @@
                      (.lsize lhs-rdr)
                      (.lsize rhs-rdr)))
     (case op-dtype
-      :boolean
-      (reify BooleanReader
-        (lsize [rdr] (.lsize lhs-rdr))
-        (readBoolean [rdr idx]
-          (.binaryBoolean pred
-                          (.readBoolean lhs-rdr idx)
-                          (.readBoolean rhs-rdr idx))))
       :int64
       (reify BooleanReader
         (lsize [rdr] (.lsize lhs-rdr))
-        (readBoolean [rdr idx]
+        (readObject [rdr idx]
           (.binaryLong pred
                        (.readLong lhs-rdr idx)
                        (.readLong rhs-rdr idx))))
       :float64
       (reify BooleanReader
         (lsize [rdr] (.lsize lhs-rdr))
-        (readBoolean [rdr idx]
+        (readObject [rdr idx]
           (.binaryDouble pred
                        (.readDouble lhs-rdr idx)
                        (.readDouble rhs-rdr idx))))
-      (reify ObjectReader
+      (reify BooleanReader
         (lsize [rdr] (.lsize lhs-rdr))
         (readObject [rdr idx]
           (.binaryObject pred
@@ -128,9 +121,9 @@
 
 (defmacro make-boolean-predicate
   ([_opname op]
-   `(reify BinaryPredicates$BooleanBinaryPredicate
-      (binaryBoolean [this ~'x ~'y]
-        (boolean ~op))))
+   `(reify BinaryPredicate
+      (binaryObject [this ~'x ~'y]
+        (Casts/booleanCast ~op))))
   ([op]
    `(make-boolean-predicate ~op :_unnamed)))
 
@@ -138,12 +131,8 @@
 (defmacro make-numeric-binary-predicate
   ([opname op obj-op]
    `(reify
-      BinaryPredicates$ObjectBinaryPredicate
-      (binaryByte [this ~'x ~'y] ~op)
-      (binaryShort [this ~'x ~'y] ~op)
-      (binaryInt [this ~'x ~'y] ~op)
+      BinaryPredicate
       (binaryLong [this ~'x ~'y] ~op)
-      (binaryFloat [this ~'x ~'y] ~op)
       (binaryDouble [this ~'x ~'y] ~op)
       (binaryObject [this ~'x ~'y]
         ~obj-op)
@@ -158,17 +147,8 @@
    :tech.numerics/or (make-boolean-predicate :boolean (boolean (or x y)))
    :tech.numerics/eq
    (reify
-     BinaryPredicates$ObjectBinaryPredicate
-     (binaryBoolean [this lhs rhs] (= lhs rhs))
-     (binaryByte [this lhs rhs] (== lhs rhs))
-     (binaryShort [this lhs rhs] (== lhs rhs))
-     (binaryChar [this lhs rhs] (= lhs rhs))
-     (binaryInt [this lhs rhs] (== lhs rhs))
+     BinaryPredicate
      (binaryLong [this lhs rhs] (== lhs rhs))
-     (binaryFloat [this lhs rhs]
-       (if (Float/isNaN lhs)
-         (Float/isNaN rhs)
-         (pmath/== lhs rhs)))
      (binaryDouble [this lhs rhs]
        (if (Double/isNaN lhs)
          (Double/isNaN rhs)
@@ -185,14 +165,8 @@
      (op-name [this] :eq))
    :tech.numerics/not-eq
    (reify
-     BinaryPredicates$ObjectBinaryPredicate
-     (binaryBoolean [this lhs rhs] (not= lhs rhs))
-     (binaryByte [this lhs rhs] (not= lhs rhs))
-     (binaryShort [this lhs rhs] (not= lhs rhs))
-     (binaryChar [this lhs rhs] (not= lhs rhs))
-     (binaryInt [this lhs rhs] (not= lhs rhs))
+     BinaryPredicate
      (binaryLong [this lhs rhs] (not= lhs rhs))
-     (binaryFloat [this lhs rhs] (not (Precision/equalsIncludingNaN lhs rhs)))
      (binaryDouble [this lhs rhs] (not (Precision/equalsIncludingNaN lhs rhs)))
      (binaryObject [this lhs rhs]
        (if lhs
@@ -260,9 +234,9 @@
                      (unaryDouble [this arg]
                        (.binaryDouble pred dval arg))))
         :boolean (let [bval (boolean constant)]
-                   (reify UnaryPredicates$BooleanUnaryPredicate
-                     (unaryBoolean [this arg]
-                       (.binaryBoolean pred bval arg))))
+                   (reify UnaryPredicate
+                     (unaryObject [this arg]
+                       (.binaryObject pred bval arg))))
         (reify UnaryPredicates$ObjectUnaryPredicate
           (unaryObject [this arg]
             (= constant arg)))))))

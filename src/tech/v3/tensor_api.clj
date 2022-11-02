@@ -230,20 +230,6 @@
       (indexed-buffer/indexed-buffer (.indexSystem t) buffer)))
   (dimensions [_t] dimensions)
   (indexSystem [_t] index-system)
-  (ndReadBoolean [_t idx]
-    (.readBoolean cached-io (.ndReadLong index-system idx)))
-  (ndReadBoolean [_t row col]
-    (.readBoolean cached-io (.ndReadLong index-system row col)))
-  (ndReadBoolean [_t height width chan]
-    (.readBoolean cached-io (.ndReadLong index-system height width chan)))
-  (ndWriteBoolean [_t idx value]
-    (.writeBoolean cached-io (.ndReadLong index-system idx) value))
-  (ndWriteBoolean [_t row col value]
-    (.writeBoolean cached-io (.ndReadLong index-system row col) value))
-  (ndWriteBoolean [_t height width chan value]
-    (.writeBoolean cached-io (.ndReadLong index-system height width chan)
-                   value))
-
   (ndReadLong [_t idx]
     (.readLong cached-io (.ndReadLong index-system idx)))
   (ndReadLong [_t row col]
@@ -362,19 +348,6 @@
   (dimensions [_t] dimensions)
   (indexSystem [_t] index-system)
   (lsize [_t] (.lsize index-system))
-  (ndReadBoolean [_t idx]
-    (.readBoolean cached-io (* idx c)))
-  (ndReadBoolean [_t row col]
-    (.readBoolean cached-io (+ (* row x) (* col c))))
-  (ndReadBoolean [_t height width chan]
-    (.readBoolean cached-io (+ (* height y) (* width x) (* chan c))))
-  (ndWriteBoolean [_t idx value]
-    (.writeBoolean cached-io (* idx c) value))
-  (ndWriteBoolean [_t row col value]
-    (.writeBoolean cached-io (+ (* row x) (* col c)) value))
-  (ndWriteBoolean [_t height width chan value]
-    (.writeBoolean cached-io (+ (* height y) (* width x) (* chan c))
-                   value))
 
   (ndReadLong [_t idx]
     (.readLong cached-io (* idx c)))

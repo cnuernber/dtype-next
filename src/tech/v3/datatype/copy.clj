@@ -37,7 +37,7 @@
       (parallel-for/parallel-for
        idx
        n-elems
-       (.writeBoolean dst idx (.readBoolean src idx)))
+       (.writeObject dst idx (.readObject src idx)))
       :int64
       (parallel-for/parallel-for
        idx

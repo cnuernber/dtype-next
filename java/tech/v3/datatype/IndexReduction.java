@@ -2,27 +2,27 @@ package tech.v3.datatype;
 
 
 import java.util.function.BiFunction;
+import java.util.function.LongPredicate;
 import java.util.List;
+import java.util.Iterator;
+import clojure.lang.IFn;
 
 public interface IndexReduction
 {
   //This allows us to handle sequences of readers as opposed to just a single reader
   //Or, when dealing with datasets, sequences of datasets.
   public default Object prepareBatch(Object batchData) { return batchData; }
-  public default boolean filterIndex(Object batchData, long idx) { return true; }
+  //Pre-filter the indexes before processing them.
+  public default LongPredicate indexFilter(Object batchData) { return null; }
   public Object reduceIndex(Object batchData, Object ctx, long idx);
   public Object reduceReductions(Object lhsCtx, Object rhsCtx);
-  public default Object reduceReductionList(List contexts) {
-    int n_contexts = contexts.size();
-    if ( 1 == n_contexts ) {
-      return contexts.get(0);
-    } else {
-      Object retval = contexts.get(0);
-      for (int idx = 1; idx < n_contexts; ++idx ) {
-	retval = reduceReductions(retval, contexts.get(idx));
-      }
-      return retval;
+  public default Object reduceReductionList(Iterable contexts) {
+    Iterator iter = contexts.iterator();
+    Object init = iter.next();
+    while(iter.hasNext()) {
+      init = reduceReductions(init, iter.next());
     }
+    return init;
   }
   public default Object finalize(Object ctx)
   {

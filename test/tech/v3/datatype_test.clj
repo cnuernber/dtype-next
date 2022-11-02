@@ -13,7 +13,8 @@
             [tech.v3.datatype.datetime]
             [ham-fisted.lazy-noncaching :as lznc])
   (:import [java.nio FloatBuffer]
-           [java.util ArrayList]))
+           [java.util ArrayList]
+           [ham_fisted Casts]))
 
 
 (defn basic-copy
@@ -722,17 +723,18 @@
 
 (deftest set-constant-all-numeric-dtypes
   (let [dtypes [:int8 :uint8
-                :int16 :uin16
+                :int16 :uint16
                 :int32 :uint32
                 :int64 :uint64
                 :float32 :float64]
         containers [:jvm-heap :native-heap]]
-    (for [dtype dtypes
-          container containers]
-      (let [data (dtype/make-container container dtype 10)]
-        (dtype/set-constant! data 1)
-        (is (= (mapv long (dtype/->reader data))
-               (vec (repeat 10 1))))))))
+    (dorun
+     (for [dtype dtypes
+           container containers]
+       (let [data (dtype/make-container container dtype 10)]
+         (dtype/set-constant! data 1)
+         (is (= (mapv long (dtype/->reader data))
+                (vec (repeat 10 1)))))))))
 
 
 (deftest nth-neg-indexes
@@ -791,16 +793,12 @@
 
 
 (deftest double-nan-boolean
-  (is (= false (dtype/cast (Double/NaN) :boolean)))
-  (is (= [false]
-         (-> (dtype/make-container :float64 [Double/NaN])
-             (dtype/elemwise-cast :boolean)
-             (vec))))
-  (is (= false (-> (reify tech.v3.datatype.DoubleReader
-                     (lsize [this] 1)
-                     (readDouble [this idx] Double/NaN))
-                   (.readBoolean 0))))
-  (is (= false (tech.v3.datatype.BooleanConversions/from Double/NaN)))
-  (is (= false (tech.v3.datatype.BooleanConversions/from (Double/valueOf Double/NaN))))
-  (is (= false (tech.v3.datatype.BooleanConversions/from (Long/valueOf 0))))
-  (is (= [2] (vec (argops/argfilter identity (double-array [0 Double/NaN 1]))))))
+  (is (thrown? Exception (= false (dtype/cast (Double/NaN) :boolean))))
+  (is (thrown? Exception (= [false]
+                            (-> (dtype/make-container :float64 [Double/NaN])
+                                (dtype/elemwise-cast :boolean)
+                                (vec)))))
+  (is (thrown? Exception (= false (Casts/booleanCast Double/NaN))))
+  (is (thrown? Exception (= false (Casts/booleanCast (Double/valueOf Double/NaN)))))
+  (is (= false (Casts/booleanCast (Long/valueOf 0))))
+  (is (thrown? Exception (= [2] (vec (argops/argfilter identity (double-array [0 Double/NaN 1])))))))

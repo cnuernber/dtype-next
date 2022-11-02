@@ -18,7 +18,8 @@
             APersistentSet]
            [java.util RandomAccess List Spliterator$OfDouble Spliterator$OfLong
             Spliterator$OfInt]
-           [java.util.stream Stream DoubleStream LongStream IntStream]))
+           [java.util.stream Stream DoubleStream LongStream IntStream]
+           [ham_fisted Reductions]))
 
 
 (set! *warn-on-reflection* true)
@@ -385,7 +386,11 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
     (readObject [rdr idx]
       (.get item idx))
     (writeObject [wtr idx value]
-      (.set item idx value))))
+      (.set item idx value))
+    (reduce [this rfn init-val]
+      (Reductions/serialReduction rfn init-val item))
+    (parallelReduction [this init-val-fn rfn merge-fn options]
+      (Reductions/parallelReduction init-val-fn rfn merge-fn item options))))
 
 
 (extend-type RandomAccess

@@ -144,7 +144,8 @@ public class MutListBuffer implements Buffer, Cloneable {
   public Object longReduction(IFn.OLO op, Object init) {
     return data.longReduction(op, init);
   }
-  public Object parallelReduction(IFn initValFn, IFn rfn, IFn mergeFn, ParallelOptions options) {
+  public Object parallelReduction(IFn initValFn, IFn rfn, IFn mergeFn,
+				  ParallelOptions options) {
     return data.parallelReduction(initValFn, rfn, mergeFn, options);
   }
   public void forEach(Consumer c) {

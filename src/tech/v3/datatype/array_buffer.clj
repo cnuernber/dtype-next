@@ -46,9 +46,7 @@
     (dtype-proto/->array-buffer (.-data item)))
   dtype-proto/PSubBuffer
   (sub-buffer [item off len]
-    (MutListBuffer. (.subList (.-data item) off (+ (int off) (int len)))
-                    (.-supportsWrite item)
-                    (.-elemwiseDatatype item)))
+    (.subBuffer item (long off) (+ (long off) (long len))))
   dtype-proto/PToBinaryBuffer
   (convertible-to-binary-buffer? [item]
     (dtype-proto/convertible-to-binary-buffer? (.-data item)))
@@ -86,7 +84,7 @@
   (elemwise-reader-cast [this new-dtype] (dtype-proto/->buffer this))
   dtype-proto/PSubBuffer
   (sub-buffer [item off len]
-    (.subList item off (+ (int off) (int len))))
+    (.subList item (int off) (+ (int off) (int len))))
   dtype-proto/PSetConstant
   (set-constant! [item off elem-count value]
     (.fillRange item (int off) (+ (int off) (int elem-count)) value))
@@ -111,7 +109,7 @@
   (elemwise-reader-cast [this new-dtype] (dtype-proto/->buffer this))
   dtype-proto/PSubBuffer
   (sub-buffer [item off len]
-    (.subList item off (+ (int off) (int len))))
+    (.subList item (int off) (+ (int off) (int len))))
   dtype-proto/PSetConstant
   (set-constant! [item off elem-count value]
     (.fillRange item (int off) (+ (int off) (int elem-count)) value))
@@ -136,7 +134,7 @@
   (elemwise-reader-cast [this new-dtype] (dtype-proto/->buffer this))
   dtype-proto/PSubBuffer
   (sub-buffer [item off len]
-    (.subList item off (+ (int off) (int len))))
+    (.subList item (int off) (+ (int off) (int len))))
   dtype-proto/PClone
   (clone [this] this)
   dtype-proto/PToBuffer

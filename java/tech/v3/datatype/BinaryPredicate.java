@@ -10,13 +10,15 @@ import ham_fisted.IFnDef;
 
 
 public interface BinaryPredicate extends ElemwiseDatatype, IFnDef.OOO,
-					 BiPredicate
+					 BiPredicate, IFnDef.DDO, IFnDef.LLO
 {
   default boolean binaryLong(long lhs, long rhs) { return binaryObject(lhs,rhs); }
   default boolean binaryDouble(double lhs, double rhs) { return binaryDouble(lhs,rhs); }
   boolean binaryObject(Object lhs, Object rhs);
   default Object elemwiseDatatype () { return Keyword.intern(null, "object"); }
   default Object invoke(Object lhs, Object rhs) { return binaryObject(lhs, rhs); }
+  default Object invokePrim(long lhs, long rhs) { return binaryLong(lhs,rhs); }
+  default Object invokePrim(double lhs, double rhs) { return binaryDouble(lhs, rhs); }
   default boolean test(Object lhs, Object rhs) {
     return binaryObject(lhs, rhs);
   }

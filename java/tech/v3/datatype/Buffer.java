@@ -8,6 +8,7 @@ import clojure.lang.ISeq;
 import clojure.lang.Indexed;
 import clojure.lang.IDeref;
 import clojure.lang.IFn;
+import clojure.lang.IPersistentMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
@@ -30,9 +31,10 @@ import ham_fisted.ForkJoinPatterns;
 import ham_fisted.ParallelOptions;
 import ham_fisted.Casts;
 import ham_fisted.IFnDef;
+import ham_fisted.ChunkedList;
 
 
-public interface Buffer extends DatatypeBase, IMutList
+public interface Buffer extends DatatypeBase, IMutList<Object>
 {
   default byte readByte(long idx) { return RT.byteCast(readLong(idx)); }
   default long readLong(long idx) { return Casts.longCast(readObject(idx)); }
@@ -41,10 +43,74 @@ public interface Buffer extends DatatypeBase, IMutList
   default void writeByte(long idx, byte v) { writeLong(idx,v); }
   default void writeLong(long idx, long val) { writeObject(idx,val); }
   default void writeDouble(long idx, double val) { writeDouble(idx,val); }
-  void writeObject(long idx, Object val);
+  default void writeObject(long idx, Object val) { throw new RuntimeException("Unimplemented"); }
+
+  public static class SubBuffer implements Buffer {
+    public final Buffer list;
+    public final long sidx;
+    public final long eidx;
+    public final long nElems;
+    public SubBuffer(Buffer list, long ss, long ee) {
+      this.list = list;
+      sidx = ss;
+      eidx = ee;
+      nElems = ee - ss;
+    }
+    public Object elemwiseDatatype() { return list.elemwiseDatatype(); }
+    public long lsize() { return nElems; }
+    public byte readByte(long idx) { return list.readByte(idx+sidx); }
+    public long readLong(long idx) { return list.readLong(idx+sidx); }
+    public double readDouble(long idx) { return list.readDouble(idx+sidx); }
+    public Object readObject(long idx) { return list.readObject(idx+sidx); }
+    public void writeByte(long idx, byte v) { list.writeByte(idx+sidx,v); }
+    public void writeLong(long idx, long val) { list.writeLong(idx+sidx,val); }
+    public void writeDouble(long idx, double val) { list.writeDouble(idx+sidx,val); }
+    public void writeObject(long idx, Object val) { list.writeObject(idx+sidx,val); }
+    public void accumPlusLong(long idx, long val) {
+      list.accumPlusLong(idx+sidx, val);
+    }
+    public void accumPlusDouble(long idx, double val) {
+      list.accumPlusDouble(idx+sidx, val);
+    }
+    public Buffer subBuffer(long ssidx, long seidx) {
+      ChunkedList.sublistCheck(ssidx, seidx, lsize());
+      if(ssidx == 0 && seidx == lsize())
+	return this;
+      return list.subBuffer(sidx+ssidx, sidx+seidx);
+    }
+    public IMutList<Object> subList(int sidx, int eidx) {
+      return subBuffer(sidx, eidx);
+    }
+    public Object reduce(IFn rfn, Object init) {
+      final long ee = eidx;
+      final Buffer l = list;
+      for(long idx = sidx; idx < ee && !RT.isReduced(init); ++idx)
+	init = rfn.invoke(init, l.readObject(idx));
+      return init;
+    }
+    public Object longReduction(IFn.OLO rfn, Object init) {
+      final long ee = eidx;
+      final Buffer l = list;
+      for(long idx = sidx; idx < ee && !RT.isReduced(init); ++idx)
+	init = rfn.invokePrim(init, l.readLong(idx));
+      return init;
+    }
+    public Object doubleReduction(IFn.ODO rfn, Object init) {
+      final long ee = eidx;
+      final Buffer l = list;
+      for(long idx = sidx; idx < ee && !RT.isReduced(init); ++idx)
+	init = rfn.invokePrim(init, l.readDouble(idx));
+      return init;
+    }
+    public Buffer withMeta(IPersistentMap m) { return ((Buffer)list.withMeta(m)).subBuffer(sidx, eidx); }
+    public IPersistentMap meta() { return list.meta(); }
+  }
 
   default Buffer subBuffer(long sidx, long eidx) {
-    return (Buffer)subList(RT.intCast(sidx), RT.intCast(eidx));
+    ChunkedList.sublistCheck(sidx, eidx, lsize());
+    if(sidx == 0 && eidx == lsize())
+      return this;
+    return new SubBuffer(this, sidx, eidx);
   }
 
   default void accumPlusLong(long idx, long val) {

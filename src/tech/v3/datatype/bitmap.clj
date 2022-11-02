@@ -249,13 +249,7 @@
        (.add bitmap (unchecked-int value))))
     true)
   (lsize [_this] (.getCardinality bitmap))
-  (readBoolean [this idx] (dtype-proto/->reader this) (.readBoolean cached-io idx))
-  (readByte [this idx] (dtype-proto/->reader this) (.readByte cached-io idx))
-  (readShort [this idx] (dtype-proto/->reader this) (.readShort cached-io idx))
-  (readChar [this idx] (dtype-proto/->reader this) (.readChar cached-io idx))
-  (readInt [this idx] (dtype-proto/->reader this) (.readInt cached-io idx))
   (readLong [this idx] (dtype-proto/->reader this) (.readLong cached-io idx))
-  (readFloat [this idx] (dtype-proto/->reader this) (.readFloat cached-io idx))
   (readDouble [this idx] (dtype-proto/->reader this) (.readDouble cached-io idx))
   (readObject [this idx] (dtype-proto/->reader this) (.readObject cached-io idx))
   dtype-proto/PToReader

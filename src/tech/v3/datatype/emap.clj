@@ -4,10 +4,12 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.argtypes :as argtypes]
             [tech.v3.datatype.base :as dtype-base]
-            [tech.v3.datatype.argops :as argops])
+            [tech.v3.datatype.argops :as argops]
+            [tech.v3.datatype.unary-op :as unary-op]
+            [tech.v3.datatype.unary-op :as binary-op])
   (:import [java.util List]
-           [tech.v3.datatype BooleanReader LongReader DoubleReader ObjectReader
-            NumericConversions BooleanConversions]))
+           [tech.v3.datatype BooleanReader LongReader DoubleReader ObjectReader]
+           [ham_fisted Casts]))
 
 
 (defmacro ^:private cast-or-missing
@@ -22,103 +24,31 @@
   (let [n-elems (long (dtype-base/ecount (first args)))
         ^List args (mapv #(argops/ensure-reader % n-elems) args)
         argcount (.size args)]
-    (if (= res-dtype :boolean)
-      (case argcount
-        1 (let [arg (first args)]
-            (reify BooleanReader
-              (lsize [rdr] n-elems)
-              (readBoolean [rdr idx]
-                (cast-or-missing (map-fn (arg idx)) BooleanConversions/from false))))
-        2 (let [arg1 (first args)
-                arg2 (second args)]
-            (reify BooleanReader
-              (lsize [rdr] n-elems)
-              (readBoolean [rdr idx]
-                (cast-or-missing (map-fn (arg1 idx) (arg2 idx))
-                                 BooleanConversions/from false))))
-        (reify BooleanReader
+    (case argcount
+      1 (unary-op/reader map-fn res-dtype (args 0))
+      2 (binary-op/reader map-fn res-dtype (args 0) (args 1))
+      (case (casting/simple-operation-space res-dtype)
+        :int64
+        (reify LongReader
+          (elemwiseDatatype [rdr] res-dtype)
           (lsize [rdr] n-elems)
-          (readBoolean [rdr idx]
+          (readLong [rdr idx]
             (cast-or-missing (apply map-fn (map #(% idx) args))
-                             BooleanConversions/from false))))
-      ;;The unary-op/binary-op reader pathways force the operation to happen in the same
-      ;;space as the return value.  For a generalized element map, all we can know is
-      ;;the final value results in that space but everything else should happen in
-      ;;object space.
-      (cond
-        (casting/integer-type? res-dtype)
-        (case argcount
-          1 (let [arg (first args)]
-              (reify LongReader
-                (elemwiseDatatype [rdr] res-dtype)
-                (lsize [rdr] n-elems)
-                (readLong [rdr idx]
-                  (cast-or-missing (map-fn (arg idx)) NumericConversions/longCast
-                                   Long/MIN_VALUE))))
-          2 (let [lhs (first args)
-                  rhs (second args)]
-              (reify LongReader
-                (elemwiseDatatype [rdr] res-dtype)
-                (lsize [rdr] n-elems)
-                (readLong [rdr idx]
-                  (cast-or-missing (map-fn (lhs idx) (rhs idx))
-                                   NumericConversions/longCast
-                                   Long/MIN_VALUE))))
-          ;;default
-          (reify LongReader
-            (elemwiseDatatype [rdr] res-dtype)
-            (lsize [rdr] n-elems)
-            (readLong [rdr idx]
-              (cast-or-missing (apply map-fn (map #(% idx) args))
-                               NumericConversions/longCast
-                               Long/MIN_VALUE))))
-        (casting/float-type? res-dtype)
-        (case argcount
-          1 (let [arg (first args)]
-              (reify DoubleReader
-                (elemwiseDatatype [rdr] res-dtype)
-                (lsize [rdr] n-elems)
-                (readDouble [rdr idx]
-                  (cast-or-missing (map-fn (arg idx))
-                                   NumericConversions/doubleCast
-                                   Double/NaN))))
-          2 (let [lhs (first args)
-                  rhs (second args)]
-              (reify DoubleReader
-                (elemwiseDatatype [rdr] res-dtype)
-                (lsize [rdr] n-elems)
-                (readDouble [rdr idx]
-                  (cast-or-missing (map-fn (lhs idx) (rhs idx))
-                                   NumericConversions/doubleCast
-                                   Double/NaN))))
-          (reify DoubleReader
-            (elemwiseDatatype [rdr] res-dtype)
-            (lsize [rdr] n-elems)
-            (readDouble [rdr idx]
-              (cast-or-missing (apply map-fn (map #(% idx) args))
-                               NumericConversions/doubleCast
-                               Double/NaN))))
-        :else
-        (case argcount
-          1 (let [arg (first args)]
-              (reify ObjectReader
-                (elemwiseDatatype [rdr] res-dtype)
-                (lsize [rdr] n-elems)
-                (readObject [rdr idx]
-                  (cast-fn (map-fn (arg idx))))))
-          2 (let [lhs (first args)
-                  rhs (second args)]
-              (reify ObjectReader
-                (elemwiseDatatype [rdr] res-dtype)
-                (lsize [rdr] n-elems)
-                (readObject [rdr idx]
-                  (cast-fn (map-fn (lhs idx) (rhs idx))))))
-          (reify ObjectReader
-            (elemwiseDatatype [rdr] res-dtype)
-            (lsize [rdr] n-elems)
-            (readObject [rdr idx]
-              (cast-fn
-               (apply map-fn (map #(% idx) args))))))))))
+                             Casts/longCast
+                             Long/MIN_VALUE)))
+        :float64
+        (reify DoubleReader
+          (elemwiseDatatype [rdr] res-dtype)
+          (lsize [rdr] n-elems)
+          (readDouble [rdr idx]
+            (cast-or-missing (apply map-fn (map #(% idx) args))
+                             Casts/doubleCast
+                             Double/NaN)))
+        (reify ObjectReader
+          (elemwiseDatatype [rdr] res-dtype)
+          (lsize [rdr] n-elems)
+          (readObject [rdr idx]
+            (cast-fn (apply map-fn (map #(% idx) args)))))))))
 
 
 (defn emap
@@ -137,9 +67,9 @@
         input-types (set (map argtypes/arg-type args))
         op-space (casting/simple-operation-space res-dtype)
         cast-fn (case op-space
-                  :boolean #(if % (BooleanConversions/from %) false)
-                  :int64 #(if % (NumericConversions/longCast %) Long/MIN_VALUE)
-                  :float64 #(if % (NumericConversions/doubleCast %) Double/NaN)
+                  :boolean #(if % (Casts/booleanCast %) false)
+                  :int64 #(if % (Casts/longCast %) Long/MIN_VALUE)
+                  :float64 #(if % (Casts/doubleCast %) Double/NaN)
                   (get @casting/*cast-table* res-dtype identity))]
     (cond
       (= input-types #{:scalar})
