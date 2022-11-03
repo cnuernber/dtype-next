@@ -35,8 +35,10 @@
             LongReader DoubleReader ObjectReader
             BinaryOperator ArrayHelpers]
            [org.roaringbitmap RoaringBitmap]
+           [ham_fisted IMutList]
            [java.util List]
-           [java.util.function DoublePredicate]
+           [java.util.function DoublePredicate DoubleConsumer]
+           [clojure.lang IDeref]
            [org.apache.commons.math3.stat.regression SimpleRegression])
   (:refer-clojure :exclude [+ - / *
                             <= < >= >
@@ -428,13 +430,36 @@
     (assoc retval :result result)))
 
 
+(deftype CumOpConsumer [^BinaryOperator op
+                        ^{:unsynchronized-mutable true
+                         :tag 'double} sum
+                        ^:unsynchronized-mutable first
+                        ^DoublePredicate p
+                        ^IMutList result]
+  DoubleConsumer
+  (accept [this v]
+    (if (.test p v)
+      (do
+        (if first
+          (do
+            (set! sum v)
+            (set! first false))
+          (set! sum (.binaryDouble op sum v)))
+        (.addDouble result sum))
+      (.addDouble result Double/NaN)))
+  IDeref
+  (deref [this] result))
+
+
 (defn ^:no-doc cumop
-  ^doubles [options ^BinaryOperator op data]
-  (let [^Buffer data (if (dtype-base/reader? data)
+  [options ^BinaryOperator op data]
+  (let [data (if (dtype-base/reader? data)
                        (dtype-base/as-reader data :float64)
-                       (dtype-base/as-reader (hamf/double-array data) :float64))
-        n-elems (.lsize data)
-        result (hamf/double-array n-elems)
+                       data)
+        n-elems (if (instance? Buffer data)
+                  (.lsize ^Buffer data)
+                  8)
+        result (hamf/double-array-list n-elems)
         ^DoublePredicate filter
         (case (get options :nan-strategy :remove)
           :keep (hamf/double-predicate v true)
@@ -444,23 +469,9 @@
                                               (when (Double/isNaN v)
                                                 (throw (RuntimeException. "Nan Detected")))
                                               true)))]
-    (when-not (pmath/== 0 n-elems)
-      (loop [idx 0
-             any-valid? false
-             sum (.readDouble data 0)]
-        (when (pmath/< idx n-elems)
-          (let [next-elem (.readDouble data idx)
-                valid? (boolean (.test filter next-elem))
-                sum (double (if valid?
-                              (if any-valid?
-                                (.binaryDouble op sum next-elem)
-                                next-elem)
-                              sum))]
-            (if valid?
-              (ArrayHelpers/aset result idx sum)
-              (ArrayHelpers/aset result idx next-elem))
-            (recur (unchecked-inc idx) (clojure.core/or any-valid? valid?) sum)))))
-    result))
+    @(hamf/fast-reduce hamf/double-consumer-accumulator
+                       (CumOpConsumer. op 0.0 true filter result)
+                       data)))
 
 
 (defn cumsum
@@ -469,9 +480,9 @@
   Options:
 
   * `:nan-strategy` - one of `:keep`, `:remove`, `:exception`.  Defaults to `:remove`."
-  (^doubles [options data]
+  ([options data]
    (cumop options (binary-op/builtin-ops :tech.numerics/+) data))
-  (^doubles [data]
+  ([data]
    (cumsum nil data)))
 
 
@@ -481,9 +492,9 @@
   Options:
 
   * `:nan-strategy` - one of `:keep`, `:remove`, `:exception`.  Defaults to `:remove`."
-  (^doubles [options data]
+  ([options data]
    (cumop options (binary-op/builtin-ops :tech.numerics/min) data))
-  (^doubles [data]
+  ([data]
    (cummin nil data)))
 
 
@@ -493,9 +504,9 @@
   Options:
 
   * `:nan-strategy` - one of `:keep`, `:remove`, `:exception`.  Defaults to `:remove`."
-  (^doubles [options data]
+  ([options data]
    (cumop options (binary-op/builtin-ops :tech.numerics/max) data))
-  (^doubles [data]
+  ([data]
    (cummax nil data)))
 
 
@@ -505,9 +516,9 @@
   Options:
 
   * `:nan-strategy` - one of `:keep`, `:remove`, `:exception`.  Defaults to `:remove`."
-  (^doubles [options data]
+  ([options data]
    (cumop options (binary-op/builtin-ops :tech.numerics/*) data))
-  (^doubles [data]
+  ([data]
    (cumprod nil data)))
 
 

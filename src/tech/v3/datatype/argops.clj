@@ -84,7 +84,7 @@
   an implementation of IFn or an implementation of a UnaryOperator."
   ^UnaryOperator [op]
   (find-unary-operator op unary-op/builtin-ops
-                       "unary operator" unary-op/->operator))
+                       "unary operator" identity))
 
 
 (defn ->binary-operator

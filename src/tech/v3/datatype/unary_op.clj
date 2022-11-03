@@ -24,20 +24,22 @@
      (instance? UnaryOperator item)
      item
      (instance? DoubleUnaryOperator item)
-     (let [^DoubleUnaryOperator item item]
-       (reify UnaryOperators$DoubleUnaryOperator
-         (unaryDouble [this arg]
-           (.applyAsDouble item arg))))
+     (with-meta (reify UnaryOperators$DoubleUnaryOperator
+                  (unaryDouble [this arg]
+                    (.applyAsDouble ^DoubleUnaryOperator item arg)))
+       {:result-space :float64 :operation-space :float64})
      (instance? LongUnaryOperator item)
-     (let [^LongUnaryOperator item item]
+     (with-meta
        (reify UnaryOperators$LongUnaryOperator
          (unaryLong [this arg]
-           (.applyAsLong item arg))))
+           (.applyAsLong ^LongUnaryOperator item arg)))
+       {:result-space :int64 :operation-space :int64})
      (instance? java.util.function.UnaryOperator item)
-     (let [^java.util.function.UnaryOperator item item]
+     (with-meta
        (reify UnaryOperator
          (unaryObject [this arg]
-           (.apply item arg))))
+           (.apply ^java.util.function.UnaryOperator item arg)))
+       {:result-space :object :operation-space :object})
      ;;Five cases we care about -
      ;;long->long
      ;;double->double
@@ -45,25 +47,35 @@
      ;;obj->double
      ;;obj->obj
      (instance? IFn$LL item)
-     (reify UnaryOperators$LongUnaryOperator
-       (unaryLong [_t v]
-         (.invokePrim ^IFn$LL item v)))
+     (with-meta
+       (reify UnaryOperators$LongUnaryOperator
+         (unaryLong [_t v]
+           (.invokePrim ^IFn$LL item v)))
+       {:result-space :int64 :operation-space :int64})
      (instance? IFn$DD item)
-     (reify UnaryOperators$DoubleUnaryOperator
-       (unaryDouble [_t v]
-         (.invokePrim ^IFn$DD item v)))
+     (with-meta
+       (reify UnaryOperators$DoubleUnaryOperator
+         (unaryDouble [_t v]
+           (.invokePrim ^IFn$DD item v)))
+       {:result-space :float64 :operation-space :float64})
      (instance? IFn$OL item)
-     (reify UnaryOperator
-       (unaryObject [_t v] (.invokePrim ^IFn$OL item v))
-       (unaryObjLong [_t v] (.invokePrim ^IFn$OL item v)))
+     (with-meta
+       (reify UnaryOperator
+         (unaryObject [_t v] (.invokePrim ^IFn$OL item v))
+         (unaryObjLong [_t v] (.invokePrim ^IFn$OL item v)))
+       {:result-space :int64 :operation-space :object})
      (instance? IFn$OD item)
-     (reify UnaryOperator
-       (unaryObject [_t v] (.invokePrim ^IFn$OD item v))
-       (unaryObjDouble [_t v] (.invokePrim ^IFn$OD item v)))
+     (with-meta
+       (reify UnaryOperator
+         (unaryObject [_t v] (.invokePrim ^IFn$OD item v))
+         (unaryObjDouble [_t v] (.invokePrim ^IFn$OD item v)))
+       {:result-space :float64 :operation-space :object})
      :else
-     (reify UnaryOperator
-       (unaryObject [this arg]
-         (item arg)))))
+     (with-meta
+       (reify UnaryOperator
+         (unaryObject [this arg]
+           (item arg)))
+       {:result-space :object :operation-space :object})))
   (^UnaryOperator [item] (->operator item :_unnamed)))
 
 
@@ -192,6 +204,8 @@
                      (if-let [os (get op-meta :operation-space)]
                        (casting/simple-operation-space os lhs-dtype)
                        (cond
+                         (instance? UnaryOperator unary-op)
+                         :object
                          (or (instance? IFn$OL unary-op)
                              (instance? IFn$LL unary-op)
                              (instance? IFn$DL unary-op))
