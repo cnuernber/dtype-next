@@ -379,18 +379,22 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
 
 (defn- random-access->io
   [^List item]
-  (reify
-    ObjectBuffer
-    (elemwiseDatatype [rdr] :object)
-    (lsize [rdr] (long (.size item)))
-    (readObject [rdr idx]
-      (.get item idx))
-    (writeObject [wtr idx value]
-      (.set item idx value))
-    (reduce [this rfn init-val]
-      (Reductions/serialReduction rfn init-val item))
-    (parallelReduction [this init-val-fn rfn merge-fn options]
-      (Reductions/parallelReduction init-val-fn rfn merge-fn item options))))
+  (with-meta
+    (reify
+      ObjectBuffer
+      (elemwiseDatatype [rdr] :object)
+      (lsize [rdr] (long (.size item)))
+      (readObject [rdr idx]
+        (.get item idx))
+      (writeObject [wtr idx value]
+        (.set item idx value))
+      (subBuffer [b sidx eidx]
+        (random-access->io (.subList b (int sidx) (int eidx))))
+      (reduce [this rfn init-val]
+        (Reductions/serialReduction rfn init-val item))
+      (parallelReduction [this init-val-fn rfn merge-fn options]
+        (Reductions/parallelReduction init-val-fn rfn merge-fn item options)))
+    (meta item)))
 
 
 (extend-type RandomAccess
