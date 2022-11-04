@@ -71,9 +71,24 @@
                                                  (meta item)))
   dtype-proto/PToBuffer
   (convertible-to-buffer? [item] true)
-  (->buffer [item] (reify LongReader
-                     (lsize [b] (.-nElems item))
-                     (readLong [b idx] (.lgetLong item idx))))
+  (->buffer [item] (with-meta
+                     (reify
+                       LongReader
+                       (lsize [b] (.-nElems item))
+                       (readLong [b idx] (.lgetLong item idx))
+                       (subBuffer [b sidx eidx]
+                         (-> (Ranges$LongRange. (item sidx) (item eidx)
+                                                (.-step item) (meta item))
+                             (dtype-proto/->buffer)))
+                       (longReduction [b rfn ival] (.longReduction item rfn ival))
+                       dtype-proto/PConstantTimeMinMax
+                       (has-constant-time-min-max? [b] true)
+                       (constant-time-min [b] (dtype-proto/constant-time-min item))
+                       (constant-time-max [b] (dtype-proto/constant-time-max item))
+                       dtype-proto/PRangeConvertible
+                       (convertible-to-range? [b] true)
+                       (->range [b _options] item))
+                     (meta item)))
   dtype-proto/PToReader
   (convertible-to-reader? [item] true)
   (->reader [item] (dtype-proto/->buffer item)))
@@ -129,9 +144,23 @@
                                                    (meta item)))
   dtype-proto/PToBuffer
   (convertible-to-buffer? [item] true)
-  (->buffer [item] (reify DoubleReader
-                     (lsize [b] (.-nElems item))
-                     (readDouble [b idx] (.lgetDouble item idx))))
+  (->buffer [item]
+    (with-meta (reify
+                 DoubleReader
+                 (lsize [b] (.-nElems item))
+                 (readDouble [b idx] (.lgetDouble item idx))
+                 (subBuffer [b sidx eidx]
+                   (-> (Ranges$DoubleRange. (item sidx) (item eidx) (.-step item) (meta item))
+                       (dtype-proto/->buffer)))
+                 (doubleReduction [b rfn ival] (.doubleReduction item rfn ival))
+                 dtype-proto/PConstantTimeMinMax
+                 (has-constant-time-min-max? [b] true)
+                 (constant-time-min [b] (dtype-proto/constant-time-min item))
+                 (constant-time-max [b] (dtype-proto/constant-time-max item))
+                 dtype-proto/PRangeConvertible
+                 (convertible-to-range? [b] true)
+                 (->range [b _options] item))
+      (meta item)))
   dtype-proto/PToReader
   (convertible-to-reader? [item] true)
   (->reader [item] (dtype-proto/->buffer item)))

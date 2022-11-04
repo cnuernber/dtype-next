@@ -6,6 +6,7 @@
             [tech.v3.datatype.errors :as errors])
   (:import [clojure.lang LongRange Range]
            [tech.v3.datatype LongReader DoubleReader]
+           [ham_fisted Ranges$LongRange Ranges$DoubleRange]
            [java.lang.reflect Field]))
 
 
@@ -31,34 +32,22 @@
   (has-constant-time-min-max? [rng] true)
   (constant-time-min [rng] (let [start (long (first rng))
                                  step (long (.get lr-step-field rng))
-                                 n-elems (.count rng)
-                                 last-val (+ start (* step (dec n-elems)))]
-                             (min start last-val)))
+                                 n-elems (.count rng)]
+                             (if (pos? step) start (+ start (* step (dec n-elems))))))
   (constant-time-max [rng] (let [start (long (first rng))
                                  step (long (.get lr-step-field rng))
-                                 n-elems (.count rng)
-                                 last-val (+ start (* step (dec n-elems)))]
-                             (max start last-val)))
+                                 n-elems (.count rng)]
+                             (if (pos? step)
+                               (+ start (* step (dec n-elems)))
+                               start)))
   dtype-proto/PToReader
   (convertible-to-reader? [rng] true)
   (->reader [rng]
     (let [start (long (first rng))
           step (long (.get ^Field lr-step-field rng))
           n-elems (.count rng)]
-      (reify
-        LongReader
-        (lsize [rdr] n-elems)
-        (readLong [rdr idx]
-          (errors/check-idx idx n-elems)
-          (-> (* step idx)
-              (+ start)))
-        dtype-proto/PRangeConvertible
-        (convertible-to-range? [item] true)
-        (->range [item options] (dtype-proto/->range rng options))
-        dtype-proto/PConstantTimeMinMax
-        (has-constant-time-min-max? [item] true)
-        (constant-time-min [item] (dtype-proto/constant-time-min rng))
-        (constant-time-max [item] (dtype-proto/constant-time-max rng))))))
+      (-> (Ranges$LongRange. start (+ start (* step n-elems)) step (meta rng))
+          (dtype-proto/->reader)))))
 
 
 (def r-step-field (doto (.getDeclaredField ^Class Range "step")
@@ -120,35 +109,12 @@
                                               (.get ^Field r-step-field rng))
               n-elems (.count rng)
               last-val (+ start (* step (dec n-elems)))]
-          (reify LongReader
-            (lsize [rdr] n-elems)
-            (readLong [rdr idx]
-              (errors/check-idx idx n-elems)
-              (-> (* step idx)
-                  (+ start)))
-            (elemwiseDatatype [rdr] dtype)
-            dtype-proto/PRangeConvertible
-            (convertible-to-range? [item] true)
-            (->range [item options] (dtype-proto/->range rng options))
-            dtype-proto/PConstantTimeMinMax
-            (has-constant-time-min-max? [item] true)
-            (constant-time-min [item] (dtype-proto/constant-time-min (min start last-val)))
-            (constant-time-max [item] (dtype-proto/constant-time-max (max start last-val)))))
+          (-> (Ranges$LongRange. start (+ start (* step n-elems)) step (meta rng))
+              (dtype-proto/->reader)))
         (let [start (casting/datatype->cast-fn :unknown :float64 (first rng))
               step (casting/datatype->cast-fn :unknown :float64
                                               (.get ^Field r-step-field rng))
               n-elems (.count rng)
               last-val (+ start (* step (dec n-elems)))]
-          (reify DoubleReader
-            (lsize [rdr] n-elems)
-            (readDouble [rdr idx]
-              (errors/check-idx idx n-elems)
-              (-> (* step idx)
-                  (+ start)))
-            dtype-proto/PRangeConvertible
-            (convertible-to-range? [item] true)
-            (->range [item options] (dtype-proto/->range rng options))
-            dtype-proto/PConstantTimeMinMax
-            (has-constant-time-min-max? [item] true)
-            (constant-time-min [item] (dtype-proto/constant-time-min (min start last-val)))
-            (constant-time-max [item] (dtype-proto/constant-time-max (max start last-val)))))))))
+          (-> (Ranges$DoubleRange. start (+ start (* step n-elems)) step (meta rng))
+              (dtype-proto/->reader)))))))

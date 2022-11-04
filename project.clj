@@ -15,7 +15,7 @@
                  ;;ham fisted brings in:
                  ;; {it.unimi.dsi/fastutil-core {:mvn/version "8.5.8"}
                  ;;  com.google.guava/guava     {:mvn/version "31.1-jre"}}
-                 [com.cnuernber/ham-fisted         "1.000-beta-30"]]
+                 [com.cnuernber/ham-fisted         "1.000-beta-33"]]
   :java-source-paths ["java" "third-party" "java_public_api"]
   :source-paths ["src" "classes" "third-party"]
   :profiles {:dev
@@ -25,6 +25,7 @@
                              [com.taoensso/nippy "3.2.0"]
                              [ch.qos.logback/logback-classic "1.1.3"]
                              [com.clojure-goes-fast/clj-memory-meter "0.1.0"]
+                             [com.cnuernber/benchmark "1.000-beta-2"]
                              [techascent/tech.viz "6.00-beta-16-2"]]
               :test-paths ["neanderthal" "test"]}
 

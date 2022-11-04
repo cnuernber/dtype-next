@@ -11,7 +11,9 @@
             [tech.v3.datatype.gradient :as dt-grad]
             [tech.v3.datatype.wavelet]
             [tech.v3.datatype.datetime]
-            [ham-fisted.lazy-noncaching :as lznc])
+            [ham-fisted.lazy-noncaching :as lznc]
+            [ham-fisted.api :as hamf]
+            [benchmark.api :as bench])
   (:import [java.nio FloatBuffer]
            [java.util ArrayList]
            [ham_fisted Casts]))
@@ -603,13 +605,13 @@
 
 
 (deftest rolling-window-position
-  (is (= [0 1 3 6 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85]
+  (is (= (mapv double [0 1 3 6 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85])
          (rolling/fixed-rolling-window (range 20) 5 dfn/sum
                                        {:relative-window-position :left})))
-  (is (= [3 6 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 89 92]
+  (is (= (mapv double [3 6 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 89 92])
          (rolling/fixed-rolling-window (range 20) 5 dfn/sum
                                        {:relative-window-position :center})))
-  (is (= [10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 89 92 94 95]
+  (is (= (mapv double [10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 89 92 94 95])
        (rolling/fixed-rolling-window (range 20) 5 dfn/sum
                                      {:relative-window-position :right})))
   (is (= [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19]
@@ -802,3 +804,41 @@
   (is (thrown? Exception (= false (Casts/booleanCast (Double/valueOf Double/NaN)))))
   (is (= false (Casts/booleanCast (Long/valueOf 0))))
   (is (thrown? Exception (= [2] (vec (argops/argfilter identity (double-array [0 Double/NaN 1])))))))
+
+
+
+(comment
+  (defn bench-sum
+    []
+    (vec
+     (for [n-elems [10 100 1000000]]
+       (let [data (hamf/double-array (hamf/range n-elems))]
+         {:n-elems n-elems
+          :dtype (bench/benchmark-us (dfn/sum data))
+          :hamf (bench/benchmark-us (hamf/sum data))
+          }))))
+
+  (defn bench-ordered-unordered-sum
+    []
+    ;;logically unordered should always be faster but there is sometimes
+    ;;significant overhead for adding the extra queue in for unordered results.
+    ;;This test results in no meaningful difference however.
+    (vec
+     (for [n-elems [10 100 1000 10000 1000000]]
+       (let [data (hamf/double-array (hamf/range n-elems))]
+         {:n-elems n-elems
+          :ordered (bench/benchmark-us (hamf/sum data {:min-n 0
+                                                       :ordered? true}))
+          :unordered (bench/benchmark-us (hamf/sum data {:min-n 0
+                                                         :ordered? false}))
+          }))))
+
+  (defn bench-parallel-serial-sum
+    []
+    (vec
+     (for [n-elems [10 100 1000 10000 1000000]]
+       (let [data (hamf/double-array (hamf/range n-elems))]
+         {:n-elems n-elems
+          :serial (bench/benchmark-us (hamf/sum data {:min-n Integer/MAX_VALUE}))
+          :parallel (bench/benchmark-us (hamf/sum data {:min-n 0}))}))))
+  )

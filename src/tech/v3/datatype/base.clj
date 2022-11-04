@@ -5,7 +5,6 @@
             [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.errors :as errors]
-            [tech.v3.datatype.io-sub-buffer :as io-sub-buf]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.argtypes :as argtypes])
@@ -766,7 +765,7 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
     (if-let [data-buf (inner-buffer-sub-buffer buf offset len)]
       data-buf
       (if-let [data-io (->buffer buf)]
-        (io-sub-buf/sub-buffer data-io offset len)
+        (.subBuffer data-io offset (+ offset len))
         (throw (Exception. (format
                             "Buffer %s does not implement the sub-buffer protocol"
                             (type buf)))))))

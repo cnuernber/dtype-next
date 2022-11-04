@@ -487,14 +487,14 @@
   "Filter out values returning either an iterable of indexes or a reader
   of indexes."
   ([pred options rdr]
-   (if-let [rdr (dtype-base/as-reader rdr)]
-     (unary-pred/bool-reader->indexes options
-                                      (unary-pred/reader (->unary-predicate pred) rdr))
-     (let [pred (unary-pred/->predicate pred)]
-       (->> rdr
-            (map-indexed (fn [idx data]
-                           (when (.unaryObject pred data) idx)))
-            (remove nil?)))))
+   (let [pred (->unary-predicate pred)]
+     (if-let [rdr (dtype-base/as-reader rdr)]
+       (->> (unary-pred/reader pred rdr)
+            (unary-pred/bool-reader->indexes options))
+       (let [pred (unary-pred/->predicate pred)]
+         (->> rdr
+              (map-indexed (fn [idx data] (when (.unaryObject pred data) idx)))
+              (remove nil?))))))
   ([pred rdr]
    (argfilter pred nil rdr)))
 
