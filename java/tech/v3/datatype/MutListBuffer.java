@@ -50,7 +50,7 @@ public class MutListBuffer implements Buffer, Cloneable {
   public boolean allowsRead() { return true; }
   public boolean allowsWrite() { return supportsWrite; }
   public Object elemwiseDatatype () { return elemwiseDatatype; }
-  public List subList(int sidx, int eidx) {
+  public IMutList subList(int sidx, int eidx) {
     return new MutListBuffer(this, (IMutList)data.subList(sidx, eidx));
   }
   public IMutList cloneList() { return new MutListBuffer(this, data.cloneList()); }

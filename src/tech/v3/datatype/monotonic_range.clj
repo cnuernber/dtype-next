@@ -77,8 +77,7 @@
                        (lsize [b] (.-nElems item))
                        (readLong [b idx] (.lgetLong item idx))
                        (subBuffer [b sidx eidx]
-                         (-> (Ranges$LongRange. (item sidx) (item eidx)
-                                                (.-step item) (meta item))
+                         (-> (.subList item sidx eidx)
                              (dtype-proto/->buffer)))
                        (longReduction [b rfn ival] (.longReduction item rfn ival))
                        dtype-proto/PConstantTimeMinMax
@@ -150,7 +149,7 @@
                  (lsize [b] (.-nElems item))
                  (readDouble [b idx] (.lgetDouble item idx))
                  (subBuffer [b sidx eidx]
-                   (-> (Ranges$DoubleRange. (item sidx) (item eidx) (.-step item) (meta item))
+                   (-> (.subList item sidx eidx)
                        (dtype-proto/->buffer)))
                  (doubleReduction [b rfn ival] (.doubleReduction item rfn ival))
                  dtype-proto/PConstantTimeMinMax

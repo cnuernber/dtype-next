@@ -165,8 +165,8 @@ public interface NDBuffer extends DatatypeBase, IFnDef, IMutList
     }
   }
   //This is only implemented at the protocol level
-  default List subList(int start, int end) {
-    return (List)Clojure.var("tech.v3.datatype.protocols", "select").invoke(this, ArrayLists.toList(new Object[] { new Ranges.LongRange(start,end,1,null) }));
+  default IMutList<Object> subList(int start, int end) {
+    return (IMutList<Object>)Clojure.var("tech.v3.datatype.protocols", "select").invoke(this, ArrayLists.toList(new Object[] { new Ranges.LongRange(start,end,1,null) }));
   }
   default int size() { return RT.intCast(outermostDim()); }
   default Object get(int idx) { return ndReadObject(idx); }
