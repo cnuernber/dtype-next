@@ -4,14 +4,15 @@
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.functional :as dtype-fn]
             [tech.v3.datatype.bitmap :as bitmap]
-            [clojure.test :refer :all])
+            [clojure.test :refer :all]
+            [ham-fisted.api :as hamf])
   (:import [java.util Set]))
 
 
 (defn membership
   [lhs rhs]
   (let [membership-set (bitmap/->bitmap rhs)]
-    (dtype/emap #(.contains membership-set %) :boolean lhs)))
+    (dtype/emap (hamf/long-predicate v (.contains membership-set v)) :boolean lhs)))
 
 
 (defn apl-take

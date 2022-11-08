@@ -196,34 +196,38 @@
   ;;Normalize this to account for single digit numbers
   (cond
     (number? item-seq)
-    (with-meta
-      (dtype-range/make-range (long item-seq))
-      {:scalar? true})
+    (dimension->reader
+     (with-meta
+       (dtype-range/make-range (long item-seq))
+       {:scalar? true}))
     (dtype-proto/convertible-to-range? item-seq)
-    (dtype-proto/->range item-seq {})
+    (-> (dtype-proto/->range item-seq {})
+        (dtype-proto/->reader))
     (instance? IndexAlg item-seq)
     item-seq
     (dtype-proto/convertible-to-bitmap? item-seq)
     (bitmap/bitmap->efficient-random-access-reader item-seq)
     :else
-    (let [item-seq (if (dtype-proto/convertible-to-reader? item-seq)
-                     item-seq
-                     (long-array item-seq))
-          n-elems (dtype-base/ecount item-seq)
-          reader (dtype-base/->reader item-seq)]
-      (cond
-        (= n-elems 1) (dtype-range/make-range (.readLong reader 0)
-                                              (inc (.readLong reader 0)))
-        (= n-elems 2)
-        (let [start (.readLong reader 0)
-              last-elem (.readLong reader 1)
-              increment (- last-elem start)]
-          (dtype-range/make-range start (+ last-elem increment) increment))
-        ;;Try to catch quick,hand made ranges out of persistent vectors and such.
-        (<= n-elems 5)
-        (maybe-range-reader reader)
-        :else
-        reader))))
+    (->
+     (let [item-seq (if (dtype-proto/convertible-to-reader? item-seq)
+                      item-seq
+                      (long-array item-seq))
+           n-elems (dtype-base/ecount item-seq)
+           reader (dtype-base/->reader item-seq)]
+       (cond
+         (= n-elems 1) (dtype-range/make-range (.readLong reader 0)
+                                               (inc (.readLong reader 0)))
+         (= n-elems 2)
+         (let [start (.readLong reader 0)
+               last-elem (.readLong reader 1)
+               increment (- last-elem start)]
+           (dtype-range/make-range start (+ last-elem increment) increment))
+         ;;Try to catch quick,hand made ranges out of persistent vectors and such.
+         (<= n-elems 5)
+         (maybe-range-reader reader)
+         :else
+         reader))
+     (dtype-proto/->reader))))
 
 
 (defn ->index-alg
@@ -246,7 +250,7 @@
   :sequence - select items in sequence.  Ranges will be better supported than truly
   random access."
   [dim select-arg]
-  (if (= select-arg :all)
+  (if (identical? select-arg :all)
     dim
     (let [rdr (dimension->reader dim)
           n-elems (.lsize rdr)]
@@ -261,8 +265,8 @@
               {:select-scalar? true})))
         (simplify-range->direct
          (let [^Buffer select-arg (if (= select-arg :lla)
-                                         (dtype-range/reverse-range n-elems)
-                                         (dimension->reader select-arg))
+                                    (dtype-range/reverse-range n-elems)
+                                    (dimension->reader select-arg))
                n-select-arg (.lsize select-arg)]
            (if (dtype-proto/convertible-to-range? select-arg)
              (let [select-arg (dtype-proto/->range select-arg {})]

@@ -6,7 +6,7 @@
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.argops :as argops]
             [tech.v3.datatype.unary-op :as unary-op]
-            [tech.v3.datatype.unary-op :as binary-op])
+            [tech.v3.datatype.binary-op :as binary-op])
   (:import [java.util List]
            [tech.v3.datatype BooleanReader LongReader DoubleReader ObjectReader]
            [ham_fisted Casts]))
