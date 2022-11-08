@@ -454,8 +454,8 @@
 (defn ^:no-doc cumop
   [options ^BinaryOperator op data]
   (let [data (if (dtype-base/reader? data)
-                       (dtype-base/as-reader data :float64)
-                       data)
+               (dtype-base/as-reader data :float64)
+               data)
         n-elems (if (instance? Buffer data)
                   (.lsize ^Buffer data)
                   8)
@@ -469,9 +469,9 @@
                                               (when (Double/isNaN v)
                                                 (throw (RuntimeException. "Nan Detected")))
                                               true)))]
-    @(hamf/fast-reduce hamf/double-consumer-accumulator
-                       (CumOpConsumer. op 0.0 true filter result)
-                       data)))
+    @(hamf/reduce hamf/double-consumer-accumulator
+                  (CumOpConsumer. op 0.0 true filter result)
+                  data)))
 
 
 (defn cumsum

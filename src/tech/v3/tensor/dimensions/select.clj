@@ -14,7 +14,7 @@
   "Given a dimension and select argument, create a new dimension with
 the selection applied."
   [dim select-arg]
-  (if (= select-arg :all)
+  (if (identical? :all select-arg)
     dim
     (idx-alg/select dim select-arg)))
 

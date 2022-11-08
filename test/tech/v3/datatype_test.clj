@@ -795,15 +795,15 @@
 
 
 (deftest double-nan-boolean
-  (is (thrown? Exception (= false (dtype/cast (Double/NaN) :boolean))))
-  (is (thrown? Exception (= [false]
-                            (-> (dtype/make-container :float64 [Double/NaN])
-                                (dtype/elemwise-cast :boolean)
-                                (vec)))))
-  (is (thrown? Exception (= false (Casts/booleanCast Double/NaN))))
-  (is (thrown? Exception (= false (Casts/booleanCast (Double/valueOf Double/NaN)))))
+  (is (= false (dtype/cast (Double/NaN) :boolean)))
+  (is (= [false]
+         (-> (dtype/make-container :float64 [Double/NaN])
+             (dtype/elemwise-cast :boolean)
+             (vec))))
+  (is (= false (Casts/booleanCast Double/NaN)))
+  (is (= false (Casts/booleanCast (Double/valueOf Double/NaN))))
   (is (= false (Casts/booleanCast (Long/valueOf 0))))
-  (is (thrown? Exception (= [2] (vec (argops/argfilter identity (double-array [0 Double/NaN 1])))))))
+  (is (= [2] (vec (argops/argfilter identity (double-array [0 Double/NaN 1]))))))
 
 
 

@@ -230,4 +230,4 @@
         :int64 (reductions/commutative-binary-long op rdr)
         :float64 (reductions/commutative-binary-double op rdr)
         (reductions/commutative-binary-object op rdr)))
-    (hamf/fast-reduce op rdr)))
+    (hamf/reduce op rdr)))
