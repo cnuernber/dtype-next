@@ -134,13 +134,16 @@
        :float64
        (let [wrap-rfn
              (fn [rfn]
-               (if (instance? IFn$ODO rfn)
-                 (reify IFnDef$ODO
-                   (invokePrim [f acc v]
-                     (.invokePrim ^IFn$OLO rfn acc (.unaryDouble unary-op v))))
-                 (reify IFnDef$ODO
-                   (invokePrim [f acc v]
-                     (rfn acc (.unaryDouble unary-op v))))))]
+               (cond
+                 (instance? IFn$ODO rfn)
+                 (hamf/double-accumulator
+                  acc v (.invokePrim ^IFn$ODO rfn acc (.unaryDouble unary-op v)))
+                 (instance? IFn$OLO rfn)
+                 (hamf/double-accumulator
+                  acc v (.invokePrim ^IFn$OLO rfn acc
+                                     (Casts/longCast (.unaryDouble unary-op v))))
+                 :else
+                 (hamf/double-accumulator acc v (rfn acc (.unaryDouble unary-op v)))))]
          (reify DoubleReader
            (elemwiseDatatype [rdr] res-dtype)
            (lsize [rdr] n-elems)
@@ -156,9 +159,8 @@
                           (if (instance? IFn$OLO rfn)
                             (fn [acc v]
                               (.invokePrim ^IFn$OLO rfn acc (.unaryObjLong unary-op v)))
-                            (fn [rfn]
-                              (fn [acc v]
-                                (rfn acc (.unaryObject unary-op v))))))]
+                            (fn [acc v]
+                              (rfn acc (.unaryObject unary-op v)))))]
            (reify
              LongReader
              (elemwiseDatatype [rdr] res-dtype)
@@ -173,9 +175,8 @@
                           (if (instance? IFn$ODO rfn)
                             (fn [acc v]
                               (.invokePrim ^IFn$ODO rfn acc (.unaryObjDouble unary-op v)))
-                            (fn [rfn]
-                              (fn [acc v]
-                                (rfn acc (.unaryObject unary-op v))))))]
+                            (fn [acc v]
+                              (rfn acc (.unaryObject unary-op v)))))]
            (reify
              DoubleReader
              (elemwiseDatatype [rdr] res-dtype)

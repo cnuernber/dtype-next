@@ -541,7 +541,8 @@
 
 
 (def default-type-pairs
-  [[:int8 :int16]
+  [[:boolean :int8]
+   [:int8 :int16]
    [:uint8 :int16]
    [:int16 :int32]
    [:uint16 :int32]

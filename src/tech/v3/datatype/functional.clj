@@ -39,6 +39,12 @@
   (apply tech.v3.datatype.functional-api/- x y args)))
 
 
+(defn ->CumOpConsumer
+  "Positional factory function for class tech.v3.datatype.functional_api.CumOpConsumer."
+  ([op sum first p result]
+  (tech.v3.datatype.functional-api/->CumOpConsumer op sum first p result)))
+
+
 (defn /
   ([x]
   (tech.v3.datatype.functional-api// x))

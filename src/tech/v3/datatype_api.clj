@@ -231,7 +231,7 @@ user> (dtype/make-reader :float32 5 (* idx 2))
 
 
 (defn make-list
-  "Make an instance of a tech.v3.datatype.PrimitiveList.  These have typed add*
+  "Make an instance of a tech.v3.datatype.Buffer.  These have typed add*
   methods, implement tech.v3.datatype.Buffer, and a guaranteed in-place transformation
   to a concrete buffer (defaults to an array buffer).
 
