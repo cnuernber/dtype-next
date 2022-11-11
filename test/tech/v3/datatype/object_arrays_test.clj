@@ -105,6 +105,19 @@
     (is (= [:a :b :c :d :e :f :g :h :i]
            (vec (.toArray data))))))
 
+(deftest decimal-test
+  (let [test-decimal (bigdec "12.34")
+        decimal-ary (dtype/make-container :java-array :decimal (repeat 5 test-decimal))
+        decimal-list (dtype/make-container :list :decimal (repeat 5 test-decimal))]
+    (is (= :decimal (dtype/get-datatype decimal-ary)))
+    (is (thrown? Throwable (dtype/set-value! decimal-ary 2 "hey")))
+    (is (= (vec (repeat 5 test-decimal))
+           (vec decimal-ary)))
+    (is (= :decimal (dtype/get-datatype decimal-list)))
+    (is (thrown? Throwable (dtype/set-value! decimal-list 2 "hey")))
+    (is (= (vec (repeat 5 test-decimal))
+           (vec decimal-list)))
+    (is (instance? List decimal-list))))
 
 (deftest uuid-test
   (let [test-uuid (UUID/randomUUID)
