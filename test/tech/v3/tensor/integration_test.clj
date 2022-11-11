@@ -73,10 +73,10 @@
                                        (min 255)))
                                  :int16
                                  dest-image)
-                     (dtt/nd-copy! dest-image
-                                    ;;Note from-prototype fails for reader chains.
-                                    ;;So you have to copy or use an actual image.
-                                    (dtt/new-tensor [512 288 3] :datatype :uint8)))
+                     (dtype/copy! dest-image
+                                  ;;Note from-prototype fails for reader chains.
+                                  ;;So you have to copy or use an actual image.
+                                  (dtt/new-tensor [512 288 3] :datatype :uint8)))
         compute-tensor #(-> (dtt/typed-compute-tensor
                              :int64 :uint8 3 (dtype/shape source-image)
                              [y x c]
@@ -85,7 +85,7 @@
                                (-> src-val
                                    (pmath/+ 50)
                                    (pmath/min 255))))
-                            (dtt/nd-copy! (dtt/new-tensor [512 288 3] :datatype :uint8)))]
+                            (dtype/copy! (dtt/new-tensor [512 288 3] :datatype :uint8)))]
     ;;warm up and actually check that tostring works as expected
     (is (string? (.toString ^Object (reader-composition))))
     (is (string? (.toString ^Object (inline-fn))))

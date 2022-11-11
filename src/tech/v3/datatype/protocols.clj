@@ -267,3 +267,7 @@ Note that this makes no mention of indianness; buffers are in the format of the 
   (^List slice [t n-dims right?])
   (mget [t idx-seq])
   (mset! [t idx-seq value]))
+
+
+(defprotocol PApplyUnary
+  (apply-unary-op [item res-dtype un-op]))

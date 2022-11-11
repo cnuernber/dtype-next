@@ -10,7 +10,7 @@
             [ham-fisted.api :as hamf])
   (:import [sun.misc Unsafe]
            [tech.v3.datatype.native_buffer NativeBuffer]
-           [tech.v3.datatype ArrayHelpers]
+           [tech.v3.datatype ArrayHelpers Buffer$CopyingReducer]
            [tech.v3.datatype.array_buffer ArrayBuffer]))
 
 
@@ -20,6 +20,11 @@
 
 (defonce error-on-generic-copy* (atom false))
 
+(defn- passthrough-accum
+  [acc v] acc)
+
+(def passthrough-long-accum (hamf/long-accumulator acc v acc))
+(def passthrough-double-accum (hamf/double-accumulator acc v acc))
 
 (defn generic-copy!
   [src dst]
@@ -29,31 +34,17 @@
         op-space (casting/simple-operation-space dst-dtype)
         src (dtype-base/->reader src dst-dtype)
         dst (dtype-base/->writer dst)
-        n-elems (.lsize src)]
+        n-elems (.lsize src)
+        accum (case op-space
+                :int64 passthrough-long-accum
+                :float64 passthrough-double-accum
+                passthrough-accum)]
     (when-not (== n-elems (.lsize dst))
       (throw (Exception. (format "src,dst ecount mismatch: %d-%d"
                                  n-elems (.lsize dst)))))
-    (case op-space
-      :boolean
-      (parallel-for/parallel-for
-       idx
-       n-elems
-       (.writeObject dst idx (.readObject src idx)))
-      :int64
-      (parallel-for/parallel-for
-       idx
-       n-elems
-       (.writeLong dst idx (.readLong src idx)))
-      :float64
-      (parallel-for/parallel-for
-       idx
-       n-elems
-       (.writeDouble dst idx (.readDouble src idx)))
-      :object
-      (parallel-for/parallel-for
-       idx
-       n-elems
-       (.writeObject dst idx (.readObject src idx))))
+
+    (hamf/preduce (constantly nil) accum passthrough-accum
+                  (Buffer$CopyingReducer. src dst))
     dst))
 
 

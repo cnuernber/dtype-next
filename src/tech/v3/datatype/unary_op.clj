@@ -97,10 +97,13 @@
   (^Iterable [unary-op lhs]
    (iterable unary-op (dtype-base/elemwise-datatype lhs) lhs)))
 
+(declare reader)
 
-(defn reader
-  (^Buffer [unary-op res-dtype lhs]
-   (let [unary-op (->operator unary-op)
+
+(extend-type Object
+  dtype-proto/PApplyUnary
+  (apply-unary-op [lhs res-dtype unary-op]
+    (let [unary-op (->operator unary-op)
          input-dtype (dtype-base/elemwise-datatype lhs)
          op-space (casting/simple-operation-space res-dtype input-dtype)
          lhs (dtype-base/->reader lhs op-space)
@@ -125,6 +128,7 @@
          (reify
            LongReader
            (elemwiseDatatype [rdr] res-dtype)
+           (subBuffer [rdr sidx eidx] (reader unary-op res-dtype (.subBuffer lhs sidx eidx)))
            (lsize [rdr] n-elems)
            (readLong [rdr idx] (.unaryLong unary-op (.readLong lhs idx)))
            (longReduction [rdr rfn init-val]
@@ -147,6 +151,7 @@
          (reify DoubleReader
            (elemwiseDatatype [rdr] res-dtype)
            (lsize [rdr] n-elems)
+           (subBuffer [rdr sidx eidx] (reader unary-op res-dtype (.subBuffer lhs sidx eidx)))
            (readDouble [rdr idx] (.unaryDouble unary-op (.readDouble lhs idx)))
            (doubleReduction [rdr rfn init-val]
              (Reductions/serialReduction (wrap-rfn rfn) init-val lhs))
@@ -164,6 +169,7 @@
            (reify
              LongReader
              (elemwiseDatatype [rdr] res-dtype)
+             (subBuffer [rdr sidx eidx] (reader unary-op res-dtype (.subBuffer lhs sidx eidx)))
              (lsize [rdr] n-elems)
              (readLong [rdr idx] (.unaryObjLong unary-op (.readObject lhs idx)))
              (longReduction [rdr rfn init-val]
@@ -180,6 +186,7 @@
            (reify
              DoubleReader
              (elemwiseDatatype [rdr] res-dtype)
+             (subBuffer [rdr sidx eidx] (reader unary-op res-dtype (.subBuffer lhs sidx eidx)))
              (lsize [rdr] n-elems)
              (readDouble [rdr idx] (.unaryObjDouble unary-op (.readObject lhs idx)))
              (doubleReduction [rdr rfn init-val]
@@ -190,14 +197,19 @@
          (let [wrap-rfn (fn [rfn] (fn [acc v] (rfn acc (.unaryObject unary-op v))))]
            (reify ObjectReader
              (elemwiseDatatype [rdr] res-dtype)
+             (subBuffer [rdr sidx eidx] (reader unary-op res-dtype (.subBuffer lhs sidx eidx)))
              (lsize [rdr] n-elems)
              (readObject [rdr idx] (.unaryObject unary-op (.readObject lhs idx)))
              (reduce [rdr rfn init-val]
                (Reductions/serialReduction (wrap-rfn rfn) init-val lhs))
              (parallelReduction [rdr initValFn rfn mergeFn options]
                (Reductions/parallelReduction initValFn (wrap-rfn rfn)
-                                             mergeFn lhs options))))))))
-  (^Buffer [unary-op lhs]
+                                             mergeFn lhs options)))))))))
+
+(defn reader
+  ([unary-op res-dtype lhs]
+   (dtype-proto/apply-unary-op (dtype-base/->reader lhs) res-dtype unary-op))
+  ([unary-op lhs]
    (let [lhs-dtype (dtype-base/elemwise-datatype lhs)
          op-meta (meta unary-op)
          res-dtype (if-let [rs (get op-meta :result-space)]
@@ -217,7 +229,7 @@
                          :float64
                          :else
                          :object)))]
-     (reader unary-op res-dtype lhs))))
+     (dtype-proto/apply-unary-op lhs res-dtype unary-op))))
 
 
 (defmacro make-double-unary-op

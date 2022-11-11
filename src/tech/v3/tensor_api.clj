@@ -37,11 +37,13 @@
             [tech.v3.datatype.export-symbols :as export-symbols]
             [tech.v3.parallel.for :as parallel-for]
             [com.github.ztellman.primitive-math :as pmath]
-            [clojure.tools.logging :as log])
-  (:import [clojure.lang IObj]
+            [clojure.tools.logging :as log]
+            [ham-fisted.api :as hamf])
+  (:import [clojure.lang IObj IFn$OLO IFn$ODO IFn]
            [tech.v3.datatype LongNDReader Buffer NDBuffer
             ObjectReader LongReader]
-           [java.util List]))
+           [java.util List]
+           [ham_fisted ChunkedList]))
 
 
 (set! *warn-on-reflection* true)
@@ -118,14 +120,21 @@
       (and  (dtype-proto/convertible-to-native-buffer? buffer)
             (dims/native? (.dimensions t)))))
   (->native-buffer [t] (dtype-proto/->native-buffer (.buffer t)))
-
+  dtype-proto/PApplyUnary
+  (apply-unary-op [t res-dtype un-op]
+    (construct-tensor
+     (dtype-proto/apply-unary-op (or (.buffer t) (.bufferIO t)) res-dtype un-op)
+     (.dimensions t)
+     (meta t)))
   dtype-proto/PTensor
   (reshape [t new-shape]
-    (let [n-elems (long (apply * new-shape))]
-      (construct-tensor
-       (dtype-proto/sub-buffer (.bufferIO t) 0 n-elems)
-       (dims/dimensions new-shape)
-       (meta t))))
+    (if (= (dtype-proto/shape t) new-shape)
+      t
+      (let [n-elems (long (apply * new-shape))]
+        (construct-tensor
+         (dtype-proto/sub-buffer (.bufferIO t) 0 n-elems)
+         (dims/dimensions new-shape)
+         (meta t)))))
   (select [t select-args]
     (let [{buf-offset :elem-offset
            buf-len :buffer-ecount
@@ -794,27 +803,60 @@
         (-> (quot global-idx (.readLong strides idx))
             (rem (aget shape idx)))))))
 
+(defn- as-long-accum
+  ^IFn$OLO [data]
+  (if (instance? IFn$OLO data)
+    data
+    (hamf/long-accumulator acc v (data acc v))))
+
+
+(defn- as-double-accum
+  ^IFn$ODO [data]
+  (if (instance? IFn$OLO data)
+    data
+    (hamf/double-accumulator acc v (data acc v))))
+
+(defn- as-accum
+  ^IFn [data] data)
+
 
 (defmacro ^:private make-tensor-reader
   [datatype advertised-datatype n-dims n-elems per-pixel-op
    output-shape shape-x shape-chan strides]
-  (let [{:keys [read-fn nd-read-fn read-type cast-fn]}
+  (let [{:keys [read-fn nd-read-fn read-type cast-fn reduce-fn]}
         (case datatype
           :int64 {:read-fn 'readLong
                   :nd-read-fn '.ndReadLong
                   :read-type 'tech.v3.datatype.LongReader
-                  :cast-fn 'long}
+                  :cast-fn 'long
+                  :reduce-fn 'longReduction}
           :float64 {:read-fn 'readDouble
                     :nd-read-fn '.ndReadDouble
                     :read-type 'tech.v3.datatype.DoubleReader
-                    :cast-fn 'double}
+                    :cast-fn 'double
+                    :reduce-fn 'doubleReduction}
           {:read-fn 'readObject
            :nd-read-fn '.ndReadObject
            :read-type 'tech.v3.datatype.ObjectReader
-           :cast-fn 'identity})]
+           :cast-fn 'identity
+           :reduce-fn 'reduce})
+        invoker (case datatype
+                  :int64 '.invokePrim
+                  :float64 '.invokePrim
+                  '.invoke)]
     `(reify ~read-type
        (elemwiseDatatype [rdr#] ~advertised-datatype)
        (lsize [rdr#] ~n-elems)
+       (subBuffer [rdr# sidx# eidx#]
+         (ChunkedList/sublistCheck sidx# eidx# ~n-elems)
+         (let [nne# (- eidx# sidx#)]
+           (reify ~read-type
+             (elemwiseDatatype [rr#] ~advertised-datatype)
+             (lsize [rr#] nne#)
+             (~read-fn [rr# idx#] (~(symbol (str "." (name read-fn))) rdr# (+ idx# sidx#)))
+             (subBuffer [rr# ssidx# seidx#]
+               (ChunkedList/sublistCheck ssidx# seidx# nne#)
+               (.subBuffer rdr# (+ sidx# ssidx#) (+ sidx# seidx#))))))
        (~read-fn [rdr# ~'idx]
          ~(case (long n-dims)
             1 `(~nd-read-fn ~per-pixel-op ~'idx)

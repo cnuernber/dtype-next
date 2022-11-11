@@ -1,7 +1,9 @@
 (ns tech.v3.datatype.io-indexed-buffer
   (:require [tech.v3.datatype.base :as dtype-base]
-            [tech.v3.datatype.protocols :as dtype-proto])
-  (:import [tech.v3.datatype Buffer]))
+            [tech.v3.datatype.protocols :as dtype-proto]
+            [ham-fisted.api :as hamf])
+  (:import [tech.v3.datatype Buffer]
+           [clojure.lang IFn$OLO IFn$ODO]))
 
 
 (set! *warn-on-reflection* true)
@@ -25,6 +27,7 @@
            n-elems (.lsize indexes)]
        (reify Buffer
          (elemwiseDatatype [rdr] item-dtype)
+         (subBuffer [rdr sidx eidx] (indexed-buffer (.subBuffer indexes sidx eidx) item))
          (lsize [rdr] n-elems)
          (readLong [this idx] (.readLong item (.readLong indexes idx)))
          (readDouble [this idx] (.readDouble item (.readLong indexes idx)))
@@ -35,6 +38,35 @@
 
          (allowsRead [this] (.allowsRead item))
          (allowsWrite [this] (.allowsWrite item))
+         (reduce [this rfn init]
+           (.longReduction indexes (hamf/long-accumulator
+                                    acc v
+                                    (rfn acc (.readObject item v)))
+                           init))
+         (longReduction [this rfn init]
+           (.longReduction indexes (hamf/long-accumulator
+                                    acc v
+                                    (.invokePrim rfn acc (.readLong item v)))
+                           init))
+         (doubleReduction [this rfn init]
+           (.longReduction indexes (hamf/long-accumulator
+                                    acc v
+                                    (.invokePrim rfn acc (.readDouble item v)))
+                           init))
+         (parallelReduction [this init-val-fn rfn merge-fn options]
+           (.parallelReduction indexes init-val-fn
+                               (cond
+                                 (instance? rfn IFn$OLO)
+                                 (hamf/long-accumulator
+                                  acc v (.invokePrim ^IFn$OLO rfn acc (.readLong item v)))
+                                 (instance? rfn IFn$ODO)
+                                 (hamf/long-accumulator
+                                  acc v (.invokePrim ^IFn$ODO rfn acc (.readDouble item v)))
+                                 :else
+                                 (hamf/long-accumulator
+                                  acc v (rfn acc (.readObject item v))))
+                               merge-fn
+                               options))
          dtype-proto/PElemwiseReaderCast
          (elemwise-reader-cast [this new-dtype]
            (indexed-buffer indexes (dtype-proto/elemwise-reader-cast item new-dtype)))

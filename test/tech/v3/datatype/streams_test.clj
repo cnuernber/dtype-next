@@ -3,32 +3,35 @@
             [clojure.test :refer [deftest is]]))
 
 
+(set! *warn-on-reflection* true)
+
+
 (defn typed-stream-sum
   [rdr]
   (case (dtype/get-datatype rdr)
     :boolean (-> (dtype/->reader rdr)
-                 (.typedStream)
+                 (.longStream true)
                  (.sum))
     :int8 (-> (dtype/->reader rdr)
-              (.typedStream)
+              (.longStream true)
               (.sum))
     :int16 (-> (dtype/->reader rdr)
-               (.typedStream)
+               (.longStream true)
                (.sum))
     :int32 (-> (dtype/->reader rdr)
-               (.typedStream)
+               (.longStream true)
                (.sum))
     :int64 (-> (dtype/->reader rdr)
-               (.typedStream)
+               (.longStream true)
                (.sum))
     :float32 (-> (dtype/->reader rdr)
-                 (.typedStream)
+                 (.doubleStream true)
                  (.sum))
     :float64 (-> (dtype/->reader rdr)
-                 (.typedStream)
+                 (.doubleStream true)
                  (.sum))
     (-> (dtype/->reader rdr)
-        (.typedStream)
+        (.objStream true)
         (.reduce (reify java.util.function.BinaryOperator
                    (apply [this lhs rhs]
                      (+ lhs rhs)))))))

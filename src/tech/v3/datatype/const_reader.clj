@@ -32,12 +32,19 @@
            (subBuffer [rdr sidx eidx]
              (ChunkedList/sublistCheck sidx eidx n-elems)
              (const-reader item (- eidx sidx)))
+           (reduce [this rfn init]
+             (loop [init init
+                    idx 0]
+               (if (and (< idx n-elems) (not (reduced? init)))
+                 (recur (rfn init item) (unchecked-inc idx))
+                 init)))
            dtype-proto/PElemwiseReaderCast
            (elemwise-reader-cast [rdr new-dtype] rdr)
            dtype-proto/PConstantTimeMinMax
            (has-constant-time-min-max? [this] true)
            (constant-time-min [this] item)
-           (constant-time-max [this] item)))
+           (constant-time-max [this] item)
+           ))
        (casting/integer-type? item-dtype)
        (let [item (long item)]
          (reify LongReader
@@ -47,6 +54,12 @@
            (subBuffer [rdr sidx eidx]
              (ChunkedList/sublistCheck sidx eidx n-elems)
              (const-reader item (- eidx sidx)))
+           (longReduction [this rfn init]
+             (loop [init init
+                    idx 0]
+               (if (and (< idx n-elems) (not (reduced? init)))
+                 (recur (.invokePrim rfn init item) (unchecked-inc idx))
+                 init)))
            dtype-proto/PElemwiseReaderCast
            (elemwise-reader-cast [rdr new-dtype] rdr)
            dtype-proto/PConstantTimeMinMax
@@ -55,7 +68,8 @@
            (constant-time-max [this] item)
            dtype-proto/PRangeConvertible
            (convertible-to-range? [this] (== 1 n-elems))
-           (->range [this options] (hamf/range item (unchecked-inc item)))))
+           (->range [this options] (hamf/range item (unchecked-inc item)))
+))
        (casting/float-type? item-dtype)
        (let [item (double item)]
          (reify DoubleReader
@@ -65,6 +79,12 @@
            (subBuffer [rdr sidx eidx]
              (ChunkedList/sublistCheck sidx eidx n-elems)
              (const-reader item (- eidx sidx)))
+           (doubleReduction [this rfn init]
+             (loop [init init
+                    idx 0]
+               (if (and (< idx n-elems) (not (reduced? init)))
+                 (recur (.invokePrim rfn init item) (unchecked-inc idx))
+                 init)))
            dtype-proto/PElemwiseReaderCast
            (elemwise-reader-cast [rdr new-dtype] rdr)
            dtype-proto/PConstantTimeMinMax
@@ -82,6 +102,12 @@
          (subBuffer [rdr sidx eidx]
            (ChunkedList/sublistCheck sidx eidx n-elems)
            (const-reader item (- eidx sidx)))
+         (reduce [this rfn init]
+             (loop [init init
+                    idx 0]
+               (if (and (< idx n-elems) (not (reduced? init)))
+                 (recur (rfn init item) (unchecked-inc idx))
+                 init)))
          dtype-proto/PElemwiseReaderCast
          (elemwise-reader-cast [rdr new-dtype] rdr)
          dtype-proto/PConstantTimeMinMax

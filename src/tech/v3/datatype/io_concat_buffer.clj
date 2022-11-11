@@ -4,7 +4,8 @@
             [tech.v3.datatype.errors :as errors]
             [com.github.ztellman.primitive-math :as pmath])
   (:import [java.util List]
-           [tech.v3.datatype Buffer]))
+           [tech.v3.datatype Buffer]
+           [ham_fisted ChunkedList]))
 
 
 (set! *warn-on-reflection* true)
@@ -40,6 +41,17 @@
         allowsWrite (boolean (and (.allowsWrite lhs) (.allowsWrite rhs)))]
     (reify Buffer
       (elemwiseDatatype [this] datatype)
+      (subBuffer [this sidx eidx]
+        (ChunkedList/sublistCheck sidx eidx n-elems)
+        (cond
+          (and (< sidx lhs-n-elems) (< eidx lhs-n-elems))
+          (.subBuffer lhs sidx eidx)
+          (> sidx lhs-n-elems)
+          (.subBuffer rhs (- sidx lhs-n-elems) (- eidx lhs-n-elems))
+          :else
+          (dual-concat-buffer datatype
+                              (.subBuffer lhs sidx lhs-n-elems)
+                              (.subBuffer rhs 0 (- eidx lhs-n-elems)))))
       (lsize [this] n-elems)
       (allowsRead [this] allowsRead)
       (allowsWrite [this] allowsWrite)
@@ -49,6 +61,21 @@
       (writeLong [this idx val] (dual-write-macro idx n-elems lhs-n-elems .writeLong lhs rhs val))
       (writeDouble [this idx val] (dual-write-macro idx n-elems lhs-n-elems .writeDouble lhs rhs val))
       (writeObject [this idx val] (dual-write-macro idx n-elems lhs-n-elems .writeObject lhs rhs val))
+      (reduce [this rfn init]
+        (let [init (.reduce lhs rfn init)]
+          (if-not (reduced? init)
+            (.reduce rhs rfn init)
+            init)))
+      (longReduction [this rfn init]
+        (let [init (.longReduction lhs rfn init)]
+          (if-not (reduced? init)
+            (.longReduction rhs rfn init)
+            init)))
+      (doubleReduction [this rfn init]
+        (let [init (.doubleReduction lhs rfn init)]
+          (if-not (reduced? init)
+            (.doubleReduction rhs rfn init)
+            init)))
       dtype-proto/PElemwiseReaderCast
       (elemwise-reader-cast [this new-dtype]
         (concat-buffers new-dtype (map #(dtype-proto/elemwise-reader-cast % new-dtype) [lhs rhs]))))))

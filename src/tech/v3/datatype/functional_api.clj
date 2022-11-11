@@ -8,6 +8,7 @@
   using the specific operators will result in far faster code than using the '+'
   function itself."
   (:require [tech.v3.datatype.base :as dtype-base]
+            [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.argtypes :as argtypes]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.casting :as casting]
@@ -60,7 +61,7 @@
    op
    ;;the default iterable application is fine.
    nil
-   #(unary-op/reader op %1 %2)
+   #(dtype-proto/apply-unary-op %2 %1 op)
    (merge (meta op) options)
    x))
 

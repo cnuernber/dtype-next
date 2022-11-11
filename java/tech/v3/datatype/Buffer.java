@@ -56,6 +56,8 @@ public interface Buffer extends DatatypeBase, IMutList<Object>
       eidx = ee;
       nElems = ee - ss;
     }
+    public boolean allowsRead() { return list.allowsRead(); }
+    public boolean allowsWrite() { return list.allowsWrite(); }
     public Object elemwiseDatatype() { return list.elemwiseDatatype(); }
     public long lsize() { return nElems; }
     public byte readByte(long idx) { return list.readByte(idx+sidx); }
@@ -290,5 +292,76 @@ public interface Buffer extends DatatypeBase, IMutList<Object>
 
   default IntStream intStream(boolean parallel) {
     return indexStream(parallel).mapToInt((long idx)->RT.intCast(readLong(idx)));
+  }
+
+  public class CopyingReducer implements Buffer {
+    public final Buffer src;
+    public final Buffer dst;
+    public CopyingReducer(Buffer s, Buffer d) {
+      src = s;
+      dst = d;
+    }
+    public Object readObject(long sidx) { return src.readObject(sidx); }
+    public long lsize() { return src.lsize(); }
+    public Buffer subBuffer(long sidx, long eidx) {
+      return new CopyingReducer(src.subBuffer(sidx,eidx), dst.subBuffer(sidx,eidx));
+    }
+    static class GenericCopyingRfn implements IFnDef.OOO {
+      final Buffer src;
+      final Buffer dst;
+      final IFn rfn;
+      long idx;
+      public GenericCopyingRfn(Buffer src, Buffer dst, IFn rfn) {
+	this.src = src;
+	this.dst = dst;
+	this.rfn = rfn;
+	idx = 0;
+      }
+      public Object invoke(Object lhs, Object v) {
+	dst.writeObject(idx++, v);
+	return rfn.invoke(lhs, v);
+      }
+    }
+    public Object reduce(IFn rfn, Object init) {
+      return src.reduce(new GenericCopyingRfn(src, dst, rfn), init);
+    }
+    class LongCopyingRfn implements IFnDef.OLO {
+      final Buffer src;
+      final Buffer dst;
+      final IFn.OLO rfn;
+      long idx;
+      public LongCopyingRfn(Buffer src, Buffer dst, IFn.OLO rfn) {
+	this.src = src;
+	this.dst = dst;
+	this.rfn = rfn;
+	idx = 0;
+      }
+      public Object invokePrim(Object lhs, long v) {
+	dst.writeLong(idx++, v);
+	return rfn.invokePrim(lhs, v);
+      }
+    };
+    public Object longReduction(IFn.OLO rfn, Object init) {
+      return src.longReduction(new LongCopyingRfn(src, dst, rfn), init);
+    }
+    class DoubleCopyingRfn implements IFnDef.ODO {
+      final Buffer src;
+      final Buffer dst;
+      final IFn.ODO rfn;
+      long idx;
+      public DoubleCopyingRfn(Buffer src, Buffer dst, IFn.ODO rfn) {
+	this.src = src;
+	this.dst = dst;
+	this.rfn = rfn;
+	idx = 0;
+      }
+      public Object invokePrim(Object lhs, double v) {
+	dst.writeDouble(idx++, v);
+	return rfn.invokePrim(lhs, v);
+      }
+    };
+    public Object doubleReduction(IFn.ODO rfn, Object init) {
+      return src.doubleReduction(new DoubleCopyingRfn(src, dst, rfn), init);
+    }
   }
 };
