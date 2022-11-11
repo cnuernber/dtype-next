@@ -131,12 +131,11 @@
   current write position."
   (^Buffer [initial-container ^long ptr]
    (if (dtype-proto/convertible-to-array-buffer? initial-container)
-     (MutListBuffer. (array-buffer/as-growable-list initial-container ptr) true
-                     (dtype-proto/elemwise-datatype initial-container))
+     (dtype-proto/->buffer (array-buffer/as-growable-list initial-container ptr))
      (let [rw (dtype-base/->reader initial-container)]
        (ListImpl. initial-container (dtype-base/ecount initial-container) ptr rw {}))))
   (^Buffer [datatype]
-   (MutListBuffer. (array-buffer/array-list datatype) true datatype)))
+   (dtype-proto/->buffer (array-buffer/array-list datatype))))
 
 
 (defn wrap-container

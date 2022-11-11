@@ -53,6 +53,9 @@ public class MutListBuffer implements Buffer, Cloneable {
   public IMutList subList(int sidx, int eidx) {
     return new MutListBuffer(this, (IMutList)data.subList(sidx, eidx));
   }
+  public Buffer subBuffer(long sidx, long eidx) {
+    return (Buffer)subList(RT.intCast(sidx), RT.intCast(eidx));
+  }
   public IMutList cloneList() { return new MutListBuffer(this, data.cloneList()); }
   public Object clone() { return cloneList(); }
   public long lsize() { return data.size(); }

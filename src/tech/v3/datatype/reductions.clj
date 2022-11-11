@@ -39,21 +39,25 @@
   Reducible
   (reduce [this v] (.reduce value v))
   IDeref
-  (deref [this] {:value (.deref value)}))
+  (deref [this] (.deref value)))
 
 
 (deftype BinDoubleConsumer [^{:unsynchronized-mutable true
-                              :tag 'double} value
+                              :tag double} value
+                            ^{:unsynchronized-mutable true
+                              :tag long} n-elems
                             ^BinaryOperator binop]
   DoubleConsumer
   (accept [this lval]
-    (set! value (.binaryDouble binop value lval)))
+    (set! value (.binaryDouble binop value lval))
+    (set! n-elems (unchecked-inc n-elems)))
   Reducible
   (reduce [this rhs]
-    (set! value (.binaryDouble binop value (double @rhs)))
+    (set! value (.binaryDouble binop value (.-value ^BinDoubleConsumer rhs)))
+    (set! n-elems (+ n-elems (.-n-elems ^BinDoubleConsumer rhs)))
     this)
   IDeref
-  (deref [this] {:value value}))
+  (deref [this] {:value value :n-elems n-elems}))
 
 
 (deftype BinLongConsumer [^{:unsynchronized-mutable true
@@ -89,6 +93,7 @@
     #(UnOpSum. (Sum.) reducer-value)
     (instance? BinaryOperator reducer-value)
     #(BinDoubleConsumer. (.initialDoubleReductionValue ^BinaryOperator reducer-value)
+                         0
                          reducer-value)
     :else
     (errors/throwf "Connot convert value to double consumer: %s" reducer-value)))
@@ -148,7 +153,7 @@
                            (MultiConsumer.
                             (into-array (Class/forName
                                          "ham_fisted.Reducible")
-                                        consumer-fns)))
+                                        (map #(%) consumer-fns))))
              ^objects result-ary
              (staged-double-consumer-reduction consumer-fn options rdr)]
          {:n-elems (:n-elems (aget result-ary 0))

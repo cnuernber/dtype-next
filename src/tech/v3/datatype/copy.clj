@@ -6,6 +6,7 @@
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.errors :as errors]
+            [tech.v3.datatype.packing :as packing]
             [ham-fisted.api :as hamf])
   (:import [sun.misc Unsafe]
            [tech.v3.datatype.native_buffer NativeBuffer]
@@ -24,7 +25,7 @@
   [src dst]
   (when @error-on-generic-copy*
     (errors/throwf "Generic copy detected!"))
-  (let [dst-dtype (dtype-base/elemwise-datatype dst)
+  (let [dst-dtype (packing/unpack-datatype (dtype-base/elemwise-datatype dst))
         op-space (casting/simple-operation-space dst-dtype)
         src (dtype-base/->reader src dst-dtype)
         dst (dtype-base/->writer dst)

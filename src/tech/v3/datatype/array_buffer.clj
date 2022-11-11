@@ -21,7 +21,7 @@
             MutList$SubMutList ChunkedList TypedList]
            [ham_fisted.alists ByteArrayList ShortArrayList CharArrayList
             BooleanArrayList FloatArrayList]
-           [tech.v3.datatype MutListBuffer]
+           [tech.v3.datatype MutListBuffer PackingMutListBuffer]
            [tech.v3.datatype Buffer ArrayHelpers BufferCollection BinaryBuffer
             ByteConversions]
            [java.util Arrays RandomAccess List]
@@ -32,7 +32,7 @@
 (set! *unchecked-math* :warn-on-boxed)
 
 
-(declare array-sub-list)
+(declare array-sub-list set-datatype)
 
 
 (extend-type MutListBuffer
@@ -73,6 +73,42 @@
 
 
 (defmethod print-method MutListBuffer
+  [buf w]
+  (.write ^java.io.Writer w (dtype-pp/buffer->string buf "buffer")))
+
+
+(extend-type PackingMutListBuffer
+  dtype-proto/PElemwiseReaderCast
+  (elemwise-reader-cast [this new-dtype] this)
+  dtype-proto/PToArrayBuffer
+  (convertible-to-array-buffer? [item]
+    (dtype-proto/convertible-to-array-buffer? (.-data item)))
+  (->array-buffer [item]
+    (-> (dtype-proto/->array-buffer (.-data item))
+        (set-datatype (.-elemwiseDatatype item))))
+  dtype-proto/PSubBuffer
+  (sub-buffer [item off len]
+    (.subBuffer item (long off) (+ (long off) (long len))))
+  dtype-proto/PToBinaryBuffer
+  (convertible-to-binary-buffer? [item] false)
+  dtype-proto/PSetConstant
+  (set-constant! [item off elem-count value]
+    (.fillRange item (int off) (+ (int off) (int elem-count)) value))
+  dtype-proto/PClone
+  (clone [this]
+    (.cloneList this))
+  dtype-proto/PToBuffer
+  (convertible-to-buffer? [item] true)
+  (->buffer [item] item)
+  dtype-proto/PToWriter
+  (convertible-to-writer? [item] true)
+  (->writer [item] item)
+  dtype-proto/PToReader
+  (convertible-to-reader? [item] true)
+  (->reader [item] item))
+
+
+(defmethod print-method PackingMutListBuffer
   [buf w]
   (.write ^java.io.Writer w (dtype-pp/buffer->string buf "buffer")))
 
@@ -167,6 +203,24 @@
   (->reader [item] (dtype-proto/->buffer item)))
 
 
+;;Only returns implementations of Buffer
+(defn- array-list->buffer
+  [datalist dtype]
+  (if (instance? Buffer datalist)
+    datalist
+    (if-let [[pack-fn unpack-fn] (packing/packing-pair dtype)]
+      (PackingMutListBuffer. datalist true dtype pack-fn unpack-fn)
+      (MutListBuffer. datalist true dtype))))
+
+
+;;May return implementation of Buffer or just IMutList
+(defn- array-list->packed-list
+  [^IMutList datalist dtype]
+  (if-let [[pack-fn unpack-fn] (packing/packing-pair dtype)]
+    (PackingMutListBuffer. datalist true dtype pack-fn unpack-fn)
+    datalist))
+
+
 (defrecord ArrayBuffer [ary-data ^long offset ^long n-elems dtype]
   dtype-proto/PToArrayBuffer
   (convertible-to-array-buffer? [buf] true)
@@ -179,9 +233,9 @@
   (ecount [item] n-elems)
   dtype-proto/PToBuffer
   (convertible-to-buffer? [item] true)
-  (->buffer [item] (MutListBuffer.
-                    (array-sub-list dtype ary-data offset (+ offset n-elems) (meta item))
-                    true dtype))
+  (->buffer [item]
+    (-> (array-sub-list dtype ary-data offset (+ offset n-elems) (meta item))
+        (array-list->buffer dtype)))
   dtype-proto/PSubBuffer
   (sub-buffer [item off len]
     (let [off (int off)
@@ -199,6 +253,10 @@
   dtype-proto/PEndianness
   (endianness [item] :little-endian))
 
+
+(defn set-datatype
+  [^ArrayBuffer abuf dtype]
+  (ArrayBuffer. (.-ary-data abuf) (.-offset abuf) (.-n-elems abuf) dtype))
 
 (casting/add-object-datatype! :array-buffer ArrayBuffer false)
 
@@ -520,7 +578,8 @@
 
 
 (defn array-sub-list
-  (^IMutList [dtype] (array-sub-list dtype 0))
+  (^IMutList [dtype]
+   (array-sub-list dtype 0))
   (^IMutList [dtype data]
    (let [data (if (number? data) data (hamf/->reducible data))
          n-elems (cond
@@ -531,57 +590,29 @@
      (if n-elems
        (let [src-data (host-array (casting/datatype->host-datatype dtype) n-elems)
              m (meta data)
-             retval (case dtype
-                        (case dtype
-                          :uint8 (UByteArraySubList. src-data 0 n-elems m)
-                          :uint16 (UShortArraySubList. src-data 0 n-elems m)
-                          :uint32 (UIntArraySubList. src-data 0 n-elems m)
-                          :uint64 (ULongArraySubList. src-data 0 n-elems m)
-                          (ArrayLists/toList src-data)))]
+             retlist (case dtype
+                       :uint8 (UByteArraySubList. src-data 0 n-elems m)
+                       :uint16 (UShortArraySubList. src-data 0 n-elems m)
+                       :uint32 (UIntArraySubList. src-data 0 n-elems m)
+                       :uint64 (ULongArraySubList. src-data 0 n-elems m)
+                       (ArrayLists/toList src-data))
+             retval (array-list->packed-list retlist dtype)]
          (when (instance? RandomAccess data)
            (.fillRange ^IMutList retval 0 data))
          retval)
-       (let [alist (array-list dtype data)]
+       (let [alist (array-list dtype 0)]
+         (.addAllReducible ^IMutList alist data)
          (hamf/subvec alist 0)))))
   (^IMutList [dtype data sidx eidx m]
    (ensure-datatypes (dtype-proto/elemwise-datatype data) dtype)
-   (let [ne (- (long eidx) (long sidx))]
-     (case dtype
-       :uint8 (UByteArraySubList. data sidx ne m)
-       :uint16 (UShortArraySubList. data sidx ne m)
-       :uint32 (UIntArraySubList. data sidx ne m)
-       :uint64 (ULongArraySubList. data sidx ne m)
-       (ArrayLists/toList data (long sidx) (long eidx) ^IPersistentMap m)))))
-
-
-(defn array-list
-  (^IMutList [dtype] (array-list dtype 4))
-  (^IMutList [dtype data]
-   (let [data (if (number? data) data (hamf/->reducible data))
-         n-elems (cond (number? data)
-                       (long data)
-                       (instance? RandomAccess data)
-                       (.size ^List data)
-                       :else
-                       4)
-         src-data (host-array (casting/datatype->host-datatype dtype) n-elems)
-         ^IMutList retval (case dtype
-                            :boolean (BooleanArrayList. src-data 0 nil)
-                            :int8 (ByteArrayList. src-data 0 nil)
-                            :uint8 (UByteArrayList. src-data 0 nil)
-                            :int16 (ShortArrayList. src-data 0 nil)
-                            :uint16 (UShortArrayList. src-data 0 nil)
-                            :char (CharArrayList. src-data 0 nil)
-                            :int32 (ArrayLists$IntArrayList. src-data 0 nil)
-                            :uint32 (UIntArrayList. src-data 0 nil)
-                            :int64 (ArrayLists$LongArrayList. src-data 0 nil)
-                            :uint64 (ULongArrayList. src-data 0 nil)
-                            :float32 (FloatArrayList. src-data 0 nil)
-                            :float64 (ArrayLists$DoubleArrayList. src-data 0 nil)
-                            (ArrayLists$ObjectArrayList. src-data 0 nil))]
-     (when-not (number? data)
-       (.addAllReducible retval data))
-     retval)))
+   (-> (let [ne (- (long eidx) (long sidx))]
+         (case dtype
+           :uint8 (UByteArraySubList. data sidx ne m)
+           :uint16 (UShortArraySubList. data sidx ne m)
+           :uint32 (UIntArraySubList. data sidx ne m)
+           :uint64 (ULongArraySubList. data sidx ne m)
+           (ArrayLists/toList data (long sidx) (long eidx) ^IPersistentMap m)))
+       (array-list->packed-list dtype))))
 
 
 (defn as-growable-list
@@ -593,20 +624,51 @@
       (throw (RuntimeException. "Only non-sub-buffer containers can become growable lists.")))
     (when-not (<= ptr (.-n-elems abuf))
       (throw (RuntimeException. "ptr out of range of buffer size")))
-    (case (dtype-proto/elemwise-datatype abuf)
-      :boolean (BooleanArrayList. (.-ary-data abuf) ptr (meta data))
-      :int8 (ByteArrayList. (.-ary-data abuf) ptr (meta data))
-      :uint8 (UByteArrayList. (.-ary-data abuf) ptr (meta data))
-      :int16 (ShortArrayList. (.-ary-data abuf) ptr (meta data))
-      :uint16 (UShortArrayList. (.-ary-data abuf) ptr (meta data))
-      :char (CharArrayList. (.-ary-data abuf) ptr (meta data))
-      :int32 (ArrayLists$IntArrayList. (.-ary-data abuf) ptr (meta data))
-      :uint32 (UIntArrayList. (.-ary-data abuf) ptr (meta data))
-      :int64 (ArrayLists$LongArrayList. (.-ary-data abuf) ptr (meta data))
-      :uint64 (ULongArrayList. (.-ary-data abuf) ptr (meta data))
-      :float32 (FloatArrayList. (.-ary-data abuf) ptr (meta data))
-      :float64 (ArrayLists$DoubleArrayList. (.-ary-data abuf) ptr (meta data))
-      (ArrayLists$ObjectArrayList. (.-ary-data abuf) ptr (meta data)))))
+    (let [dtype (dtype-proto/elemwise-datatype abuf)
+          host-dt (if (packing/packed-datatype? dtype)
+                    (casting/datatype->host-datatype dtype)
+                    dtype)]
+      (-> (case host-dt
+            :boolean (BooleanArrayList. (.-ary-data abuf) ptr (meta data))
+            :int8 (ByteArrayList. (.-ary-data abuf) ptr (meta data))
+            :uint8 (UByteArrayList. (.-ary-data abuf) ptr (meta data))
+            :int16 (ShortArrayList. (.-ary-data abuf) ptr (meta data))
+            :uint16 (UShortArrayList. (.-ary-data abuf) ptr (meta data))
+            :char (CharArrayList. (.-ary-data abuf) ptr (meta data))
+            :int32 (ArrayLists$IntArrayList. (.-ary-data abuf) ptr (meta data))
+            :uint32 (UIntArrayList. (.-ary-data abuf) ptr (meta data))
+            :int64 (ArrayLists$LongArrayList. (.-ary-data abuf) ptr (meta data))
+            :uint64 (ULongArrayList. (.-ary-data abuf) ptr (meta data))
+            :float32 (FloatArrayList. (.-ary-data abuf) ptr (meta data))
+            :float64 (ArrayLists$DoubleArrayList. (.-ary-data abuf) ptr (meta data))
+            (ArrayLists$ObjectArrayList. (.-ary-data abuf) ptr (meta data)))
+          ;;Add packing as an optional second layer
+          (array-list->packed-list dtype)))))
+
+
+(defn array-list
+  (^IMutList [dtype]
+   (array-list dtype 4))
+  (^IMutList [dtype data]
+   (let [rdr? (dtype-proto/convertible-to-reader? data)
+         data (if rdr?
+                (dtype-proto/->reader data)
+                data)
+         n-elems (cond
+                   (number? data)
+                   (long data)
+                   rdr?
+                   (dtype-proto/ecount data)
+                   :else
+                   8)
+         c (array-sub-list dtype n-elems)
+         ptr (if (number? data)
+               0
+               (dtype-proto/ecount c))
+         retval (as-growable-list c ptr)]
+     (when-not (number? data)
+       (.addAllReducible ^IMutList retval data))
+     retval)))
 
 
 
