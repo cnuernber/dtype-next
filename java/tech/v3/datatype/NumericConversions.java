@@ -43,4 +43,10 @@ public class NumericConversions
   public static double doubleCast(Object arg) {
     return RT.doubleCast(Casts.doubleCast(arg));
   }
+
+  public static byte ubyteHostCast(long arg) {
+    if(arg > 255 || arg < 0)
+      throw new RuntimeException("Value out of range for ubyte: " + String.valueOf(arg));
+    return (byte)arg;
+  }
 }

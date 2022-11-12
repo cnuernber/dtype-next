@@ -23,7 +23,7 @@
             BooleanArrayList FloatArrayList]
            [tech.v3.datatype MutListBuffer PackingMutListBuffer]
            [tech.v3.datatype Buffer ArrayHelpers BufferCollection BinaryBuffer
-            ByteConversions]
+            ByteConversions NumericConversions]
            [java.util Arrays RandomAccess List]
            [java.lang.reflect Array]))
 
@@ -339,7 +339,7 @@
 
 (defmacro ^:private long->host-uint8
   [v]
-  `(unchecked-byte (casting/datatype->cast-fn :int64 :uint8 ~v)))
+  `(NumericConversions/ubyteHostCast ~v))
 
 (defmacro ^:private object->host-uint8
   [v]

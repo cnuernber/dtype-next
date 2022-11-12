@@ -22,6 +22,7 @@
             [tech.v3.datatype.dispatch :refer [vectorized-dispatch-1
                                                vectorized-dispatch-2]
              :as dispatch]
+            [tech.v3.datatype.emap :refer [unary-dispatch binary-dispatch]]
             ;;optimized operations
             [tech.v3.datatype.functional.opt :as fn-opt]
             [tech.v3.datatype.rolling]
@@ -53,37 +54,6 @@
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
-
-
-(defn- unary-dispatch
-  [op x options]
-  (vectorized-dispatch-1
-   op
-   ;;the default iterable application is fine.
-   nil
-   #(dtype-proto/apply-unary-op %2 %1 op)
-   (merge (meta op) options)
-   x))
-
-(defn- binary-dispatch
-  [op x y options]
-  (let [xt (argtypes/arg-type x)
-        yt (argtypes/arg-type y)]
-    (cond
-      (clojure.core/and (identical? :scalar xt)
-                        (identical? :scalar yt))
-      (op x y)
-      (identical? :scalar xt)
-      (unary-dispatch (binary-op/unary-op-l op x) y options)
-      (identical? :scalar yt)
-      (unary-dispatch (binary-op/unary-op-r op y) x options)
-      :else
-      (vectorized-dispatch-2
-       op
-       #(binary-op/iterable op %1 %2 %3)
-       #(binary-op/reader op %1 %2 %3)
-       (meta op)
-       x y))))
 
 
 (defmacro ^:private implement-arithmetic-operations

@@ -102,11 +102,11 @@
   ^Buffer [reduced-dims]
   (try
     (let [^objects shape (object-array (:shape reduced-dims))
-          ^longs strides (long-array (:strides reduced-dims))
+          ^longs strides (hamf/long-array (:strides reduced-dims))
           ^longs offsets (when-not (every? #(== 0 (long %)) (:offsets reduced-dims))
-                           (long-array (:offsets reduced-dims)))
-          ^longs max-shape (long-array (:shape-ecounts reduced-dims))
-          ^longs max-shape-strides (long-array (:shape-ecount-strides reduced-dims))
+                           (hamf/long-array (:offsets reduced-dims)))
+          ^longs max-shape (hamf/long-array (:shape-ecounts reduced-dims))
+          ^longs max-shape-strides (hamf/long-array (:shape-ecount-strides reduced-dims))
           n-dims (alength shape)
           n-elems (pmath/* (aget max-shape-strides 0)
                            (aget max-shape 0))]
@@ -261,8 +261,8 @@
 
 (defn dims->global->local
   ^LongNDReader [dims]
-  (let [shape-ecounts (long-array (:shape-ecounts dims))
-        shape-ecount-strides (long-array (:shape-ecount-strides dims))
+  (let [shape-ecounts (hamf/long-array (:shape-ecounts dims))
+        shape-ecount-strides (hamf/long-array (:shape-ecount-strides dims))
         n-dims (alength shape-ecount-strides)
         n-dims-dec (dec n-dims)
         n-dims-dec-1 (max 0 (dec n-dims-dec))

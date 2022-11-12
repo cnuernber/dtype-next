@@ -208,7 +208,7 @@
 
 (defn reader
   ([unary-op res-dtype lhs]
-   (dtype-proto/apply-unary-op (dtype-base/->reader lhs) res-dtype unary-op))
+   (dtype-proto/apply-unary-op lhs res-dtype unary-op))
   ([unary-op lhs]
    (let [lhs-dtype (dtype-base/elemwise-datatype lhs)
          op-meta (meta unary-op)

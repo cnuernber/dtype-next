@@ -177,11 +177,11 @@
                                           y-coord (center-coord (+ y conv-y) yshp)
                                           x-coord (center-coord (+ x conv-x) xshp)]
                                       (recur (unchecked-inc idx)
-                                             (+ sum (.ndReadDouble input-tens y-coord
-                                                                   x-coord))))
+                                             (+ sum (.ndReadLong input-tens y-coord
+                                                                 x-coord))))
                                     sum)))]
              (if (or (== 3 conv-sum)
-                     (and (not= 0 original)
+                     (and (not (== 0 original))
                           (== 4 conv-sum)))
                1
                0)))

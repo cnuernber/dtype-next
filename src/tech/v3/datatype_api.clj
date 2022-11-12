@@ -316,7 +316,7 @@ user> (dt/make-list :float32 (range 10))
   as, for instance, keys in a map.  Not recommended far large readers although
   the data is shared."
   [item]
-  (ListPersistentVector. (->reader item)))
+  (->reader item))
 
 
 (defn as-nd-buffer-descriptor

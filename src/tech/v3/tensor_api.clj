@@ -52,6 +52,7 @@
 (declare construct-tensor tensor-copy!)
 
 
+
 (extend-type NDBuffer
   dtype-proto/PElemwiseCast
   (elemwise-cast [t new-dtype]
@@ -803,21 +804,109 @@
         (-> (quot global-idx (.readLong strides idx))
             (rem (aget shape idx)))))))
 
-(defn- as-long-accum
-  ^IFn$OLO [data]
-  (if (instance? IFn$OLO data)
-    data
-    (hamf/long-accumulator acc v (data acc v))))
+(defn- round
+  ^long [^long amount ^long div]
+  (let [res (rem amount div)]
+    (- amount (rem amount div))))
 
 
-(defn- as-double-accum
-  ^IFn$ODO [data]
-  (if (instance? IFn$OLO data)
-    data
-    (hamf/double-accumulator acc v (data acc v))))
+(defn- nd-reduce
+  [^NDBuffer buffer rfn acc sidx eidx]
+  (let [sidx (long sidx)
+        eidx (long eidx)
+        buf-shape (.shape buffer)
+        n-dims (count buf-shape)]
 
-(defn- as-accum
-  ^IFn [data] data)
+    ;;We only have optimized accessors for 3 dim tensor or less so we always want to
+    ;;break the problem down into 3 dims or less.
+    (if (> n-dims 3)
+      (let [sub-tens (slice buffer (- n-dims 3))
+            sub-buf-size (dtype-base/ecount (first sub-tens))]
+        (loop [sidx sidx
+               acc acc]
+          (if (and (< sidx eidx) (not (reduced? acc)))
+            (let [next-sidx (min eidx (round (+ sidx sub-buf-size) sub-buf-size))
+                  buf-idx (quot sidx sub-buf-size)
+                  sub-local-sidx (rem sidx sub-buf-size)
+                  sub-local-eidx (+ sub-local-sidx (- next-sidx sidx))]
+              (recur next-sidx
+                     (nd-reduce (sub-tens buf-idx) rfn acc sub-local-sidx sub-local-eidx)))
+            acc)))
+      (case n-dims
+        0 acc
+        1 (let [n-elems (long (buf-shape 0))
+                ^IFn$LO accum (cond
+                                (instance? IFn$OLO rfn)
+                                (fn [^long idx acc]
+                                  (.invokePrim ^IFn$OLO rfn acc (.ndReadLong buffer idx)))
+                                (instance? IFn$ODO rfn)
+                                (fn [^long idx acc]
+                                  (.invokePrim ^IFn$ODO rfn acc (.ndReadDouble buffer idx)))
+                                :else
+                                (fn [^long idx acc] (rfn acc (.ndReadObject buffer idx))))]
+            (loop [idx sidx
+                   acc acc]
+              (if (and (< idx eidx) (not (reduced? acc)))
+                (recur (unchecked-inc idx) (accum idx acc))
+                acc)))
+        2 (let [c (long (buf-shape 1))
+                sx (quot sidx c)
+                ^IFn$LLO accum (cond
+                                 (instance? IFn$OLO rfn)
+                                 (fn [^long x ^long c acc]
+                                   (.invokePrim ^IFn$OLO rfn acc (.ndReadLong buffer x c)))
+                                 (instance? IFn$ODO rfn)
+                                 (fn [^long x ^long c acc]
+                                   (.invokePrim ^IFn$ODO rfn acc (.ndReadDouble buffer x c)))
+                                 :else
+                                 (fn [^long x ^long c acc]
+                                   (rfn acc (.ndReadObject buffer x c))))]
+            (loop [xidx sidx
+                   acc acc]
+              (if (and (< xidx eidx) (not (reduced? acc)))
+                (let [x-coord (quot xidx c)
+                      next-xidx (min eidx (round (+ xidx c) c))]
+                  (recur next-xidx
+                         (loop [cidx xidx
+                                acc acc]
+                           (if (and (< cidx next-xidx) (not (reduced? acc)))
+                             (recur (unchecked-inc cidx) (accum x-coord (rem cidx c) acc))
+                             acc))))
+                acc)))
+        3 (let [x (long (buf-shape 1))
+                c (long (buf-shape 2))
+                xc (* x c)
+                ^IFn$LLO accum
+                (cond
+                  (instance? IFn$OLO rfn)
+                  (fn [^long y ^long x ^long c acc]
+                    (.invokePrim ^IFn$OLO rfn acc (.ndReadLong buffer y x c)))
+                  (instance? IFn$ODO rfn)
+                  (fn [^long y ^long x ^long c acc]
+                    (.invokePrim ^IFn$ODO rfn acc (.ndReadDouble buffer y x c)))
+                  :else
+                  (fn [^long y ^long x ^long c acc] (rfn acc (.ndReadObject buffer y x c))))]
+            (loop [yidx sidx
+                   acc acc]
+              (if (and (< yidx eidx) (not (reduced? acc)))
+                (let [y-coord (quot yidx xc)
+                      next-y (min eidx (round (+ yidx xc) xc))]
+                  (recur next-y
+                         (loop [xidx yidx
+                                acc acc]
+                           (if (and (< xidx next-y) (not (reduced? acc)))
+                             (let [x-coord (quot (rem xidx xc) c)
+                                   next-x (min eidx (round (+ xidx c) c))]
+                               (recur next-x
+                                      (loop [cidx xidx
+                                             acc acc]
+                                        (let [c-coord (rem cidx c)]
+                                          (if (and (< cidx next-x) (not (reduced? acc)))
+                                            (recur (unchecked-inc cidx)
+                                                   (accum y-coord x-coord c-coord acc))
+                                            acc)))))
+                             acc))))
+                acc)))))))
 
 
 (defmacro ^:private make-tensor-reader
@@ -856,7 +945,13 @@
              (~read-fn [rr# idx#] (~(symbol (str "." (name read-fn))) rdr# (+ idx# sidx#)))
              (subBuffer [rr# ssidx# seidx#]
                (ChunkedList/sublistCheck ssidx# seidx# nne#)
-               (.subBuffer rdr# (+ sidx# ssidx#) (+ sidx# seidx#))))))
+               (.subBuffer rdr# (+ sidx# ssidx#) (+ sidx# seidx#)))
+             (reduce [this# rfn# init#]
+               (nd-reduce ~per-pixel-op rfn# init# sidx# eidx#))
+             (longReduction [this# rfn# init#]
+               (nd-reduce ~per-pixel-op rfn# init# sidx# eidx#))
+             (doubleReduction [this# rfn# init#]
+               (nd-reduce ~per-pixel-op rfn# init# sidx# eidx#)))))
        (~read-fn [rdr# ~'idx]
          ~(case (long n-dims)
             1 `(~nd-read-fn ~per-pixel-op ~'idx)
@@ -869,7 +964,13 @@
                      y# (pmath// xy# ~shape-x)]
                  (~nd-read-fn ~per-pixel-op y# x# c#))
             `(~cast-fn (.ndReadObjectIter ~per-pixel-op (shape-stride-reader
-                                                         ~output-shape ~strides ~'idx))))))))
+                                                         ~output-shape ~strides ~'idx)))))
+       (reduce [this# rfn# init#]
+         (nd-reduce ~per-pixel-op rfn# init# 0 ~n-elems))
+       (longReduction [this# rfn# init#]
+         (nd-reduce ~per-pixel-op rfn# init# 0 ~n-elems))
+       (doubleReduction [this# rfn# init#]
+         (nd-reduce ~per-pixel-op rfn# init# 0 ~n-elems)))))
 
 
 (defn nd-buffer->buffer-reader
