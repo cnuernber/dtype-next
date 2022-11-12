@@ -56,10 +56,10 @@
          (parallelReduction [this init-val-fn rfn merge-fn options]
            (.parallelReduction indexes init-val-fn
                                (cond
-                                 (instance? rfn IFn$OLO)
+                                 (instance? IFn$OLO rfn)
                                  (hamf/long-accumulator
                                   acc v (.invokePrim ^IFn$OLO rfn acc (.readLong item v)))
-                                 (instance? rfn IFn$ODO)
+                                 (instance? IFn$ODO rfn)
                                  (hamf/long-accumulator
                                   acc v (.invokePrim ^IFn$ODO rfn acc (.readDouble item v)))
                                  :else

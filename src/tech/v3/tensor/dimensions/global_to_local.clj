@@ -90,11 +90,10 @@
                                      (.getLong sbuf local-idx)
                                      local-idx)
                                    (long)
-                                   (* stride)))]
-                    (recur next-sidx
-                           (next-reducer rfn acc v
-                                         (rem sidx max-shape-stride)
-                                         (- (min eidx next-sidx) sidx))))
+                                   (* stride)))
+                        sub-sidx (rem sidx max-shape-stride)
+                        sub-eidx (+ sub-sidx (- (min eidx next-sidx) sidx))]
+                    (recur next-sidx (next-reducer rfn acc v sub-sidx sub-eidx)))
                   acc)))))))))
 
 
