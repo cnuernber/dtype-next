@@ -39,9 +39,10 @@
             [com.github.ztellman.primitive-math :as pmath]
             [clojure.tools.logging :as log]
             [ham-fisted.api :as hamf])
-  (:import [clojure.lang IObj IFn$OLO IFn$ODO IFn]
+  (:import [clojure.lang IObj IFn$OLO IFn$ODO IFn
+            IFn$LOO IFn$LLOO IFn$LLLOO]
            [tech.v3.datatype LongNDReader Buffer NDBuffer
-            ObjectReader LongReader]
+            ObjectReader LongReader NDReduce]
            [java.util List]
            [ham_fisted ChunkedList]))
 
@@ -834,79 +835,16 @@
             acc)))
       (case n-dims
         0 acc
-        1 (let [n-elems (long (buf-shape 0))
-                ^IFn$LO accum (cond
-                                (instance? IFn$OLO rfn)
-                                (fn [^long idx acc]
-                                  (.invokePrim ^IFn$OLO rfn acc (.ndReadLong buffer idx)))
-                                (instance? IFn$ODO rfn)
-                                (fn [^long idx acc]
-                                  (.invokePrim ^IFn$ODO rfn acc (.ndReadDouble buffer idx)))
-                                :else
-                                (fn [^long idx acc] (rfn acc (.ndReadObject buffer idx))))]
-            (loop [idx sidx
-                   acc acc]
-              (if (and (< idx eidx) (not (reduced? acc)))
-                (recur (unchecked-inc idx) (accum idx acc))
-                acc)))
-        2 (let [c (long (buf-shape 1))
-                sx (quot sidx c)
-                ^IFn$LLO accum (cond
-                                 (instance? IFn$OLO rfn)
-                                 (fn [^long x ^long c acc]
-                                   (.invokePrim ^IFn$OLO rfn acc (.ndReadLong buffer x c)))
-                                 (instance? IFn$ODO rfn)
-                                 (fn [^long x ^long c acc]
-                                   (.invokePrim ^IFn$ODO rfn acc (.ndReadDouble buffer x c)))
-                                 :else
-                                 (fn [^long x ^long c acc]
-                                   (rfn acc (.ndReadObject buffer x c))))]
-            (loop [xidx sidx
-                   acc acc]
-              (if (and (< xidx eidx) (not (reduced? acc)))
-                (let [x-coord (quot xidx c)
-                      next-xidx (min eidx (round (+ xidx c) c))]
-                  (recur next-xidx
-                         (loop [cidx xidx
-                                acc acc]
-                           (if (and (< cidx next-xidx) (not (reduced? acc)))
-                             (recur (unchecked-inc cidx) (accum x-coord (rem cidx c) acc))
-                             acc))))
-                acc)))
-        3 (let [x (long (buf-shape 1))
-                c (long (buf-shape 2))
-                xc (* x c)
-                ^IFn$LLO accum
-                (cond
-                  (instance? IFn$OLO rfn)
-                  (fn [^long y ^long x ^long c acc]
-                    (.invokePrim ^IFn$OLO rfn acc (.ndReadLong buffer y x c)))
-                  (instance? IFn$ODO rfn)
-                  (fn [^long y ^long x ^long c acc]
-                    (.invokePrim ^IFn$ODO rfn acc (.ndReadDouble buffer y x c)))
-                  :else
-                  (fn [^long y ^long x ^long c acc] (rfn acc (.ndReadObject buffer y x c))))]
-            (loop [yidx sidx
-                   acc acc]
-              (if (and (< yidx eidx) (not (reduced? acc)))
-                (let [y-coord (quot yidx xc)
-                      next-y (min eidx (round (+ yidx xc) xc))]
-                  (recur next-y
-                         (loop [xidx yidx
-                                acc acc]
-                           (if (and (< xidx next-y) (not (reduced? acc)))
-                             (let [x-coord (quot (rem xidx xc) c)
-                                   next-x (min eidx (round (+ xidx c) c))]
-                               (recur next-x
-                                      (loop [cidx xidx
-                                             acc acc]
-                                        (let [c-coord (rem cidx c)]
-                                          (if (and (< cidx next-x) (not (reduced? acc)))
-                                            (recur (unchecked-inc cidx)
-                                                   (accum y-coord x-coord c-coord acc))
-                                            acc)))))
-                             acc))))
-                acc)))))))
+        1 (NDReduce/ndReduce1D buffer rfn acc sidx eidx)
+        2 (NDReduce/ndReduce2D buffer (long (buf-shape 1)) rfn acc sidx eidx)
+        3 (NDReduce/ndReduce3D buffer (long (buf-shape 1)) (long (buf-shape 2))
+                               rfn acc sidx eidx)))))
+
+(comment
+  (nd-reduce (compute-tensor
+              [3 3 3] (fn [y x c] (println y x c) (+ y x c)))
+             + 0 7 10)
+  )
 
 
 (defmacro ^:private make-tensor-reader

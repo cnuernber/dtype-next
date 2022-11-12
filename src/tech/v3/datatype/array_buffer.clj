@@ -21,7 +21,7 @@
             MutList$SubMutList ChunkedList TypedList]
            [ham_fisted.alists ByteArrayList ShortArrayList CharArrayList
             BooleanArrayList FloatArrayList]
-           [tech.v3.datatype MutListBuffer PackingMutListBuffer]
+           [tech.v3.datatype MutListBuffer PackingMutListBuffer UByteSubBuffer]
            [tech.v3.datatype Buffer ArrayHelpers BufferCollection BinaryBuffer
             ByteConversions NumericConversions]
            [java.util Arrays RandomAccess List]
@@ -427,6 +427,53 @@
                         long->host-uint8
                         object->host-uint8)
 (bind-array-list UByteArraySubList (constantly :uint8))
+(extend-type UByteArraySubList
+  dtype-proto/PToBuffer
+  (convertible-to-buffer? [this] true)
+  (->buffer [this] (UByteSubBuffer. (.-data this)
+                                    (.-sidx this)
+                                    (+ (.-sidx this) (.-n-elems this))
+                                    (meta this))))
+
+;;UByte buffers get special treatment because they are used so often as image
+;;backing data.
+(extend-type UByteSubBuffer
+  dtype-proto/PElemwiseDatatype
+  (elemwise-datatype [this] :uint8)
+  dtype-proto/PElemwiseReaderCast
+  (elemwise-reader-cast [this new-dtype] (dtype-proto/->buffer this))
+  dtype-proto/PSubBuffer
+  (sub-buffer [this offset length]
+    (.subBuffer this offset (+ (long offset) (long length))))
+  dtype-proto/PClone
+  (clone [this] (.cloneList this))
+  dtype-proto/PSetConstant
+  (set-constant! [this offset elem-count value]
+    (let [offset (int offset)
+          elem-count (int elem-count)]
+      (.fillRange this offset (+ offset elem-count) value)))
+  dtype-proto/PToBuffer
+  (convertible-to-buffer? [this#] true)
+  (->buffer [this] this)
+  dtype-proto/PToWriter
+  (convertible-to-writer? [item] true)
+  (->writer [item] item)
+  dtype-proto/PToReader
+  (convertible-to-reader? [item] true)
+  (->reader [item] item)
+  dtype-proto/PToArrayBuffer
+  (convertible-to-array-buffer? [buf] true)
+  (->array-buffer [buf]
+    (let [section (.getArraySection buf)
+          sidx (.-sidx section)
+          eidx (.-eidx section)]
+      (ArrayBuffer. (.-array section) sidx (.size section) :uint8)))
+  dtype-proto/PCopyRawData
+  (copy-raw->item! [raw-data ary-target target-offset options]
+    (dtype-proto/copy-raw->item! (dtype-proto/->array-buffer raw-data)
+                                 ary-target target-offset options))
+  dtype-proto/PEndianness
+  (endianness [item#] :little-endian))
 
 (make-unsigned-sub-list UShortArraySubList shorts
                         host->long-uint16
