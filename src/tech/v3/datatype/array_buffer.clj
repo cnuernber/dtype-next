@@ -44,32 +44,13 @@
     (dtype-proto/convertible-to-array-buffer? (.-data item)))
   (->array-buffer [item]
     (dtype-proto/->array-buffer (.-data item)))
-  dtype-proto/PSubBuffer
-  (sub-buffer [item off len]
-    (.subBuffer item (long off) (+ (long off) (long len))))
-  dtype-proto/PToBinaryBuffer
   (convertible-to-binary-buffer? [item]
     (dtype-proto/convertible-to-binary-buffer? (.-data item)))
   (->binary-buffer [item]
     (dtype-proto/->binary-buffer (.-data item)))
-  dtype-proto/PSetConstant
-  (set-constant! [item off elem-count value]
-    (.fillRange (.-data item) (int off) (+ (int off) (int elem-count)) value))
-  dtype-proto/PClone
-  (clone [this]
-    (.cloneList this))
   dtype-proto/PCopyRawData
   (copy-raw->item! [raw-data ary-target target-offset options]
-    (dtype-proto/copy-raw->item! (.-data raw-data) ary-target target-offset options))
-  dtype-proto/PToBuffer
-  (convertible-to-buffer? [item] true)
-  (->buffer [item] item)
-  dtype-proto/PToWriter
-  (convertible-to-writer? [item] true)
-  (->writer [item] item)
-  dtype-proto/PToReader
-  (convertible-to-reader? [item] true)
-  (->reader [item] item))
+    (dtype-proto/copy-raw->item! (.-data raw-data) ary-target target-offset options)))
 
 
 (defmethod print-method MutListBuffer
@@ -85,27 +66,7 @@
     (dtype-proto/convertible-to-array-buffer? (.-data item)))
   (->array-buffer [item]
     (-> (dtype-proto/->array-buffer (.-data item))
-        (set-datatype (.-elemwiseDatatype item))))
-  dtype-proto/PSubBuffer
-  (sub-buffer [item off len]
-    (.subBuffer item (long off) (+ (long off) (long len))))
-  dtype-proto/PToBinaryBuffer
-  (convertible-to-binary-buffer? [item] false)
-  dtype-proto/PSetConstant
-  (set-constant! [item off elem-count value]
-    (.fillRange item (int off) (+ (int off) (int elem-count)) value))
-  dtype-proto/PClone
-  (clone [this]
-    (.cloneList this))
-  dtype-proto/PToBuffer
-  (convertible-to-buffer? [item] true)
-  (->buffer [item] item)
-  dtype-proto/PToWriter
-  (convertible-to-writer? [item] true)
-  (->writer [item] item)
-  dtype-proto/PToReader
-  (convertible-to-reader? [item] true)
-  (->reader [item] item))
+        (set-datatype (.-elemwiseDatatype item)))))
 
 
 (defmethod print-method PackingMutListBuffer
@@ -113,94 +74,65 @@
   (.write ^java.io.Writer w (dtype-pp/buffer->string buf "buffer")))
 
 
-(extend-type MutList
-  dtype-proto/PElemwiseDatatype
-  (elemwise-datatype [buf] :object)
-  dtype-proto/PElemwiseReaderCast
-  (elemwise-reader-cast [this new-dtype] (dtype-proto/->buffer this))
-  dtype-proto/PSubBuffer
-  (sub-buffer [item off len]
-    (.subList item (int off) (+ (int off) (int len))))
-  dtype-proto/PSetConstant
-  (set-constant! [item off elem-count value]
-    (.fillRange item (int off) (+ (int off) (int elem-count)) value))
-  dtype-proto/PClone
-  (clone [this]
-    (.cloneList this))
-  dtype-proto/PToBuffer
-  (convertible-to-buffer? [item] true)
-  (->buffer [item] (MutListBuffer. item true :object))
-  dtype-proto/PToWriter
-  (convertible-to-writer? [item] true)
-  (->writer [item] (dtype-proto/->buffer item))
-  dtype-proto/PToReader
-  (convertible-to-reader? [item] true)
-  (->reader [item] (dtype-proto/->buffer item)))
+(defn- ml-reader-cast
+  [^IMutList l new-dtype]
+  (dtype-proto/->buffer l))
+
+(defn- ml-sub-buf
+  [^IMutList l ^long off ^long len]
+  (.subList l (int off) (int (+ off len))))
+
+(defn- ml-set-constant!
+  [^IMutList item ^long off ^long elem-count v]
+  (.fillRange item (int off) (int (+ off elem-count)) v))
+
+(defn- ml-clone
+  [^IMutList item]
+  (.cloneList item))
+
+(defn- ml-to-buffer
+  ^Buffer [^IMutList item]
+  (let [item-dt (dtype-proto/elemwise-datatype item)]
+    (if-let [[pack-fn unpack-fn] (packing/packing-pair item-dt)]
+      (PackingMutListBuffer. item true item-dt pack-fn unpack-fn)
+      (MutListBuffer. item true item-dt))))
 
 
-(extend-type MutList$SubMutList
-  dtype-proto/PElemwiseDatatype
-  (elemwise-datatype [buf] :object)
-  dtype-proto/PElemwiseReaderCast
-  (elemwise-reader-cast [this new-dtype] (dtype-proto/->buffer this))
-  dtype-proto/PSubBuffer
-  (sub-buffer [item off len]
-    (.subList item (int off) (+ (int off) (int len))))
-  dtype-proto/PSetConstant
-  (set-constant! [item off elem-count value]
-    (.fillRange item (int off) (+ (int off) (int elem-count)) value))
-  dtype-proto/PClone
-  (clone [this]
-    (.cloneList this))
-  dtype-proto/PToBuffer
-  (convertible-to-buffer? [item] true)
-  (->buffer [item] (MutListBuffer. item true :object))
-  dtype-proto/PToWriter
-  (convertible-to-writer? [item] true)
-  (->writer [item] (dtype-proto/->buffer item))
-  dtype-proto/PToReader
-  (convertible-to-reader? [item] true)
-  (->reader [item] (dtype-proto/->buffer item)))
+(defn- extend-ml-type!
+  [ml-type dtype allows-write]
+  ;;ml-type had better extend IMutList
+  (let [dtype-fn (if (keyword? dtype)
+                   (constantly dtype)
+                   dtype)]
+    (extend ml-type
+      dtype-proto/PElemwiseDatatype
+      {:elemwise-datatype dtype-fn}
+      dtype-proto/PElemwiseReaderCast
+      {:elemwise-reader-cast ml-reader-cast}
+      dtype-proto/PSubBuffer
+      {:sub-buffer ml-sub-buf}
+      dtype-proto/PSetConstant
+      {:set-constant! ml-set-constant!}
+      dtype-proto/PClone
+      {:clone ml-clone}
+      dtype-proto/PToBuffer
+      {:convertible-to-buffer? (constantly true)
+       :->buffer ml-to-buffer}
+      dtype-proto/PToReader
+      {:convertible-to-reader? (constantly true)
+       :->reader ml-to-buffer}
+      dtype-proto/PToWriter
+      {:convertible-to-writer? (constantly allows-write)
+       :->writer ml-to-buffer})))
 
 
-(extend-type ImmutList
-  dtype-proto/PElemwiseDatatype
-  (elemwise-datatype [buf] :object)
-  dtype-proto/PElemwiseReaderCast
-  (elemwise-reader-cast [this new-dtype] (dtype-proto/->buffer this))
-  dtype-proto/PSubBuffer
-  (sub-buffer [item off len]
-    (.subList item (int off) (+ (int off) (int len))))
-  dtype-proto/PClone
-  (clone [this] this)
-  dtype-proto/PToBuffer
-  (convertible-to-buffer? [item] true)
-  (->buffer [item] (MutListBuffer. item false :object))
-  dtype-proto/PToWriter
-  (convertible-to-writer? [item] false)
-  dtype-proto/PToReader
-  (convertible-to-reader? [item] true)
-  (->reader [item] (dtype-proto/->buffer item)))
 
-
-(extend-type ArrayImmutList
-  dtype-proto/PElemwiseDatatype
-  (elemwise-datatype [buf] :object)
-  dtype-proto/PSubBuffer
-  (sub-buffer [item off len]
-    (.subList ^List item off (+ (int off) (int len))))
-  dtype-proto/PElemwiseReaderCast
-  (elemwise-reader-cast [this new-dtype] (dtype-proto/->buffer this))
-  dtype-proto/PClone
-  (clone [this] this)
-  dtype-proto/PToBuffer
-  (convertible-to-buffer? [item] true)
-  (->buffer [item] (MutListBuffer. item false :object))
-  dtype-proto/PToWriter
-  (convertible-to-writer? [item] false)
-  dtype-proto/PToReader
-  (convertible-to-reader? [item] true)
-  (->reader [item] (dtype-proto/->buffer item)))
+;;Using manual extension to reduce the number of IFn's generated
+;;and overall reduce compile times.
+(extend-ml-type! MutList :object true)
+(extend-ml-type! MutList$SubMutList :object true)
+(extend-ml-type! ImmutList :object false)
+(extend-ml-type! ArrayImmutList :object false)
 
 
 ;;Only returns implementations of Buffer
@@ -215,10 +147,12 @@
 
 ;;May return implementation of Buffer or just IMutList
 (defn- array-list->packed-list
-  [^IMutList datalist dtype]
-  (if-let [[pack-fn unpack-fn] (packing/packing-pair dtype)]
-    (PackingMutListBuffer. datalist true dtype pack-fn unpack-fn)
-    datalist))
+  [datalist dtype]
+  (if (instance? Buffer datalist)
+    datalist
+    (if-let [[pack-fn unpack-fn] (packing/packing-pair dtype)]
+      (PackingMutListBuffer. datalist true dtype pack-fn unpack-fn)
+      datalist)))
 
 
 (defrecord ArrayBuffer [ary-data ^long offset ^long n-elems dtype]
@@ -255,57 +189,44 @@
 
 
 (defn set-datatype
+  "Set the array-buffer's datatype.  This way you can take an int32 array buffer
+  and make it a packed-local-date, or vice versa.  If it isn't obvious, use this
+  with some care."
   [^ArrayBuffer abuf dtype]
   (ArrayBuffer. (.-ary-data abuf) (.-offset abuf) (.-n-elems abuf) dtype))
 
 (casting/add-object-datatype! :array-buffer ArrayBuffer false)
 
+(defn- array-owner->array-buffer
+  [^ArrayLists$ArrayOwner owner]
+  (let [section (.getArraySection owner)
+        sidx (.-sidx section)
+        eidx (.-eidx section)]
+    (ArrayBuffer. (.-array section) sidx (- eidx sidx)
+                  (dtype-proto/elemwise-datatype owner))))
 
-(defmacro bind-array-list
-  [alist-type ewise-dtype]
-  `(extend-type ~alist-type
-     dtype-proto/PDatatype
-     (datatype [this#] :array-buffer)
-     dtype-proto/PElemwiseDatatype
-     (elemwise-datatype [~'this] (~ewise-dtype ~'this))
-     dtype-proto/PElemwiseReaderCast
-     (elemwise-reader-cast [this# new-dtype#] (dtype-proto/->buffer this#))
-     dtype-proto/PSubBuffer
-     (sub-buffer [this# offset# length#]
-       (let [offset# (int offset#)
-             length# (int length#)]
-         (.subList this# offset# (+ offset# length#))))
-     dtype-proto/PClone
-     (clone [this#] (.cloneList this#))
-     dtype-proto/PSetConstant
-     (set-constant! [this# offset# elem-count# value#]
-       (let [offset# (int offset#)
-             elem-count# (int elem-count#)]
-         (.fillRange this# offset# (+ offset# elem-count#) value#)))
-     dtype-proto/PToBuffer
-     (convertible-to-buffer? [this#] true)
-     (->buffer [this#]
-       (MutListBuffer. this# true (dtype-proto/elemwise-datatype this#)))
-     dtype-proto/PToWriter
-     (convertible-to-writer? [item#] true)
-     (->writer [item#] (dtype-proto/->buffer item#))
-     dtype-proto/PToReader
-     (convertible-to-reader? [item#] true)
-     (->reader [item#] (dtype-proto/->buffer item#))
-     dtype-proto/PToArrayBuffer
-     (convertible-to-array-buffer? [buf#] true)
-     (->array-buffer [buf#]
-       (let [section# (.getArraySection buf#)
-             sidx# (.-sidx section#)
-             eidx# (.-eidx section#)]
-         (ArrayBuffer. (.-array section#) sidx# (.size section#)
-                       (dtype-proto/elemwise-datatype buf#))))
-     dtype-proto/PCopyRawData
-     (copy-raw->item! [raw-data# ary-target# target-offset# options#]
-       (dtype-proto/copy-raw->item! (dtype-proto/->array-buffer raw-data#)
-                                    ary-target# target-offset# options#))
-     dtype-proto/PEndianness
-     (endianness [item#] :little-endian)))
+(defn array-buffer-convertible-copy-raw-data
+  "Given an array buffer convertible object implement copy-raw->data"
+  [raw-data ary-target ary-offset options]
+  (dtype-proto/copy-raw->item! (dtype-proto/->array-buffer raw-data)
+                               ary-target ary-offset options))
+
+(defn- extend-array-owner!
+  [alist-type]
+  (extend alist-type
+    dtype-proto/PToArrayBuffer
+    {:convertible-to-array-buffer? (constantly true)
+     :->array-buffer array-owner->array-buffer}
+    dtype-proto/PCopyRawData
+    {:copy-raw->item! array-buffer-convertible-copy-raw-data}
+    dtype-proto/PEndianness
+    {:endianness (constantly :little-endian)}))
+
+
+(defn bind-array-list
+  [alist-type ewise-dtype-fn]
+  (extend-ml-type! alist-type ewise-dtype-fn true)
+  (extend-array-owner! alist-type))
 
 
 (defn ^:private obj-cls->dtype
@@ -315,22 +236,22 @@
 
 (bind-array-list ArrayLists$ObjectArraySubList obj-cls->dtype)
 (bind-array-list ArrayLists$ObjectArrayList obj-cls->dtype)
-(bind-array-list ArrayLists$BooleanArraySubList (constantly :boolean))
-(bind-array-list BooleanArrayList (constantly :boolean))
-(bind-array-list ArrayLists$ByteArraySubList (constantly :int8))
-(bind-array-list ByteArrayList (constantly :int8))
-(bind-array-list ArrayLists$ShortArraySubList (constantly :int16))
-(bind-array-list ShortArrayList (constantly :int16))
-(bind-array-list ArrayLists$CharArraySubList (constantly :char))
-(bind-array-list CharArrayList (constantly :char))
-(bind-array-list ArrayLists$IntArraySubList (constantly :int32))
-(bind-array-list ArrayLists$IntArrayList (constantly :int32))
-(bind-array-list ArrayLists$LongArraySubList (constantly :int64))
-(bind-array-list ArrayLists$LongArrayList (constantly :int64))
-(bind-array-list ArrayLists$FloatArraySubList (constantly :float32))
-(bind-array-list FloatArrayList (constantly :float32))
-(bind-array-list ArrayLists$DoubleArraySubList (constantly :float64))
-(bind-array-list ArrayLists$DoubleArrayList (constantly :float64))
+(bind-array-list ArrayLists$BooleanArraySubList :boolean)
+(bind-array-list BooleanArrayList :boolean)
+(bind-array-list ArrayLists$ByteArraySubList :int8)
+(bind-array-list ByteArrayList :int8)
+(bind-array-list ArrayLists$ShortArraySubList :int16)
+(bind-array-list ShortArrayList :int16)
+(bind-array-list ArrayLists$CharArraySubList :char)
+(bind-array-list CharArrayList :char)
+(bind-array-list ArrayLists$IntArraySubList :int32)
+(bind-array-list ArrayLists$IntArrayList :int32)
+(bind-array-list ArrayLists$LongArraySubList :int64)
+(bind-array-list ArrayLists$LongArrayList :int64)
+(bind-array-list ArrayLists$FloatArraySubList :float32)
+(bind-array-list FloatArrayList :float32)
+(bind-array-list ArrayLists$DoubleArraySubList :float64)
+(bind-array-list ArrayLists$DoubleArrayList :float64)
 
 
 (defmacro ^:private host->long-uint8
@@ -426,7 +347,7 @@
                         host->long-uint8
                         long->host-uint8
                         object->host-uint8)
-(bind-array-list UByteArraySubList (constantly :uint8))
+(bind-array-list UByteArraySubList :uint8)
 (extend-type UByteArraySubList
   dtype-proto/PToBuffer
   (convertible-to-buffer? [this] true)
@@ -441,39 +362,9 @@
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [this] :uint8)
   dtype-proto/PElemwiseReaderCast
-  (elemwise-reader-cast [this new-dtype] (dtype-proto/->buffer this))
-  dtype-proto/PSubBuffer
-  (sub-buffer [this offset length]
-    (.subBuffer this offset (+ (long offset) (long length))))
-  dtype-proto/PClone
-  (clone [this] (.cloneList this))
-  dtype-proto/PSetConstant
-  (set-constant! [this offset elem-count value]
-    (let [offset (int offset)
-          elem-count (int elem-count)]
-      (.fillRange this offset (+ offset elem-count) value)))
-  dtype-proto/PToBuffer
-  (convertible-to-buffer? [this#] true)
-  (->buffer [this] this)
-  dtype-proto/PToWriter
-  (convertible-to-writer? [item] true)
-  (->writer [item] item)
-  dtype-proto/PToReader
-  (convertible-to-reader? [item] true)
-  (->reader [item] item)
-  dtype-proto/PToArrayBuffer
-  (convertible-to-array-buffer? [buf] true)
-  (->array-buffer [buf]
-    (let [section (.getArraySection buf)
-          sidx (.-sidx section)
-          eidx (.-eidx section)]
-      (ArrayBuffer. (.-array section) sidx (.size section) :uint8)))
-  dtype-proto/PCopyRawData
-  (copy-raw->item! [raw-data ary-target target-offset options]
-    (dtype-proto/copy-raw->item! (dtype-proto/->array-buffer raw-data)
-                                 ary-target target-offset options))
-  dtype-proto/PEndianness
-  (endianness [item#] :little-endian))
+  (elemwise-reader-cast [this new-dtype] this))
+
+(extend-array-owner! UByteSubBuffer)
 
 (make-unsigned-sub-list UShortArraySubList shorts
                         host->long-uint16
@@ -753,6 +644,51 @@
 (defn- as-object ^Object [item] item)
 
 
+(defn- implement-array!
+  [dtype len-fn]
+  (let [ary-cls (typecast/datatype->array-cls dtype)
+        array-dtype (keyword (str (name dtype) "-array"))
+        ary->buffer (fn [ary]
+                      (MutListBuffer. (hamf/->random-access ary) true
+                                      (dtype-proto/elemwise-datatype ary)))]
+    (extend ary-cls
+      dtype-proto/PElemwiseDatatype
+      {:elemwise-datatype (if (identical? dtype :object)
+                            (fn [^objects ary]
+                              (-> (.getClass ary)
+                                  (.getComponentType)
+                                  (casting/object-class->datatype)))
+                            (constantly dtype))}
+      dtype-proto/PElemwiseReaderCast
+      {:elemwise-reader-cast ml-reader-cast}
+      dtype-proto/PDatatype
+      {:datatype (constantly array-dtype)}
+      dtype-proto/PECount
+      {:ecount len-fn}
+      dtype-proto/PEndianness
+      {:endianness (constantly :little-endian)}
+      dtype-proto/PToArrayBuffer
+      {:convertible-to-array-buffer? (constantly true)
+       :->array-buffer (fn [ary]
+                         (ArrayBuffer. ary 0
+                                       (len-fn ary)
+                                       (dtype-proto/elemwise-datatype ary)))}
+      dtype-proto/PSubBuffer
+      {:sub-buffer (fn [ary ^long off ^long len]
+                     (hamf/subvec ary off (+ off len)))}
+      dtype-proto/PCopyRawData
+      {:copy-raw->item! array-buffer-convertible-copy-raw-data}
+      dtype-proto/PToBuffer
+      {:convertible-to-buffer? (constantly true)
+       :->buffer ary->buffer}
+      dtype-proto/PToReader
+      {:convertible-to-reader? (constantly true)
+       :->reader ary->buffer}
+      dtype-proto/PToWriter
+      {:convertible-to-writer? (constantly true)
+       :->writer ary->buffer})))
+
+
 (defmacro initial-implement-arrays
   []
   `(do
@@ -760,53 +696,7 @@
         array-types
         (map
          (fn [ary-type]
-           (let [ary-dtype (keyword (str (name ary-type) "-array"))]
-             `(do
-                (casting/add-object-datatype! ~ary-dtype ~(typecast/datatype->array-cls ary-type)
-                                              false)
-                (extend-type ~(typecast/datatype->array-cls ary-type)
-                  dtype-proto/PElemwiseDatatype
-                  (elemwise-datatype [~'item]
-                    ~(if (not= ary-type :object)
-                       `~ary-type
-                       `(-> (as-object ~'item)
-                            (.getClass)
-                            (.getComponentType)
-                            (casting/object-class->datatype))))
-                  dtype-proto/PElemwiseReaderCast
-                  (elemwise-reader-cast [this# new-dtype#] (dtype-proto/->buffer this#))
-                  dtype-proto/PDatatype
-                  (datatype [item#] ~ary-dtype)
-                  dtype-proto/PECount
-                  (ecount [item#]
-                    (alength
-                     (typecast/datatype->array ~ary-type item#)))
-                  dtype-proto/PEndianness
-                  (endianness [item#] :little-endian)
-                  dtype-proto/PToArrayBuffer
-                  (convertible-to-array-buffer? [item#] true)
-                  (->array-buffer [item#]
-                    (ArrayBuffer. item# 0
-                                  (alength (typecast/datatype->array ~ary-type
-                                                                     item#))
-                                  (dtype-proto/elemwise-datatype item#)))
-                  dtype-proto/PSubBuffer
-                  (sub-buffer [item# off# len#]
-                    (.subList (hamf/->random-access item#) off# (+ (long off#) (long len#))))
-                  dtype-proto/PCopyRawData
-                  (copy-raw->item! [raw-data# ary-target# target-offset# options#]
-                    (dtype-proto/copy-raw->item! (dtype-proto/->array-buffer raw-data#)
-                                                 ary-target# target-offset# options#))
-                  dtype-proto/PToBuffer
-                  (convertible-to-buffer? [item#] true)
-                  (->buffer [item#] (MutListBuffer. (hamf/->random-access item#) true
-                                                    (dtype-proto/elemwise-datatype item#)))
-                  dtype-proto/PToReader
-                  (convertible-to-reader? [item#] true)
-                  (->reader [item#] (dtype-proto/->buffer item#))
-                  dtype-proto/PToWriter
-                  (convertible-to-writer? [item#] true)
-                  (->writer [item#] (dtype-proto/->buffer item#))))))))))
+           `(implement-array! ~ary-type #(alength (typecast/datatype->array ~ary-type %))))))))
 
 
 (initial-implement-arrays)
