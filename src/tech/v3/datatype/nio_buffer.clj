@@ -17,12 +17,12 @@
 (defn datatype->nio-buf-type
   [datatype]
   (case (casting/host-flatten datatype)
-    :int8 'java.nio.ByteBuffer
-    :int16 'java.nio.ShortBuffer
-    :int32 'java.nio.IntBuffer
-    :int64 'java.nio.LongBuffer
-    :float32 'java.nio.FloatBuffer
-    :float64 'java.nio.DoubleBuffer))
+    :int8 java.nio.ByteBuffer
+    :int16 java.nio.ShortBuffer
+    :int32 java.nio.IntBuffer
+    :int64 java.nio.LongBuffer
+    :float32 java.nio.FloatBuffer
+    :float64 java.nio.DoubleBuffer))
 
 
 (defn as-byte-buffer ^ByteBuffer [item] item)
@@ -53,42 +53,56 @@
   (.getLong (native-buffer/unsafe) ^Object buf UnsafeUtil/addressFieldOffset))
 
 
-(defmacro extend-nio-types
+(defn buf->buffer
+  [^Buffer buf]
+  (let [cbuf (if (.isDirect buf)
+               (dtype-proto/->native-buffer buf)
+               (dtype-proto/->array-buffer buf))]
+    (dtype-proto/->buffer cbuf)))
+
+
+(defn extend-nio-types!
   []
-  `(do
-     ~@(->>
-        nio-datatypes
-        (map
-         (fn [dtype]
-           `(extend-type ~(datatype->nio-buf-type dtype)
-              dtype-proto/PElemwiseDatatype
-              (elemwise-datatype [buf#] ~dtype)
-              dtype-proto/PECount
-              (ecount [buf#] (.remaining (datatype->nio-buf ~dtype buf#)))
-              dtype-proto/PToArrayBuffer
-              (convertible-to-array-buffer? [buf#]
-                (not (.isDirect (datatype->nio-buf ~dtype buf#))))
-              (->array-buffer [buf#]
-                (let [buf# (datatype->nio-buf ~dtype buf#)
-                      offset# (.position buf#)
-                      length# (.remaining buf#)]
-                  (when-not (.isDirect buf#)
-                    (-> (array-buffer/array-buffer (.array buf#))
-                        (dtype-proto/sub-buffer offset# length#)))))
-              dtype-proto/PToNativeBuffer
-              (convertible-to-native-buffer? [buf#]
-                (.isDirect (datatype->nio-buf ~dtype buf#)))
-              (->native-buffer [buf#]
-                (native-buffer/wrap-address
-                 (buffer-address buf#)
-                 (* (dtype-proto/ecount buf#)
-                    (casting/numeric-byte-width (dtype-proto/elemwise-datatype buf#)))
-                 (dtype-proto/elemwise-datatype buf#)
-                 (dtype-proto/endianness buf#)
-                 buf#))))))))
+  (doseq [dtype nio-datatypes]
+    (let [buf-type (datatype->nio-buf-type dtype)]
+      (extend buf-type
+        dtype-proto/PElemwiseDatatype
+        {:elemwise-datatype (constantly dtype)}
+        dtype-proto/PElemwiseReaderCast
+        {:elemwise-reader-cast buf->buffer}
+        dtype-proto/PECount
+        {:ecount #(.remaining ^Buffer %)}
+        dtype-proto/PToArrayBuffer
+        {:convertible-to-array-buffer? #(not (.isDirect ^Buffer %))
+         :->array-buffer (fn [^Buffer buf]
+                           (let [offset (.position buf)
+                                 length (.remaining buf)]
+                             (when-not (.isDirect buf)
+                               (-> (array-buffer/array-buffer (.array buf))
+                                   (dtype-proto/sub-buffer offset length)))))}
+        dtype-proto/PToNativeBuffer
+        {:convertible-to-native-buffer?  #(.isDirect ^Buffer %)
+         :->native-buffer
+         (fn [^Buffer buf]
+           (native-buffer/wrap-address
+            (buffer-address buf)
+            (* (dtype-proto/ecount buf)
+               (casting/numeric-byte-width (dtype-proto/elemwise-datatype buf)))
+            (dtype-proto/elemwise-datatype buf)
+            (dtype-proto/endianness buf)
+            buf))}
+        dtype-proto/PToBuffer
+        {:convertible-to-buffer? (constantly true)
+         :->buffer buf->buffer}
+        dtype-proto/PToReader
+        {:convertible-to-reader? (constantly true)
+         :->reader buf->buffer}
+        dtype-proto/PToWriter
+        {:convertible-to-writer? (constantly true)
+         :->writer buf->buffer}))))
 
 
-(extend-nio-types)
+(extend-nio-types!)
 
 
 (def buffer-constructor*
@@ -101,8 +115,13 @@
            (do
              (log/info "Unable to find direct buffer constructor -
 falling back to jdk16 memory model.")
-             (requiring-resolve 'tech.v3.datatype.ffi.nio-buf-mmodel/direct-buffer-constructor)
-             ))))
+             (try
+               (requiring-resolve 'tech.v3.datatype.ffi.nio-buf-mmodel/direct-buffer-constructor)
+               (catch Exception e
+                 (throw (RuntimeException. "Unable to load direct buffer constructor.  If you are using JDK-17, set your runtime :jvm-opts as follows:
+:jvm-opts [\"--add-modules\" \"jdk.incubator.foreign,jdk.incubator.vector\"
+                         \"--enable-native-access=ALL-UNNAMED\"]}"
+                                          e))))))))
 
 
 (defn native-buf->nio-buf
