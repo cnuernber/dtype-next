@@ -8,6 +8,7 @@
            [java.util.concurrent ConcurrentHashMap]
            [clojure.lang RT Keyword]
            [ham_fisted Casts]
+           [java.math BigDecimal]
            [java.util UUID]))
 
 (set! *warn-on-reflection* true)
@@ -632,6 +633,21 @@
 (add-object-datatype! :keyword Keyword)
 (add-cast-fn! :keyword keyword-cast)
 (add-unchecked-cast-fn! :keyword keyword-cast)
+
+(add-object-datatype! :decimal BigDecimal)
+(defn decimal-cast
+  [item]
+  (when item
+    (cond
+      (instance? BigDecimal item)
+      item
+      (string? item)
+      (BigDecimal. ^String item)
+      :else
+      (errors/throwf "Unable to cast item to decimal: %s" item))))
+
+(add-cast-fn! :decimal decimal-cast)
+(add-unchecked-cast-fn! :decimal decimal-cast)
 
 (add-object-datatype! :uuid UUID)
 (defn uuid-cast

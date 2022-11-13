@@ -867,7 +867,6 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
 
 
 (casting/add-object-datatype! :persistent-set APersistentSet false)
-(casting/add-object-datatype! :big-decimal BigDecimal false)
 (casting/add-object-datatype! :big-integer BigInteger false)
 
 
