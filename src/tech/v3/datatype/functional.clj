@@ -39,6 +39,12 @@
   (apply tech.v3.datatype.functional-api/- x y args)))
 
 
+(defn ->CumOpConsumer
+  "Positional factory function for class tech.v3.datatype.functional_api.CumOpConsumer."
+  ([op sum first p result]
+  (tech.v3.datatype.functional-api/->CumOpConsumer op sum first p result)))
+
+
 (defn /
   ([x]
   (tech.v3.datatype.functional-api// x))
@@ -195,9 +201,9 @@
 
 (defn bool-reader->indexes
   "Given a reader, produce a filtered list of indexes filtering out 'false' values."
-  (^{:tag tech.v3.datatype.PrimitiveList} [options bool-item]
+  (^{:tag tech.v3.datatype.Buffer} [options bool-item]
   (tech.v3.datatype.unary-pred/bool-reader->indexes options bool-item))
-  (^{:tag tech.v3.datatype.PrimitiveList} [bool-item]
+  (^{:tag tech.v3.datatype.Buffer} [bool-item]
   (tech.v3.datatype.unary-pred/bool-reader->indexes bool-item)))
 
 

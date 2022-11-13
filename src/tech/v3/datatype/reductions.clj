@@ -4,19 +4,19 @@
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.casting :as casting]
-            [tech.v3.datatype.errors :as errors])
+            [tech.v3.datatype.errors :as errors]
+            [ham-fisted.lazy-noncaching :as lznc]
+            [ham-fisted.api :as hamf])
   (:import [tech.v3.datatype BinaryOperator IndexReduction
             IndexReduction$IndexedBiFunction UnaryOperator
-            BufferIterator BufferDoubleSpliterator
-            Consumers$StagedConsumer
-            DoubleConsumers
-            DoubleConsumers$Sum
-            DoubleConsumers$UnaryOpSum
-            DoubleConsumers$BinaryOp
-            Consumers$MultiStagedConsumer]
+            BufferIterator
+            MultiConsumer Buffer]
+           [ham_fisted Reducible Reductions Sum IFnDef$OLO IFnDef$ODO]
+           [clojure.lang IDeref]
            [java.util Map Spliterator$OfDouble LinkedHashMap]
            [java.util.concurrent ConcurrentHashMap]
-           [java.util.function BiFunction BiConsumer DoublePredicate DoubleConsumer]))
+           [java.util.function BiFunction BiConsumer DoublePredicate DoubleConsumer
+            LongConsumer Consumer]))
 
 
 (set! *warn-on-reflection* true)
@@ -27,38 +27,57 @@
 ;;unspecified nan-strategy is :remove
 
 
-(defn nan-strategy->double-predicate
-  "Passing in either a keyword nan strategy #{:exception :keep :remove}
-  or a DoublePredicate, return a DoublePredicate that filters
-  double values."
-  (^DoublePredicate [nan-strategy]
-   (cond
-     (instance? DoublePredicate nan-strategy)
-     nan-strategy
-     (= nan-strategy :keep)
-     nil
-     ;;Remove is the default so nil maps to remove
-     (or (nil? nan-strategy)
-         (= nan-strategy :remove))
-     BufferDoubleSpliterator/removePredicate
-     (= nan-strategy :exception)
-     BufferDoubleSpliterator/exceptPredicate
-     :else
-     (errors/throwf "Unrecognized predicate: %s" nan-strategy)))
-  ;;Remember the default predicate is :remove
-  (^DoublePredicate []
-   (nan-strategy->double-predicate nil)))
-
-
 (defn- reduce-consumer-results
   [consumer-results]
-  (if (== 1 (count consumer-results))
-    (first consumer-results)
-    (let [^Consumers$StagedConsumer first-consumer (first consumer-results)
-          rest-list (vec (rest consumer-results))]
-      (if (>= (count rest-list) 0)
-        (.combineList first-consumer rest-list)
-        first-consumer))))
+  (Reductions/reduceReducibles consumer-results))
+
+
+(deftype UnOpSum [^Sum value
+                  ^UnaryOperator unop]
+  DoubleConsumer
+  (accept [this v] (.accept value (.unaryDouble unop v)))
+  Reducible
+  (reduce [this v] (.reduce value v))
+  IDeref
+  (deref [this] (.deref value)))
+
+
+(deftype BinDoubleConsumer [^{:unsynchronized-mutable true
+                              :tag double} value
+                            ^{:unsynchronized-mutable true
+                              :tag long} n-elems
+                            ^BinaryOperator binop]
+  DoubleConsumer
+  (accept [this lval]
+    (set! value (.binaryDouble binop value lval))
+    (set! n-elems (unchecked-inc n-elems)))
+  Reducible
+  (reduce [this rhs]
+    (set! value (.binaryDouble binop value (.-value ^BinDoubleConsumer rhs)))
+    (set! n-elems (+ n-elems (.-n-elems ^BinDoubleConsumer rhs)))
+    this)
+  IDeref
+  (deref [this] {:value value :n-elems n-elems}))
+
+
+(deftype BinLongConsumer [^{:unsynchronized-mutable true
+                            :tag 'long} value
+                          ^{:unsynchronized-mutable true
+                            :tag 'boolean} first
+                          ^BinaryOperator binop]
+  LongConsumer
+  (accept [this lval]
+    (if first
+      (do
+        (set! first false)
+        (set! value lval))
+      (set! value (.binaryLong binop value lval))))
+  Reducible
+  (reduce [this rhs]
+    (set! value (.binaryLong binop value (long @rhs)))
+    this)
+  IDeref
+  (deref [this] value))
 
 
 (defn reducer-value->consumer-fn
@@ -69,12 +88,13 @@
     (fn? reducer-value)
     reducer-value
     (= :tech.numerics/+ reducer-value)
-    #(DoubleConsumers$Sum.)
+    #(Sum.)
     (instance? UnaryOperator reducer-value)
-    #(DoubleConsumers$UnaryOpSum. reducer-value)
+    #(UnOpSum. (Sum.) reducer-value)
     (instance? BinaryOperator reducer-value)
-    (let [^BinaryOperator op reducer-value]
-      #(DoubleConsumers$BinaryOp. op (.initialDoubleReductionValue op)))
+    #(BinDoubleConsumer. (.initialDoubleReductionValue ^BinaryOperator reducer-value)
+                         0
+                         reducer-value)
     :else
     (errors/throwf "Connot convert value to double consumer: %s" reducer-value)))
 
@@ -85,26 +105,25 @@
 
   A staged consumer is a consumer can be used in a map-reduce pathway
   where during the map portion .consume is called and then during produces
-  a 'result' on which .combine is called during the reduce pathway."
-  ([staged-consumer-fn {:keys [nan-strategy]} rdr]
-   (let [predicate (nan-strategy->double-predicate
-                    nan-strategy)
+  a 'result' on which .combine is called during the reduce pathway.
+
+  See options for ham-fisted/preduce."
+  ([staged-consumer-fn options rdr]
+   (let [rdr (or (dtype-base/as-reader rdr :float64) rdr)
+         rdr (case (get options :nan-strategy :remove)
+               :remove (lznc/filter (hamf/double-predicate v (not (Double/isNaN v))) rdr)
+               :keep rdr
+               :exception (lznc/map (hamf/double-unary-operator
+                                     v
+                                     (when (Double/isNaN v)
+                                       (throw (RuntimeException. "NaN detected")))
+                                     v)))
          staged-consumer-fn (reducer-value->consumer-fn staged-consumer-fn)]
-     (if-let [rdr (dtype-base/as-reader rdr :float64)]
-       (let [n-elems (.size rdr)
-             ^Consumers$StagedConsumer result
-             (parallel-for/indexed-map-reduce
-              n-elems
-              (fn [^long start-idx ^long group-len]
-                (DoubleConsumers/consume start-idx (int group-len) rdr
-                                         (staged-consumer-fn) predicate))
-              reduce-consumer-results)]
-         (.value result))
-       (let [^DoubleConsumer consumer (staged-consumer-fn)]
-         (parallel-for/consume! (fn [^double val]
-                                  (.accept consumer val))
-                                rdr)
-         (.value ^Consumers$StagedConsumer consumer)))))
+     (-> (hamf/preduce staged-consumer-fn hamf/double-consumer-accumulator
+                       hamf/reducible-merge
+                       options
+                       rdr)
+         (deref))))
   ([staged-consumer-fn rdr]
    (staged-double-consumer-reduction staged-consumer-fn nil rdr)))
 
@@ -131,10 +150,9 @@
              consumer-fns (mapv reducer-value->consumer-fn
                                 (vals reducer-map))
              consumer-fn (fn []
-                           (Consumers$MultiStagedConsumer.
-                            ^"L[tech.v3.datatype.Consumers$StagedConsumer;"
+                           (MultiConsumer.
                             (into-array (Class/forName
-                                         "tech.v3.datatype.Consumers$StagedConsumer")
+                                         "ham_fisted.Reducible")
                                         (map #(%) consumer-fns))))
              ^objects result-ary
              (staged-double-consumer-reduction consumer-fn options rdr)]
@@ -181,25 +199,83 @@
   (^double [op rdr]
    (commutative-binary-double op {} rdr)))
 
+(deftype BinLongConsumer [^{:unsynchronized-mutable true
+                            :tag 'long} value
+                          ^{:unsynchronized-mutable true
+                            :tag 'boolean} first
+                          ^BinaryOperator binop]
+  LongConsumer
+  (accept [this lval]
+    (if first
+      (do
+        (set! first false)
+        (set! value lval))
+      (set! value (.binaryLong binop value lval))))
+  Reducible
+  (reduce [this rhs]
+    (set! value (.binaryLong binop value (long @rhs)))
+    this)
+  IDeref
+  (deref [this] value))
+
 
 (defn commutative-binary-long
   "Perform a commutative reduction in int64 space using a binary operator.  The
   operator needs to be both commutative and associative."
   ^long [^BinaryOperator op rdr]
-  (let [rdr (dtype-base/->reader rdr)]
-    (long
-     (parallel-for/indexed-map-reduce
-      (.lsize rdr)
-      (fn [^long start-idx ^long group-len]
-        (let [end-idx (+ start-idx group-len)]
-          (loop [idx (inc start-idx)
-                 accum (.readLong rdr start-idx)]
-            (if (< idx end-idx)
-              (recur (unchecked-inc idx) (.binaryLong
-                                          op accum
-                                          (.readLong rdr idx)))
-              accum))))
-      (partial reduce op)))))
+  (let [rdr (or (dtype-base/as-reader rdr :int64) rdr)]
+    @(hamf/preduce #(BinLongConsumer. 0 true op)
+                   hamf/long-consumer-accumulator
+                   (fn [^Reducible lhs rhs]
+                     (.reduce lhs rhs))
+                   {:ordered? true
+                    :min-n 10000}
+                   rdr)))
+
+
+(defn commutative-binary-reduce
+  [^BinaryOperator op data]
+  (let [op-dtype (casting/simple-operation-space (dtype-base/elemwise-datatype data)
+                                                 (get (meta op) :operational-space :object))
+
+        data (or (dtype-base/as-reader data op-dtype) data)
+        ival (hamf/first data)
+        data (if (instance? Buffer data)
+               (if (pos? (.lsize ^Buffer data))
+                 (.subBuffer ^Buffer data 1 (.lsize ^Buffer data))
+                 [])
+               (rest data))]
+    (hamf/preduce (constantly ival)
+                  (case op-dtype
+                    :int64 (reify IFnDef$OLO
+                             (invokePrim [this acc l]
+                               (.binaryLong op (long acc) l)))
+                    :float64 (reify IFnDef$ODO
+                               (invokePrim [this acc l]
+                                 (.binaryDouble op (double acc) l)))
+                    op)
+                  op
+                  data)))
+
+
+(deftype BinConsumer [^{:unsynchronized-mutable true
+                        :tag 'long} value
+                      ^{:unsynchronized-mutable true
+                        :tag 'boolean} first
+                      binop]
+  Consumer
+  (accept [this lval]
+    (if first
+      (do
+        (set! first false)
+        (set! value lval))
+      (set! value (binop value lval))))
+  Reducible
+  (reduce [this rhs]
+    (set! value (binop value @rhs))
+    this)
+  IDeref
+  (deref [this] value))
 
 
 (defn commutative-binary-object
@@ -207,52 +283,15 @@
   operator needs to be both commutative and associative."
   [op rdr]
   (let [rdr (dtype-base/->reader rdr)]
-    (parallel-for/indexed-map-reduce
-     (.lsize rdr)
-     (fn [^long start-idx ^long group-len]
-       (let [end-idx (+ start-idx group-len)]
-         (loop [idx (inc start-idx)
-                accum (.readObject rdr start-idx)]
-           (if (< idx end-idx)
-             (recur (unchecked-inc idx) (op accum
-                                         (.readObject rdr idx)))
-             accum))))
-     (partial reduce op))))
-
-
-(defn commutative-binary-reduce
-  "Perform a commutative binary reduction.  The space of the reduction will
-  be determined by the datatype of the reader."
-  [op rdr]
-  (if-let [rdr (dtype-base/as-reader rdr)]
-    (if (instance? BinaryOperator op)
-      (let [rdr-dtype (dtype-base/elemwise-datatype rdr)]
-        (cond
-          (casting/integer-type? rdr-dtype)
-          (commutative-binary-long op rdr)
-          (casting/float-type? rdr-dtype)
-          (commutative-binary-double op rdr)
-          :else
-          (commutative-binary-object op rdr)))
-      (commutative-binary-object op rdr))
-    ;;Clojure core reduce is actually pretty good!
-    (reduce op rdr)))
-
-
-(defn reader->double-spliterator
-  "Convert a primitiveIO object into a spliterator with an optional
-  nan strategy [:keep :remove :exception] or an implementation of a
-  java.util.functions.DoublePredicate that can filter the double stream
-  (or throw an exception on an invalid value).
-  Implementations of UnaryPredicate also implement DoublePredicate."
-  (^Spliterator$OfDouble [rdr nan-strategy]
-   (if-let [rdr (dtype-base/->reader rdr)]
-     (BufferDoubleSpliterator. rdr 0
-                                    (.lsize rdr)
-                                    (nan-strategy->double-predicate nan-strategy))
-     (errors/throwf "Argument %s is not convertible to reader" (type rdr))))
-  (^Spliterator$OfDouble [rdr]
-   (reader->double-spliterator rdr nil)))
+        @(hamf/preduce #(BinConsumer. 0 true op)
+                       (fn [^Consumer c v]
+                         (.accept c v)
+                         c)
+                       (fn [^Reducible lhs rhs]
+                         (.reduce lhs rhs))
+                       {:ordered? true
+                        :min-n 10000}
+                       rdr)))
 
 
 (defn unordered-group-by-reduce
@@ -276,19 +315,25 @@
   (^Map [^IndexReduction reducer batch-data rdr ^Map result-map]
    (let [^Map result-map (or result-map (ConcurrentHashMap.))
          rdr (dtype-base/->reader rdr)
-         n-elems (.lsize rdr)]
-     (parallel-for/indexed-map-reduce
-      n-elems
-      (fn [^long start-idx ^long group-len]
-        (let [bifn (IndexReduction$IndexedBiFunction. reducer batch-data)
-              end-idx (+ start-idx group-len)]
-          (loop [idx start-idx]
-            (when (< idx end-idx)
-              (when (.filterIndex reducer batch-data idx)
-                (.setIndex bifn idx)
-                (.compute result-map (.readObject rdr idx) bifn))
-              (recur (unchecked-inc idx))))
-          result-map)))
+         n-elems (.lsize rdr)
+         lp (.indexFilter reducer batch-data)]
+     (->> (hamf/upgroups
+           n-elems
+           (fn [^long sidx ^long eidx]
+             (let [bifn (IndexReduction$IndexedBiFunction. reducer batch-data)]
+               (if lp
+                 (loop [idx sidx]
+                   (when (< idx eidx)
+                     (when (.test lp idx)
+                       (.setIndex bifn idx)
+                       (.compute result-map (.readObject rdr idx) bifn))
+                     (recur (unchecked-inc idx))))
+                 (loop [idx sidx]
+                   (when (< idx eidx)
+                     (.setIndex bifn idx)
+                     (.compute result-map (.readObject rdr idx) bifn)
+                     (recur (unchecked-inc idx))))))))
+          (dorun))
      result-map))
   (^Map [reducer batch-data rdr]
    (unordered-group-by-reduce reducer batch-data rdr nil))
@@ -306,6 +351,8 @@
   goes through each index in order and then the reduction goes through the thread groups in order
   so if your index reduction merger just does (.addAll lhs rhs) then the final result ends up
   ordered.
+
+  This returns a java.util.LinkedHashMap.
 
 Example:
 
@@ -336,27 +383,32 @@ user>
          n-elems (.lsize rdr)
          merge-bifn (reify BiFunction
                       (apply [this lhs rhs]
-                        (.reduceReductions reducer lhs rhs)))]
-     ;;Side effecting loop to compute values in-place
-     (parallel-for/indexed-map-reduce
-      n-elems
-      (fn [^long start-idx ^long group-len]
-        (let [result-map (LinkedHashMap.)
-              bifn (IndexReduction$IndexedBiFunction. reducer batch-data)
-              end-idx (+ start-idx group-len)]
-          (loop [idx start-idx]
-            (when (< idx end-idx)
-              (when (.filterIndex reducer batch-data idx)
-                (.setIndex bifn idx)
-                (.compute result-map (.readObject rdr idx) bifn))
-              (recur (unchecked-inc idx))))
-          result-map))
-      (partial reduce (fn [^Map lhs-map ^Map rhs-map]
-                (.forEach rhs-map
-                          (reify BiConsumer
-                            (accept [this k v]
-                              (.merge lhs-map k v merge-bifn))))
-                lhs-map)))))
+                        (.reduceReductions reducer lhs rhs)))
+         lp (.indexFilter reducer batch-data)]
+     (->> (hamf/pgroups
+           n-elems
+           (fn [^long sidx ^long eidx]
+             (let [result-map (LinkedHashMap.)
+                   bifn (IndexReduction$IndexedBiFunction. reducer batch-data)]
+               (if lp
+                 (loop [idx sidx]
+                   (when (< idx eidx)
+                     (when (.test lp idx)
+                       (.setIndex bifn idx)
+                       (.compute result-map (.readObject rdr idx) bifn))
+                     (recur (unchecked-inc idx))))
+                 (loop [idx sidx]
+                   (when (< idx eidx)
+                     (.setIndex bifn idx)
+                     (.compute result-map (.readObject rdr idx) bifn)
+                     (recur (unchecked-inc idx)))))
+               result-map)))
+          (reduce (fn [^Map lhs-map ^Map rhs-map]
+                    (.forEach rhs-map
+                              (reify BiConsumer
+                                (accept [this k v]
+                                  (.merge lhs-map k v merge-bifn))))
+                    lhs-map)))))
   (^Map [^IndexReduction reducer rdr]
    (ordered-group-by-reduce reducer nil rdr)))
 

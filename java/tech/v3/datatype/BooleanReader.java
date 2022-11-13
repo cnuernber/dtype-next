@@ -1,9 +1,9 @@
 package tech.v3.datatype;
 
 
-public interface BooleanReader extends BooleanBuffer
-{
-  default void writeBoolean(long idx, boolean value)
-  { throw new UnsupportedOperationException(); }
-  default boolean supportsWrite() { return false; }
+import clojure.lang.Keyword;
+
+
+public interface BooleanReader extends ObjectReader {
+  default Object elemwiseDatatype () { return Keyword.intern(null, "boolean"); }
 }

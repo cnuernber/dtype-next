@@ -84,12 +84,12 @@
   (let [test-ary (dtype/make-container Object 5)]
     (is (= [nil nil nil nil nil]
            (dtype/->vector test-ary)))
-    (is (= Object (dtype/get-datatype test-ary)))
+    (is (= :object (dtype/get-datatype test-ary)))
     (dtype/set-value! test-ary 3 "hi")
     (is (= [nil nil nil "hi" nil]
            (dtype/->vector test-ary)))
     (let [sub-buf (dtype-proto/sub-buffer test-ary 2 3)]
-      (is (= Object (dtype/get-datatype sub-buf)))
+      (is (= :object (dtype/get-datatype sub-buf)))
       (dtype/set-value! sub-buf 0 "bye!")
       (is (= [nil nil "bye!" "hi" nil]
              (dtype/->vector test-ary)))

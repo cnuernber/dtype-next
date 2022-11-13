@@ -5,7 +5,6 @@
             [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.errors :as errors]
-            [tech.v3.datatype.io-sub-buffer :as io-sub-buf]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.argtypes :as argtypes])
@@ -18,7 +17,8 @@
             APersistentSet]
            [java.util RandomAccess List Spliterator$OfDouble Spliterator$OfLong
             Spliterator$OfInt]
-           [java.util.stream Stream DoubleStream LongStream IntStream]))
+           [java.util.stream Stream DoubleStream LongStream IntStream]
+           [ham_fisted Reductions]))
 
 
 (set! *warn-on-reflection* true)
@@ -162,6 +162,7 @@
   interface."
   [item]
   (when item (dtype-proto/convertible-to-reader? item)))
+
 
 (defn ->iterable
   "Ensure this object is iterable.  If item is iterable, return the item.
@@ -362,7 +363,7 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
   [item idx value]
   (cond
     (number? idx)
-    ((->writer item) idx value)
+    (.set (->writer item) idx value)
     (sequential? idx)
     (let [sub-tens (dtype-proto/select item idx)]
       (if (= :scalar (argtypes/arg-type value))
@@ -377,14 +378,22 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
 
 (defn- random-access->io
   [^List item]
-  (reify
-    ObjectBuffer
-    (elemwiseDatatype [rdr] :object)
-    (lsize [rdr] (long (.size item)))
-    (readObject [rdr idx]
-      (.get item idx))
-    (writeObject [wtr idx value]
-      (.set item idx value))))
+  (with-meta
+    (reify
+      ObjectBuffer
+      (elemwiseDatatype [rdr] :object)
+      (lsize [rdr] (long (.size item)))
+      (readObject [rdr idx]
+        (.get item idx))
+      (writeObject [wtr idx value]
+        (.set item idx value))
+      (subBuffer [b sidx eidx]
+        (random-access->io (.subList b (int sidx) (int eidx))))
+      (reduce [this rfn init-val]
+        (Reductions/serialReduction rfn init-val item))
+      (parallelReduction [this init-val-fn rfn merge-fn options]
+        (Reductions/parallelReduction init-val-fn rfn merge-fn item options)))
+    (meta item)))
 
 
 (extend-type RandomAccess
@@ -438,7 +447,7 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
 
 
 (defn- inner-buffer-sub-buffer
-  [buf ^long offset ^Long len]
+  [buf ^long offset ^long len]
   (when-let [data-buf (as-concrete-buffer buf)]
     (with-meta
       (sub-buffer data-buf offset len)
@@ -756,7 +765,7 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
     (if-let [data-buf (inner-buffer-sub-buffer buf offset len)]
       data-buf
       (if-let [data-io (->buffer buf)]
-        (io-sub-buf/sub-buffer data-io offset len)
+        (.subBuffer data-io offset (+ offset len))
         (throw (Exception. (format
                             "Buffer %s does not implement the sub-buffer protocol"
                             (type buf)))))))
@@ -858,7 +867,6 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
 
 
 (casting/add-object-datatype! :persistent-set APersistentSet false)
-(casting/add-object-datatype! :big-decimal BigDecimal false)
 (casting/add-object-datatype! :big-integer BigInteger false)
 
 

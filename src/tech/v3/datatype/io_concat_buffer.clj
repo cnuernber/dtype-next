@@ -4,7 +4,8 @@
             [tech.v3.datatype.errors :as errors]
             [com.github.ztellman.primitive-math :as pmath])
   (:import [java.util List]
-           [tech.v3.datatype Buffer]))
+           [tech.v3.datatype Buffer]
+           [ham_fisted ChunkedList]))
 
 
 (set! *warn-on-reflection* true)
@@ -40,27 +41,41 @@
         allowsWrite (boolean (and (.allowsWrite lhs) (.allowsWrite rhs)))]
     (reify Buffer
       (elemwiseDatatype [this] datatype)
+      (subBuffer [this sidx eidx]
+        (ChunkedList/sublistCheck sidx eidx n-elems)
+        (cond
+          (and (< sidx lhs-n-elems) (< eidx lhs-n-elems))
+          (.subBuffer lhs sidx eidx)
+          (> sidx lhs-n-elems)
+          (.subBuffer rhs (- sidx lhs-n-elems) (- eidx lhs-n-elems))
+          :else
+          (dual-concat-buffer datatype
+                              (.subBuffer lhs sidx lhs-n-elems)
+                              (.subBuffer rhs 0 (- eidx lhs-n-elems)))))
       (lsize [this] n-elems)
       (allowsRead [this] allowsRead)
       (allowsWrite [this] allowsWrite)
-      (readBoolean [this idx] (dual-read-macro idx n-elems lhs-n-elems .readBoolean lhs rhs))
-      (readByte [this idx] (dual-read-macro idx n-elems lhs-n-elems .readByte lhs rhs))
-      (readShort [this idx] (dual-read-macro idx n-elems lhs-n-elems .readShort lhs rhs))
-      (readChar [this idx] (dual-read-macro idx n-elems lhs-n-elems .readChar lhs rhs))
-      (readInt [this idx] (dual-read-macro idx n-elems lhs-n-elems .readInt lhs rhs))
       (readLong [this idx] (dual-read-macro idx n-elems lhs-n-elems .readLong lhs rhs))
-      (readFloat [this idx] (dual-read-macro idx n-elems lhs-n-elems .readFloat lhs rhs))
       (readDouble [this idx] (dual-read-macro idx n-elems lhs-n-elems .readDouble lhs rhs))
       (readObject [this idx] (dual-read-macro idx n-elems lhs-n-elems .readObject lhs rhs))
-      (writeBoolean [this idx val] (dual-write-macro idx n-elems lhs-n-elems .writeBoolean lhs rhs val))
-      (writeByte [this idx val] (dual-write-macro idx n-elems lhs-n-elems .writeByte lhs rhs val))
-      (writeShort [this idx val] (dual-write-macro idx n-elems lhs-n-elems .writeShort lhs rhs val))
-      (writeChar [this idx val] (dual-write-macro idx n-elems lhs-n-elems .writeChar lhs rhs val))
-      (writeInt [this idx val] (dual-write-macro idx n-elems lhs-n-elems .writeInt lhs rhs val))
       (writeLong [this idx val] (dual-write-macro idx n-elems lhs-n-elems .writeLong lhs rhs val))
-      (writeFloat [this idx val] (dual-write-macro idx n-elems lhs-n-elems .writeFloat lhs rhs val))
       (writeDouble [this idx val] (dual-write-macro idx n-elems lhs-n-elems .writeDouble lhs rhs val))
       (writeObject [this idx val] (dual-write-macro idx n-elems lhs-n-elems .writeObject lhs rhs val))
+      (reduce [this rfn init]
+        (let [init (.reduce lhs rfn init)]
+          (if-not (reduced? init)
+            (.reduce rhs rfn init)
+            init)))
+      (longReduction [this rfn init]
+        (let [init (.longReduction lhs rfn init)]
+          (if-not (reduced? init)
+            (.longReduction rhs rfn init)
+            init)))
+      (doubleReduction [this rfn init]
+        (let [init (.doubleReduction lhs rfn init)]
+          (if-not (reduced? init)
+            (.doubleReduction rhs rfn init)
+            init)))
       dtype-proto/PElemwiseReaderCast
       (elemwise-reader-cast [this new-dtype]
         (concat-buffers new-dtype (map #(dtype-proto/elemwise-reader-cast % new-dtype) [lhs rhs]))))))
@@ -97,22 +112,10 @@
       (lsize [this] n-elems)
       (allowsRead [this] allowsRead)
       (allowsWrite [this] allowsWrite)
-      (readBoolean [this idx] (same-len-read-macro idx n-elems buf-len .readBoolean buffers))
-      (readByte [this idx] (same-len-read-macro idx n-elems buf-len .readByte buffers))
-      (readShort [this idx] (same-len-read-macro idx n-elems buf-len .readShort buffers))
-      (readChar [this idx] (same-len-read-macro idx n-elems buf-len .readChar buffers))
-      (readInt [this idx] (same-len-read-macro idx n-elems buf-len .readInt buffers))
       (readLong [this idx] (same-len-read-macro idx n-elems buf-len .readLong buffers))
-      (readFloat [this idx] (same-len-read-macro idx n-elems buf-len .readFloat buffers))
       (readDouble [this idx] (same-len-read-macro idx n-elems buf-len .readDouble buffers))
       (readObject [this idx] (same-len-read-macro idx n-elems buf-len .readObject buffers))
-      (writeBoolean [this idx val] (same-len-write-macro idx n-elems buf-len .writeBoolean buffers val))
-      (writeByte [this idx val] (same-len-write-macro idx n-elems buf-len .writeByte buffers val))
-      (writeShort [this idx val] (same-len-write-macro idx n-elems buf-len .writeShort buffers val))
-      (writeChar [this idx val] (same-len-write-macro idx n-elems buf-len .writeChar buffers val))
-      (writeInt [this idx val] (same-len-write-macro idx n-elems buf-len .writeInt buffers val))
       (writeLong [this idx val] (same-len-write-macro idx n-elems buf-len .writeLong buffers val))
-      (writeFloat [this idx val] (same-len-write-macro idx n-elems buf-len .writeFloat buffers val))
       (writeDouble [this idx val] (same-len-write-macro idx n-elems buf-len .writeDouble buffers val))
       (writeObject [this idx val] (same-len-write-macro idx n-elems buf-len .writeObject buffers val))
       dtype-proto/PElemwiseReaderCast
@@ -158,22 +161,10 @@
       (lsize [this] n-elems)
       (allowsRead [this] allowsRead)
       (allowsWrite [this] allowsWrite)
-      (readBoolean [this idx] (gen-read-macro idx n-elems .readBoolean n-buffers buffers))
-      (readByte [this idx] (gen-read-macro idx n-elems .readByte n-buffers buffers))
-      (readShort [this idx] (gen-read-macro idx n-elems .readShort n-buffers buffers))
-      (readChar [this idx] (gen-read-macro idx n-elems .readChar n-buffers buffers))
-      (readInt [this idx] (gen-read-macro idx n-elems .readInt n-buffers buffers))
       (readLong [this idx] (gen-read-macro idx n-elems .readLong n-buffers buffers))
-      (readFloat [this idx] (gen-read-macro idx n-elems .readFloat n-buffers buffers))
       (readDouble [this idx] (gen-read-macro idx n-elems .readDouble n-buffers buffers))
       (readObject [this idx] (gen-read-macro idx n-elems .readObject n-buffers buffers))
-      (writeBoolean [this idx val] (gen-write-macro idx n-elems .writeBoolean n-buffers buffers val))
-      (writeByte [this idx val] (gen-write-macro idx n-elems .writeByte n-buffers buffers val))
-      (writeShort [this idx val] (gen-write-macro idx n-elems .writeShort n-buffers buffers val))
-      (writeChar [this idx val] (gen-write-macro idx n-elems .writeChar n-buffers buffers val))
-      (writeInt [this idx val] (gen-write-macro idx n-elems .writeInt n-buffers buffers val))
       (writeLong [this idx val] (gen-write-macro idx n-elems .writeLong n-buffers buffers val))
-      (writeFloat [this idx val] (gen-write-macro idx n-elems .writeFloat n-buffers buffers val))
       (writeDouble [this idx val] (gen-write-macro idx n-elems .writeDouble n-buffers buffers val))
       (writeObject [this idx val] (gen-write-macro idx n-elems .writeObject n-buffers buffers val))
       dtype-proto/PElemwiseReaderCast

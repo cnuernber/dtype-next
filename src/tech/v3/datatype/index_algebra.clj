@@ -20,44 +20,6 @@
 (set! *unchecked-math* :warn-on-boxed)
 
 
-(defn- base-dimension->reverse-long-map
-  "This could be expensive in a lot of situations.  Hopefully the sequence is a range.
-  We return a map that does the sparse reverse mapping on get.  We can return a number
-  or a sequence.  The fallback is (argops/arggroup-by identity dim)"
-  ^Map [dim]
-  (cond
-    (number? dim)
-    (let [dim (long dim)]
-      (reify Map
-        (size [m] (unchecked-int dim))
-        (containsKey [m arg]
-          (and arg
-               (casting/integer-type?
-                (dtype-proto/elemwise-datatype arg))
-               (let [arg (long arg)]
-                 (and (>= arg 0)
-                      (< arg dim)))))
-        (isEmpty [m] (== dim 0))
-        (entrySet [m]
-          (->> (range dim)
-               (map-indexed (fn [idx range-val]
-                              (MapEntry. range-val idx)))
-               set))
-        (getOrDefault [m k default-value]
-          (if (and k (casting/integer-type? (dtype-proto/elemwise-datatype k)))
-            (let [arg (long k)]
-              (if (and (>= arg 0)
-                       (< arg dim))
-                [arg]
-                default-value))
-            default-value))
-        (get [m k] [(long k)])))
-    (dtype-proto/convertible-to-range? dim)
-    (dtype-proto/range->reverse-map (dtype-proto/->range dim {}))
-    :else
-    (argops/arggroup-by identity (dtype-proto/->reader dim))))
-
-
 (defn maybe-range-reader
   "Create a range if possible.  If not, return a reader that knows the found mins
   and maxes."
@@ -135,10 +97,7 @@
   (simple? [item])
   (get-offset [item])
   (get-reader [item])
-  (get-n-repetitions [item])
-  (reverse-index-map [item]
-    "Return a map implementation that maps indexes from local-space
-back into Y global space indexes."))
+  (get-n-repetitions [item]))
 
 
 (defn- fixup-reverse-v
@@ -210,26 +169,6 @@ back into Y global space indexes."))
   (get-offset [_item] offset)
   (get-reader [_item] (simplify-range->direct reader))
   (get-n-repetitions [_item] repetitions)
-  (reverse-index-map [_item]
-    (let [^Map src-map (reverse-index-map reader)]
-      (reify Map
-        (size [m] (.size src-map))
-        (entrySet [m]
-          (->> (.entrySet src-map)
-               (map (fn [[k v]]
-                      (MapEntry.
-                       k
-                       (fixup-reverse-v v n-reader-elems
-                                        offset repetitions))))
-               set))
-        (getOrDefault [m k default]
-          (let [retval (.getOrDefault src-map k default)]
-            (if (identical? retval default)
-              default
-              (fixup-reverse-v retval n-reader-elems offset repetitions))))
-        (get [m k]
-          (when-let [v (.get src-map k)]
-            (fixup-reverse-v v n-reader-elems offset repetitions))))))
   dtype-proto/PSubBuffer
   (sub-buffer [item new-offset len]
     (let [new-offset (long new-offset)
@@ -257,34 +196,38 @@ back into Y global space indexes."))
   ;;Normalize this to account for single digit numbers
   (cond
     (number? item-seq)
-    (with-meta
-      (dtype-range/make-range (long item-seq))
-      {:scalar? true})
+    (dimension->reader
+     (with-meta
+       (dtype-range/make-range (long item-seq))
+       {:scalar? true}))
     (dtype-proto/convertible-to-range? item-seq)
-    (dtype-proto/->range item-seq {})
+    (-> (dtype-proto/->range item-seq {})
+        (dtype-proto/->reader))
     (instance? IndexAlg item-seq)
     item-seq
     (dtype-proto/convertible-to-bitmap? item-seq)
     (bitmap/bitmap->efficient-random-access-reader item-seq)
     :else
-    (let [item-seq (if (dtype-proto/convertible-to-reader? item-seq)
-                     item-seq
-                     (long-array item-seq))
-          n-elems (dtype-base/ecount item-seq)
-          reader (dtype-base/->reader item-seq)]
-      (cond
-        (= n-elems 1) (dtype-range/make-range (.readLong reader 0)
-                                              (inc (.readLong reader 0)))
-        (= n-elems 2)
-        (let [start (.readLong reader 0)
-              last-elem (.readLong reader 1)
-              increment (- last-elem start)]
-          (dtype-range/make-range start (+ last-elem increment) increment))
-        ;;Try to catch quick,hand made ranges out of persistent vectors and such.
-        (<= n-elems 5)
-        (maybe-range-reader reader)
-        :else
-        reader))))
+    (->
+     (let [item-seq (if (dtype-proto/convertible-to-reader? item-seq)
+                      item-seq
+                      (long-array item-seq))
+           n-elems (dtype-base/ecount item-seq)
+           reader (dtype-base/->reader item-seq)]
+       (cond
+         (= n-elems 1) (dtype-range/make-range (.readLong reader 0)
+                                               (inc (.readLong reader 0)))
+         (= n-elems 2)
+         (let [start (.readLong reader 0)
+               last-elem (.readLong reader 1)
+               increment (- last-elem start)]
+           (dtype-range/make-range start (+ last-elem increment) increment))
+         ;;Try to catch quick,hand made ranges out of persistent vectors and such.
+         (<= n-elems 5)
+         (maybe-range-reader reader)
+         :else
+         reader))
+     (dtype-proto/->reader))))
 
 
 (defn ->index-alg
@@ -307,7 +250,7 @@ back into Y global space indexes."))
   :sequence - select items in sequence.  Ranges will be better supported than truly
   random access."
   [dim select-arg]
-  (if (= select-arg :all)
+  (if (identical? select-arg :all)
     dim
     (let [rdr (dimension->reader dim)
           n-elems (.lsize rdr)]
@@ -322,8 +265,8 @@ back into Y global space indexes."))
               {:select-scalar? true})))
         (simplify-range->direct
          (let [^Buffer select-arg (if (= select-arg :lla)
-                                         (dtype-range/reverse-range n-elems)
-                                         (dimension->reader select-arg))
+                                    (dtype-range/reverse-range n-elems)
+                                    (dimension->reader select-arg))
                n-select-arg (.lsize select-arg)]
            (if (dtype-proto/convertible-to-range? select-arg)
              (let [select-arg (dtype-proto/->range select-arg {})]
@@ -390,6 +333,4 @@ back into Y global space indexes."))
   (simple? [item] true)
   (get-offset [item] 0)
   (get-reader [item] item)
-  (get-n-repetitions [item] 1)
-  (reverse-index-map [item]
-    (base-dimension->reverse-long-map item)))
+  (get-n-repetitions [item] 1))

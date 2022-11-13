@@ -1,4 +1,4 @@
-(defproject cnuernber/dtype-next "9.034-SNAPSHOT"
+(defproject cnuernber/dtype-next "10.000-beta-1-SNAPSHOT"
   :description "A Clojure library designed to aid in the implementation of high performance algorithms and systems."
   :url "http://github.com/cnuernber/dtype-next"
   :license {:name "EPL-2.0"
@@ -14,11 +14,8 @@
                  [techascent/tech.resource         "5.05"]
                  ;;ham fisted brings in:
                  ;; {it.unimi.dsi/fastutil-core {:mvn/version "8.5.8"}
-                 ;;  org.clj-commons/claypoole  {:mvn/version "1.2.2"}
                  ;;  com.google.guava/guava     {:mvn/version "31.1-jre"}}
-                 [com.cnuernber/ham-fisted         "1.000-beta-12"
-                  :exclusions [it.unimi.dsi/fastutil-core]]
-                 [it.unimi.dsi/fastutil            "8.5.8"]]
+                 [com.cnuernber/ham-fisted         "1.000-beta-45"]]
   :java-source-paths ["java" "third-party" "java_public_api"]
   :source-paths ["src" "classes" "third-party"]
   :profiles {:dev
@@ -28,6 +25,7 @@
                              [com.taoensso/nippy "3.2.0"]
                              [ch.qos.logback/logback-classic "1.1.3"]
                              [com.clojure-goes-fast/clj-memory-meter "0.1.0"]
+                             [com.cnuernber/benchmark "1.000-beta-2"]
                              [techascent/tech.viz "6.00-beta-16-2"]]
               :test-paths ["neanderthal" "test"]}
 

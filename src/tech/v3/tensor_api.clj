@@ -37,17 +37,21 @@
             [tech.v3.datatype.export-symbols :as export-symbols]
             [tech.v3.parallel.for :as parallel-for]
             [com.github.ztellman.primitive-math :as pmath]
-            [clojure.tools.logging :as log])
-  (:import [clojure.lang IObj]
+            [clojure.tools.logging :as log]
+            [ham-fisted.api :as hamf])
+  (:import [clojure.lang IObj IFn$OLO IFn$ODO IFn
+            IFn$LOO IFn$LLOO IFn$LLLOO]
            [tech.v3.datatype LongNDReader Buffer NDBuffer
-            ObjectReader LongReader]
-           [java.util List]))
+            ObjectReader LongReader NDReduce]
+           [java.util List]
+           [ham_fisted ChunkedList]))
 
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
 
 (declare construct-tensor tensor-copy!)
+
 
 
 (extend-type NDBuffer
@@ -118,14 +122,21 @@
       (and  (dtype-proto/convertible-to-native-buffer? buffer)
             (dims/native? (.dimensions t)))))
   (->native-buffer [t] (dtype-proto/->native-buffer (.buffer t)))
-
+  dtype-proto/PApplyUnary
+  (apply-unary-op [t res-dtype un-op]
+    (construct-tensor
+     (dtype-proto/apply-unary-op (or (.buffer t) (.bufferIO t)) res-dtype un-op)
+     (.dimensions t)
+     (meta t)))
   dtype-proto/PTensor
   (reshape [t new-shape]
-    (let [n-elems (long (apply * new-shape))]
-      (construct-tensor
-       (dtype-proto/sub-buffer (.bufferIO t) 0 n-elems)
-       (dims/dimensions new-shape)
-       (meta t))))
+    (if (= (dtype-proto/shape t) new-shape)
+      t
+      (let [n-elems (long (apply * new-shape))]
+        (construct-tensor
+         (dtype-proto/sub-buffer (.bufferIO t) 0 n-elems)
+         (dims/dimensions new-shape)
+         (meta t)))))
   (select [t select-args]
     (let [{buf-offset :elem-offset
            buf-len :buffer-ecount
@@ -230,20 +241,6 @@
       (indexed-buffer/indexed-buffer (.indexSystem t) buffer)))
   (dimensions [_t] dimensions)
   (indexSystem [_t] index-system)
-  (ndReadBoolean [_t idx]
-    (.readBoolean cached-io (.ndReadLong index-system idx)))
-  (ndReadBoolean [_t row col]
-    (.readBoolean cached-io (.ndReadLong index-system row col)))
-  (ndReadBoolean [_t height width chan]
-    (.readBoolean cached-io (.ndReadLong index-system height width chan)))
-  (ndWriteBoolean [_t idx value]
-    (.writeBoolean cached-io (.ndReadLong index-system idx) value))
-  (ndWriteBoolean [_t row col value]
-    (.writeBoolean cached-io (.ndReadLong index-system row col) value))
-  (ndWriteBoolean [_t height width chan value]
-    (.writeBoolean cached-io (.ndReadLong index-system height width chan)
-                   value))
-
   (ndReadLong [_t idx]
     (.readLong cached-io (.ndReadLong index-system idx)))
   (ndReadLong [_t row col]
@@ -362,19 +359,6 @@
   (dimensions [_t] dimensions)
   (indexSystem [_t] index-system)
   (lsize [_t] (.lsize index-system))
-  (ndReadBoolean [_t idx]
-    (.readBoolean cached-io (* idx c)))
-  (ndReadBoolean [_t row col]
-    (.readBoolean cached-io (+ (* row x) (* col c))))
-  (ndReadBoolean [_t height width chan]
-    (.readBoolean cached-io (+ (* height y) (* width x) (* chan c))))
-  (ndWriteBoolean [_t idx value]
-    (.writeBoolean cached-io (* idx c) value))
-  (ndWriteBoolean [_t row col value]
-    (.writeBoolean cached-io (+ (* row x) (* col c)) value))
-  (ndWriteBoolean [_t height width chan value]
-    (.writeBoolean cached-io (+ (* height y) (* width x) (* chan c))
-                   value))
 
   (ndReadLong [_t idx]
     (.readLong cached-io (* idx c)))
@@ -821,27 +805,91 @@
         (-> (quot global-idx (.readLong strides idx))
             (rem (aget shape idx)))))))
 
+(defn- round
+  ^long [^long amount ^long div]
+  (let [res (rem amount div)]
+    (- amount (rem amount div))))
+
+
+(defn- nd-reduce
+  [^NDBuffer buffer rfn acc sidx eidx]
+  (let [sidx (long sidx)
+        eidx (long eidx)
+        buf-shape (.shape buffer)
+        n-dims (count buf-shape)]
+
+    ;;We only have optimized accessors for 3 dim tensor or less so we always want to
+    ;;break the problem down into 3 dims or less.
+    (if (> n-dims 3)
+      (let [sub-tens (slice buffer (- n-dims 3))
+            sub-buf-size (dtype-base/ecount (first sub-tens))]
+        (loop [sidx sidx
+               acc acc]
+          (if (and (< sidx eidx) (not (reduced? acc)))
+            (let [next-sidx (min eidx (round (+ sidx sub-buf-size) sub-buf-size))
+                  buf-idx (quot sidx sub-buf-size)
+                  sub-local-sidx (rem sidx sub-buf-size)
+                  sub-local-eidx (+ sub-local-sidx (- next-sidx sidx))]
+              (recur next-sidx
+                     (nd-reduce (sub-tens buf-idx) rfn acc sub-local-sidx sub-local-eidx)))
+            acc)))
+      (case n-dims
+        0 acc
+        1 (NDReduce/ndReduce1D buffer rfn acc sidx eidx)
+        2 (NDReduce/ndReduce2D buffer (long (buf-shape 1)) rfn acc sidx eidx)
+        3 (NDReduce/ndReduce3D buffer (long (buf-shape 1)) (long (buf-shape 2))
+                               rfn acc sidx eidx)))))
+
+(comment
+  (nd-reduce (compute-tensor
+              [3 3 3] (fn [y x c] (println y x c) (+ y x c)))
+             + 0 7 10)
+  )
+
 
 (defmacro ^:private make-tensor-reader
   [datatype advertised-datatype n-dims n-elems per-pixel-op
    output-shape shape-x shape-chan strides]
-  (let [{:keys [read-fn nd-read-fn read-type cast-fn]}
+  (let [{:keys [read-fn nd-read-fn read-type cast-fn reduce-fn]}
         (case datatype
           :int64 {:read-fn 'readLong
                   :nd-read-fn '.ndReadLong
                   :read-type 'tech.v3.datatype.LongReader
-                  :cast-fn 'long}
+                  :cast-fn 'long
+                  :reduce-fn 'longReduction}
           :float64 {:read-fn 'readDouble
                     :nd-read-fn '.ndReadDouble
                     :read-type 'tech.v3.datatype.DoubleReader
-                    :cast-fn 'double}
+                    :cast-fn 'double
+                    :reduce-fn 'doubleReduction}
           {:read-fn 'readObject
            :nd-read-fn '.ndReadObject
            :read-type 'tech.v3.datatype.ObjectReader
-           :cast-fn 'identity})]
+           :cast-fn 'identity
+           :reduce-fn 'reduce})
+        invoker (case datatype
+                  :int64 '.invokePrim
+                  :float64 '.invokePrim
+                  '.invoke)]
     `(reify ~read-type
        (elemwiseDatatype [rdr#] ~advertised-datatype)
        (lsize [rdr#] ~n-elems)
+       (subBuffer [rdr# sidx# eidx#]
+         (ChunkedList/sublistCheck sidx# eidx# ~n-elems)
+         (let [nne# (- eidx# sidx#)]
+           (reify ~read-type
+             (elemwiseDatatype [rr#] ~advertised-datatype)
+             (lsize [rr#] nne#)
+             (~read-fn [rr# idx#] (~(symbol (str "." (name read-fn))) rdr# (+ idx# sidx#)))
+             (subBuffer [rr# ssidx# seidx#]
+               (ChunkedList/sublistCheck ssidx# seidx# nne#)
+               (.subBuffer rdr# (+ sidx# ssidx#) (+ sidx# seidx#)))
+             (reduce [this# rfn# init#]
+               (nd-reduce ~per-pixel-op rfn# init# sidx# eidx#))
+             (longReduction [this# rfn# init#]
+               (nd-reduce ~per-pixel-op rfn# init# sidx# eidx#))
+             (doubleReduction [this# rfn# init#]
+               (nd-reduce ~per-pixel-op rfn# init# sidx# eidx#)))))
        (~read-fn [rdr# ~'idx]
          ~(case (long n-dims)
             1 `(~nd-read-fn ~per-pixel-op ~'idx)
@@ -854,7 +902,13 @@
                      y# (pmath// xy# ~shape-x)]
                  (~nd-read-fn ~per-pixel-op y# x# c#))
             `(~cast-fn (.ndReadObjectIter ~per-pixel-op (shape-stride-reader
-                                                         ~output-shape ~strides ~'idx))))))))
+                                                         ~output-shape ~strides ~'idx)))))
+       (reduce [this# rfn# init#]
+         (nd-reduce ~per-pixel-op rfn# init# 0 ~n-elems))
+       (longReduction [this# rfn# init#]
+         (nd-reduce ~per-pixel-op rfn# init# 0 ~n-elems))
+       (doubleReduction [this# rfn# init#]
+         (nd-reduce ~per-pixel-op rfn# init# 0 ~n-elems)))))
 
 
 (defn nd-buffer->buffer-reader

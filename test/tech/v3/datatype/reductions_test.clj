@@ -21,6 +21,7 @@
                   {:nan-strategy :exception}
                   nan-data)))
     (is (= {:n-elems 99, :data {:sum {:n-elems 99, :sum 4900.0}}}
+
            (reductions/double-reductions {:sum (:tech.numerics/identity unop/builtin-ops)}
                                          nan-data)))
     (is (= {:n-elems 99, :data {:sum {:n-elems 99, :value 4900.0}}}

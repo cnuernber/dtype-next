@@ -21,7 +21,6 @@
             Comparators$LongComp
             Comparators$DoubleComp
             BinaryPredicate
-            PrimitiveList
             IndexReduction
             Buffer
             UnaryOperator BinaryOperator
@@ -85,7 +84,7 @@
   an implementation of IFn or an implementation of a UnaryOperator."
   ^UnaryOperator [op]
   (find-unary-operator op unary-op/builtin-ops
-                       "unary operator" unary-op/->operator))
+                       "unary operator" identity))
 
 
 (defn ->binary-operator
@@ -488,14 +487,14 @@
   "Filter out values returning either an iterable of indexes or a reader
   of indexes."
   ([pred options rdr]
-   (if-let [rdr (dtype-base/as-reader rdr)]
-     (unary-pred/bool-reader->indexes options
-                                      (unary-pred/reader (->unary-predicate pred) rdr))
-     (let [pred (unary-pred/->predicate pred)]
-       (->> rdr
-            (map-indexed (fn [idx data]
-                           (when (.unaryObject pred data) idx)))
-            (remove nil?)))))
+   (let [pred (->unary-predicate pred)]
+     (if-let [rdr (dtype-base/as-reader rdr)]
+       (->> (unary-pred/reader pred rdr)
+            (unary-pred/bool-reader->indexes options))
+       (let [pred (unary-pred/->predicate pred)]
+         (->> rdr
+              (map-indexed (fn [idx data] (when (.unaryObject pred data) idx)))
+              (remove nil?))))))
   ([pred rdr]
    (argfilter pred nil rdr)))
 
@@ -528,9 +527,9 @@
   (if-not (= :bitmap storage-datatype)
     (reify IndexReduction
       (reduceIndex [this batch-data ctx idx]
-        (let [^PrimitiveList ctx (if ctx
-                                   ctx
-                                   (unary-pred/make-index-list storage-datatype))]
+        (let [^Buffer ctx (if ctx
+                            ctx
+                            (unary-pred/make-index-list storage-datatype))]
           (.addLong ctx idx)
           ctx))
       (reduceReductions [this lhs-ctx rhs-ctx]

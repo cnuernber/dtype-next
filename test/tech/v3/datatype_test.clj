@@ -1,6 +1,7 @@
 (ns tech.v3.datatype-test
   (:require [clojure.test :refer [deftest is testing]]
             [tech.v3.datatype :as dtype]
+            [tech.v3.datatype.nio-buffer :as nio-buffer]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.parallel.for :as parallel-for]
@@ -9,9 +10,13 @@
             [tech.v3.datatype.rolling :as rolling]
             [tech.v3.datatype.gradient :as dt-grad]
             [tech.v3.datatype.wavelet]
-            [tech.v3.datatype.datetime])
+            [tech.v3.datatype.datetime]
+            [ham-fisted.lazy-noncaching :as lznc]
+            [ham-fisted.api :as hamf]
+            [benchmark.api :as bench])
   (:import [java.nio FloatBuffer]
-           [java.util ArrayList]))
+           [java.util ArrayList]
+           [ham_fisted Casts]))
 
 
 (defn basic-copy
@@ -28,7 +33,7 @@
           (str [src-ctype dest-ctype src-dtype dst-dtype]))
       (is (= 10 (dtype/ecount buf))))
     (catch Throwable e
-      (throw (ex-info (str [src-ctype dest-ctype src-dtype dst-dtype])
+      (throw (ex-info (str src-ctype "<" src-dtype ">, " dest-ctype "<" dst-dtype ">")
                       {:error e}))
       (throw e))))
 
@@ -57,23 +62,21 @@
         ;;where we don't want to allocate dynamically an entire batch worth of data
         ;;every time but copy one image at a time into the packed buffer for upload
         ;;to the gpu.
-        double-array-seq (map (fn [data]
-                                (dtype/copy-raw->item! data input-ary 0)
-                                input-ary)
-                              input-seq)
+        double-array-seq (lznc/map (fn [data]
+                                     (dtype/copy-raw->item! data input-ary 0)
+                                     input-ary)
+                                   input-seq)
         output-doubles (double-array 100)]
     (dtype/copy-raw->item! double-array-seq output-doubles 0)
     (is (= (vec output-doubles) (mapv double (flatten input-seq))))))
 
 
 (deftest array-of-array-support
-  (let [^"[[D" src-data (make-array (Class/forName "[D") 5)
-        _ (doseq [idx (range 5)]
-            (aset src-data idx (double-array (repeat 10 idx))))
-        dst-data (float-array (* 5 10))]
+  (let [src-data (into-array (repeat 10 (double-array (range 10))))
+        dst-data (float-array 100)]
     ;;This should not hit any slow paths.
     (dtype/copy-raw->item! src-data dst-data 0)
-    (is (= (vec (float-array (flatten (map #(repeat 10 %) (range 5)))))
+    (is (= (vec (apply concat src-data))
            (vec dst-data)))))
 
 
@@ -131,7 +134,6 @@
 
           dtype-copy (fn []
                        (dtype/copy! src-nbuf dst-nbuf num-items))
-
 
           make-array (fn []
                        (dtype/make-container :java-array :float32 dst-buf))
@@ -603,13 +605,13 @@
 
 
 (deftest rolling-window-position
-  (is (= [0 1 3 6 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85]
+  (is (= (mapv double [0 1 3 6 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85])
          (rolling/fixed-rolling-window (range 20) 5 dfn/sum
                                        {:relative-window-position :left})))
-  (is (= [3 6 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 89 92]
+  (is (= (mapv double [3 6 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 89 92])
          (rolling/fixed-rolling-window (range 20) 5 dfn/sum
                                        {:relative-window-position :center})))
-  (is (= [10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 89 92 94 95]
+  (is (= (mapv double [10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 89 92 94 95])
        (rolling/fixed-rolling-window (range 20) 5 dfn/sum
                                      {:relative-window-position :right})))
   (is (= [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19]
@@ -723,17 +725,18 @@
 
 (deftest set-constant-all-numeric-dtypes
   (let [dtypes [:int8 :uint8
-                :int16 :uin16
+                :int16 :uint16
                 :int32 :uint32
                 :int64 :uint64
                 :float32 :float64]
         containers [:jvm-heap :native-heap]]
-    (for [dtype dtypes
-          container containers]
-      (let [data (dtype/make-container container dtype 10)]
-        (dtype/set-constant! data 1)
-        (is (= (mapv long (dtype/->reader data))
-               (vec (repeat 10 1))))))))
+    (dorun
+     (for [dtype dtypes
+           container containers]
+       (let [data (dtype/make-container container dtype 10)]
+         (dtype/set-constant! data 1)
+         (is (= (mapv long (dtype/->reader data))
+                (vec (repeat 10 1)))))))))
 
 
 (deftest nth-neg-indexes
@@ -797,11 +800,45 @@
          (-> (dtype/make-container :float64 [Double/NaN])
              (dtype/elemwise-cast :boolean)
              (vec))))
-  (is (= false (-> (reify tech.v3.datatype.DoubleReader
-                     (lsize [this] 1)
-                     (readDouble [this idx] Double/NaN))
-                   (.readBoolean 0))))
-  (is (= false (tech.v3.datatype.BooleanConversions/from Double/NaN)))
-  (is (= false (tech.v3.datatype.BooleanConversions/from (Double/valueOf Double/NaN))))
-  (is (= false (tech.v3.datatype.BooleanConversions/from (Long/valueOf 0))))
+  (is (= false (Casts/booleanCast Double/NaN)))
+  (is (= false (Casts/booleanCast (Double/valueOf Double/NaN))))
+  (is (= false (Casts/booleanCast (Long/valueOf 0))))
   (is (= [2] (vec (argops/argfilter identity (double-array [0 Double/NaN 1]))))))
+
+
+
+(comment
+  (defn bench-sum
+    []
+    (vec
+     (for [n-elems [10 100 1000000]]
+       (let [data (hamf/double-array (hamf/range n-elems))]
+         {:n-elems n-elems
+          :dtype (bench/benchmark-us (dfn/sum data))
+          :hamf (bench/benchmark-us (hamf/sum data))
+          }))))
+
+  (defn bench-ordered-unordered-sum
+    []
+    ;;logically unordered should always be faster but there is sometimes
+    ;;significant overhead for adding the extra queue in for unordered results.
+    ;;This test results in no meaningful difference however.
+    (vec
+     (for [n-elems [10 100 1000 10000 1000000]]
+       (let [data (hamf/double-array (hamf/range n-elems))]
+         {:n-elems n-elems
+          :ordered (bench/benchmark-us (hamf/sum data {:min-n 0
+                                                       :ordered? true}))
+          :unordered (bench/benchmark-us (hamf/sum data {:min-n 0
+                                                         :ordered? false}))
+          }))))
+
+  (defn bench-parallel-serial-sum
+    []
+    (vec
+     (for [n-elems [10 100 1000 10000 1000000]]
+       (let [data (hamf/double-array (hamf/range n-elems))]
+         {:n-elems n-elems
+          :serial (bench/benchmark-us (hamf/sum data {:min-n Integer/MAX_VALUE}))
+          :parallel (bench/benchmark-us (hamf/sum data {:min-n 0}))}))))
+  )

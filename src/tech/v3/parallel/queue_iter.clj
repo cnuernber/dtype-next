@@ -6,7 +6,7 @@
             [clojure.tools.logging :as log])
   (:import [java.util Iterator NoSuchElementException]
            [java.util.concurrent ArrayBlockingQueue Executors ExecutorService ThreadFactory]
-           [tech.v3.datatype IFnDef]
+           [ham_fisted IFnDef]
            [java.lang AutoCloseable]))
 
 

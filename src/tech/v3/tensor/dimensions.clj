@@ -10,10 +10,12 @@
             [tech.v3.datatype.index-algebra :as idx-alg]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
+            [tech.v3.datatype.array-buffer :as abuf]
             [tech.v3.datatype.errors
              :refer [when-not-error]
-             :as errors])
-  (:import [tech.v3.datatype Buffer PrimitiveList ObjectReader
+             :as errors]
+            [ham-fisted.api :as hamf])
+  (:import [tech.v3.datatype Buffer ObjectReader
             LongReader LongNDReader ListPersistentVector]
            [java.util List]))
 
@@ -121,7 +123,7 @@
          ;;shapes are used for equality a lot so they have to have a standard
          ;;representation.
          ^List shape (if-let [shape-buf (dtype-base/as-buffer shape)]
-                       (ListPersistentVector. shape-buf)
+                       shape-buf
                        (vec shape))
          strides (dims-analytics/shape-ary->strides shape)
          shape-ecounts shape
@@ -247,7 +249,7 @@
         offsets (dtype-base/->reader offsets)
         addr (int addr)
         n-elems (.lsize strides)
-        ^PrimitiveList retval (dtype-cmc/make-container :list :int32 0)]
+        retval (abuf/array-list :int32)]
     (loop [idx 0
            addr addr]
       (if (< idx n-elems)
@@ -385,10 +387,10 @@ https://cloojure.github.io/doc/core.matrix/clojure.core.matrix.html#var-select"
     (throw (Exception. "Offset vec must be same length as shape.")))
   (if (every? #(= 0 (long %)) new-offset-vec)
     dims
-    (dimensions (mapv (fn [old-shape offset-val]
-                        (idx-alg/offset old-shape offset-val))
-                      (:shape dims)
-                      new-offset-vec)
+    (dimensions (hamf/mapv (fn [old-shape offset-val]
+                             (idx-alg/offset old-shape offset-val))
+                           (:shape dims)
+                           new-offset-vec)
                 (:strides dims))))
 
 

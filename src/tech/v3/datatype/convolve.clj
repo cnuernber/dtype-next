@@ -7,7 +7,8 @@
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.parallel.for :as pfor]
-            [com.github.ztellman.primitive-math :as pmath])
+            [com.github.ztellman.primitive-math :as pmath]
+            [ham-fisted.api :as hamf])
   (:import [tech.v3.datatype Convolve1D Convolve1D$Mode ArrayHelpers DoubleReader
             Convolve1D$EdgeMode Convolve1D$Edging Complex]
            [java.util.function BiFunction]
@@ -104,7 +105,7 @@
                         (< win-idx n-result))
                (ArrayHelpers/accumPlus result win-idx
                                        (aget fft-result (* 2 vidx))))))))
-     (array-buffer/array-buffer result)))
+     (dt-base/->buffer result)))
   ([signal filter]
    (convolve-fft-1d signal filter nil)))
 
@@ -158,25 +159,26 @@
                                    (aget win (- dec-win-len idx))))
                           (assoc options :mode mode :edge-mode edge-mode)))
        :naive
-       (-> (Convolve1D/correlate
-            (reify BiFunction
-              (apply [this n-elems applier]
-                (if force-serial
-                  (.apply ^BiFunction applier 0 n-elems)
-                  (pfor/indexed-map-reduce
-                   n-elems
-                   (fn [start-idx group-len]
-                     (.apply ^BiFunction applier start-idx group-len))
-                   dorun))))
-            data
-            win
-            (int stepsize)
-            (case mode
-              :full Convolve1D$Mode/Full
-              :same Convolve1D$Mode/Same
-              :valid Convolve1D$Mode/Valid)
-            (edge-mode->edging edge-mode))
-           (array-buffer/array-buffer)))))
+       (->
+        (Convolve1D/correlate
+         (reify BiFunction
+           (apply [this n-elems applier]
+             (if force-serial
+               (.apply ^BiFunction applier 0 n-elems)
+               (pfor/indexed-map-reduce
+                n-elems
+                (fn [start-idx group-len]
+                  (.apply ^BiFunction applier start-idx group-len))
+                dorun))))
+         data
+         win
+         (int stepsize)
+         (case mode
+           :full Convolve1D$Mode/Full
+           :same Convolve1D$Mode/Same
+           :valid Convolve1D$Mode/Valid)
+         (edge-mode->edging edge-mode))
+        (dt-base/->buffer)))))
   ([data win]
    (correlate1d data win nil)))
 
@@ -224,9 +226,9 @@ user> (dt-conv/convolve1d [1, 2, 3], [0, 1, 0.5] {:mode :valid})
   (let [sigma (double sigma)
         sigma2 (* sigma sigma)
         radius (long radius)
-        x (range (- radius) (inc radius))
-        phi-x (dfn/exp (dfn/* (dfn// -0.5 sigma2) (dfn/pow x 2)))]
-    (dfn// phi-x (dfn/sum phi-x))))
+        x (hamf/range (- radius) (inc radius))
+        phi-x (dfn/exp (dfn/* (dfn// -0.5 sigma2) (dfn/sq x)))]
+    (dfn// phi-x (hamf/sum-fast phi-x))))
 
 
 (defn gaussian1d

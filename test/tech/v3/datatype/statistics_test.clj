@@ -1,4 +1,4 @@
-(ns tech.v3.datatype.statistics_test
+(ns tech.v3.datatype.statistics-test
   (:require [tech.v3.datatype :as dtype]
             [tech.v3.datatype.statistics :as stats]
             [tech.v3.datatype.functional :as dfn]

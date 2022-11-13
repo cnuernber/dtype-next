@@ -8,6 +8,7 @@ import static tech.v3.Clj.*;
 import java.util.List;
 import java.util.Map;
 import org.roaringbitmap.RoaringBitmap;
+import ham_fisted.Casts;
 
 /**
  * <p>
@@ -429,13 +430,7 @@ public class DType {
    * numeric value is true.  Booleans cast to themselves, null casts to false.
    */
   public static boolean boolCast(Object scalarVal) {
-    if (scalarVal instanceof Number) {
-      return (0.0 == RT.doubleCast(scalarVal));
-    } else if (scalarVal instanceof Boolean) {
-      return (boolean)scalarVal;
-    } else {
-      return scalarVal != null;
-    }
+    return Casts.booleanCast(scalarVal);
   }
   /**
    * Reverse an sequence, range or reader.
@@ -451,8 +446,8 @@ public class DType {
    * This object has fast conversions to buffers, fast copy semantics, and fast append
    * semantics.
    */
-  public static PrimitiveList makeList(Object dtype) {
-    return (PrimitiveList)makeListFn.invoke(dtype);
+  public static Buffer makeList(Object dtype) {
+    return (Buffer)makeListFn.invoke(dtype);
   }
   /**
    * Elemwentwise-map a function create a new lazy buffer.  Operations are performed upon

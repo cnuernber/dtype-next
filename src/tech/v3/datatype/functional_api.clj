@@ -8,6 +8,8 @@
   using the specific operators will result in far faster code than using the '+'
   function itself."
   (:require [tech.v3.datatype.base :as dtype-base]
+            [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.argtypes :as argtypes]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.unary-op :as unary-op]
@@ -20,21 +22,25 @@
             [tech.v3.datatype.dispatch :refer [vectorized-dispatch-1
                                                vectorized-dispatch-2]
              :as dispatch]
+            [tech.v3.datatype.emap :refer [unary-dispatch binary-dispatch]]
             ;;optimized operations
             [tech.v3.datatype.functional.opt :as fn-opt]
             [tech.v3.datatype.rolling]
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.list :as dtype-list]
             [tech.v3.datatype.graal-native :as graal-native]
+            [ham-fisted.api :as hamf]
             [com.github.ztellman.primitive-math :as pmath]
             [clojure.tools.logging :as log]
             [clojure.set :as set])
   (:import [tech.v3.datatype BinaryOperator Buffer
             LongReader DoubleReader ObjectReader
-            BinaryOperator
-            PrimitiveList ArrayHelpers]
+            BinaryOperator ArrayHelpers]
            [org.roaringbitmap RoaringBitmap]
+           [ham_fisted IMutList]
            [java.util List]
+           [java.util.function DoublePredicate DoubleConsumer]
+           [clojure.lang IDeref]
            [org.apache.commons.math3.stat.regression SimpleRegression])
   (:refer-clojure :exclude [+ - / *
                             <= < >= >
@@ -68,16 +74,7 @@
                `(defn ~(with-meta op-sym
                          {:unary-operator opname})
                   ([~'x ~'options]
-                   (vectorized-dispatch-1
-                    (unary-op/builtin-ops ~opname)
-                    ;;the default iterable application is fine.
-                    nil
-                    #(unary-op/reader
-                      (unary-op/builtin-ops ~opname)
-                      %1
-                      %2)
-                    (merge ~op-meta ~'options)
-                    ~'x))
+                   (unary-dispatch (unary-op/builtin-ops ~opname) ~'x ~'options))
                   ([~'x]
                    (~op-sym ~'x  nil)))))))
        ~@(->>
@@ -93,39 +90,15 @@
                  `(defn ~(with-meta op-sym
                            {:binary-operator opname})
                     ([~'x]
-                     (vectorized-dispatch-1
-                      (unary-op/builtin-ops ~opname)
-                      nil
-                      #(unary-op/reader
-                        (unary-op/builtin-ops ~opname)
-                        %1
-                        %2)
-                      ~op-meta
-                      ~'x))
+                     (unary-dispatch (unary-op/builtin-ops ~opname) ~'x nil))
                     ([~'x ~'y]
-                     (vectorized-dispatch-2
-                      (binary-op/builtin-ops ~opname)
-                      #(binary-op/iterable (binary-op/builtin-ops ~opname)
-                                           %1 %2 %3)
-                      #(binary-op/reader
-                        (binary-op/builtin-ops ~opname)
-                        %1 %2 %3)
-                      ~op-meta
-                      ~'x ~'y))
+                     (binary-dispatch (binary-op/builtin-ops ~opname) ~'x ~'y nil))
                     ([~'x ~'y & ~'args]
                      (reduce ~op-sym (concat [~'x ~'y] ~'args))))
                  `(defn ~(with-meta op-sym
                            {:binary-operator opname})
                     ([~'x ~'y]
-                     (vectorized-dispatch-2
-                      (binary-op/builtin-ops ~opname)
-                      #(binary-op/iterable (binary-op/builtin-ops ~opname)
-                                           %1 %2 %3)
-                      #(binary-op/reader
-                        (binary-op/builtin-ops ~opname)
-                        %1 %2 %3)
-                      ~op-meta
-                      ~'x ~'y))
+                     (binary-dispatch (binary-op/builtin-ops ~opname) ~'x ~'y nil))
                     ([~'x ~'y & ~'args]
                      (reduce ~op-sym (concat [~'x ~'y] ~'args))))))))))))
 
@@ -388,7 +361,7 @@
         (parallel-for/indexed-map-reduce
          n-spans
          (fn [^long start-idx ^long group-len]
-           (let [^PrimitiveList new-data (dtype-list/make-list :float64)
+           (let [^Buffer new-data (dtype-list/make-list :float64)
                  new-indexes (RoaringBitmap.)]
              (dotimes [idx group-len]
                (let [idx (pmath/+ idx start-idx)
@@ -428,32 +401,48 @@
     (assoc retval :result result)))
 
 
+(deftype CumOpConsumer [^BinaryOperator op
+                        ^{:unsynchronized-mutable true
+                         :tag 'double} sum
+                        ^:unsynchronized-mutable first
+                        ^DoublePredicate p
+                        ^IMutList result]
+  DoubleConsumer
+  (accept [this v]
+    (if (.test p v)
+      (do
+        (if first
+          (do
+            (set! sum v)
+            (set! first false))
+          (set! sum (.binaryDouble op sum v)))
+        (.addDouble result sum))
+      (.addDouble result Double/NaN)))
+  IDeref
+  (deref [this] result))
+
+
 (defn ^:no-doc cumop
   [options ^BinaryOperator op data]
-  (let [^Buffer data (if (dtype-base/reader? data)
-                       (dtype-base/as-reader data :float64)
-                       (dtype-base/as-reader (vec data) :float64))
-        n-elems (.lsize data)
-        result (double-array n-elems)
-        filter (dtype-reductions/nan-strategy->double-predicate
-                (:nan-strategy options :remove))]
-    (when-not (pmath/== 0 n-elems)
-      (loop [idx 0
-             any-valid? false
-             sum (.readDouble data 0)]
-        (when (pmath/< idx n-elems)
-          (let [next-elem (.readDouble data idx)
-                valid? (boolean (if filter (.test filter next-elem) true))
-                sum (double (if valid?
-                              (if any-valid?
-                                (.binaryDouble op sum next-elem)
-                                next-elem)
-                              sum))]
-            (if valid?
-              (ArrayHelpers/aset result idx sum)
-              (ArrayHelpers/aset result idx next-elem))
-            (recur (unchecked-inc idx) (clojure.core/or any-valid? valid?) sum)))))
-    (array-buffer/array-buffer result)))
+  (let [data (if (dtype-base/reader? data)
+               (dtype-base/as-reader data :float64)
+               data)
+        n-elems (if (instance? Buffer data)
+                  (.lsize ^Buffer data)
+                  8)
+        result (hamf/double-array-list n-elems)
+        ^DoublePredicate filter
+        (case (get options :nan-strategy :remove)
+          :keep (hamf/double-predicate v true)
+          :remove (hamf/double-predicate v (not (Double/isNaN v)))
+          :exception (hamf/double-predicate v
+                                            (do
+                                              (when (Double/isNaN v)
+                                                (throw (RuntimeException. "Nan Detected")))
+                                              true)))]
+    @(hamf/reduce hamf/double-consumer-accumulator
+                  (CumOpConsumer. op 0.0 true filter result)
+                  data)))
 
 
 (defn cumsum

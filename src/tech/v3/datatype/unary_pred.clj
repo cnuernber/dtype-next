@@ -6,13 +6,14 @@
             [tech.v3.datatype.list :as dtype-list]
             [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.parallel.for :as parallel-for]
-            [tech.v3.datatype.monotonic-range :as mono-range])
+            [tech.v3.datatype.monotonic-range :as mono-range]
+            [ham-fisted.api :as hamf])
   (:import [tech.v3.datatype UnaryPredicate Buffer
-            UnaryPredicates$BooleanUnaryPredicate
             UnaryPredicates$DoubleUnaryPredicate
-            UnaryPredicates$ObjectUnaryPredicate BooleanConversions
-            BooleanReader PrimitiveList]
-           [tech.v3.datatype.monotonic_range Int64Range]
+            UnaryPredicates$LongUnaryPredicate
+            UnaryPredicates$ObjectUnaryPredicate
+            Buffer BooleanReader]
+           [ham_fisted Casts Ranges$LongRange]
            [java.util List]
            [java.util.function DoublePredicate Predicate]
            [clojure.lang IFn IDeref]))
@@ -33,7 +34,7 @@
    (reify
      UnaryPredicates$ObjectUnaryPredicate
      (unaryObject [this arg]
-       (BooleanConversions/from (ifn arg)))
+       (Casts/booleanCast (ifn arg)))
      dtype-proto/POperator
      (op-name [this] opname)))
   (^UnaryPredicate [ifn]
@@ -94,24 +95,19 @@
                   (dtype-base/elemwise-datatype src-rdr))
         src-rdr (dtype-base/->reader src-rdr op-space)]
     (case op-space
-      :boolean
-      (reify BooleanReader
-        (lsize [rdr] (.lsize src-rdr))
-        (readBoolean [rdr idx]
-          (.unaryBoolean pred (.readBoolean src-rdr idx))))
       :int64
       (reify BooleanReader
         (lsize [rdr] (.lsize src-rdr))
-        (readBoolean [rdr idx]
+        (readObject [rdr idx]
           (.unaryLong pred (.readLong src-rdr idx))))
       :float64
       (reify BooleanReader
         (lsize [rdr] (.lsize src-rdr))
-        (readBoolean [rdr idx]
+        (readObject [rdr idx]
           (.unaryDouble pred (.readDouble src-rdr idx))))
       (reify BooleanReader
         (lsize [rdr] (.lsize src-rdr))
-        (readBoolean [rdr idx]
+        (readObject [rdr idx]
           (.unaryObject pred (.readObject src-rdr idx)))))))
 
 
@@ -133,9 +129,9 @@
 (def builtin-ops
   {:tech.numerics/not
    (reify
-     UnaryPredicates$BooleanUnaryPredicate
-     (unaryBoolean [this arg]
-       (if arg false true))
+     UnaryPredicates$ObjectUnaryPredicate
+     (unaryObject [this arg]
+       (if (Casts/booleanCast arg) false true))
      dtype-proto/POperator
      (op-name [this] :not))
    :tech.numerics/nan?
@@ -213,12 +209,12 @@
     :int32
     :int64))
 
-(deftype IndexList [^PrimitiveList list
+(deftype IndexList [^Buffer list
                     ^{:unsynchronized-mutable true
                       :tag long} last-value
                     ^{:unsynchronized-mutable true
                       :tag long} increment]
-  PrimitiveList
+  Buffer
   (addLong [_this lval]
     (when-not (== last-value -1)
       (let [new-incr (- lval last-value)]
@@ -239,7 +235,7 @@
 
 
 (defn make-index-list
-  ^PrimitiveList [dtype]
+  ^Buffer [dtype]
   (let [list (dtype-list/make-list dtype)]
     (IndexList. list -1 -1)))
 
@@ -250,39 +246,37 @@
     (== 0 (.size ^List lhs)) rhs
     (== 0 (.size ^List rhs)) lhs
     :else
-    (let [^Int64Range lrange (when (instance? Int64Range lhs) lhs)
-          ^Int64Range rrange (when (instance? Int64Range rhs) rhs)]
-      (if (and lrange rrange (== (.start rrange) (+ (.start lrange) (.n-elems lrange))))
-        (Int64Range. (.start lrange) 1 (+ (.n-elems lrange) (.n-elems rrange)) nil)
-        (let [^PrimitiveList llist (if (instance? PrimitiveList lhs)
-                                     lhs
-                                     (doto (dtype-list/make-list index-space)
-                                       (.addAll lrange)))]
+    (let [^Ranges$LongRange lrange (when (instance? Ranges$LongRange lhs) lhs)
+          ^Ranges$LongRange rrange (when (instance? Ranges$LongRange rhs) rhs)]
+      (if (and lrange rrange (== (.start rrange) (.end lrange)))
+        (Ranges$LongRange. (.start lrange) (.end rrange) 1 nil)
+        (let [^Buffer llist (if (instance? Buffer lhs)
+                              lhs
+                              (doto (dtype-list/make-list index-space)
+                                (.addAll lrange)))]
           (.addAll llist rhs)
           llist)))))
 
 
 (defn bool-reader->indexes
   "Given a reader, produce a filtered list of indexes filtering out 'false' values."
-  (^PrimitiveList [{:keys [storage-type] :as _options} bool-item]
+  (^Buffer [{:keys [storage-type] :as _options} bool-item]
    (let [n-elems (dtype-base/ecount bool-item)
          reader (dtype-base/->reader bool-item)
          storage-type (or storage-type
                           (reader-index-space bool-item))]
-     (parallel-for/indexed-map-reduce
-      n-elems
-      (fn [^long start-idx ^long len]
-        (let [start-idx (long start-idx)
-              len (long len)
-              ^PrimitiveList idx-data (case storage-type
-                                        :int32 (make-index-list :int32)
-                                        ;; :bitmap `(RoaringBitmap.)
-                                        :int64 (make-index-list :int64))]
-          (dotimes [iter len]
-            (let [iter-idx (unchecked-add start-idx iter)]
-              (when (.readBoolean reader iter-idx)
-                (.addLong idx-data iter-idx))))
-          @idx-data))
-      (partial reduce #(merge-index-list-results storage-type %1 %2)))))
-  (^PrimitiveList [bool-item]
+     (->> (hamf/pgroups n-elems
+                        (fn [^long sidx ^long eidx]
+                          (let [gsize (- eidx sidx)
+                                idx-data (case storage-type
+                                             :int32 (make-index-list :int32)
+                                             ;; :bitmap `(RoaringBitmap.)
+                                             :int64 (make-index-list :int64))]
+                            (dotimes [idx gsize]
+                              (let [iter-idx (+ idx sidx)]
+                                (when (Casts/booleanCast (.readObject reader iter-idx))
+                                  (.addLong idx-data iter-idx))))
+                            @idx-data)))
+          (reduce #(merge-index-list-results storage-type %1 %2)))))
+  (^Buffer [bool-item]
    (bool-reader->indexes nil bool-item)))

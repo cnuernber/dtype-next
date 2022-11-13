@@ -41,6 +41,7 @@ user> *2
             [com.github.ztellman.primitive-math :as pmath])
   (:import [tech.v3.datatype BinaryBuffer ObjectBuffer BooleanBuffer
             LongBuffer DoubleBuffer]
+           [ham_fisted Casts]
            [java.util.concurrent ConcurrentHashMap]
            [java.util RandomAccess List Map LinkedHashSet Collection]
            [clojure.lang MapEntry IObj IFn ILookup]))
@@ -501,13 +502,13 @@ user> *2
       :boolean (reify
                  BooleanBuffer
                  (lsize [this] n-structs)
-                 (readBoolean [this idx]
+                 (readObject [this idx]
                    (if (== 0 (.readBinByte buffer (+ offset (* idx stride))))
                      false
                      true))
-                 (writeBoolean [this idx val]
+                 (writeObject [this idx val]
                    (.writeBinByte buffer (+ offset (* idx stride))
-                                  (unchecked-byte (if val 1 0))))
+                                  (unchecked-byte (if (Casts/booleanCast val) 1 0))))
                  dtype-proto/PEndianness
                  (endianness [_m] (dtype-proto/endianness buffer)))
       ;;Reading data involves unchecked casts.  Writing involves checked-casts

@@ -2,14 +2,16 @@
   "Implementation of reservoir sampling designed to be used in other systems.  Provides
   a low-level sampler object and a double-reservoir that implements DoubleConsumer and
   derefs to a buffer of doubles."
-  (:require [tech.v3.datatype.list :as dtype-list]
+  (:require [tech.v3.datatype.array-buffer :as abuf]
             [tech.v3.datatype.base :as dtype-base]
-            [tech.v3.datatype.copy-make-container :as dtype-cmc])
-  (:import [java.util.function LongSupplier DoubleConsumer]
+            [tech.v3.datatype.copy-make-container :as dtype-cmc]
+            [ham-fisted.protocols :as hamf-proto]
+            [ham-fisted.api :as hamf])
+  (:import [java.util.function LongSupplier Consumer]
            [java.util Random]
            [org.apache.commons.math3.random MersenneTwister]
-           [clojure.lang IDeref IObj]
-           [tech.v3.datatype Consumers$StagedConsumer PrimitiveList]))
+           [ham_fisted IMutList Reducible]
+           [clojure.lang IDeref IObj]))
 
 
 (set! *warn-on-reflection* true)
@@ -85,7 +87,7 @@
      :w w}))
 
 
-(defn reservoir-sampler
+(defn reservoir-sampler-supplier
   "Create a `java.util.function.LongSupplier` that will generate an infinite sequence
   of longs.  If a long is -1 it means do nothing, else it will output the index
   to replace with the new item.  The sampler expects the reservoir is full before
@@ -109,12 +111,28 @@
          n-skip (next-n-skip random w)]
      (ReservoirSampler. 0 n-skip (int reservoir-size) random w nil)))
   (^LongSupplier [reservoir-size]
-   (reservoir-sampler reservoir-size nil)))
+   (reservoir-sampler-supplier reservoir-size nil)))
 
 
+(deftype ObjectRes [^IMutList container
+                    ^long reservoir-size
+                    ^LongSupplier sampler]
+  Consumer
+  (accept [this val]
+    (if (< (.size container) reservoir-size)
+      (.add container val)
+      (let [replace-idx (.getAsLong sampler)]
+        (when (>= replace-idx 0)
+          (.set container replace-idx val)))))
+  Reducible
+  (reduce [this other]
+    (hamf/reduce hamf/double-consumer-accumulator this @other))
+  IDeref
+  (deref [this] container))
 
-(defn double-reservoir
-  "Return a staged double consumer that will accept doubles and whose value is the
+
+(defn reservoir-sampler
+    "Return hamf parallel reducer that will accept doubles and whose value is the
   reservoir of data.
 
   Merging consists of adding elements from the second distribution into the first.
@@ -126,28 +144,36 @@
   * `:seed` - long integer seed.
   * `:random` - User provided instance of java.util.Random.  If this exists it
      overrides all other options.
-  * `:container-type` - Specify container type, defaults to `:jvm-heap`."
-  (^DoubleConsumer [reservoir-size options]
-   (let [reservoir-size (long reservoir-size)
-         container (dtype-cmc/make-container (:container-type options :jvm-heap)
-                                             :float64 options reservoir-size)
-         ^PrimitiveList reservoir (dtype-list/make-list container 0)
-         sampler (reservoir-sampler reservoir-size options)]
-     (reify
-       DoubleConsumer
-       (accept [this val]
-         (if (< (.lsize reservoir) reservoir-size)
-           (.add reservoir val)
-           (let [replace-idx (.getAsLong sampler)]
-             (when (>= replace-idx 0)
-               (.writeDouble reservoir replace-idx val)))))
-       Consumers$StagedConsumer
-       (combine [this other]
-         (let [other-data (dtype-base/->buffer (.value other))]
-           (dotimes [idx (.lsize other-data)]
-             (.accept this (.readDouble other-data idx)))
-           this))
-       (value [this]
-         reservoir))))
-  (^DoubleConsumer [reservoir-size]
-   (double-reservoir reservoir-size nil)))
+  * `:datatype` - Specify container's datatype.  Defaults to :object
+
+  Examples:
+
+```clojure
+tech.v3.datatype.sampling> (hamf/reduce-reducer (reservoir-sampler 10) (range 200))
+[189 15 49 128 167 157 170 7 182 162]
+tech.v3.datatype.sampling> (hamf/reduce-reducer (reservoir-sampler 10 {:datatype :float32}) (range 200))
+[0.0 117.0 37.0 3.0 190.0 186.0 27.0 89.0 63.0 108.0]
+tech.v3.datatype.sampling> (hamf/preduce-reducer (reservoir-sampler 10 {:datatype :float32}) (range 200000))
+[5750.0
+ 128996.0
+ 146881.0
+ 174104.0
+ 101110.0
+ 24560.0
+ 25344.0
+ 170374.0
+ 158145.0
+ 124138.0]
+```
+  "
+  ([reservoir-size] (reservoir-sampler reservoir-size nil))
+  ([^long reservoir-size options]
+   (reify
+     hamf-proto/Reducer
+     (->init-val-fn [s] #(ObjectRes. (abuf/array-list (get options :datatype :object))
+                                     reservoir-size
+                                     (reservoir-sampler-supplier reservoir-size options)))
+     (->rfn [s] hamf/consumer-accumulator)
+     (finalize [s v] (deref v))
+     hamf-proto/ParallelReducer
+     (->merge-fn [this] hamf/reducible-merge))))

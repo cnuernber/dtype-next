@@ -12,7 +12,7 @@
             [tech.v3.datatype.errors :as errors]
             [clojure.set :as set])
   (:import [tech.v3.datatype DoubleReader LongReader ObjectReader Buffer
-            BinaryOperator BinaryOperators$ObjectBinaryOperator
+            BinaryOperator
             BinaryOperators$LongBinaryOperator]
            [java.time.temporal ChronoUnit Temporal ChronoField
             WeekFields TemporalAmount TemporalField
@@ -405,7 +405,7 @@
   (let [dtype (packing/unpack-datatype dtype)]
     (case (dt-base/classify-datatype dtype)
       :temporal (let [tf (ensure-temporal-amount tf)]
-                  (reify BinaryOperators$ObjectBinaryOperator
+                  (reify BinaryOperator
                     (binaryObject [this lhs rhs]
                       (when lhs
                         (.plus ^Temporal lhs (unchecked-long rhs) tf)))))
@@ -453,7 +453,7 @@
   (let [dtype (packing/unpack-datatype dtype)]
     (case (dt-base/classify-datatype dtype)
       :temporal (let [tf (ensure-temporal-amount tf)]
-                  (reify BinaryOperators$ObjectBinaryOperator
+                  (reify BinaryOperator
                     (binaryObject [this lhs rhs]
                       (when lhs
                         (.minus ^Temporal lhs (unchecked-long rhs) tf)))))
@@ -506,10 +506,10 @@
                                                  units
                                                  (get-chrono-unit units))]
                    (if reverse?
-                     (reify BinaryOperators$ObjectBinaryOperator
+                     (reify BinaryOperator
                        (binaryObject [this rhs lhs]
                          (.between chrono-unit ^Temporal lhs ^Temporal rhs)))
-                     (reify BinaryOperators$ObjectBinaryOperator
+                     (reify BinaryOperator
                        (binaryObject [this lhs rhs]
                          (.between chrono-unit ^Temporal lhs ^Temporal rhs)))))
        :epoch (let [epoch-conv (long (dt-base/epoch->microseconds src-dt-type))

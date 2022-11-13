@@ -5,6 +5,13 @@ import clojure.lang.Sequential;
 import clojure.lang.RT;
 import clojure.lang.ISeq;
 import clojure.lang.Indexed;
+import clojure.java.api.Clojure;
+
+import ham_fisted.IFnDef;
+import ham_fisted.Casts;
+import ham_fisted.ArrayLists;
+import ham_fisted.Ranges;
+import ham_fisted.IMutList;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -12,9 +19,8 @@ import java.util.Collection;
 import java.util.ListIterator;
 import java.util.RandomAccess;
 
-public interface NDBuffer extends DatatypeBase, Iterable, IFnDef,
-				  Sequential, Indexed,
-				  List, RandomAccess
+
+public interface NDBuffer extends DatatypeBase, IFnDef, IMutList
 {
   // Buffer may be nil if this isn't a buffer backed tensor
   default Object buffer() { return null; }
@@ -24,17 +30,12 @@ public interface NDBuffer extends DatatypeBase, Iterable, IFnDef,
   default Iterable shape() { return indexSystem().shape(); }
   //count of shape
   default int rank() { return indexSystem().rank(); }
+  default int count() { return size(); }
   //Outermost dimension
   default long outermostDim() { return indexSystem().outermostDim(); }
   default long lsize() { return indexSystem().lsize(); }
   //Scalar read methods have to be exact to the number of dimensions of the
   //tensor.
-  boolean ndReadBoolean(long idx);
-  boolean ndReadBoolean(long row, long col);
-  boolean ndReadBoolean(long height, long width, long chan);
-  void ndWriteBoolean(long idx, boolean value);
-  void ndWriteBoolean(long row, long col, boolean value);
-  void ndWriteBoolean(long height, long width, long chan, boolean value);
   long ndReadLong(long idx);
   long ndReadLong(long row, long col);
   long ndReadLong(long height, long width, long chan);
@@ -85,13 +86,13 @@ public interface NDBuffer extends DatatypeBase, Iterable, IFnDef,
   default boolean allowsWrite() { return false; }
   default Object elemwiseDatatype () { return Keyword.intern(null, "object"); }
   default Object invoke(Object arg) {
-    return ndReadObject(RT.longCast(arg));
+    return ndReadObject(Casts.longCast(arg));
   }
   default Object invoke(Object arg, Object arg2) {
-    return ndReadObject(RT.longCast(arg), RT.longCast(arg2));
+    return ndReadObject(Casts.longCast(arg), Casts.longCast(arg2));
   }
   default Object invoke(Object arg, Object arg2, Object arg3) {
-    return ndReadObject(RT.longCast(arg), RT.longCast(arg2), RT.longCast(arg3));
+    return ndReadObject(Casts.longCast(arg), Casts.longCast(arg2), Casts.longCast(arg3));
   }
   default Object invoke(Object arg, Object arg2, Object arg3, Object arg4) {
     ArrayList<Object> args = new ArrayList<Object>() { {
@@ -163,53 +164,9 @@ public interface NDBuffer extends DatatypeBase, Iterable, IFnDef,
       return notFound;
     }
   }
-  default List subList(int start, int end) {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default ListIterator listIterator() {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default ListIterator listIterator(int idx) {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default int indexOf(Object obj) {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default int lastIndexOf(Object obj) {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default Object remove(int idx) {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default void add(int idx, Object obj) {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default void clear() {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default boolean retainAll(Collection c) {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default boolean removeAll(Collection c) {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default boolean add(Object obj) {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default boolean addAll(Collection c) {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default boolean addAll(int idx, Collection c) {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default boolean contains(Object c) {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default boolean containsAll(Collection c) {
-    throw new UnsupportedOperationException("Unimplemented");
-  }
-  default boolean remove(Object c) {
-    throw new UnsupportedOperationException("Unimplemented");
+  //This is only implemented at the protocol level
+  default IMutList<Object> subList(int start, int end) {
+    return (IMutList<Object>)Clojure.var("tech.v3.datatype.protocols", "select").invoke(this, ArrayLists.toList(new Object[] { new Ranges.LongRange(start,end,1,null) }));
   }
   default int size() { return RT.intCast(outermostDim()); }
   default Object get(int idx) { return ndReadObject(idx); }

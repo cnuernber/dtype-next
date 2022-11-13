@@ -134,15 +134,15 @@
   returns nil."
   [idx-var num-iters & body]
   `(let [num-iters# (long ~num-iters)]
-     (if (< num-iters# (* 2 (ForkJoinPool/getCommonPoolParallelism)))
-       (dotimes [~idx-var num-iters#]
-         ~@body)
-       (indexed-map-reduce
-        num-iters#
-        (fn [^long group-start# ^long group-len#]
-          (dotimes [idx# group-len#]
-            (let [~idx-var (+ idx# group-start#)]
-              ~@body)))))))
+     (->> (hamf/upgroups
+           num-iters#
+           (fn [^long sidx# ^long eidx#]
+             (let [glen# (- eidx# sidx#)]
+               (dotimes [idx# glen#]
+                 (let [~idx-var (+ idx# sidx#)]
+                   ~@body))))
+           {:min-n (* 100 (ForkJoinPool/getCommonPoolParallelism))})
+          (dorun))))
 
 
 (defn pmap

@@ -102,7 +102,8 @@
      (fn [_op-datatype item]
        (let [^Buffer item (dtype-proto/->reader item)]
          (if (casting/integer-type? primitive-datatype)
-           (reify LongReader
+           ;;This needs to keep the object defaults
+           (reify ObjectReader
              (elemwiseDatatype [rdr] packed-datatype)
              (lsize [rdr] (.lsize item))
              (readLong [rdr idx]
@@ -141,6 +142,14 @@
                        (unpack-fn (.readLong buffer idx)))
      :packing-write (fn [^Buffer buffer ^long idx obj]
                       (.writeLong buffer idx (pack-fn obj)))}))
+
+
+(defn packing-pair
+  "If datatype is a packed datatype, return a pair of functions of the form
+  [pack-fn unpack-fn]."
+  [dtype]
+  (when-let [{:keys [pack-fn unpack-fn]} (.get unpack-table dtype)]
+    [pack-fn unpack-fn]))
 
 
 (defn pack-scalar

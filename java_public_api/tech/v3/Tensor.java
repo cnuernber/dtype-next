@@ -9,7 +9,7 @@ import static tech.v3.DType.*;
 import java.util.List;
 import java.util.Map;
 import tech.v3.datatype.NDBuffer;
-import tech.v3.datatype.IFnDef;
+import ham_fisted.IFnDef;
 
 
 /**

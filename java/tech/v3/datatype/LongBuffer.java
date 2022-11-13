@@ -2,47 +2,51 @@ package tech.v3.datatype;
 
 
 import clojure.lang.Keyword;
-import clojure.lang.RT;
-import java.util.stream.LongStream;
-
+import clojure.lang.IFn;
+import ham_fisted.Casts;
+import ham_fisted.ChunkedList;
 
 
 public interface LongBuffer extends Buffer
 {
   default Object elemwiseDatatype () { return Keyword.intern(null, "int64"); }
-  default boolean readBoolean(long idx) {return readLong(idx) != 0;}
-  default byte readByte(long idx) {return (byte)readLong(idx);}
-  default short readShort(long idx) {return (short)readLong(idx);}
-  default char readChar(long idx) {return (char)readLong(idx);}
-  default int readInt(long idx) {return (int)readLong(idx);}
-  default float readFloat(long idx) {return (float)readLong(idx);}
   default double readDouble(long idx) {return (double)readLong(idx);}
   default Object readObject(long idx) {return readLong(idx);}
-  default LongStream typedStream() {
-    return longStream();
-  }
-  default void writeBoolean(long idx, boolean val) {
-    writeLong(idx, (val ? 1 : 0));
-  }
-  default void writeByte(long idx, byte val) {
-    writeLong(idx, val);
-  }
-  default void writeShort(long idx, short val) {
-    writeLong(idx, val);
-  }
-  default void writeChar(long idx, char val) {
-    writeLong(idx, val);
-  }
-  default void writeInt(long idx, int val) {
-    writeLong(idx, val);
-  }
-  default void writeFloat(long idx, float val) {
-    writeLong(idx, RT.longCast(val));
-  }
   default void writeDouble(long idx, double val) {
-    writeLong(idx, RT.longCast(val));
+    writeLong(idx, Casts.longCast(val));
   }
   default void writeObject(long idx, Object val) {
-    writeLong(idx, RT.longCast(val));
+    writeLong(idx, Casts.longCast(val));
+  }
+
+  public static class LongSubBuffer extends SubBuffer implements LongBuffer {
+    public LongSubBuffer(LongBuffer list, long sidx, long eidx) {
+      super(list, sidx, eidx);
+    }
+    public Object reduce(IFn rfn, Object init) { return LongBuffer.super.reduce(rfn, init); }
+    public Object doubleReduction(IFn.ODO rfn, Object init) {
+      return LongBuffer.super.doubleReduction(rfn, init);
+    }
+  }
+
+  default Buffer subBuffer(long sidx, long eidx) {
+    ChunkedList.sublistCheck(sidx, eidx, lsize());
+    if(sidx == 0 && eidx == lsize()) return this;
+    return new LongSubBuffer(this, sidx, eidx);
+  }
+  default Object reduce(final IFn fn, Object init) {
+    final IFn.OLO rrfn = fn instanceof IFn.OLO ? (IFn.OLO)fn : new IFn.OLO() {
+	public Object invokePrim(Object lhs, long v) {
+	  return fn.invoke(lhs, v);
+	}
+      };
+    return longReduction(rrfn, init);
+  }
+  default Object doubleReduction(IFn.ODO fn, Object init) {
+    return longReduction(new IFn.OLO() {
+	public Object invokePrim(Object lhs, long v) {
+	  return fn.invokePrim(lhs, (double)v);
+	}
+      }, init);
   }
 }

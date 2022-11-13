@@ -168,10 +168,7 @@ Note that this makes no mention of indianness; buffers are in the format of the 
   (range-min [item])
   (range-max [item])
   (range-offset [item offset]
-    "Offset this range by this offset.  Returns")
-  (range->reverse-map [item]
-    "Return a map whose keys are the values of the range
-and whose values are the indexes that produce those values in the reader."))
+    "Offset this range by this offset.  Returns same length range with start,end offset."))
 
 
 (defprotocol PEndianness
@@ -270,3 +267,31 @@ and whose values are the indexes that produce those values in the reader."))
   (^List slice [t n-dims right?])
   (mget [t idx-seq])
   (mset! [t idx-seq value]))
+
+
+(defprotocol PApplyUnary
+  (apply-unary-op [item res-dtype un-op]))
+
+
+(extend-type Buffer
+  PClone
+  (clone [buf] (.cloneList buf))
+  PToBuffer
+  (convertible-to-buffer? [buf] true)
+  (->buffer [buf] buf)
+  PToReader
+  (convertible-to-buffer? [buf] (.allowsRead buf))
+  (->reader [buf] buf)
+  PToWriter
+  (convertible-to-buffer? [buf] (.allowsWrite buf))
+  (->writer [buf] buf)
+  PSubBuffer
+  (sub-buffer [buf offset len]
+    (let [offset (long offset)
+          len (long len)])
+    (.subBuffer buf offset (+ offset len)))
+  PSetConstant
+  (set-constant! [buf offset elem-count value]
+    (let [offset (int offset)
+          ec (int elem-count)]
+      (.fillRange buf offset (+ offset ec) value))))

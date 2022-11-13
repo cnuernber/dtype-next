@@ -16,7 +16,7 @@
               ;;Fastpath for sequences of numbers.  Avoids more protocol pathways.
               (if (= :scalar (argtypes/arg-type new-raw-data))
                 (do
-                  (writer target-offset new-raw-data)
+                  (.set writer target-offset new-raw-data)
                   [ary-target (inc target-offset)])
                 ;;slow path if we didn't recognize the thing.
                 (dtype-proto/copy-raw->item! new-raw-data ary-target

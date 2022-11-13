@@ -141,10 +141,7 @@ tech.v3.datatype.rolling> (fixed-rolling-window-ranges 10 3 :right)
           item (fixed-rolling-window-ranges n-elems window-size
                                             relative-window-position)
           edge-mode)
-         (emap/emap window-fn
-                    (:datatype options
-                               (packing/unpack-datatype
-                                (dtype-base/elemwise-datatype item)))))))
+         (emap/emap window-fn (:datatype options)))))
 
 
 (defn fixed-rolling-window

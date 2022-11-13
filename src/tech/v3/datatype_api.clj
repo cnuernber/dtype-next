@@ -28,7 +28,7 @@
             [tech.v3.datatype.copy-make-container]
             [tech.v3.datatype.fastobjs :as fastobjs])
   (:import [tech.v3.datatype ListPersistentVector BooleanReader
-            LongReader DoubleReader ObjectReader PrimitiveList
+            LongReader DoubleReader ObjectReader
             Buffer ArrayBufferData NativeBufferData]
            [org.roaringbitmap RoaringBitmap])
   (:refer-clojure :exclude [cast reverse]))
@@ -231,7 +231,7 @@ user> (dtype/make-reader :float32 5 (* idx 2))
 
 
 (defn make-list
-  "Make an instance of a tech.v3.datatype.PrimitiveList.  These have typed add*
+  "Make an instance of a tech.v3.datatype.Buffer.  These have typed add*
   methods, implement tech.v3.datatype.Buffer, and a guaranteed in-place transformation
   to a concrete buffer (defaults to an array buffer).
 
@@ -251,11 +251,11 @@ user> (dt/make-list :float32 (range 10))
 #list<float32>[10]
 [0.000, 1.000, 2.000, 3.000, 4.000, 5.000, 6.000, 7.000, 8.000, 9.000]
 ```"
-  (^PrimitiveList [datatype n-elems-or-data]
+  (^Buffer [datatype n-elems-or-data]
    (if (number? n-elems-or-data)
      (dt-list/make-list (make-container datatype n-elems-or-data) 0)
      (make-container :list datatype n-elems-or-data)))
-  (^PrimitiveList [datatype]
+  (^Buffer [datatype]
    (make-list datatype 0)))
 
 
@@ -264,7 +264,7 @@ user> (dt/make-list :float32 (range 10))
   a compilation error if older versions of dtype-next are included and is
   the equivalent (in latest versions of dtype-next) to
   `(make-list datatype n-elems)`."
-  ^PrimitiveList [datatype ^long n-elems]
+  ^Buffer [datatype ^long n-elems]
   (dt-list/make-list (make-container datatype n-elems) 0))
 
 
@@ -316,7 +316,7 @@ user> (dt/make-list :float32 (range 10))
   as, for instance, keys in a map.  Not recommended far large readers although
   the data is shared."
   [item]
-  (ListPersistentVector. (->reader item)))
+  (->reader item))
 
 
 (defn as-nd-buffer-descriptor

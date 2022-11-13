@@ -13,7 +13,7 @@
             [tech.v3.datatype.array-buffer])
   (:import [org.roaringbitmap RoaringBitmap]
            [tech.v3.datatype SimpleLongSet LongReader LongBitmapIter BitmapMap
-            PrimitiveList Buffer]
+            Buffer]
            [tech.v3.datatype.array_buffer ArrayBuffer]
            [clojure.lang LongRange]
            [java.lang.reflect Field]))
@@ -230,32 +230,26 @@
   (BitmapMap. (->bitmap bitmap) value))
 
 
-(deftype BitmapPrimitiveList [^RoaringBitmap bitmap
+(deftype BitmapBuffer [^RoaringBitmap bitmap
                               ^:unsynchronized-mutable ^Buffer cached-io]
-  PrimitiveList
-  (ensureCapacity [_this _cap])
+  Buffer
   (addLong [_this arg]
     (.add bitmap (unchecked-int arg))
     (set! cached-io nil))
   (addDouble [this arg]
     (.addLong this (unchecked-long arg)))
-  (addObject [this arg]
-    (.addLong this (long arg)))
+  (add [this arg]
+    (.addLong this (long arg))
+    true)
   (addAll [_this other]
-    (if (instance? BitmapPrimitiveList other)
-      (.or bitmap (.bitmap ^BitmapPrimitiveList other))
+    (if (instance? BitmapBuffer other)
+      (.or bitmap (.bitmap ^BitmapBuffer other))
       (parallel-for/doiter
        value other
        (.add bitmap (unchecked-int value))))
     true)
   (lsize [_this] (.getCardinality bitmap))
-  (readBoolean [this idx] (dtype-proto/->reader this) (.readBoolean cached-io idx))
-  (readByte [this idx] (dtype-proto/->reader this) (.readByte cached-io idx))
-  (readShort [this idx] (dtype-proto/->reader this) (.readShort cached-io idx))
-  (readChar [this idx] (dtype-proto/->reader this) (.readChar cached-io idx))
-  (readInt [this idx] (dtype-proto/->reader this) (.readInt cached-io idx))
   (readLong [this idx] (dtype-proto/->reader this) (.readLong cached-io idx))
-  (readFloat [this idx] (dtype-proto/->reader this) (.readFloat cached-io idx))
   (readDouble [this idx] (dtype-proto/->reader this) (.readDouble cached-io idx))
   (readObject [this idx] (dtype-proto/->reader this) (.readObject cached-io idx))
   dtype-proto/PToReader
@@ -269,11 +263,12 @@
   (as-roaring-bitmap [_item] bitmap))
 
 
-(defn bitmap-as-primitive-list
-  "Return a bitmap as an implementation of a primitive list.  This allows code dependent upon
-  primitive lists to be write to bitmaps."
-  (^PrimitiveList [bitmap]
+(defn bitmap-as-buffer-list
+  "Return a bitmap as an implementation of a Buffer implementation that has an
+  add,addLong implementations.  This allows code dependent upon
+  .add, .addLong to be write to bitmaps."
+  (^Buffer [bitmap]
    (let [bitmap (dtype-proto/as-roaring-bitmap bitmap)]
-     (BitmapPrimitiveList. bitmap nil)))
-  (^PrimitiveList []
-   (bitmap-as-primitive-list (RoaringBitmap.))))
+     (BitmapBuffer. bitmap nil)))
+  (^Buffer []
+   (bitmap-as-buffer-list (RoaringBitmap.))))

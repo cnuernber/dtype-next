@@ -1,6 +1,6 @@
 (ns tech.v3.datatype.typecast
   (:require [tech.v3.datatype.casting :as casting])
-  (:import [tech.v3.datatype PrimitiveList]
+  (:import [tech.v3.datatype Buffer]
            [java.util Map]))
 
 
@@ -104,7 +104,7 @@
       'tech.v3.datatype.ObjectList)))
 
 
-(defn as-primitive-list ^PrimitiveList [item] item)
+(defn as-buffer-list ^Buffer [item] item)
 
 
 (defn as-java-map
