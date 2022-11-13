@@ -1,6 +1,7 @@
 ## 9.033
  * [issue 65](https://github.com/cnuernber/dtype-next/issues/61) - Upgrade guava to remove conflict with
    clojurescript compiler.
+ * `pmap`, `upmap` guaranteed *not* to require `shutdown-agents`.
 
 ## 9.032
  * unary version of tech.v3.datatype.functional min and max.
