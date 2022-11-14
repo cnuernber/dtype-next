@@ -100,14 +100,72 @@
 (declare reader)
 
 
+(defn- apply-nested-unary
+  [lhs unary-op1 op-space1 unary-op2 op-space2 res-dtype]
+  (let [unary-op1 (->operator unary-op1)
+        unary-op2 (->operator unary-op2)]
+    (->> (with-meta (case op-space2
+                      :int64
+                      (case op-space1
+                        :int64 (reify UnaryOperators$LongUnaryOperator
+                                 (unaryLong [this v]
+                                   (->> (.unaryLong unary-op1 v)
+                                        (.unaryLong unary-op2))))
+                        :float64 (hamf/double-to-long-function
+                                  v (->> (.unaryDouble unary-op1 v)
+                                         (Casts/longCast)
+                                         (.unaryLong unary-op2)))
+                        (hamf/to-long-function
+                         v (->> (.unaryObject unary-op1 v)
+                                (Casts/longCast)
+                                (.unaryLong unary-op2))))
+                      :float64
+                      (case op-space1
+                        :int64 (hamf/long-to-double-function
+                                v (->> (.unaryLong unary-op1 v)
+                                       (double)
+                                       (.unaryDouble unary-op2)))
+                        :float64 (reify UnaryOperators$DoubleUnaryOperator
+                                   (unaryDouble [this v]
+                                     (->> (.unaryDouble unary-op1 v)
+                                          (.unaryDouble unary-op2))))
+                        (hamf/to-double-function
+                         v (->> (.unaryObject unary-op1 v)
+                                (Casts/doubleCast)
+                                (.unaryDouble unary-op2))))
+                      (case op-space1
+                        :int64 (reify UnaryOperator
+                                 (unaryObject [this v ]
+                                   (->> (Casts/longCast v)
+                                        (.unaryLong unary-op1)
+                                        (.unaryObject unary-op2))))
+                        :float64 (reify UnaryOperator
+                                   (unaryObject [this v]
+                                     (->> (Casts/doubleCast v)
+                                          (.unaryDouble unary-op1)
+                                          (.unaryObject unary-op2))))
+                        (reify UnaryOperator
+                          (unaryObject [this v]
+                            (->> (.unaryObject unary-op1 v)
+                                 (.unaryObject unary-op2))))))
+           {:operation-space op-space2
+            :result-space res-dtype})
+     (dtype-proto/apply-unary-op lhs res-dtype))))
+
+
 (extend-type Object
   dtype-proto/PApplyUnary
   (apply-unary-op [lhs res-dtype unary-op]
     (let [unary-op (->operator unary-op)
-         input-dtype (dtype-base/elemwise-datatype lhs)
-         op-space (casting/simple-operation-space res-dtype input-dtype)
-         lhs (dtype-base/->reader lhs op-space)
-         n-elems (.lsize lhs)]
+          input-dtype (dtype-base/elemwise-datatype lhs)
+          op-space (casting/simple-operation-space res-dtype input-dtype)
+          lhs (dtype-base/->reader lhs op-space)
+          n-elems (.lsize lhs)
+          nested-fn (fn [res-dtype2 unary-op2]
+                      (apply-nested-unary lhs unary-op op-space
+                                          unary-op2 (casting/simple-operation-space
+                                                     op-space res-dtype2)
+                                          res-dtype2))]
      ;;Five common cases -
      ;;long->long
      ;;double->double
@@ -134,7 +192,9 @@
            (longReduction [rdr rfn init-val]
              (Reductions/serialReduction (wrap-rfn rfn) init-val lhs))
            (parallelReduction [rdr initValFn rfn mergeFn options]
-             (Reductions/parallelReduction initValFn (wrap-rfn rfn) mergeFn lhs options))))
+             (Reductions/parallelReduction initValFn (wrap-rfn rfn) mergeFn lhs options))
+           dtype-proto/PApplyUnary
+           (apply-unary-op [rdr res-dtype2 unary-op2] (nested-fn res-dtype2 unary-op2))))
        :float64
        (let [wrap-rfn
              (fn [rfn]
@@ -156,7 +216,9 @@
            (doubleReduction [rdr rfn init-val]
              (Reductions/serialReduction (wrap-rfn rfn) init-val lhs))
            (parallelReduction [rdr initValFn rfn mergeFn options]
-             (Reductions/parallelReduction initValFn (wrap-rfn rfn) mergeFn lhs options))))
+             (Reductions/parallelReduction initValFn (wrap-rfn rfn) mergeFn lhs options))
+           dtype-proto/PApplyUnary
+           (apply-unary-op [rdr res-dtype2 unary-op2] (nested-fn res-dtype2 unary-op2))))
        (case (casting/simple-operation-space res-dtype)
          ;;obj->long transformation
          :int64
@@ -175,7 +237,9 @@
              (longReduction [rdr rfn init-val]
                (Reductions/serialReduction (wrap-rfn rfn) init-val lhs))
              (parallelReduction [rdr initValFn rfn mergeFn options]
-               (Reductions/parallelReduction initValFn (wrap-rfn rfn) mergeFn lhs options))))
+               (Reductions/parallelReduction initValFn (wrap-rfn rfn) mergeFn lhs options))
+             dtype-proto/PApplyUnary
+             (apply-unary-op [rdr res-dtype2 unary-op2] (nested-fn res-dtype2 unary-op2))))
          :float64
          (let [wrap-rfn (fn [rfn]
                           (if (instance? IFn$ODO rfn)
@@ -192,7 +256,9 @@
              (doubleReduction [rdr rfn init-val]
                (Reductions/serialReduction (wrap-rfn rfn) init-val lhs))
              (parallelReduction [rdr initValFn rfn mergeFn options]
-               (Reductions/parallelReduction initValFn (wrap-rfn rfn) mergeFn lhs options))))
+               (Reductions/parallelReduction initValFn (wrap-rfn rfn) mergeFn lhs options))
+             dtype-proto/PApplyUnary
+             (apply-unary-op [rdr res-dtype2 unary-op2] (nested-fn res-dtype2 unary-op2))))
          ;;Default obj->obj transformation
          (let [wrap-rfn (fn [rfn] (fn [acc v] (rfn acc (.unaryObject unary-op v))))]
            (reify ObjectReader
@@ -204,7 +270,10 @@
                (Reductions/serialReduction (wrap-rfn rfn) init-val lhs))
              (parallelReduction [rdr initValFn rfn mergeFn options]
                (Reductions/parallelReduction initValFn (wrap-rfn rfn)
-                                             mergeFn lhs options)))))))))
+                                             mergeFn lhs options))
+             dtype-proto/PApplyUnary
+             (apply-unary-op [rdr res-dtype2 unary-op2]
+               (nested-fn res-dtype2 unary-op2)))))))))
 
 (defn reader
   ([unary-op res-dtype lhs]
