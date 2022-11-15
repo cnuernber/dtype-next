@@ -806,6 +806,10 @@
   (is (= [2] (vec (argops/argfilter identity (double-array [0 Double/NaN 1]))))))
 
 
+(deftest bool-list
+  (is (= :boolean (dtype/elemwise-datatype (dtype/make-list :boolean)))))
+
+
 
 (comment
   (defn bench-sum

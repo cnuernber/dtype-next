@@ -12,6 +12,7 @@ import ham_fisted.ChunkedList;
 public interface DoubleBuffer extends Buffer
 {
   default Object elemwiseDatatype () { return Keyword.intern(null, "float64"); }
+  default boolean add(Object o) { addDouble(Casts.doubleCast(o)); return true; }
   default long readLong(long idx) {return Casts.longCast(readDouble(idx));}
   default Object readObject(long idx) {return readDouble(idx);}
   default void writeLong(long idx, long val) {
