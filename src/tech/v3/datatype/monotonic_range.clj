@@ -24,11 +24,13 @@
 (extend-type Ranges$LongRange
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [_item] :int64)
+  dtype-proto/PECount
+  (ecount [item] (.-nElems item))
   dtype-proto/PSubBuffer
   (sub-buffer [item offset len]
     (.subList item (long offset) (long len)))
   dtype-proto/PConstantTimeMinMax
-  (has-constant-time-min-max? [item] true)
+  (has-constant-time-min-max? [item] (not (== 0 (.-nElems item))))
   (constant-time-min [item]
     (if (pos? (.-step item))
       (.-start item)
@@ -96,11 +98,13 @@
 (extend-type Ranges$DoubleRange
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [_item] :float64)
+  dtype-proto/PECount
+  (ecount [item] (.-nElems item))
   dtype-proto/PSubBuffer
   (sub-buffer [item offset len]
     (.subList item (long offset) (long len)))
   dtype-proto/PConstantTimeMinMax
-  (has-constant-time-min-max? [item] true)
+  (has-constant-time-min-max? [item] (not (== 0 (.-nElems item))))
   (constant-time-min [item]
     (if (pos? (.-step item))
       (.-start item)

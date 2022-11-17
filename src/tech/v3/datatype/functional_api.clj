@@ -361,7 +361,7 @@
         (parallel-for/indexed-map-reduce
          n-spans
          (fn [^long start-idx ^long group-len]
-           (let [^Buffer new-data (dtype-list/make-list :float64)
+           (let [new-data (dtype-list/make-list :float64)
                  new-indexes (RoaringBitmap.)]
              (dotimes [idx group-len]
                (let [idx (pmath/+ idx start-idx)

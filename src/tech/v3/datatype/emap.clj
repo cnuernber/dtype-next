@@ -36,9 +36,9 @@
                         (identical? :scalar yt))
       (op x y)
       (identical? :scalar xt)
-      (unary-dispatch (binary-op/unary-op-l op x) y options)
+      (unary-dispatch (binary-op/unary-op-l op x (dtype-proto/elemwise-datatype y)) y options)
       (identical? :scalar yt)
-      (unary-dispatch (binary-op/unary-op-r op y) x options)
+      (unary-dispatch (binary-op/unary-op-r op y (dtype-proto/elemwise-datatype x)) x options)
       :else
       (vectorized-dispatch-2
        op
@@ -105,19 +105,32 @@
   3. Either a reader or a tensor is returned.  All input shapes
      have to match.
 
-  res-dtype is nil it is deduced from unifying the argument datatypes"
+  res-dtype is nil it is deduced from unifying the argument datatypes meaning
+  map-fn, unless it is typed, is assumed to keep data in the same numeric space
+  as the input."
   ([map-fn res-dtype x]
-   (let [res-dtype (or res-dtype (dtype-base/elemwise-datatype x))
+   (let [map-fn (unary-op/->operator map-fn)
+         op-res-space (:result-space (meta map-fn))
+         op-res-space (if (or (nil? op-res-space)
+                              (identical? :object op-res-space))
+                        (dtype-base/elemwise-datatype x)
+                        op-res-space)
+         res-dtype (or res-dtype op-res-space)
          op-space (casting/simple-operation-space res-dtype)
          cast-fn (op-space->cast-fn op-space res-dtype)]
      (unary-dispatch (with-meta map-fn {:result-space res-dtype
                                         :operation-space op-space})
                      x nil)))
   ([map-fn res-dtype x y]
-   (let [res-dtype (or res-dtype
-                       (casting/widest-datatype
-                        (dtype-base/elemwise-datatype x)
-                        (dtype-base/elemwise-datatype y)))
+   (let [map-fn (binary-op/->operator map-fn)
+         op-res-space (:result-space (meta map-fn))
+         op-res-space (if (or (nil? op-res-space)
+                              (identical? :object op-res-space))
+                        (casting/widest-datatype
+                         (dtype-base/elemwise-datatype x)
+                         (dtype-base/elemwise-datatype y))
+                        op-res-space)
+         res-dtype (or res-dtype op-res-space)
          op-space (casting/simple-operation-space res-dtype)]
      (binary-dispatch (with-meta map-fn
                         {:operation-space op-space

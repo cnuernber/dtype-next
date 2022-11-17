@@ -343,8 +343,12 @@
      have to match.
 
   res-dtype is nil it is deduced from unifying the argument datatypes"
-  ([map-fn res-dtype & args]
-  (apply tech.v3.datatype.emap/emap map-fn res-dtype args)))
+  ([map-fn res-dtype x]
+  (tech.v3.datatype.emap/emap map-fn res-dtype x))
+  ([map-fn res-dtype x y]
+  (tech.v3.datatype.emap/emap map-fn res-dtype x y))
+  ([map-fn res-dtype x y & args]
+  (apply tech.v3.datatype.emap/emap map-fn res-dtype x y args)))
 
 
 (defn ensure-reader

@@ -348,7 +348,7 @@
   ;;operates and returns values in long space.
   (let [{truevals true
          falsevals false}
-        (argops/arggroup-by even? {:storage-datatype :int64} (range 20))]
+        (argops/arggroup-by even? {:storage-datatype :bitmap} (range 20))]
     (is (= (set truevals)
            (set (filter even? (range 20)))))
     (is (= (set falsevals)
@@ -809,6 +809,14 @@
 (deftest bool-list
   (is (= :boolean (dtype/elemwise-datatype (dtype/make-list :boolean)))))
 
+
+(deftest unsigned-to-array-to-array-buffer
+  (doseq [dtype [:uint64 :uint32 :uint16 :uint8]]
+    (let [c (dtype/make-container dtype (range 200))
+          abuf (dtype/->array-buffer c)
+          data (dtype/->array c)]
+      (is (dfn/equals abuf c) dtype)
+      (is (dfn/equals data c) dtype))))
 
 
 (comment

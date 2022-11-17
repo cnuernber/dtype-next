@@ -57,10 +57,12 @@
    (let [arg1-type (arg-type arg1)]
      (if (= arg1-type :scalar)
        (scalar-fn arg1)
-       (let [res-dtype (dtype-proto/operational-elemwise-datatype arg1)
-             res-dtype (if-let [op-space (:operation-space options)]
-                         (casting/widest-datatype res-dtype op-space)
-                         res-dtype)]
+       (let [res-dtype (if (:result-space options)
+                         (:result-space options)
+                         (let [res-dtype (dtype-proto/operational-elemwise-datatype arg1)]
+                           (if-let [op-space (:operation-space options)]
+                             (casting/widest-datatype res-dtype op-space)
+                             res-dtype)))]
          (if (= arg1-type :iterable)
            (if iterable-fn
              (iterable-fn res-dtype arg1)

@@ -160,12 +160,12 @@
    (let [item (apply-nan-strat datatype nan-strategy item)
          abuf (dtype-base/as-array-buffer item)]
      (if (and abuf
-              (identical? (.-dtype abuf) datatype)
+              (identical? (.-dtype abuf) (casting/datatype->host-datatype datatype))
               (== (.-offset abuf) 0)
               (== (.-n-elems abuf)
                   (dtype-base/ecount (.-ary-data abuf))))
        (.-ary-data abuf)
-       (.toNativeArray ^IMutList (make-container :jvm-heap datatype item)))))
+       (.toNativeArray ^IMutList (make-container :jvm-heap (casting/datatype->safe-host-type datatype) item)))))
   ([datatype item]
    (->array datatype nil item))
   (^ArrayBuffer [item]

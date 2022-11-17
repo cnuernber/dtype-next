@@ -7,15 +7,18 @@
             [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.monotonic-range :as mono-range]
-            [ham-fisted.api :as hamf])
+            [ham-fisted.api :as hamf]
+            [ham-fisted.protocols :as hamf-proto]
+            [ham-fisted.lazy-noncaching :as lznc])
   (:import [tech.v3.datatype UnaryPredicate Buffer
             UnaryPredicates$DoubleUnaryPredicate
             UnaryPredicates$LongUnaryPredicate
             UnaryPredicates$ObjectUnaryPredicate
             Buffer BooleanReader]
-           [ham_fisted Casts Ranges$LongRange]
+           [org.roaringbitmap RoaringBitmap]
+           [ham_fisted Casts Ranges$LongRange IMutList Reducible]
            [java.util List]
-           [java.util.function DoublePredicate Predicate]
+           [java.util.function DoublePredicate Predicate LongConsumer]
            [clojure.lang IFn IDeref]))
 
 
@@ -209,53 +212,98 @@
     :int32
     :int64))
 
-(deftype IndexList [^Buffer list
+(deftype IndexList [^IMutList list
+                    ^{:unsynchronized-mutable true
+                      :tag long} first-value
                     ^{:unsynchronized-mutable true
                       :tag long} last-value
                     ^{:unsynchronized-mutable true
                       :tag long} increment]
-  Buffer
-  (addLong [_this lval]
-    (when-not (== last-value -1)
+  LongConsumer
+  (accept [_this lval]
+    (if (== first-value -1)
+      (set! first-value lval)
       (let [new-incr (- lval last-value)]
-        (if (== increment -1)
+        (cond
+          (== increment -1)
           (set! increment new-incr)
-          (when-not (== new-incr increment)
-            (set! increment Long/MAX_VALUE)))))
-    (set! last-value lval)
-    (.addLong list lval))
+          (== increment Long/MAX_VALUE)
+          (.addLong list lval)
+          (not (== increment new-incr))
+          (do (.addAll list (hamf/range first-value (+ last-value increment) increment))
+              (.add list lval)
+              (set! increment Long/MAX_VALUE)))))
+    (set! last-value lval))
+  Reducible
+  (reduce [this other]
+    (let [^IndexList other other]
+      (if (and (not (== increment Long/MAX_VALUE))
+               (== increment (.-increment other))
+               (== (+ last-value increment) (.-first-value other)))
+        (IndexList. list first-value (.-last-value other) increment)
+        (let [^IMutList list list]
+          (when (not (== increment Long/MAX_VALUE))
+            (.addAll list (hamf/range first-value (+ last-value increment) increment)))
+          (if (== (.-increment other) Long/MAX_VALUE)
+            (.addAll list (.-list other))
+            (.addAll list (hamf/range (.-first-value other)
+                                      (+ (.-last-value other)
+                                         (.-increment other))
+                                      (.-increment other))))
+          (IndexList. list first-value (list -1) Long/MAX_VALUE)))))
   IDeref
   (deref [_this]
-    (if (== 1 increment)
-      (let [lstart (unchecked-long (list 0))]
-        (mono-range/make-range lstart (+ lstart (.lsize list))))
-      list))
-  dtype-proto/PRange
-  (range-increment [_this] increment))
+    (cond
+      (== first-value -1)
+      (hamf/range 0)
+      (== increment Long/MAX_VALUE)
+      list
+      :else
+      (hamf/range first-value (+ last-value increment) increment))))
 
 
-(defn make-index-list
-  ^Buffer [dtype]
-  (let [list (dtype-list/make-list dtype)]
-    (IndexList. list -1 -1)))
+(defn maybe-bitmap->range
+  [^RoaringBitmap bm]
+  (if (.isEmpty bm)
+    (hamf/range 0)
+    (let [start (Integer/toUnsignedLong (.first bm))
+          end (unchecked-inc (Integer/toUnsignedLong (.last bm)))]
+      (if (.contains bm start end)
+        (hamf/range start end)
+        bm))))
 
 
-(defn merge-index-list-results
-  [index-space lhs rhs]
-  (cond
-    (== 0 (.size ^List lhs)) rhs
-    (== 0 (.size ^List rhs)) lhs
-    :else
-    (let [^Ranges$LongRange lrange (when (instance? Ranges$LongRange lhs) lhs)
-          ^Ranges$LongRange rrange (when (instance? Ranges$LongRange rhs) rhs)]
-      (if (and lrange rrange (== (.start rrange) (.end lrange)))
-        (Ranges$LongRange. (.start lrange) (.end rrange) 1 nil)
-        (let [^Buffer llist (if (instance? Buffer lhs)
-                              lhs
-                              (doto (dtype-list/make-list index-space)
-                                (.addAll lrange)))]
-          (.addAll llist rhs)
-          llist)))))
+(defn index-reducer
+  "Return a hamf parallel reducer that reduces indexes into an int32 space,
+  a int64 space, or uses a roaring bitmap.
+
+  * dtype - :int32 (default), :int64, :bitmap"
+  [dtype]
+  (let [dtype (or dtype :int32)]
+    (cond
+      (or (identical? dtype :int32) (identical? dtype :int64))
+      (reify
+        hamf-proto/Reducer
+        (->init-val-fn [r] #(IndexList. (dtype-list/make-list dtype) -1 -1 -1))
+        (->rfn [r] hamf/long-consumer-accumulator)
+        (finalize [r l] @l)
+        hamf-proto/ParallelReducer
+        (->merge-fn [r] hamf/reducible-merge))
+      (identical? dtype :bitmap)
+      (reify
+        hamf-proto/Reducer
+        (->init-val-fn [r] #(RoaringBitmap.))
+        (->rfn [r] (hamf/long-accumulator
+                    acc v
+                    (.add ^RoaringBitmap acc (unchecked-int v))
+                    acc))
+        (finalize [r l] (maybe-bitmap->range l))
+        hamf-proto/ParallelReducer
+        (->merge-fn [r] (fn [^RoaringBitmap l ^RoaringBitmap r]
+                          (.or l r)
+                          l)))
+      :else
+      (throw (Exception. "Unrecognized index reducer type.")))))
 
 
 (defn bool-reader->indexes
@@ -265,18 +313,11 @@
          reader (dtype-base/->reader bool-item)
          storage-type (or storage-type
                           (reader-index-space bool-item))]
-     (->> (hamf/pgroups n-elems
-                        (fn [^long sidx ^long eidx]
-                          (let [gsize (- eidx sidx)
-                                idx-data (case storage-type
-                                             :int32 (make-index-list :int32)
-                                             ;; :bitmap `(RoaringBitmap.)
-                                             :int64 (make-index-list :int64))]
-                            (dotimes [idx gsize]
-                              (let [iter-idx (+ idx sidx)]
-                                (when (Casts/booleanCast (.readObject reader iter-idx))
-                                  (.addLong idx-data iter-idx))))
-                            @idx-data)))
-          (reduce #(merge-index-list-results storage-type %1 %2)))))
+     (->> (hamf/range n-elems)
+          (lznc/filter (hamf/long-predicate
+                        idx
+                        (Casts/booleanCast (.readObject reader idx))))
+          (hamf/preduce-reducer (index-reducer storage-type)
+                                {:ordered? true}))))
   (^Buffer [bool-item]
    (bool-reader->indexes nil bool-item)))

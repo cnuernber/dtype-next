@@ -30,6 +30,7 @@
   (:import [tech.v3.datatype ListPersistentVector BooleanReader
             LongReader DoubleReader ObjectReader
             Buffer ArrayBufferData NativeBufferData]
+           [ham_fisted IMutList Casts]
            [org.roaringbitmap RoaringBitmap])
   (:refer-clojure :exclude [cast reverse]))
 
@@ -156,19 +157,18 @@ user> (dtype/make-reader :float32 5 (* idx 2))
            `(reify BooleanReader
               (elemwiseDatatype [rdr#] ~advertised-datatype)
               (lsize [rdr#] ~'n-elems)
-              (readBoolean [rdr# ~'idx]
-                (casting/datatype->unchecked-cast-fn
-                 :unknown :boolean ~read-op)))
+              (readObject [rdr# ~'idx]
+                (Casts/booleanCast ~read-op)))
            (casting/integer-type? reader-datatype)
            `(reify LongReader
               (elemwiseDatatype [rdr#] ~advertised-datatype)
               (lsize [rdr#] ~'n-elems)
-              (readLong [rdr# ~'idx] (unchecked-long ~read-op)))
+              (readLong [rdr# ~'idx] (Casts/longCast ~read-op)))
            (casting/float-type? reader-datatype)
            `(reify DoubleReader
               (elemwiseDatatype [rdr#] ~advertised-datatype)
               (lsize [rdr#] ~'n-elems)
-              (readDouble [rdr# ~'idx] (unchecked-double ~read-op)))
+              (readDouble [rdr# ~'idx] (Casts/doubleCast ~read-op)))
            :else
            `(reify ObjectReader
               (elemwiseDatatype [rdr#] ~advertised-datatype)
@@ -251,11 +251,11 @@ user> (dt/make-list :float32 (range 10))
 #list<float32>[10]
 [0.000, 1.000, 2.000, 3.000, 4.000, 5.000, 6.000, 7.000, 8.000, 9.000]
 ```"
-  (^Buffer [datatype n-elems-or-data]
+  (^IMutList [datatype n-elems-or-data]
    (if (number? n-elems-or-data)
      (dt-list/make-list (make-container datatype n-elems-or-data) 0)
      (make-container :list datatype n-elems-or-data)))
-  (^Buffer [datatype]
+  (^IMutList [datatype]
    (make-list datatype 0)))
 
 

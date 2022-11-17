@@ -509,9 +509,12 @@
 
 (defn- ensure-datatypes
   [ary-dtype buf-dtype]
-  (when-not (or (identical? ary-dtype (casting/datatype->host-datatype buf-dtype)))
+  (when-not (or (not (casting/numeric-type? ary-dtype))
+                (identical? ary-dtype buf-dtype)
+                (identical? (casting/datatype->host-datatype ary-dtype)
+                            (casting/datatype->host-datatype buf-dtype)))
     (throw (Exception. (str "Array datatype " ary-dtype " and buffer datatype " buf-dtype
-                            "are not compatible"))))
+                            " are not compatible"))))
   buf-dtype)
 
 

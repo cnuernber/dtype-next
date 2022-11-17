@@ -129,13 +129,13 @@
 (defn make-list
   "Make a new primitive list out of a container and a ptr that indicates the
   current write position."
-  (^Buffer [initial-container ^long ptr]
+  (^IMutList [initial-container ^long ptr]
    (if (dtype-proto/convertible-to-array-buffer? initial-container)
-     (dtype-proto/->buffer (array-buffer/as-growable-list initial-container ptr))
+     (array-buffer/as-growable-list initial-container ptr)
      (let [rw (dtype-base/->reader initial-container)]
        (ListImpl. initial-container (dtype-base/ecount initial-container) ptr rw {}))))
-  (^Buffer [datatype]
-   (dtype-proto/->buffer (array-buffer/array-list datatype))))
+  (^IMutList [datatype]
+   (array-buffer/array-list datatype)))
 
 
 (defn wrap-container

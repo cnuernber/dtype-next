@@ -62,15 +62,21 @@
    (iterable binary-op (dtype-base/elemwise-datatype lhs) lhs rhs)))
 
 
+(defn- unary-op-space
+  [op scalar vec-dtype]
+  (let [op-space (casting/widest-datatype (dtype-proto/datatype scalar)
+                                          vec-dtype)]
+    (-> (if-let [op-op-space (get (meta op) :operation-space)]
+          (casting/widest-datatype op-space op-op-space)
+          op-space)
+        (casting/simple-operation-space))))
+
+
 (defn unary-op-l
   "Create a unary op from a binary op and a constant passed in as the left argument"
-  [^BinaryOperator b v]
-  (let [op-space (if-let [op-op-space (get (meta b) :operation-space)]
-                   (casting/widest-datatype
-                    (dtype-base/elemwise-datatype v)
-                    op-op-space)
-                   (dtype-base/elemwise-datatype v))]
-    (-> (case (casting/simple-operation-space op-space)
+  [^BinaryOperator b v dtype]
+  (let [op-space (unary-op-space b v dtype)]
+    (-> (case op-space
           :int64
           (let [v (Casts/longCast v)]
             (reify UnaryOperators$LongUnaryOperator
@@ -88,13 +94,9 @@
 
 (defn unary-op-r
   "Create a unary op from a binary op and a constant passed in as the right argument"
-  [^BinaryOperator b v]
-  (let [op-space (if-let [op-op-space (get (meta b) :operation-space)]
-                   (casting/widest-datatype
-                    (dtype-base/elemwise-datatype v)
-                    op-op-space)
-                   (dtype-base/elemwise-datatype v))]
-    (-> (case (casting/simple-operation-space op-space)
+  [^BinaryOperator b v dtype]
+  (let [op-space (unary-op-space b v dtype)]
+    (-> (case op-space
           :int64
           (let [v (Casts/longCast v)]
             (reify UnaryOperators$LongUnaryOperator

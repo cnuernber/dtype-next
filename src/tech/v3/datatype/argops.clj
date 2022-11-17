@@ -12,7 +12,8 @@
             [tech.v3.datatype.reductions :as reductions]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.argtypes :as argtypes]
-            [tech.v3.datatype.const-reader :as const-reader])
+            [tech.v3.datatype.const-reader :as const-reader]
+            [ham-fisted.api :as hamf])
   (:import [it.unimi.dsi.fastutil.ints IntArrays IntComparator]
            [it.unimi.dsi.fastutil.longs LongArrays LongComparator]
            [it.unimi.dsi.fastutil.doubles DoubleComparator]
@@ -26,7 +27,7 @@
             UnaryOperator BinaryOperator
             UnaryPredicate BinaryPredicate]
            [tech.v3.datatype.unary_pred IndexList]
-           [java.util Comparator Map Iterator Collections Random]
+           [java.util Comparator Map Iterator Collections Random LinkedHashMap]
            [com.google.common.collect MinMaxPriorityQueue]
            [org.roaringbitmap RoaringBitmap]))
 
@@ -519,63 +520,40 @@
    (binary-argfilter pred nil lhs rhs)))
 
 
-(defn index-reducer
-  "Create an implementation of an tech.v3.datatype.IndexReduction interface that stores
-  the indexes in a particular storage type.  Storage types may be :int32 :int64 or, for
-  storing the result in a RoaringBitmap, :bitmap."
-  ^IndexReduction [storage-datatype]
-  (if-not (= :bitmap storage-datatype)
-    (reify IndexReduction
-      (reduceIndex [this batch-data ctx idx]
-        (let [^Buffer ctx (if ctx
-                            ctx
-                            (unary-pred/make-index-list storage-datatype))]
-          (.addLong ctx idx)
-          ctx))
-      (reduceReductions [this lhs-ctx rhs-ctx]
-        (let [lhs-ctx (if (instance? IndexList lhs-ctx) @lhs-ctx lhs-ctx)
-              rhs-ctx (if (instance? IndexList rhs-ctx) @rhs-ctx rhs-ctx)]
-          (unary-pred/merge-index-list-results storage-datatype lhs-ctx rhs-ctx)))
-      (finalize [this ctx]
-        (if (instance? IndexList ctx) @ctx ctx)))
-    (reify IndexReduction
-      (reduceIndex [this batch-data ctx idx]
-        (let [^RoaringBitmap  ctx (if ctx
-                                    ctx
-                                    (RoaringBitmap.))]
-          (.add ctx (unchecked-int idx))
-          ctx))
-      (reduceReductions [this lhs-ctx rhs-ctx]
-        (.or ^RoaringBitmap lhs-ctx ^RoaringBitmap rhs-ctx)
-        lhs-ctx))))
-
-
 (defn arggroup
   "Group by elemens in the reader returning a map of value->list of indexes.
 
+
+  Note the options are passed through to hamf/group-by-reducer which then passes
+  them through to preduce-reducer.
+
   Options:
 
-  - storage-datatype - :int32, :int64, or :bitmap, defaults to whatever will fit
+  - `:storage-datatype` - `:int32`, `:int64, or `:bitmap`, defaults to whatever will fit
     based on the element count of the reader.
-  - unordered? - defaults to true, if true uses a slower algorithm that guarantees
+  - `:unordered?` - defaults to true, if true uses a slower algorithm that guarantees
     the resulting index lists will be ordered.  In the case where storage is
     bitmap, unordered reductions are used as the bitmap forces the end results to be
-    ordered"
-  (^Map [{:keys [storage-datatype unordered?]} rdr]
+    ordered
+  - `:key-fn` - defaults to identity.  In this case the reader's values are used as the
+    keys."
+  (^Map [{:keys [storage-datatype unordered?] :as options} rdr]
    (when-not (dtype-base/reader? rdr)
      (errors/throwf "Input must be convertible to a reader"))
    (let [storage-datatype (or storage-datatype (unary-pred/reader-index-space rdr))
          unordered? (if (= storage-datatype :bitmap)
                       true
                       unordered?)
-         reducer (index-reducer storage-datatype)]
-     (if-not unordered?
-       (let [retval (reductions/ordered-group-by-reduce reducer rdr)]
-         (.replaceAll retval (reify java.util.function.BiFunction
-                               (apply [this k v]
-                                 (.finalize reducer v))))
-         retval)
-       (reductions/unordered-group-by-reduce reducer rdr))))
+         rdr (dtype-base/->reader rdr)
+         key-fn (if-let [user-key-fn (get options :key-fn)]
+                  (fn [^long idx] (user-key-fn (.readObject rdr idx)))
+                  (fn [^long idx] (.readObject rdr idx)))]
+     (hamf/group-by-reducer key-fn
+                            (unary-pred/index-reducer storage-datatype)
+                            (merge {:ordered? (not unordered?)
+                                    :map-fn #(LinkedHashMap.)}
+                                   options)
+                            (hamf/range (dtype-base/ecount rdr)))))
   (^Map [rdr]
    (arggroup nil rdr)))
 
@@ -586,9 +564,7 @@
   the datatype of the indexes else the system will decide based on reader length.
   See arggroup for Options."
   (^Map [partition-fn options rdr]
-   (if (= identity partition-fn)
-     (arggroup options rdr)
-     (arggroup options (unary-op/reader (->unary-operator partition-fn) rdr))))
+   (arggroup (merge {:key-fn (or partition-fn identity)} options) rdr))
   (^Map [partition-fn rdr]
    (arggroup-by partition-fn nil rdr)))
 
