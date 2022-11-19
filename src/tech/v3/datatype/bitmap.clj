@@ -10,12 +10,14 @@
             [tech.v3.datatype.clj-range :as clj-range]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.parallel.for :as parallel-for]
-            [tech.v3.datatype.array-buffer])
-  (:import [org.roaringbitmap RoaringBitmap]
+            [tech.v3.datatype.array-buffer]
+            [ham-fisted.api :as hamf]
+            [ham-fisted.protocols :as hamf-proto])
+  (:import [org.roaringbitmap RoaringBitmap IntConsumer]
            [tech.v3.datatype SimpleLongSet LongReader LongBitmapIter BitmapMap
             Buffer]
            [tech.v3.datatype.array_buffer ArrayBuffer]
-           [clojure.lang LongRange]
+           [clojure.lang LongRange IFn$OLO IFn$ODO IDeref]
            [java.lang.reflect Field]))
 
 
@@ -29,26 +31,77 @@
   ^ints [item]
   (when-not (instance? int-array-class item)
     (let [ary-buf (dtype-cmc/make-container :uint32 item)]
-      (.ary-data ^ArrayBuffer ary-buf))))
+      (.ary-data ^ArrayBuffer (dtype-proto/->array-buffer ary-buf)))))
 
 
-(defn- long-range->bitmap
-  [^LongRange item]
-  (let [long-reader (dtype-base/->reader item)
-        step (long (.get ^Field clj-range/lr-step-field item))
-        n-elems (.lsize long-reader)]
-    (when-not (== 1 step)
-      (throw (Exception.
-              "Only monotonically incrementing ranges can be made into bitmaps")))
-    (if (= 0 n-elems)
+(defn- reduce-into-bitmap
+  ^RoaringBitmap [data]
+  (hamf/reduce (hamf/long-accumulator
+                acc v
+                (.add ^RoaringBitmap acc (unchecked-int v))
+                acc)
+               (RoaringBitmap.)
+               data))
+
+
+(defn- range->bitmap
+  [item]
+  (let [r (dtype-proto/->range item {})
+        rstart (long (dtype-proto/range-start item))
+        rinc (long (dtype-proto/range-increment item))
+        rend (+ rstart (* rinc (dtype-base/ecount item)))]
+    (cond
+      (== rstart rend)
       (RoaringBitmap.)
-      (let [start (.readLong long-reader 0)]
-        (doto (RoaringBitmap.)
-          (.add (unchecked-int start)
-                (unchecked-int (+ start n-elems))))))))
+      (== 1 rinc)
+      (doto (RoaringBitmap.)
+        (.add rstart rend))
+      :else
+      (reduce-into-bitmap r))))
 
 
 (declare ->bitmap)
+
+
+(defn as-range
+  "If this is convertible to a long range, then return a range else return nil."
+  [bm]
+  (when-let [^RoaringBitmap bm (dtype-proto/as-roaring-bitmap bm)]
+    (if (.isEmpty bm)
+      (hamf/range 0)
+      (let [start (Integer/toUnsignedLong (.first bm))
+            end (unchecked-inc (Integer/toUnsignedLong (.last bm)))]
+        (when (.contains bm start end)
+          (hamf/range start end))))))
+
+
+(defn ->random-access
+  "Bitmaps do not implement efficient random access although we do provide access of
+  inefficient random access for them.  This converts a bitmap into a flat buffer of data
+  that does support efficient random access."
+  [bitmap]
+  (when (dtype-proto/convertible-to-bitmap? bitmap)
+    (let [^RoaringBitmap bm (dtype-proto/as-roaring-bitmap bitmap)]
+      (if-let [r (as-range bm)]
+        r
+        (let [cmin (Integer/toUnsignedLong (.first bm))
+              cmax (Integer/toUnsignedLong (.last bm))]
+          (with-meta
+            (if (< cmax Integer/MAX_VALUE)
+              (hamf/int-array-list bm)
+              (hamf/long-array-list bm))
+            {:min cmin
+             :max cmax}))))))
+
+
+(deftype IntReduceConsumer [^:unsynchronized-mutable acc
+                            ^IFn$OLO rfn]
+  IntConsumer
+  (accept [this v]
+    (when-not (reduced? acc)
+      (set! acc (.invokePrim rfn acc (Integer/toUnsignedLong v)))))
+  IDeref
+  (deref [this] acc))
 
 
 (extend-type RoaringBitmap
@@ -60,40 +113,27 @@
   (ecount [bitmap] (.getLongCardinality bitmap))
   dtype-proto/PToReader
   (convertible-to-reader? [bitmap] true)
-  (->reader [bitmap]
-    (let [n-elems (dtype-base/ecount bitmap)]
-      (reify
-        LongReader
-        (elemwiseDatatype [rdr] :uint32)
-        (lsize [rdr] n-elems)
-        (readLong [rdr idx] (Integer/toUnsignedLong (.select bitmap (int idx))))
-        dtype-proto/PConstantTimeMinMax
-        (has-constant-time-min-max? [rdr] (not (.isEmpty bitmap)))
-        (constant-time-min [rdr] (.first bitmap))
-        (constant-time-max [rdr] (.last bitmap))
-        dtype-proto/PToBitmap
-        (convertible-to-bitmap? [item] true)
-        (as-roaring-bitmap [item] bitmap)
-        Iterable
-        (iterator [rdr] (LongBitmapIter. (.getIntIterator bitmap))))))
+  (->reader [bitmap] (->random-access bitmap))
   dtype-proto/PConstantTimeMinMax
   (has-constant-time-min-max? [bitmap] (not (.isEmpty bitmap)))
-  (constant-time-min [bitmap] (.first bitmap))
-  (constant-time-max [bitmap] (.last bitmap))
+  (constant-time-min [bitmap] (Integer/toUnsignedLong (.first bitmap)))
+  (constant-time-max [bitmap] (Integer/toUnsignedLong (.last bitmap)))
+  dtype-proto/PRangeConvertible
+  (convertible-to-range? [item] (or (.isEmpty item)
+                                    (.contains item
+                                               (Integer/toUnsignedLong (.first item))
+                                               (Integer/toUnsignedLong (.last item)))))
+  (->range [item options] (as-range item))
   dtype-proto/PClone
   (clone [bitmap] (.clone bitmap))
   dtype-proto/PToBitmap
   (convertible-to-bitmap? [item] true)
   (as-roaring-bitmap [item] item)
-  dtype-proto/PBitmapSet
-  (set-and [lhs rhs] (RoaringBitmap/and lhs (->bitmap rhs)))
-  (set-and-not [lhs rhs] (RoaringBitmap/andNot lhs (->bitmap rhs)))
-  (set-or [lhs rhs] (RoaringBitmap/or lhs (->bitmap rhs)))
-  (set-xor [lhs rhs] (RoaringBitmap/xor lhs (->bitmap rhs)))
-  (set-offset [bitmap offset] (RoaringBitmap/addOffset bitmap (unchecked-int offset)))
-  (set-add-range! [bitmap start end]
-    (.add bitmap (unchecked-int start) (unchecked-int end))
-    bitmap)
+  hamf-proto/SetOps
+  (intersection [lhs rhs] (RoaringBitmap/and lhs (->bitmap rhs)))
+  (difference [lhs rhs] (RoaringBitmap/andNot lhs (->bitmap rhs)))
+  (union [lhs rhs] (RoaringBitmap/or lhs (->bitmap rhs)))
+  (xor [lhs rhs] (RoaringBitmap/xor lhs (->bitmap rhs)))
   (set-add-block! [bitmap data]
     (.add bitmap ^ints (ensure-int-array data))
     bitmap)
@@ -102,67 +142,32 @@
     bitmap)
   (set-remove-block! [bitmap data]
     (.remove bitmap ^ints (ensure-int-array data))
-    bitmap))
+    bitmap)
+  hamf-proto/Reduction
+  (reducible? [this] true)
+  (reduce [coll rfn acc]
+    (if-let [r (as-range coll)]
+      (hamf/reduce r rfn acc)
+      (let [^IFn$OLO rfn (cond
+                           (instance? IFn$OLO rfn)
+                           rfn
+                           (instance? IFn$ODO rfn)
+                           (hamf/long-accumulator
+                            acc v
+                            (.invokePrim ^IFn$ODO rfn acc v))
+                           :else
+                           (hamf/long-accumulator
+                            acc v (rfn acc v)))
+            c (IntReduceConsumer. acc rfn)]
+        (when-not (reduced? acc)
+          (.forEach coll c))
+        @c))))
 
 
 (dtype-pp/implement-tostring-print RoaringBitmap)
 
 
 (casting/add-object-datatype! :bitmap RoaringBitmap false)
-
-
-(extend-type BitmapMap
-  dtype-proto/PToBitmap
-  (convertible-to-bitmap? [item] true)
-  (as-roaring-bitmap [item] (.-slots item)))
-
-
-(defn bitmap->array-buffer
-  "Convert a bitmap to an array buffer."
-  ^ArrayBuffer [^RoaringBitmap bitmap]
-  (dtype-base/as-array-buffer (.toArray bitmap)))
-
-
-(deftype BitmapSet [^RoaringBitmap bitmap]
-  SimpleLongSet
-  (getDatatype [_item] :uin32)
-  (lsize [_item] (.getLongCardinality bitmap))
-  (lcontains [_item arg] (.contains bitmap (unchecked-int arg)))
-  (ladd [_item arg] (.add bitmap (unchecked-int arg)) true)
-  (lremove [_item arg] (.remove bitmap (unchecked-int arg)) true)
-  dtype-proto/PToReader
-  (convertible-to-reader? [_item] true)
-  (->reader [_item]
-    (dtype-proto/->reader bitmap))
-  dtype-proto/PClone
-  (clone [_item] (BitmapSet. (dtype-proto/clone bitmap)))
-  dtype-proto/PConstantTimeMinMax
-  (has-constant-time-min-max? [_item] (not (.isEmpty bitmap)))
-  (constant-time-min [_item] (.first bitmap))
-  (constant-time-max [_item] (.last bitmap))
-  dtype-proto/PToBitmap
-  (convertible-to-bitmap? [_item] true)
-  (as-roaring-bitmap [_item] bitmap)
-  Iterable
-  (iterator [_item] (.iterator ^Iterable (dtype-proto/->reader bitmap)))
-  dtype-proto/PBitmapSet
-  (set-and [_lhs rhs] (BitmapSet. (dtype-proto/set-and bitmap rhs)))
-  (set-and-not [_lhs rhs] (BitmapSet. (dtype-proto/set-and-not bitmap rhs)))
-  (set-or [_lhs rhs] (BitmapSet. (dtype-proto/set-or bitmap rhs)))
-  (set-xor [_lhs rhs] (BitmapSet. (dtype-proto/set-xor bitmap rhs)))
-  (set-offset [_item offset] (BitmapSet. (dtype-proto/set-offset bitmap offset)))
-  (set-add-range! [item start end]
-    (dtype-proto/set-add-range! bitmap start end)
-    item)
-  (set-add-block! [item data]
-    (dtype-proto/set-add-block! item data)
-    item)
-  (set-remove-range! [item start end]
-    (dtype-proto/set-remove-range! bitmap start end)
-    item)
-  (set-remove-block! [item data]
-    (dtype-proto/set-remove-block! item data)
-    item))
 
 
 (defn ->bitmap
@@ -174,16 +179,18 @@
      (RoaringBitmap.)
      (dtype-proto/convertible-to-bitmap? item)
      (dtype-proto/as-roaring-bitmap item)
-     (instance? LongRange item)
-     (long-range->bitmap item)
+     (dtype-proto/convertible-to-range? item)
+     (range->bitmap (dtype-proto/->range item nil))
      :else
-     (let [ary-buf (dtype-cmc/->array-buffer :uint32 item)]
-       (doto (RoaringBitmap.)
-         (.addN ^ints (.ary-data ary-buf)
-                (int (.offset ary-buf))
-                (int (.n-elems ary-buf)))))))
+     (reduce-into-bitmap item)))
   (^RoaringBitmap []
    (RoaringBitmap.)))
+
+
+(defn offset
+  "Offset a bitmap creating a new bitmap."
+  ^RoaringBitmap[^RoaringBitmap bm ^long offset]
+  (RoaringBitmap/addOffset bm (unchecked-int offset)))
 
 
 (defn ->unique-bitmap
@@ -194,81 +201,3 @@
      (->bitmap item)))
   (^RoaringBitmap []
    (RoaringBitmap.)))
-
-
-(defn bitmap->efficient-random-access-reader
-  "Bitmaps do not implement efficient random access although we do provide access of
-  inefficient random access for them.  This converts a bitmap into a flat buffer of data
-  that does support efficient random access."
-  [bitmap]
-  (when (dtype-proto/convertible-to-bitmap? bitmap)
-    (let [^RoaringBitmap bitmap (dtype-proto/as-roaring-bitmap bitmap)
-          typed-buf (bitmap->array-buffer bitmap)
-          src-reader (dtype-base/->reader typed-buf)
-          n-elems (dtype-base/ecount typed-buf)]
-      (if (== 0 n-elems)
-        src-reader
-        (let [cmin (dtype-proto/constant-time-min bitmap)
-              cmax (dtype-proto/constant-time-max bitmap)]
-          (reify
-            LongReader
-            (lsize [rdr] n-elems)
-            (readLong [rdr idx] (.readLong src-reader idx))
-            dtype-proto/PToBitmap
-            (convertible-to-bitmap? [item] true)
-            (as-roaring-bitmap [item] bitmap)
-            dtype-proto/PConstantTimeMinMax
-            (has-constant-time-min-max? [item] true)
-            (constant-time-min [item] cmin)
-            (constant-time-max [item] cmax)))))))
-
-
-(defn bitmap-value->bitmap-map
-  "Given a bitmap and a value return an efficient implementation of
-  clojure.lang.IPersistentMap that has the given value at the given indexes."
-  [bitmap value]
-  (BitmapMap. (->bitmap bitmap) value))
-
-
-(deftype BitmapBuffer [^RoaringBitmap bitmap
-                              ^:unsynchronized-mutable ^Buffer cached-io]
-  Buffer
-  (addLong [_this arg]
-    (.add bitmap (unchecked-int arg))
-    (set! cached-io nil))
-  (addDouble [this arg]
-    (.addLong this (unchecked-long arg)))
-  (add [this arg]
-    (.addLong this (long arg))
-    true)
-  (addAll [_this other]
-    (if (instance? BitmapBuffer other)
-      (.or bitmap (.bitmap ^BitmapBuffer other))
-      (parallel-for/doiter
-       value other
-       (.add bitmap (unchecked-int value))))
-    true)
-  (lsize [_this] (.getCardinality bitmap))
-  (readLong [this idx] (dtype-proto/->reader this) (.readLong cached-io idx))
-  (readDouble [this idx] (dtype-proto/->reader this) (.readDouble cached-io idx))
-  (readObject [this idx] (dtype-proto/->reader this) (.readObject cached-io idx))
-  dtype-proto/PToReader
-  (convertible-to-reader? [_this] true)
-  (->reader [_this]
-    (when-not cached-io
-      (set! cached-io (dtype-proto/->reader bitmap)))
-    cached-io)
-  dtype-proto/PToBitmap
-  (convertible-to-bitmap? [_item] true)
-  (as-roaring-bitmap [_item] bitmap))
-
-
-(defn bitmap-as-buffer-list
-  "Return a bitmap as an implementation of a Buffer implementation that has an
-  add,addLong implementations.  This allows code dependent upon
-  .add, .addLong to be write to bitmaps."
-  (^Buffer [bitmap]
-   (let [bitmap (dtype-proto/as-roaring-bitmap bitmap)]
-     (BitmapBuffer. bitmap nil)))
-  (^Buffer []
-   (bitmap-as-buffer-list (RoaringBitmap.))))

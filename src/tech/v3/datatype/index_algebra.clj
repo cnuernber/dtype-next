@@ -10,7 +10,9 @@
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.io-indexed-buffer :as indexed-rdr]
             [tech.v3.datatype.argops :as argops]
-            [tech.v3.datatype.casting :as casting])
+            [tech.v3.datatype.casting :as casting]
+            [tech.v3.datatype.unary-pred :as unary-pred]
+            [ham-fisted.api :as hamf])
   (:import [tech.v3.datatype Buffer LongReader]
            [clojure.lang MapEntry]
            [java.util Map]))
@@ -23,53 +25,23 @@
 (defn maybe-range-reader
   "Create a range if possible.  If not, return a reader that knows the found mins
   and maxes."
-  [^Buffer reader]
-  (let [first-elem (.readLong reader 0)
-        second-elem (.readLong reader 1)
-        increment (- second-elem first-elem)
-        n-elems (.lsize reader)]
-    (loop [item-min (min (.readLong reader 0)
-                         (.readLong reader 1))
-           item-max (max (.readLong reader 0)
-                         (.readLong reader 1))
-           last-elem (.readLong reader 1)
-           constant-increment? true
-           idx 2]
-      (if (< idx n-elems)
-        (let [next-elem (.readLong reader idx)
-              next-increment (- next-elem last-elem)
-              item-min (min item-min next-elem)
-              item-max (max item-max next-elem)]
-          (recur item-min item-max next-elem
-                 (boolean (and constant-increment?
-                               (= next-increment increment)))
-                 (unchecked-inc idx)))
-        ;;Make a range if we can but if we cannot then at least maintain
-        ;;constant min/max behavior
-        (if constant-increment?
-          (dtype-range/make-range (.readLong reader 0)
-                                  (+ last-elem increment) increment)
-          (reify
-            LongReader
-            (lsize [rdr] n-elems)
-            (readLong [rdr idx] (.readLong reader idx))
-            dtype-proto/PConstantTimeMinMax
-            (has-constant-time-min-max? [item] true)
-            (constant-time-min [item] item-min)
-            (constant-time-max [item] item-max)))))))
+  [data]
+  (hamf/reduce-reducer (unary-pred/index-reducer :int64) data))
 
 
 (defn- simplify-reader
+  "Ranges tell us a lot more about the data so if we can we like to make
+  ranges."
   [^Buffer reader]
   (let [n-elems (.lsize reader)]
     (cond
       (= n-elems 1)
-      (dtype-range/make-range (.readLong reader 0) (inc (.readLong reader 0)))
+      (hamf/range (.readLong reader 0) (inc (.readLong reader 0)))
       (= n-elems 2)
       (let [start (.readLong reader 0)
             last-elem (.readLong reader 1)
             increment (- last-elem start)]
-        (dtype-range/make-range start (+ last-elem increment) increment))
+        (hamf/range start (+ last-elem increment) increment))
       (<= n-elems 5)
       (maybe-range-reader reader)
       :else
@@ -206,7 +178,7 @@
     (instance? IndexAlg item-seq)
     item-seq
     (dtype-proto/convertible-to-bitmap? item-seq)
-    (bitmap/bitmap->efficient-random-access-reader item-seq)
+    (dtype-proto/->reader (bitmap/->random-access item-seq))
     :else
     (->
      (let [item-seq (if (dtype-proto/convertible-to-reader? item-seq)

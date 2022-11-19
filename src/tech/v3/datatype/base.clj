@@ -14,7 +14,7 @@
            [tech.v3.datatype.array_buffer ArrayBuffer]
            [tech.v3.datatype.native_buffer NativeBuffer]
            [clojure.lang IPersistentCollection APersistentMap APersistentVector
-            APersistentSet]
+            APersistentSet IPersistentMap]
            [java.util RandomAccess List Spliterator$OfDouble Spliterator$OfLong
             Spliterator$OfInt]
            [java.util.stream Stream DoubleStream LongStream IntStream]
@@ -804,7 +804,12 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
   dtype-proto/PToBitmap
   (convertible-to-bitmap? [buf] false)
   dtype-proto/PConstantTimeMinMax
-  (has-constant-time-min-max? [item] false)
+  (has-constant-time-min-max? [item]
+    (when-let [^IPersistentMap m (meta item)]
+      (and (.containsKey m :min)
+           (.containsKey m :max))))
+  (constant-time-min [item] (get (meta item) :min))
+  (constant-time-max [item] (get (meta item) :max))
   dtype-proto/POperator
   (op-name [item] :_unnamed)
   dtype-proto/PShape
