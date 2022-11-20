@@ -209,14 +209,6 @@
   (tech.v3.datatype-api/as-nd-buffer-descriptor src-item)))
 
 
-(defn as-persistent-vector
-  "Return a reader wrapped in APersistentVector meaning you can use the reader
-  as, for instance, keys in a map.  Not recommended far large readers although
-  the data is shared."
-  ([item]
-  (tech.v3.datatype-api/as-persistent-vector item)))
-
-
 (defn as-reader
   "If this object has a read-only or read-write conversion to a primitive
   io object return the buffer object."
@@ -342,7 +334,9 @@
   3. Either a reader or a tensor is returned.  All input shapes
      have to match.
 
-  res-dtype is nil it is deduced from unifying the argument datatypes"
+  res-dtype is nil it is deduced from unifying the argument datatypes meaning
+  map-fn, unless it is typed, is assumed to keep data in the same numeric space
+  as the input."
   ([map-fn res-dtype x]
   (tech.v3.datatype.emap/emap map-fn res-dtype x))
   ([map-fn res-dtype x y]
@@ -428,9 +422,9 @@ user> (dt/make-list :float32 (range 10))
 #list<float32>[10]
 [0.000, 1.000, 2.000, 3.000, 4.000, 5.000, 6.000, 7.000, 8.000, 9.000]
 ```"
-  (^{:tag tech.v3.datatype.Buffer} [datatype n-elems-or-data]
+  (^{:tag ham_fisted.IMutList} [datatype n-elems-or-data]
   (tech.v3.datatype-api/make-list datatype n-elems-or-data))
-  (^{:tag tech.v3.datatype.Buffer} [datatype]
+  (^{:tag ham_fisted.IMutList} [datatype]
   (tech.v3.datatype-api/make-list datatype)))
 
 

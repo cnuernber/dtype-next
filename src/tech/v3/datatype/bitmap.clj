@@ -15,8 +15,7 @@
             [ham-fisted.protocols :as hamf-proto]
             [ham-fisted.set :as set])
   (:import [org.roaringbitmap RoaringBitmap IntConsumer]
-           [tech.v3.datatype SimpleLongSet LongReader LongBitmapIter BitmapMap
-            Buffer]
+           [tech.v3.datatype SimpleLongSet LongReader LongBitmapIter Buffer]
            [tech.v3.datatype.array_buffer ArrayBuffer]
            [clojure.lang LongRange IFn$OLO IFn$ODO IDeref]
            [java.lang.reflect Field]))

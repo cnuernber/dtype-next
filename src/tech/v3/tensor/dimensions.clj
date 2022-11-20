@@ -15,8 +15,7 @@
              :refer [when-not-error]
              :as errors]
             [ham-fisted.api :as hamf])
-  (:import [tech.v3.datatype Buffer ObjectReader
-            LongReader LongNDReader ListPersistentVector]
+  (:import [tech.v3.datatype Buffer ObjectReader LongReader LongNDReader]
            [java.util List]))
 
 

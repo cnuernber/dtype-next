@@ -27,8 +27,7 @@
             [tech.v3.datatype.list :as dt-list]
             [tech.v3.datatype.copy-make-container]
             [tech.v3.datatype.fastobjs :as fastobjs])
-  (:import [tech.v3.datatype ListPersistentVector BooleanReader
-            LongReader DoubleReader ObjectReader
+  (:import [tech.v3.datatype BooleanReader LongReader DoubleReader ObjectReader
             Buffer ArrayBufferData NativeBufferData]
            [ham_fisted IMutList Casts]
            [org.roaringbitmap RoaringBitmap])
@@ -309,14 +308,6 @@ user> (dt/make-list :float32 (range 10))
   (if-let [rdr (as-reader item)]
     (vec rdr)
     (vec item)))
-
-
-(defn as-persistent-vector
-  "Return a reader wrapped in APersistentVector meaning you can use the reader
-  as, for instance, keys in a map.  Not recommended far large readers although
-  the data is shared."
-  [item]
-  (->reader item))
 
 
 (defn as-nd-buffer-descriptor

@@ -489,8 +489,7 @@
         ldata (long-array src-data)
         ;;Noncopying,in-place conversion
         buffers (->> (range 4)
-                     (map #(dtype/sub-buffer ldata (* (long %) 5) 5))
-                     (map dtype/as-persistent-vector))
+                     (map #(dtype/sub-buffer ldata (* (long %) 5) 5)))
         ;;copying conversion
         vectors (map (comp vec dtype/->reader) buffers)
         map-fn (fn [item-seq]
