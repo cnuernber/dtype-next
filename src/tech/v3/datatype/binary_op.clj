@@ -29,13 +29,17 @@
          (binaryObject [this lhs rhs]
            (.apply item lhs rhs))))
      (instance? IFn$LLL item)
-     (reify BinaryOperators$LongBinaryOperator
-       (binaryLong [this l r]
-         (.invokePrim ^IFn$LLL item l r)))
+     (with-meta
+       (reify BinaryOperators$LongBinaryOperator
+         (binaryLong [this l r]
+           (.invokePrim ^IFn$LLL item l r)))
+       {:operation-space :int64})
      (instance? IFn$DDD item)
-     (reify BinaryOperators$DoubleBinaryOperator
-       (binaryDouble [this l r]
-         (.invokePrim ^IFn$DDD item l r)))
+     (with-meta
+       (reify BinaryOperators$DoubleBinaryOperator
+         (binaryDouble [this l r]
+           (.invokePrim ^IFn$DDD item l r)))
+       {:operation-space :float64})
      :else
      (reify BinaryOperator
        (binaryObject [this lhs rhs]

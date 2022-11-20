@@ -86,10 +86,9 @@
 (defn game-of-life-operator
   [original new-matrix]
   (-> (dtype/emap
-       (fn [^long x ^long y]
+       (fn ^long [^long x ^long y]
          (if (or (== 3 y)
-                 (and (not= 0 x)
-                      (== 4 y)))
+                 (and (not (== 0 x)) (== 4 y)))
            1
            0))
        :int8
