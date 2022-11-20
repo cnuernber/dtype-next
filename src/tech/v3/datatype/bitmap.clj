@@ -12,7 +12,8 @@
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.array-buffer]
             [ham-fisted.api :as hamf]
-            [ham-fisted.protocols :as hamf-proto])
+            [ham-fisted.protocols :as hamf-proto]
+            [ham-fisted.set :as set])
   (:import [org.roaringbitmap RoaringBitmap IntConsumer]
            [tech.v3.datatype SimpleLongSet LongReader LongBitmapIter BitmapMap
             Buffer]
@@ -80,18 +81,7 @@
   inefficient random access for them.  This converts a bitmap into a flat buffer of data
   that does support efficient random access."
   [bitmap]
-  (when (dtype-proto/convertible-to-bitmap? bitmap)
-    (let [^RoaringBitmap bm (dtype-proto/as-roaring-bitmap bitmap)]
-      (if-let [r (as-range bm)]
-        r
-        (let [cmin (Integer/toUnsignedLong (.first bm))
-              cmax (Integer/toUnsignedLong (.last bm))]
-          (with-meta
-            (if (< cmax Integer/MAX_VALUE)
-              (hamf/int-array-list bm)
-              (hamf/long-array-list bm))
-            {:min cmin
-             :max cmax}))))))
+  (set/->integer-random-access bitmap))
 
 
 (deftype IntReduceConsumer [^:unsynchronized-mutable acc
@@ -130,19 +120,41 @@
   (convertible-to-bitmap? [item] true)
   (as-roaring-bitmap [item] item)
   hamf-proto/SetOps
+  (set? [lhs] true)
   (intersection [lhs rhs] (RoaringBitmap/and lhs (->bitmap rhs)))
   (difference [lhs rhs] (RoaringBitmap/andNot lhs (->bitmap rhs)))
   (union [lhs rhs] (RoaringBitmap/or lhs (->bitmap rhs)))
   (xor [lhs rhs] (RoaringBitmap/xor lhs (->bitmap rhs)))
-  (set-add-block! [bitmap data]
-    (.add bitmap ^ints (ensure-int-array data))
-    bitmap)
-  (set-remove-range! [bitmap start end]
-    (.remove bitmap (unchecked-int start) (unchecked-int end))
-    bitmap)
-  (set-remove-block! [bitmap data]
-    (.remove bitmap ^ints (ensure-int-array data))
-    bitmap)
+  (contains-fn [lhs] (hamf/long-predicate v (.contains lhs (unchecked-int v))))
+  (cardinality [lhs] (.getCardinality lhs))
+  hamf-proto/BitSet
+  (bitset? [lhs] true)
+  (contains-range? [lhs sidx eidx]
+    (let [sidx (long sidx)
+          eidx (long eidx)]
+      (if (< sidx 0) false
+          (.contains lhs sidx eidx))))
+  (intersects-range? [lhs sidx eidx]
+    (let [sidx (long sidx)
+          eidx (long eidx)]
+      (if (or (.isEmpty lhs)
+              (== sidx eidx))
+        false
+        (let [sinc (Integer/toUnsignedLong (.first lhs))
+              einc (Integer/toUnsignedLong (.last lhs))]
+          (cond
+            (>= sinc eidx) false
+            (< einc sidx) false
+            :else
+            (hamf/reduce (hamf/long-accumulator
+                          acc v
+                          (if (.contains lhs v)
+                            (reduced true)
+                            false))
+                         false
+                         (hamf/range sidx eidx)))))))
+  (min-set-value [lhs] (Integer/toUnsignedLong (.first lhs)))
+  (max-set-value [lhs] (Integer/toUnsignedLong (.last lhs)))
   hamf-proto/Reduction
   (reducible? [this] true)
   (reduce [coll rfn acc]

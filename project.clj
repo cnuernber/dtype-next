@@ -15,7 +15,7 @@
                  ;;ham fisted brings in:
                  ;; {it.unimi.dsi/fastutil-core {:mvn/version "8.5.8"}
                  ;;  com.google.guava/guava     {:mvn/version "31.1-jre"}}
-                 [com.cnuernber/ham-fisted         "1.000-beta-47"]]
+                 [com.cnuernber/ham-fisted         "1.000-beta-49-SNAPSHOT"]]
   :java-source-paths ["java" "third-party" "java_public_api"]
   :source-paths ["src" "classes" "third-party"]
   :profiles {:dev
