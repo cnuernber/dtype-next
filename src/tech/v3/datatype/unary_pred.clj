@@ -218,7 +218,11 @@
                     ^{:unsynchronized-mutable true
                       :tag long} last-value
                     ^{:unsynchronized-mutable true
-                      :tag long} increment]
+                      :tag long} increment
+                    ^{:unsynchronized-mutable true
+                      :tag long} min-value
+                    ^{:unsynchronized-mutable true
+                      :tag long} max-value]
   LongConsumer
   (accept [_this lval]
     (if (== first-value -1)
@@ -233,14 +237,18 @@
           (do (.addAll list (hamf/range first-value (+ last-value increment) increment))
               (.add list lval)
               (set! increment Long/MAX_VALUE)))))
-    (set! last-value lval))
+    (set! last-value lval)
+    (set! min-value (min lval min-value))
+    (set! max-value (max lval max-value)))
   Reducible
   (reduce [this other]
-    (let [^IndexList other other]
+    (let [^IndexList other other
+          new-min (min min-value (.-min-value other))
+          new-max (max max-value (.-max-value other))]
       (if (and (not (== increment Long/MAX_VALUE))
                (== increment (.-increment other))
                (== (+ last-value increment) (.-first-value other)))
-        (IndexList. list first-value (.-last-value other) increment)
+        (IndexList. list first-value (.-last-value other) increment min-value max-value)
         (let [^IMutList list list]
           (when (not (== increment Long/MAX_VALUE))
             (.addAll list (hamf/range first-value (+ last-value increment) increment)))
@@ -250,27 +258,16 @@
                                       (+ (.-last-value other)
                                          (.-increment other))
                                       (.-increment other))))
-          (IndexList. list first-value (list -1) Long/MAX_VALUE)))))
+          (IndexList. list first-value (list -1) Long/MAX_VALUE min-value max-value)))))
   IDeref
   (deref [_this]
     (cond
       (== first-value -1)
       (hamf/range 0)
       (== increment Long/MAX_VALUE)
-      list
+      (vary-meta list assoc :min min-value :max max-value)
       :else
       (hamf/range first-value (+ last-value increment) increment))))
-
-
-(defn maybe-bitmap->range
-  [^RoaringBitmap bm]
-  (if (.isEmpty bm)
-    (hamf/range 0)
-    (let [start (Integer/toUnsignedLong (.first bm))
-          end (unchecked-inc (Integer/toUnsignedLong (.last bm)))]
-      (if (.contains bm start end)
-        (hamf/range start end)
-        bm))))
 
 
 (defn index-reducer
@@ -284,7 +281,8 @@
       (or (identical? dtype :int32) (identical? dtype :int64))
       (reify
         hamf-proto/Reducer
-        (->init-val-fn [r] #(IndexList. (dtype-list/make-list dtype) -1 -1 -1))
+        (->init-val-fn [r] #(IndexList. (dtype-list/make-list dtype) -1 -1 -1
+                                        Long/MAX_VALUE Long/MIN_VALUE))
         (->rfn [r] hamf/long-consumer-accumulator)
         (finalize [r l] @l)
         hamf-proto/ParallelReducer
@@ -297,7 +295,7 @@
                     acc v
                     (.add ^RoaringBitmap acc (unchecked-int v))
                     acc))
-        (finalize [r l] (maybe-bitmap->range l))
+        (finalize [r l] l)
         hamf-proto/ParallelReducer
         (->merge-fn [r] (fn [^RoaringBitmap l ^RoaringBitmap r]
                           (.or l r)
