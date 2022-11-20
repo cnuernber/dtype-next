@@ -13,7 +13,8 @@
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.argtypes :as argtypes]
             [tech.v3.datatype.const-reader :as const-reader]
-            [ham-fisted.api :as hamf])
+            [ham-fisted.api :as hamf]
+            [ham-fisted.lazy-noncaching :as lznc])
   (:import [it.unimi.dsi.fastutil.ints IntArrays IntComparator]
            [it.unimi.dsi.fastutil.longs LongArrays LongComparator]
            [it.unimi.dsi.fastutil.doubles DoubleComparator]
@@ -28,6 +29,7 @@
             UnaryPredicate BinaryPredicate]
            [tech.v3.datatype.unary_pred IndexList]
            [java.util Comparator Map Iterator Collections Random LinkedHashMap]
+           [java.util.function LongPredicate DoublePredicate Predicate]
            [com.google.common.collect MinMaxPriorityQueue]
            [org.roaringbitmap RoaringBitmap]))
 
@@ -488,14 +490,35 @@
   "Filter out values returning either an iterable of indexes or a reader
   of indexes."
   ([pred options rdr]
-   (let [pred (->unary-predicate pred)]
-     (if-let [rdr (dtype-base/as-reader rdr)]
-       (->> (unary-pred/reader pred rdr)
-            (unary-pred/bool-reader->indexes options))
-       (let [pred (unary-pred/->predicate pred)]
-         (->> rdr
-              (map-indexed (fn [idx data] (when (.unaryObject pred data) idx)))
-              (remove nil?))))))
+   (if-let [rdr (dtype-base/as-reader rdr)]
+     (let [n-elems (.lsize rdr)]
+       (cond
+         (instance? LongPredicate pred)
+         (hamf/preduce-reducer
+          (unary-pred/index-reducer (get options :storage-type n-elems)) options
+          (->> (hamf/range n-elems)
+               (lznc/filter (hamf/long-predicate
+                             v (.test ^LongPredicate pred (.readLong rdr v))))))
+         (instance? DoublePredicate pred)
+         (hamf/preduce-reducer
+          (unary-pred/index-reducer (get options :storage-type n-elems)) options
+          (->> (hamf/range n-elems)
+               (lznc/filter (hamf/long-predicate
+                             v (.test ^DoublePredicate pred (.readDouble rdr v))))))
+         (instance? Predicate pred)
+         (hamf/preduce-reducer
+          (unary-pred/index-reducer (get options :storage-type n-elems)) options
+          (->> (hamf/range n-elems)
+               (lznc/filter (hamf/long-predicate
+                             v (.test ^Predicate pred (.readObject rdr v))))))
+         :else
+         (let [pred (->unary-predicate pred)]
+           (->> (unary-pred/reader pred rdr)
+                (unary-pred/bool-reader->indexes options)))))
+     (let [pred (unary-pred/->predicate pred)]
+       (->> rdr
+            (lznc/map-indexed (fn [idx data] (when (.unaryObject pred data) idx)))
+            (lznc/remove nil?)))))
   ([pred rdr]
    (argfilter pred nil rdr)))
 

@@ -134,24 +134,11 @@
       (if (< sidx 0) false
           (.contains lhs sidx eidx))))
   (intersects-range? [lhs sidx eidx]
-    (let [sidx (long sidx)
-          eidx (long eidx)]
-      (if (or (.isEmpty lhs)
-              (== sidx eidx))
+    (let [sidx (max 0 (long sidx))
+          eidx (max 0 (long eidx))]
+      (if (== sidx eidx)
         false
-        (let [sinc (Integer/toUnsignedLong (.first lhs))
-              einc (Integer/toUnsignedLong (.last lhs))]
-          (cond
-            (>= sinc eidx) false
-            (< einc sidx) false
-            :else
-            (hamf/reduce (hamf/long-accumulator
-                          acc v
-                          (if (.contains lhs v)
-                            (reduced true)
-                            false))
-                         false
-                         (hamf/range sidx eidx)))))))
+        (.intersects lhs sidx eidx))))
   (min-set-value [lhs] (Integer/toUnsignedLong (.first lhs)))
   (max-set-value [lhs] (Integer/toUnsignedLong (.last lhs)))
   hamf-proto/Reduction
@@ -195,7 +182,9 @@
      :else
      (reduce-into-bitmap item)))
   (^RoaringBitmap []
-   (RoaringBitmap.)))
+   (RoaringBitmap.))
+  (^RoaringBitmap [^long sidx ^long eidx]
+   (range->bitmap (hamf/range sidx eidx))))
 
 
 (defn offset

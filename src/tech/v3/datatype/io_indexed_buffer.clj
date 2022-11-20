@@ -18,7 +18,7 @@
             (== 1 (long (-> (dtype-proto/->range indexes nil)
                             (dtype-proto/range-increment)))))
      (let [r (dtype-proto/->range indexes nil)
-           s (dtype-proto/range-start r)
+           s (long (dtype-proto/range-start r))
            ne (long (dtype-proto/ecount indexes))]
        (dtype-proto/sub-buffer item s ne))
      (let [indexes (dtype-base/->reader indexes)

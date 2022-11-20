@@ -274,9 +274,14 @@
   "Return a hamf parallel reducer that reduces indexes into an int32 space,
   a int64 space, or uses a roaring bitmap.
 
-  * dtype - :int32 (default), :int64, :bitmap"
+  * dtype - :int32 (default), :int64, :bitmap.  If dtype is a number, then
+  if it is less than int max the space is :int32 else :int64"
   [dtype]
-  (let [dtype (or dtype :int32)]
+  (let [dtype (if (number? dtype)
+                (if (< (long dtype) Integer/MAX_VALUE)
+                  :int32
+                  :int64)
+                (or dtype :int32))]
     (cond
       (or (identical? dtype :int32) (identical? dtype :int64))
       (reify
