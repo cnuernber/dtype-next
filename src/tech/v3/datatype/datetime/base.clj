@@ -295,12 +295,11 @@
 
 (defn local-date->days-since-epoch
   (^long [ld local-time zoneid]
-   (-> (local-date->milliseconds-since-epoch ld local-time zoneid)
-       (quot constants/milliseconds-in-day)))
+   (.toEpochDay ^LocalDate ld))
   (^long [ld zoneid]
-   (local-date->days-since-epoch ld 0 zoneid))
+   (.toEpochDay ^LocalDate ld))
   (^long [ld]
-   (local-date->days-since-epoch ld 0 (utc-zone-id))))
+   (.toEpochDay ^LocalDate ld)))
 
 
 (defn local-time->local-date-time

@@ -59,6 +59,7 @@ public class MutListBuffer implements Buffer, Cloneable {
   public IMutList cloneList() { return new MutListBuffer(this, data.cloneList()); }
   public Object clone() { return cloneList(); }
   public long lsize() { return data.size(); }
+  public int size() { return data.size(); }
   public IPersistentMap meta() { return data.meta(); }
   public IObj withMeta(IPersistentMap m) {
     return new MutListBuffer(this, data.withMeta(m));

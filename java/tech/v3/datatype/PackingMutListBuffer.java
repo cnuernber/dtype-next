@@ -41,6 +41,7 @@ public class PackingMutListBuffer implements Buffer {
   public boolean allowsWrite() { return supportsWrite; }
   public Object elemwiseDatatype () { return elemwiseDatatype; }
   public long lsize() { return data.size(); }
+  public int size() { return data.size(); }
   public IMutList subList(int sidx, int eidx) {
     return new PackingMutListBuffer(this, (IMutList)data.subList(sidx, eidx));
   }
