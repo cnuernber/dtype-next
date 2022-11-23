@@ -12,6 +12,7 @@
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.array-buffer]
             [ham-fisted.api :as hamf]
+            [ham-fisted.lazy-noncaching :as lznc]
             [ham-fisted.protocols :as hamf-proto]
             [ham-fisted.set :as set])
   (:import [org.roaringbitmap RoaringBitmap IntConsumer]
@@ -202,6 +203,7 @@
 
 
 (defn reduce-union
+  "Reduce a sequence of bitmaps into a single bitmap via union"
   ^RoaringBitmap [bitmaps]
   (hamf/reduce (fn [lhs rhs]
                  (.or ^RoaringBitmap lhs rhs)
@@ -209,10 +211,20 @@
                (RoaringBitmap.)
                bitmaps))
 
+
 (defn reduce-intersection
+  "Reduce a sequence of bitmaps into a single bitmap via intersection"
   ^RoaringBitmap [bitmaps]
   (hamf/reduce (fn [lhs rhs]
                  (.and ^RoaringBitmap lhs rhs)
                  lhs)
                (RoaringBitmap.)
                bitmaps))
+
+
+(defn bitmap-value->map
+  "Given a bitmap and a value return a map of each bitmap index to that value."
+  [bitmap val]
+  (->> bitmap
+       (lznc/map #(hamf/vector % val))
+       (hamf/immut-map)))
