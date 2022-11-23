@@ -36,12 +36,7 @@
 
 (defn- reduce-into-bitmap
   ^RoaringBitmap [data]
-  (hamf/reduce (hamf/long-accumulator
-                acc v
-                (.add ^RoaringBitmap acc (unchecked-int v))
-                acc)
-               (RoaringBitmap.)
-               data))
+  (set/unique {:set-constructor #(RoaringBitmap.)} data))
 
 
 (defn- range->bitmap
@@ -118,6 +113,9 @@
   dtype-proto/PToBitmap
   (convertible-to-bitmap? [item] true)
   (as-roaring-bitmap [item] item)
+  hamf-proto/PAdd
+  (add-fn [lhs] (hamf/long-accumulator
+                 acc v (.add ^RoaringBitmap acc (unchecked-int v)) acc))
   hamf-proto/SetOps
   (set? [lhs] true)
   (intersection [lhs rhs] (RoaringBitmap/and lhs (->bitmap rhs)))
@@ -201,3 +199,20 @@
      (->bitmap item)))
   (^RoaringBitmap []
    (RoaringBitmap.)))
+
+
+(defn reduce-union
+  ^RoaringBitmap [bitmaps]
+  (hamf/reduce (fn [lhs rhs]
+                 (.or ^RoaringBitmap lhs rhs)
+                 lhs)
+               (RoaringBitmap.)
+               bitmaps))
+
+(defn reduce-intersection
+  ^RoaringBitmap [bitmaps]
+  (hamf/reduce (fn [lhs rhs]
+                 (.and ^RoaringBitmap lhs rhs)
+                 lhs)
+               (RoaringBitmap.)
+               bitmaps))
