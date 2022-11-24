@@ -229,7 +229,7 @@
       (set! first-value lval)
       (let [new-incr (- lval last-value)]
         (cond
-          (== increment -1)
+          (== increment Long/MIN_VALUE)
           (set! increment new-incr)
           (== increment Long/MAX_VALUE)
           (.addLong list lval)
@@ -286,7 +286,7 @@
       (or (identical? dtype :int32) (identical? dtype :int64))
       (reify
         hamf-proto/Reducer
-        (->init-val-fn [r] #(IndexList. (dtype-list/make-list dtype) -1 -1 -1
+        (->init-val-fn [r] #(IndexList. (dtype-list/make-list dtype) -1 Long/MIN_VALUE -1
                                         Long/MAX_VALUE Long/MIN_VALUE))
         (->rfn [r] hamf/long-consumer-accumulator)
         (finalize [r l] @l)

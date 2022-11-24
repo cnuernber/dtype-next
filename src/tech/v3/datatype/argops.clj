@@ -31,7 +31,8 @@
            [java.util Comparator Map Iterator Collections Random LinkedHashMap]
            [java.util.function LongPredicate DoublePredicate Predicate]
            [com.google.common.collect MinMaxPriorityQueue]
-           [org.roaringbitmap RoaringBitmap]))
+           [org.roaringbitmap RoaringBitmap]
+           [ham_fisted ArrayLists]))
 
 
 (set! *warn-on-reflection* true)
@@ -369,21 +370,22 @@
          val-dtype (dtype-base/operational-elemwise-datatype values)
          comparator (-> (find-base-comparator comparator val-dtype)
                         (index-comparator nan-strategy values))]
-     (cond
-       (== n-elems 0)
-       (int-array 0)
-       (instance? IntComparator comparator)
-       (let [^ints idx-ary (dtype-cmc/->array :int32 (range n-elems))]
-         (if parallel?
-           (IntArrays/parallelQuickSort idx-ary ^IntComparator comparator)
-           (IntArrays/quickSort idx-ary ^IntComparator comparator))
-         idx-ary)
-       :else
-       (let [^longs idx-ary (dtype-cmc/->array :int64 (range n-elems))]
-         (if parallel?
-           (LongArrays/parallelQuickSort idx-ary ^LongComparator comparator)
-           (LongArrays/quickSort idx-ary ^LongComparator comparator))
-         idx-ary))))
+     (-> (cond
+           (== n-elems 0)
+           (ArrayLists/toList (int-array 0))
+           (instance? IntComparator comparator)
+           (let [^ints idx-ary (hamf/iarange n-elems)]
+             (if parallel?
+               (IntArrays/parallelQuickSort idx-ary ^IntComparator comparator)
+               (IntArrays/quickSort idx-ary ^IntComparator comparator))
+             (ArrayLists/toList idx-ary))
+           :else
+           (let [^longs idx-ary (hamf/larange (range n-elems))]
+             (if parallel?
+               (LongArrays/parallelQuickSort idx-ary ^LongComparator comparator)
+               (LongArrays/quickSort idx-ary ^LongComparator comparator))
+             (ArrayLists/toList idx-ary)))
+         (with-meta {:min 0 :max n-elems}))))
   ([comparator values]
    (argsort comparator {} values))
   ([values]

@@ -117,4 +117,4 @@
   ^Map [item]
   (if-let [jmap (as-java-map item)]
     jmap
-    (throw (Exception. "Item is not a map: %s" item))))
+    (throw (Exception. (str "Item is not a map: %s" item)))))
