@@ -174,6 +174,7 @@
    (cond
      (nil? item)
      (RoaringBitmap.)
+     (instance? RoaringBitmap item) item
      (dtype-proto/convertible-to-bitmap? item)
      (dtype-proto/as-roaring-bitmap item)
      (dtype-proto/convertible-to-range? item)
@@ -202,24 +203,33 @@
    (RoaringBitmap.)))
 
 
+(extend-protocol hamf-proto/BulkSetOps
+  RoaringBitmap
+  (reduce-union [l data]
+    (reduce (fn [^RoaringBitmap acc data]
+              (.or acc (->bitmap data))
+              acc)
+            (.clone l)
+            data))
+
+  (reduce-intersection [l data]
+    (reduce (fn [^RoaringBitmap acc data]
+              (.and acc (->bitmap data))
+              acc)
+            (.clone l)
+            data)))
+
+
 (defn reduce-union
   "Reduce a sequence of bitmaps into a single bitmap via union"
   ^RoaringBitmap [bitmaps]
-  (hamf/reduce (fn [lhs rhs]
-                 (.or ^RoaringBitmap lhs rhs)
-                 lhs)
-               (RoaringBitmap.)
-               bitmaps))
+  (set/reduce-union bitmaps))
 
 
 (defn reduce-intersection
   "Reduce a sequence of bitmaps into a single bitmap via intersection"
   ^RoaringBitmap [bitmaps]
-  (hamf/reduce (fn [lhs rhs]
-                 (.and ^RoaringBitmap lhs rhs)
-                 lhs)
-               (RoaringBitmap.)
-               bitmaps))
+  (set/reduce-intersection bitmaps))
 
 
 (defn bitmap-value->map

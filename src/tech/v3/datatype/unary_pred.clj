@@ -225,17 +225,19 @@
                       :tag long} max-value]
   LongConsumer
   (accept [_this lval]
-    (if (== first-value -1)
+    (if (== first-value Long/MIN_VALUE)
       (set! first-value lval)
       (let [new-incr (- lval last-value)]
         (cond
-          (== increment Long/MIN_VALUE)
+          (and (not (== new-incr 0)) (== increment Long/MIN_VALUE))
           (set! increment new-incr)
           (== increment Long/MAX_VALUE)
           (.addLong list lval)
-          (not (== increment new-incr))
-          (do (.addAll list (hamf/range first-value (+ last-value increment) increment))
-              (.add list lval)
+          (or (== new-incr 0) (not (== increment new-incr)))
+          (do (if (== increment Long/MIN_VALUE)
+                (.addLong list first-value)
+                (.addAll list (hamf/range first-value (+ last-value increment) increment)))
+              (.addLong list lval)
               (set! increment Long/MAX_VALUE)))))
     (set! last-value lval)
     (set! min-value (min lval min-value))
@@ -261,13 +263,15 @@
           (IndexList. list first-value (list -1) Long/MAX_VALUE min-value max-value)))))
   IDeref
   (deref [_this]
-    (cond
-      (== first-value -1)
-      (hamf/range 0)
-      (== increment Long/MAX_VALUE)
-      (vary-meta list assoc :min min-value :max max-value)
-      :else
-      (hamf/range first-value (+ last-value increment) increment))))
+    (vary-meta
+     (cond
+       (== first-value Long/MIN_VALUE)
+       (hamf/range 0)
+       (== increment Long/MAX_VALUE)
+       list
+       :else
+       (hamf/range first-value (+ last-value increment) increment))
+     assoc :min min-value :max max-value)))
 
 
 (defn index-reducer
@@ -286,7 +290,8 @@
       (or (identical? dtype :int32) (identical? dtype :int64))
       (reify
         hamf-proto/Reducer
-        (->init-val-fn [r] #(IndexList. (dtype-list/make-list dtype) -1 Long/MIN_VALUE -1
+        (->init-val-fn [r] #(IndexList. (dtype-list/make-list dtype) Long/MIN_VALUE
+                                        -1 Long/MIN_VALUE
                                         Long/MAX_VALUE Long/MIN_VALUE))
         (->rfn [r] hamf/long-consumer-accumulator)
         (finalize [r l] @l)

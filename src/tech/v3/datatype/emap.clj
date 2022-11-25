@@ -36,9 +36,11 @@
                         (identical? :scalar yt))
       (op x y)
       (identical? :scalar xt)
-      (unary-dispatch (binary-op/unary-op-l op x (dtype-proto/elemwise-datatype y)) y options)
+      (unary-dispatch (binary-op/unary-op-l op x (dtype-proto/operational-elemwise-datatype y))
+                      y options)
       (identical? :scalar yt)
-      (unary-dispatch (binary-op/unary-op-r op y (dtype-proto/elemwise-datatype x)) x options)
+      (unary-dispatch (binary-op/unary-op-r op y (dtype-proto/operational-elemwise-datatype x))
+                      x options)
       :else
       (vectorized-dispatch-2
        op

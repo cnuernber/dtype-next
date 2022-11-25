@@ -16,7 +16,8 @@
             [benchmark.api :as bench])
   (:import [java.nio FloatBuffer]
            [java.util ArrayList]
-           [ham_fisted Casts]))
+           [ham_fisted Casts]
+           [tech.v3.datatype FastStruct]))
 
 
 (defn basic-copy
@@ -816,6 +817,19 @@
           data (dtype/->array c)]
       (is (dfn/equals abuf c) dtype)
       (is (dfn/equals data c) dtype))))
+
+
+(deftest faststruct-test
+  (let [slots (hamf/java-hashmap [[:a 0] [:b 1] [:c 2] [:d 3]])
+        lhs (FastStruct. slots (hamf/vector 1 2 3 4))
+        rhs (FastStruct. slots (hamf/vector 2 3 4 5))
+        llhs (FastStruct. slots (hamf/vector 1 2 3 4))]
+    (is (not (= lhs rhs)))
+    (is (= lhs llhs))
+    (is (= {:a 1 :b 2 :c 3 :d 4} lhs))
+    (is (= lhs {:a 1 :b 2 :c 3 :d 4}))
+    (is (not= lhs (assoc lhs :e 4)))
+    (is (= (assoc lhs :e 4) (assoc lhs :e 4)))))
 
 
 (comment

@@ -31,6 +31,7 @@ public class FastStruct extends APersistentMap implements IObj {
   public final List vals;
   public final IPersistentMap ext;
   public final IPersistentMap meta;
+  public final int sz;
 
   public FastStruct(IPersistentMap _meta, Map _slots,
 		    List _vals, IPersistentMap _ext) {
@@ -38,6 +39,7 @@ public class FastStruct extends APersistentMap implements IObj {
     this.ext = _ext;
     this.slots = _slots;
     this.vals = _vals;
+    sz = slots.size() + ((ext == null) ? 0 : ext.count());
   }
 
   public FastStruct(Map _slots, List _vals) {
@@ -156,8 +158,32 @@ public class FastStruct extends APersistentMap implements IObj {
     };
   }
 
-  public int count(){
-    return slots.size() + RT.count(ext);
+  public int size() { return sz; }
+
+  public int count() { return sz; }
+
+  public boolean equals(Object other) { return equiv(other); }
+  public boolean equiv(Object other) {
+    if(this == other) return true;
+    if(other == null) return false;
+    if(!(other instanceof Map)) return false;
+    final Map om = (Map) other;
+    if (om.size() != size()) return false;
+
+    //Fastpath of we are the same map with only potentially
+    //different values.
+    if(other instanceof FastStruct &&
+       slots == ((FastStruct) other).slots) {
+      return Util.equiv(vals, ((FastStruct)other).vals) &&
+	Util.equiv(ext, ((FastStruct)other).ext);
+    }
+    for(Object obj: om.entrySet()) {
+      final Map.Entry me = (Map.Entry)obj;
+      final Map.Entry mm = entryAt(me.getKey());
+      if(!Util.equiv(me.getValue(), mm.getValue()))
+	return false;
+    }
+    return true;
   }
 
   public ISeq seq(){
