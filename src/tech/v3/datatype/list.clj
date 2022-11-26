@@ -98,16 +98,16 @@
           (do
             (dtype-cmc/copy! data-buf (dtype-base/sub-buffer item nelems (+ nelems item-ecount)))
             (set! ptr (+ ptr item-ecount)))
-          (hamf/reduce (fn [^IMutList lhs rhs]
-                         (.add lhs rhs)
-                         lhs)
-                       item
-                       coll)))
-      (hamf/reduce (fn [^IMutList lhs rhs]
-                     (.add lhs rhs)
-                     lhs)
-                   item
-                   coll))
+          (reduce (fn [^IMutList lhs rhs]
+                    (.add lhs rhs)
+                    lhs)
+                  item
+                  coll)))
+      (reduce (fn [^IMutList lhs rhs]
+                (.add lhs rhs)
+                lhs)
+              item
+              coll))
     true)
   IObj
   (meta [_item] metadata)

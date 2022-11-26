@@ -440,9 +440,9 @@
                                               (when (Double/isNaN v)
                                                 (throw (RuntimeException. "Nan Detected")))
                                               true)))]
-    @(hamf/reduce hamf/double-consumer-accumulator
-                  (CumOpConsumer. op 0.0 true filter result)
-                  data)))
+    @(reduce hamf/double-consumer-accumulator
+             (CumOpConsumer. op 0.0 true filter result)
+             data)))
 
 
 (defn cumsum

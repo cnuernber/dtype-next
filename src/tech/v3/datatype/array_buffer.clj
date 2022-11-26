@@ -444,10 +444,10 @@
                (.ensureCapacity this# newlen#)
                (set! ~'n-elems newlen#)
                (.fillRange this# curlen# ~'c)))
-           (Transformables/longReduce (fn [^IMutList lhs# ^long rhs#]
-                                        (.addLong lhs# rhs#)
-                                        lhs#)
-                                      this# c#))
+           (reduce (hamf/long-accumulator
+                    acc# v# (.addLong ^IMutList acc# v#) acc#)
+                   this#
+                   c#))
          (not (== sz# ~'n-elems))))
      (removeRange [this# sidx# eidx#]
        (ArrayLists/checkIndexRange ~'n-elems sidx# eidx#)

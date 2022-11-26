@@ -307,8 +307,8 @@
                              (pmath/+ val))
                          (pmath/inc idx)))
                 val))))
-        (longReduction [this rfn init]
-          (.longReduction ^ITypedReduce (hamf/range n-elems) rfn init))
+        (reduce [this rfn init]
+          (reduce (hamf/range n-elems) rfn init))
         (parallelReduction [this init-val-fn rfn merge-fn options]
           (.parallelReduction ^ITypedReduce (hamf/range n-elems) init-val-fn rfn
                               merge-fn options)))

@@ -144,7 +144,7 @@
   (reducible? [this] true)
   (reduce [coll rfn acc]
     (if-let [r (as-range coll)]
-      (hamf/reduce rfn acc r)
+      (reduce rfn acc r)
       (let [^IFn$OLO rfn (cond
                            (instance? IFn$OLO rfn)
                            rfn

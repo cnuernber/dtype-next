@@ -139,30 +139,12 @@ public class MutListBuffer implements Buffer, Cloneable {
   public Object kvreduce(IFn f, Object init) {
     return data.kvreduce(f, init);
   }
-  public Object genericReduction(Object rfn, Object init) {
-    return data.genericReduction(rfn, init);
-  }
-  public Object doubleReduction(IFn.ODO op, Object init) {
-    return data.doubleReduction(op, init);
-  }
-  public Object longReduction(IFn.OLO op, Object init) {
-    return data.longReduction(op, init);
-  }
   public Object parallelReduction(IFn initValFn, IFn rfn, IFn mergeFn,
 				  ParallelOptions options) {
     return data.parallelReduction(initValFn, rfn, mergeFn, options);
   }
   public void forEach(Consumer c) {
     data.forEach(c);
-  }
-  public void doubleForEach(DoubleConsumer c) {
-    data.doubleForEach(c);
-  }
-  public void longForEach(LongConsumer c) {
-    data.longForEach(c);
-  }
-  public void genericForEach(Consumer c) {
-    data.genericForEach(c);
   }
 
   public LongStream indexStream(boolean parallel) {
