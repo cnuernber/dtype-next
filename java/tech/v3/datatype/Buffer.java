@@ -86,24 +86,20 @@ public interface Buffer extends DatatypeBase, IMutList<Object>
       return subBuffer(sidx, eidx);
     }
     public Object reduce(IFn rfn, Object init) {
-      final long ee = eidx;
       final Buffer l = list;
-      for(long idx = sidx; idx < ee && !RT.isReduced(init); ++idx)
-	init = rfn.invoke(init, l.readObject(idx));
-      return init;
-    }
-    public Object longReduction(IFn.OLO rfn, Object init) {
       final long ee = eidx;
-      final Buffer l = list;
-      for(long idx = sidx; idx < ee && !RT.isReduced(init); ++idx)
-	init = rfn.invokePrim(init, l.readLong(idx));
-      return init;
-    }
-    public Object doubleReduction(IFn.ODO rfn, Object init) {
-      final long ee = eidx;
-      final Buffer l = list;
-      for(long idx = sidx; idx < ee && !RT.isReduced(init); ++idx)
-	init = rfn.invokePrim(init, l.readDouble(idx));
+      if(rfn instanceof IFn.OLO) {
+	final IFn.OLO rr = (IFn.OLO)rfn;
+	for(long idx = sidx; idx < ee && !RT.isReduced(init); ++idx)
+	  init = rr.invokePrim(init, l.readLong(idx));
+      }else if (rfn instanceof IFn.ODO) {
+	final IFn.ODO rr = (IFn.ODO)rfn;
+	for(long idx = sidx; idx < ee && !RT.isReduced(init); ++idx)
+	  init = rr.invokePrim(init, l.readDouble(idx));
+      } else {
+	for(long idx = sidx; idx < ee && !RT.isReduced(init); ++idx)
+	  init = rfn.invoke(init, l.readObject(idx));
+      }
       return init;
     }
     public Buffer withMeta(IPersistentMap m) { return ((Buffer)list.withMeta(m)).subBuffer(sidx, eidx); }
@@ -160,13 +156,21 @@ public interface Buffer extends DatatypeBase, IMutList<Object>
     return init;
   }
 
-  default Object reduce(IFn f, Object init) {
-    final long  sz = lsize();
-    for(long idx = 0; idx < sz && (!RT.isReduced(init)); ++idx) {
-      init = f.invoke(init, readObject(idx));
+  default Object reduce(IFn rfn, Object init) {
+    final long ee = lsize();
+
+    if(rfn instanceof IFn.OLO) {
+      final IFn.OLO rr = (IFn.OLO)rfn;
+      for(long idx = 0; idx < ee && !RT.isReduced(init); ++idx)
+	init = rr.invokePrim(init, readLong(idx));
+    } else if (rfn instanceof IFn.ODO) {
+      final IFn.ODO rr = (IFn.ODO)rfn;
+      for(long idx = 0; idx < ee && !RT.isReduced(init); ++idx)
+	init = rr.invokePrim(init, readDouble(idx));
+    } else {
+      for(long idx = 0; idx < ee && !RT.isReduced(init); ++idx)
+	init = rfn.invoke(init, readObject(idx));
     }
-    if (RT.isReduced(init))
-      return ((IDeref)init).deref();
     return init;
   }
 

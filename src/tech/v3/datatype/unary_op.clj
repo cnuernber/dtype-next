@@ -111,17 +111,17 @@
                                  (unaryLong [this v]
                                    (->> (.unaryLong unary-op1 v)
                                         (.unaryLong unary-op2))))
-                        :float64 (hamf/double-to-long-function
+                        :float64 (hamf/double->long
                                   v (->> (.unaryDouble unary-op1 v)
                                          (Casts/longCast)
                                          (.unaryLong unary-op2)))
-                        (hamf/to-long-function
+                        (hamf/obj->long
                          v (->> (.unaryObject unary-op1 v)
                                 (Casts/longCast)
                                 (.unaryLong unary-op2))))
                       :float64
                       (case op-space1
-                        :int64 (hamf/long-to-double-function
+                        :int64 (hamf/long->double
                                 v (->> (.unaryLong unary-op1 v)
                                        (double)
                                        (.unaryDouble unary-op2)))
@@ -129,7 +129,7 @@
                                    (unaryDouble [this v]
                                      (->> (.unaryDouble unary-op1 v)
                                           (.unaryDouble unary-op2))))
-                        (hamf/to-double-function
+                        (hamf/obj->double
                          v (->> (.unaryObject unary-op1 v)
                                 (Casts/doubleCast)
                                 (.unaryDouble unary-op2))))
