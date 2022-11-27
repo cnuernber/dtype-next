@@ -11,6 +11,7 @@
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.array-buffer]
+            [clojure.core.protocols :as cl-proto]
             [ham-fisted.api :as hamf]
             [ham-fisted.lazy-noncaching :as lznc]
             [ham-fisted.protocols :as hamf-proto]
@@ -18,6 +19,7 @@
   (:import [org.roaringbitmap RoaringBitmap IntConsumer]
            [tech.v3.datatype SimpleLongSet LongReader LongBitmapIter Buffer]
            [tech.v3.datatype.array_buffer ArrayBuffer]
+           [ham_fisted Transformables]
            [clojure.lang LongRange IFn$OLO IFn$ODO IDeref]
            [java.lang.reflect Field]))
 
@@ -79,14 +81,34 @@
   (set/->integer-random-access bitmap))
 
 
-(deftype IntReduceConsumer [^:unsynchronized-mutable acc
-                            ^IFn$OLO rfn]
+(deftype ^:private IntReduceConsumer [^:unsynchronized-mutable acc
+                                      ^:unsynchronized-mutable store-first
+                                      ^IFn$OLO rfn]
   IntConsumer
   (accept [this v]
     (when-not (reduced? acc)
-      (set! acc (.invokePrim rfn acc (Integer/toUnsignedLong v)))))
+      (set! acc (if store-first
+                  (Integer/toUnsignedLong v)
+                  (.invokePrim rfn acc (Integer/toUnsignedLong v))))
+      (set! store-first false)))
   IDeref
   (deref [this] acc))
+
+
+(defn- bitmap-reduce
+  ([^RoaringBitmap bm rfn acc]
+   (let [c (IntReduceConsumer. acc false (Transformables/toLongReductionFn rfn))]
+     ;;roaring bitmap explicity states to use forEach
+     (when-not (reduced? acc)
+       (.forEach bm c))
+     @c))
+  ([^RoaringBitmap bm rfn]
+   (let [c (IntReduceConsumer. nil true (Transformables/toLongReductionFn rfn))]
+     ;;roaring bitmap explicity states to use forEach
+     (if (.isEmpty bm)
+       (rfn)
+       (.forEach bm c))
+     @c)))
 
 
 (extend-type RoaringBitmap
@@ -142,23 +164,10 @@
   (max-set-value [lhs] (Integer/toUnsignedLong (.last lhs)))
   hamf-proto/Reduction
   (reducible? [this] true)
-  (reduce [coll rfn acc]
-    (if-let [r (as-range coll)]
-      (reduce rfn acc r)
-      (let [^IFn$OLO rfn (cond
-                           (instance? IFn$OLO rfn)
-                           rfn
-                           (instance? IFn$ODO rfn)
-                           (hamf/long-accumulator
-                            acc v
-                            (.invokePrim ^IFn$ODO rfn acc v))
-                           :else
-                           (hamf/long-accumulator
-                            acc v (rfn acc v)))
-            c (IntReduceConsumer. acc rfn)]
-        (when-not (reduced? acc)
-          (.forEach coll c))
-        @c))))
+  cl-proto/CollReduce
+  (coll-reduce
+    ([this rfn acc] (bitmap-reduce this rfn acc))
+    ([this rfn] (bitmap-reduce this rfn))))
 
 
 (dtype-pp/implement-tostring-print RoaringBitmap)
@@ -223,13 +232,13 @@
 (defn reduce-union
   "Reduce a sequence of bitmaps into a single bitmap via union"
   ^RoaringBitmap [bitmaps]
-  (set/reduce-union bitmaps))
+  (apply set/reduce-union bitmaps))
 
 
 (defn reduce-intersection
   "Reduce a sequence of bitmaps into a single bitmap via intersection"
   ^RoaringBitmap [bitmaps]
-  (set/reduce-intersection bitmaps))
+  (apply set/reduce-intersection bitmaps))
 
 
 (defn bitmap-value->map

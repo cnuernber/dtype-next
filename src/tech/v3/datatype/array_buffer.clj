@@ -317,6 +317,9 @@
      (hashCode [this#] (.hasheq this#))
      (toString [this#] (Transformables/sequenceToString this#))
      LongMutList
+     (cloneList [this#] (~(symbol (str (name list-name) "."))
+                         (.copyOf this# ~'n-elems)
+                         ~'sidx ~'n-elems ~'m))
      (meta [this#] ~'m)
      (withMeta [this# newm#] (with-meta (.subList this# 0 ~'n-elems) newm#))
      (size [this#] ~'n-elems)
@@ -406,6 +409,8 @@
          (set! ~'data (.copyOf this# (ArrayLists/newArrayLen newlen#))))
        ~'data)
      LongMutList
+     (cloneList [this#] (~(symbol (str (name lname) ".")) (.copyOf this# ~'n-elems)
+                         ~'n-elems ~'m))
      (meta [this#] ~'m)
      (withMeta [this# newm#] (with-meta (.subList this# 0 ~'n-elems) newm#))
      (size [this#] (unchecked-int ~'n-elems))

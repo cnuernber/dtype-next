@@ -143,7 +143,7 @@
                                (map dtype-base/elemwise-datatype args)))
          input-types (set (map argtypes/arg-type args))
          op-space (casting/simple-operation-space res-dtype)
-         cast-fn (op-space->cast-fn op-space)]
+         cast-fn (op-space->cast-fn op-space res-dtype)]
      (cond
        (= input-types #{:scalar})
        (cast-fn (apply map-fn args))
