@@ -62,12 +62,13 @@
                          (let [res-dtype (dtype-proto/operational-elemwise-datatype arg1)]
                            (if-let [op-space (:operation-space options)]
                              (casting/widest-datatype res-dtype op-space)
-                             res-dtype)))]
+                             res-dtype)))
+             op-space (or (:operation-space options) res-dtype)]
          (if (= arg1-type :iterable)
            (if iterable-fn
              (iterable-fn res-dtype arg1)
              (typed-map-1 scalar-fn res-dtype arg1))
-           (cond-> (reader-fn res-dtype (checked-elemwise-reader-cast arg1 res-dtype))
+           (cond-> (reader-fn res-dtype (checked-elemwise-reader-cast arg1 op-space))
              (= arg1-type :tensor)
              (dtype-proto/reshape (dtype-proto/shape arg1))))))))
   ([scalar-fn iterable-fn reader-fn arg1]

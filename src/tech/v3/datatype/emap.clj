@@ -112,13 +112,11 @@
   as the input."
   ([map-fn res-dtype x]
    (let [map-fn (unary-op/->operator map-fn)
-         op-res-space (:result-space (meta map-fn))
-         op-res-space (if (or (nil? op-res-space)
-                              (identical? :object op-res-space))
-                        (dtype-base/elemwise-datatype x)
-                        op-res-space)
-         res-dtype (or res-dtype op-res-space)
-         op-space (casting/simple-operation-space res-dtype)
+         op-meta (meta map-fn)
+         x-dtype (dtype-base/elemwise-datatype x)
+         res-dtype (or res-dtype (get op-meta :result-space) x-dtype)
+         op-space (casting/simple-operation-space (get op-meta :operation-space :object)
+                                                  x-dtype)
          cast-fn (op-space->cast-fn op-space res-dtype)]
      (unary-dispatch (with-meta map-fn {:result-space res-dtype
                                         :operation-space op-space})
