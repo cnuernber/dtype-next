@@ -189,8 +189,8 @@
            (subBuffer [rdr sidx eidx] (reader unary-op res-dtype (.subBuffer lhs sidx eidx)))
            (lsize [rdr] n-elems)
            (readLong [rdr idx] (.unaryLong unary-op (.readLong lhs idx)))
-           (longReduction [rdr rfn init-val]
-             (Reductions/serialReduction (wrap-rfn rfn) init-val lhs))
+           (reduce [rdr rfn init-val]
+             (reduce (wrap-rfn rfn) init-val lhs))
            (parallelReduction [rdr initValFn rfn mergeFn options]
              (Reductions/parallelReduction initValFn (wrap-rfn rfn) mergeFn lhs options))
            dtype-proto/PApplyUnary
@@ -213,8 +213,8 @@
            (lsize [rdr] n-elems)
            (subBuffer [rdr sidx eidx] (reader unary-op res-dtype (.subBuffer lhs sidx eidx)))
            (readDouble [rdr idx] (.unaryDouble unary-op (.readDouble lhs idx)))
-           (doubleReduction [rdr rfn init-val]
-             (Reductions/serialReduction (wrap-rfn rfn) init-val lhs))
+           (reduce [rdr rfn init-val]
+             (reduce (wrap-rfn rfn) init-val lhs))
            (parallelReduction [rdr initValFn rfn mergeFn options]
              (Reductions/parallelReduction initValFn (wrap-rfn rfn) mergeFn lhs options))
            dtype-proto/PApplyUnary
@@ -234,8 +234,8 @@
              (subBuffer [rdr sidx eidx] (reader unary-op res-dtype (.subBuffer lhs sidx eidx)))
              (lsize [rdr] n-elems)
              (readLong [rdr idx] (.unaryObjLong unary-op (.readObject lhs idx)))
-             (longReduction [rdr rfn init-val]
-               (Reductions/serialReduction (wrap-rfn rfn) init-val lhs))
+             (reduce [rdr rfn init-val]
+               (reduce (wrap-rfn rfn) init-val lhs))
              (parallelReduction [rdr initValFn rfn mergeFn options]
                (Reductions/parallelReduction initValFn (wrap-rfn rfn) mergeFn lhs options))
              dtype-proto/PApplyUnary
@@ -253,8 +253,8 @@
              (subBuffer [rdr sidx eidx] (reader unary-op res-dtype (.subBuffer lhs sidx eidx)))
              (lsize [rdr] n-elems)
              (readDouble [rdr idx] (.unaryObjDouble unary-op (.readObject lhs idx)))
-             (doubleReduction [rdr rfn init-val]
-               (Reductions/serialReduction (wrap-rfn rfn) init-val lhs))
+             (reduce [rdr rfn init-val]
+               (reduce (wrap-rfn rfn) init-val lhs))
              (parallelReduction [rdr initValFn rfn mergeFn options]
                (Reductions/parallelReduction initValFn (wrap-rfn rfn) mergeFn lhs options))
              dtype-proto/PApplyUnary
@@ -267,7 +267,7 @@
              (lsize [rdr] n-elems)
              (readObject [rdr idx] (.unaryObject unary-op (.readObject lhs idx)))
              (reduce [rdr rfn init-val]
-               (Reductions/serialReduction (wrap-rfn rfn) init-val lhs))
+               (reduce (wrap-rfn rfn) init-val lhs))
              (parallelReduction [rdr initValFn rfn mergeFn options]
                (Reductions/parallelReduction initValFn (wrap-rfn rfn)
                                              mergeFn lhs options))

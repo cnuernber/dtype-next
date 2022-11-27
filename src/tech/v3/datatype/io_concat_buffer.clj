@@ -66,16 +66,6 @@
           (if-not (reduced? init)
             (.reduce rhs rfn init)
             init)))
-      (longReduction [this rfn init]
-        (let [init (.longReduction lhs rfn init)]
-          (if-not (reduced? init)
-            (.longReduction rhs rfn init)
-            init)))
-      (doubleReduction [this rfn init]
-        (let [init (.doubleReduction lhs rfn init)]
-          (if-not (reduced? init)
-            (.doubleReduction rhs rfn init)
-            init)))
       dtype-proto/PElemwiseReaderCast
       (elemwise-reader-cast [this new-dtype]
         (concat-buffers new-dtype (map #(dtype-proto/elemwise-reader-cast % new-dtype) [lhs rhs]))))))

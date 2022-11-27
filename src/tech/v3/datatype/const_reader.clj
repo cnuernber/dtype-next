@@ -5,7 +5,7 @@
             [ham-fisted.api :as hamf])
   (:import [tech.v3.datatype ObjectReader LongReader DoubleReader Buffer
             BooleanReader]
-           [ham_fisted Casts ChunkedList]))
+           [ham_fisted Casts ChunkedList Transformables]))
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
@@ -54,12 +54,13 @@
            (subBuffer [rdr sidx eidx]
              (ChunkedList/sublistCheck sidx eidx n-elems)
              (const-reader item (- eidx sidx)))
-           (longReduction [this rfn init]
-             (loop [init init
-                    idx 0]
-               (if (and (< idx n-elems) (not (reduced? init)))
-                 (recur (.invokePrim rfn init item) (unchecked-inc idx))
-                 init)))
+           (reduce [this rfn init]
+             (let [rfn (Transformables/toLongReductionFn rfn)]
+               (loop [init init
+                      idx 0]
+                 (if (and (< idx n-elems) (not (reduced? init)))
+                   (recur (.invokePrim rfn init item) (unchecked-inc idx))
+                   init))))
            dtype-proto/PElemwiseReaderCast
            (elemwise-reader-cast [rdr new-dtype] rdr)
            dtype-proto/PConstantTimeMinMax
@@ -79,12 +80,13 @@
            (subBuffer [rdr sidx eidx]
              (ChunkedList/sublistCheck sidx eidx n-elems)
              (const-reader item (- eidx sidx)))
-           (doubleReduction [this rfn init]
-             (loop [init init
-                    idx 0]
-               (if (and (< idx n-elems) (not (reduced? init)))
-                 (recur (.invokePrim rfn init item) (unchecked-inc idx))
-                 init)))
+           (reduce [this rfn init]
+             (let [rfn (Transformables/toDoubleReductionFn rfn)]
+               (loop [init init
+                      idx 0]
+                 (if (and (< idx n-elems) (not (reduced? init)))
+                   (recur (.invokePrim rfn init item) (unchecked-inc idx))
+                   init))))
            dtype-proto/PElemwiseReaderCast
            (elemwise-reader-cast [rdr new-dtype] rdr)
            dtype-proto/PConstantTimeMinMax

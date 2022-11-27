@@ -9,6 +9,7 @@ import clojure.lang.Indexed;
 import clojure.lang.IDeref;
 import clojure.lang.IFn;
 import clojure.lang.IPersistentMap;
+import clojure.lang.Util;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
@@ -32,6 +33,7 @@ import ham_fisted.ParallelOptions;
 import ham_fisted.Casts;
 import ham_fisted.IFnDef;
 import ham_fisted.ChunkedList;
+import ham_fisted.Casts;
 
 
 public interface Buffer extends DatatypeBase, IMutList<Object>
@@ -178,20 +180,6 @@ public interface Buffer extends DatatypeBase, IMutList<Object>
     return init;
   }
 
-  default Object doubleReduction(IFn.ODO op, Object init) {
-    final long sz = size();
-    for(long idx = 0; idx < sz && !RT.isReduced(init); ++idx)
-      init = op.invokePrim(init, readDouble(idx));
-    return init;
-  }
-
-  default Object longReduction(IFn.OLO op, Object init) {
-    final long sz = size();
-    for(long idx = 0; idx < sz && !RT.isReduced(init); ++idx)
-      init = op.invokePrim(init, readLong(idx));
-    return init;
-  }
-
   default Object parallelReduction(IFn initValFn, IFn rfn, IFn mergeFn,
 				   ParallelOptions options) {
     return Reductions.parallelIndexGroupReduce(new IFnDef.LLO() {
@@ -199,6 +187,38 @@ public interface Buffer extends DatatypeBase, IMutList<Object>
 	  return Reductions.serialReduction(rfn, initValFn.invoke(), subBuffer(sidx, eidx));
 	}
       }, lsize(), mergeFn, options);
+  }
+
+  default Object nth(int idx) {
+    long xx = idx;
+    if (xx < 0) xx += lsize();
+    return readObject(xx);
+  }
+
+  default Object nth(int idx, Object notFound) {
+    long xx = idx;
+    final long sz = lsize();
+    if (xx < 0) xx += sz;
+    if( xx >= 0 && xx < sz)
+      return readObject(xx);
+    return notFound;
+  }
+
+  default Object invoke(Object idx) {
+    long xx = Casts.longCast(idx);
+    if (xx < 0) xx += lsize();
+    return readObject(xx);
+  }
+
+  default Object invoke(Object idx, Object notFound) {
+    if(Util.isInteger(idx)) {
+      long xx = Casts.longCast(idx);
+      final long sz = lsize();
+      if (xx < 0) xx += sz;
+      if (xx >= 0 && xx < sz)
+	return readObject(xx);
+    }
+    return notFound;
   }
 
   class BufferSpliterator implements Spliterator {
@@ -306,62 +326,33 @@ public interface Buffer extends DatatypeBase, IMutList<Object>
     public Buffer subBuffer(long sidx, long eidx) {
       return new CopyingReducer(src.subBuffer(sidx,eidx), dst.subBuffer(sidx,eidx));
     }
-    static class GenericCopyingRfn implements IFnDef.OOO {
-      final Buffer src;
-      final Buffer dst;
-      final IFn rfn;
-      long idx;
-      public GenericCopyingRfn(Buffer src, Buffer dst, IFn rfn) {
-	this.src = src;
-	this.dst = dst;
-	this.rfn = rfn;
-	idx = 0;
+    public Object reduce(IFn rfn, Object acc) {
+      IFn rrfn;
+      if(rfn instanceof IFn.OLO) {
+	final IFn.OLO rf = (IFn.OLO)rfn;
+	rrfn = new Reductions.IndexedLongAccum(new IFnDef.OLLO() {
+	    public Object invokePrim(Object acc, long idx, long v) {
+	      dst.writeLong(idx, v);
+	      return rf.invokePrim(acc, v);
+	    }
+	  });
+      } else if (rfn instanceof IFn.ODO) {
+	final IFn.ODO rf = (IFn.ODO)rfn;
+	rrfn = new Reductions.IndexedDoubleAccum(new IFnDef.OLDO() {
+	    public Object invokePrim(Object acc, long idx, double v) {
+	      dst.writeDouble(idx, v);
+	      return rf.invokePrim(acc, v);
+	    }
+	  });
+      } else {
+	rrfn = new Reductions.IndexedAccum(new IFnDef.OLOO() {
+	    public Object invokePrim(Object acc, long idx, Object v) {
+	      dst.writeObject(idx,v);
+	      return rfn.invoke(acc,v);
+	    }
+	  });
       }
-      public Object invoke(Object lhs, Object v) {
-	dst.writeObject(idx++, v);
-	return rfn.invoke(lhs, v);
-      }
-    }
-    public Object reduce(IFn rfn, Object init) {
-      return src.reduce(new GenericCopyingRfn(src, dst, rfn), init);
-    }
-    class LongCopyingRfn implements IFnDef.OLO {
-      final Buffer src;
-      final Buffer dst;
-      final IFn.OLO rfn;
-      long idx;
-      public LongCopyingRfn(Buffer src, Buffer dst, IFn.OLO rfn) {
-	this.src = src;
-	this.dst = dst;
-	this.rfn = rfn;
-	idx = 0;
-      }
-      public Object invokePrim(Object lhs, long v) {
-	dst.writeLong(idx++, v);
-	return rfn.invokePrim(lhs, v);
-      }
-    };
-    public Object longReduction(IFn.OLO rfn, Object init) {
-      return src.longReduction(new LongCopyingRfn(src, dst, rfn), init);
-    }
-    class DoubleCopyingRfn implements IFnDef.ODO {
-      final Buffer src;
-      final Buffer dst;
-      final IFn.ODO rfn;
-      long idx;
-      public DoubleCopyingRfn(Buffer src, Buffer dst, IFn.ODO rfn) {
-	this.src = src;
-	this.dst = dst;
-	this.rfn = rfn;
-	idx = 0;
-      }
-      public Object invokePrim(Object lhs, double v) {
-	dst.writeDouble(idx++, v);
-	return rfn.invokePrim(lhs, v);
-      }
-    };
-    public Object doubleReduction(IFn.ODO rfn, Object init) {
-      return src.doubleReduction(new DoubleCopyingRfn(src, dst, rfn), init);
+      return src.reduce(rrfn, acc);
     }
   }
 };

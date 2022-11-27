@@ -6,6 +6,7 @@ import clojure.lang.RT;
 import clojure.lang.IFn;
 import ham_fisted.Casts;
 import ham_fisted.ChunkedList;
+import ham_fisted.Transformables;
 
 
 
@@ -26,9 +27,6 @@ public interface DoubleBuffer extends Buffer
       super(list, sidx, eidx);
     }
     public Object reduce(IFn rfn, Object init) { return DoubleBuffer.super.reduce(rfn, init); }
-    public Object longReduction(IFn.OLO rfn, Object init) {
-      return DoubleBuffer.super.longReduction(rfn, init);
-    }
   }
   default Buffer subBuffer(long sidx, long eidx) {
     ChunkedList.sublistCheck(sidx, eidx, lsize());
@@ -36,18 +34,10 @@ public interface DoubleBuffer extends Buffer
     return new DoubleSubBuffer(this, sidx, eidx);
   }
   default Object reduce(final IFn fn, Object init) {
-    final IFn.ODO rrfn = fn instanceof IFn.ODO ? (IFn.ODO)fn : new IFn.ODO() {
-	public Object invokePrim(Object lhs, double v) {
-	  return fn.invoke(lhs, v);
-	}
-      };
-    return doubleReduction(rrfn, init);
-  }
-  default Object longReduction(IFn.OLO fn, Object init) {
-    return doubleReduction(new IFn.ODO() {
-	public Object invokePrim(Object lhs, double v) {
-	  return fn.invokePrim(lhs, Casts.longCast(v));
-	}
-      }, init);
+    IFn.ODO rf = Transformables.toDoubleReductionFn(fn);
+    final long sz = lsize();
+    for (long idx = 0; idx < sz && !RT.isReduced(init); ++idx)
+      init = rf.invokePrim(init, readDouble(idx));
+    return init;
   }
 }

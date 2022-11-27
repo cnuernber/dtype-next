@@ -15,7 +15,7 @@
            [java.util.function Function]
            [java.util List]
            [java.util.concurrent ConcurrentHashMap]
-           [ham_fisted ITypedReduce ParallelOptions Reductions ChunkedList]))
+           [ham_fisted ITypedReduce ParallelOptions Reductions ChunkedList Transformables]))
 
 
 (set! *unchecked-math* :warn-on-boxed)
@@ -162,10 +162,11 @@
                   (subBuffer [rr ssidx seidx]
                     (ChunkedList/sublistCheck ssidx seidx sne)
                     (.subBuffer rdr (+ sidx ssidx) (+ sidx seidx)))
-                  (longReduction [rr rfn init]
-                    (.longReduction rdr rfn init sidx eidx)))))
-            (longReduction [this rfn init]
-              (.longReduction this rfn init 0 n-elems))
+                  (reduce [rr rfn init]
+                    (.longReduction rdr (Transformables/toLongReductionFn rfn) init
+                                    sidx eidx)))))
+            (reduce [this rfn init]
+              (.longReduction this (Transformables/toLongReductionFn rfn) init 0 n-elems))
             SubRangeLongReduction
             (longReduction [this rfn init sidx eidx]
               (reducer rfn init 0 sidx eidx))))))
@@ -347,5 +348,5 @@
                                         (pmath/+ val))
                                     (pmath/inc idx)))
                            val)))))
-        (longReduction [this rfn init]
-          (.longReduction elemwise-reader rfn init))))))
+        (reduce [this rfn init]
+          (.reduce elemwise-reader rfn init))))))

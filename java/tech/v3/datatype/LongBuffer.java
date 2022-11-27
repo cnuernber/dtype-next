@@ -3,8 +3,10 @@ package tech.v3.datatype;
 
 import clojure.lang.Keyword;
 import clojure.lang.IFn;
+import clojure.lang.RT;
 import ham_fisted.Casts;
 import ham_fisted.ChunkedList;
+import ham_fisted.Transformables;
 
 
 public interface LongBuffer extends Buffer
@@ -25,9 +27,6 @@ public interface LongBuffer extends Buffer
       super(list, sidx, eidx);
     }
     public Object reduce(IFn rfn, Object init) { return LongBuffer.super.reduce(rfn, init); }
-    public Object doubleReduction(IFn.ODO rfn, Object init) {
-      return LongBuffer.super.doubleReduction(rfn, init);
-    }
   }
 
   default Buffer subBuffer(long sidx, long eidx) {
@@ -36,18 +35,10 @@ public interface LongBuffer extends Buffer
     return new LongSubBuffer(this, sidx, eidx);
   }
   default Object reduce(final IFn fn, Object init) {
-    final IFn.OLO rrfn = fn instanceof IFn.OLO ? (IFn.OLO)fn : new IFn.OLO() {
-	public Object invokePrim(Object lhs, long v) {
-	  return fn.invoke(lhs, v);
-	}
-      };
-    return longReduction(rrfn, init);
-  }
-  default Object doubleReduction(IFn.ODO fn, Object init) {
-    return longReduction(new IFn.OLO() {
-	public Object invokePrim(Object lhs, long v) {
-	  return fn.invokePrim(lhs, (double)v);
-	}
-      }, init);
+    IFn.OLO rf = Transformables.toLongReductionFn(fn);
+    final long sz = lsize();
+    for (long idx = 0; idx < sz && !RT.isReduced(init); ++idx)
+      init = rf.invokePrim(init, readLong(idx));
+    return init;
   }
 }

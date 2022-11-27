@@ -81,7 +81,7 @@
                        (subBuffer [b sidx eidx]
                          (-> (.subList item sidx eidx)
                              (dtype-proto/->buffer)))
-                       (longReduction [b rfn ival] (.longReduction item rfn ival))
+                       (reduce [b rfn ival] (.reduce item rfn ival))
                        dtype-proto/PConstantTimeMinMax
                        (has-constant-time-min-max? [b] true)
                        (constant-time-min [b] (dtype-proto/constant-time-min item))
@@ -155,7 +155,7 @@
                  (subBuffer [b sidx eidx]
                    (-> (.subList item sidx eidx)
                        (dtype-proto/->buffer)))
-                 (doubleReduction [b rfn ival] (.doubleReduction item rfn ival))
+                 (reduce [b rfn ival] (.reduce item rfn ival))
                  dtype-proto/PConstantTimeMinMax
                  (has-constant-time-min-max? [b] true)
                  (constant-time-min [b] (dtype-proto/constant-time-min item))

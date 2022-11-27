@@ -39,20 +39,21 @@
          (allowsRead [this] (.allowsRead item))
          (allowsWrite [this] (.allowsWrite item))
          (reduce [this rfn init]
-           (.longReduction indexes (hamf/long-accumulator
-                                    acc v
-                                    (rfn acc (.readObject item v)))
-                           init))
-         (longReduction [this rfn init]
-           (.longReduction indexes (hamf/long-accumulator
-                                    acc v
-                                    (.invokePrim rfn acc (.readLong item v)))
-                           init))
-         (doubleReduction [this rfn init]
-           (.longReduction indexes (hamf/long-accumulator
-                                    acc v
-                                    (.invokePrim rfn acc (.readDouble item v)))
-                           init))
+           (.reduce indexes
+                    (cond
+                      (instance? IFn$OLO rfn)
+                      (hamf/long-accumulator
+                       acc v
+                       (.invokePrim ^IFn$OLO rfn acc (.readLong item v)))
+                      (instance? IFn$ODO rfn)
+                      (hamf/long-accumulator
+                       acc v
+                       (.invokePrim ^IFn$ODO rfn acc (.readDouble item v)))
+                      :else
+                      (hamf/long-accumulator
+                       acc v
+                       (rfn acc (.readObject item v))))
+                    init))
          (parallelReduction [this init-val-fn rfn merge-fn options]
            (.parallelReduction indexes init-val-fn
                                (cond

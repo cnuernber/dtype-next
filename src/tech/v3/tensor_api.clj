@@ -885,10 +885,6 @@
                (ChunkedList/sublistCheck ssidx# seidx# nne#)
                (.subBuffer rdr# (+ sidx# ssidx#) (+ sidx# seidx#)))
              (reduce [this# rfn# init#]
-               (nd-reduce ~per-pixel-op rfn# init# sidx# eidx#))
-             (longReduction [this# rfn# init#]
-               (nd-reduce ~per-pixel-op rfn# init# sidx# eidx#))
-             (doubleReduction [this# rfn# init#]
                (nd-reduce ~per-pixel-op rfn# init# sidx# eidx#)))))
        (~read-fn [rdr# ~'idx]
          ~(case (long n-dims)
@@ -904,10 +900,6 @@
             `(~cast-fn (.ndReadObjectIter ~per-pixel-op (shape-stride-reader
                                                          ~output-shape ~strides ~'idx)))))
        (reduce [this# rfn# init#]
-         (nd-reduce ~per-pixel-op rfn# init# 0 ~n-elems))
-       (longReduction [this# rfn# init#]
-         (nd-reduce ~per-pixel-op rfn# init# 0 ~n-elems))
-       (doubleReduction [this# rfn# init#]
          (nd-reduce ~per-pixel-op rfn# init# 0 ~n-elems)))))
 
 
