@@ -382,10 +382,9 @@
       this))
   dtype-proto/PClone
   (clone [this]
-    (dtype-proto/make-container :native-heap datatype
-                                {:endianness endianness
-                                 :resource-type resource-type}
-                                this))
+    ;;Native buffers clone to the jvm heap.  This an assumption built into many parts
+    ;;of the system.
+    (dtype-proto/make-container :jvm-heap datatype nil this))
   dtype-proto/PToBuffer
   (convertible-to-buffer? [_this] true)
   (->buffer [this]

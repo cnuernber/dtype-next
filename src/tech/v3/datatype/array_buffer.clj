@@ -155,7 +155,20 @@
       datalist)))
 
 
-(defrecord ArrayBuffer [ary-data ^long offset ^long n-elems dtype]
+(defmacro buffer!
+  []
+  `(do (when-not ~'buffer) (set! ~'buffer (dtype-proto/->buffer ~'this))
+       ~'buffer))
+
+
+(deftype ArrayBuffer [ary-data ^long offset ^long n-elems dtype
+                      meta
+                      ^{:unsynchronized-mutable true
+                        :tag Buffer} buffer]
+  Object
+  (toString [this] (dtype-pp/buffer->string (dtype-proto/->buffer this) "array-buffer"))
+  (equals [this o] (.equiv this o))
+  (hashCode [this] (.hasheq this))
   dtype-proto/PToArrayBuffer
   (convertible-to-array-buffer? [buf] true)
   (->array-buffer [buf] buf)
@@ -168,8 +181,11 @@
   dtype-proto/PToBuffer
   (convertible-to-buffer? [item] true)
   (->buffer [item]
-    (-> (array-sub-list dtype ary-data offset (+ offset n-elems) (meta item))
-        (array-list->buffer dtype)))
+    (when-not buffer
+      (set! buffer
+            (-> (array-sub-list dtype ary-data offset (+ offset n-elems) meta)
+                (array-list->buffer dtype))))
+    buffer)
   dtype-proto/PSubBuffer
   (sub-buffer [item off len]
     (let [off (int off)
@@ -177,7 +193,7 @@
           alen (Array/getLength ary-data)]
       (when (> (+ off len) alen)
         (throw (RuntimeException. (str "Out of range - extent: " (+ off len) " - alength: " alen))))
-      (with-meta (ArrayBuffer. ary-data (+ offset off) len dtype) (meta item))))
+      (ArrayBuffer. ary-data (+ offset off) len dtype (meta item) buffer)))
   dtype-proto/PToWriter
   (convertible-to-writer? [item] true)
   (->writer [item] (dtype-proto/->buffer item))
@@ -185,7 +201,25 @@
   (convertible-to-reader? [item] true)
   (->reader [item] (dtype-proto/->buffer item))
   dtype-proto/PEndianness
-  (endianness [item] :little-endian))
+  (endianness [item] :little-endian)
+  IMutList
+  (meta [this] meta)
+  (withMeta [this newm] (ArrayBuffer. ary-data offset n-elems dtype newm buffer))
+  (size [this] (unchecked-int n-elems))
+  (get [this idx] (.readObject (buffer!) idx))
+  (getLong [this idx] (.readLong (buffer!) idx))
+  (getDouble [this idx] (.readDouble (buffer!) idx))
+  (set [this idx v] (let [rv (.readObject (buffer!) idx)]
+                      (.writeObject (buffer!) idx v)
+                      rv))
+  (setLong [this idx v] (.writeLong (buffer!) idx v))
+  (setDouble [this idx v] (.writeDouble (buffer!) idx v))
+  (cloneList [this] (.cloneList (buffer!)))
+  (reduce [this rfn] (.reduce (buffer!) rfn))
+  (reduce [this rfn init] (.reduce (buffer!) rfn init)))
+
+
+(dtype-pp/implement-tostring-print ArrayBuffer)
 
 
 (defn set-datatype
@@ -193,7 +227,7 @@
   and make it a packed-local-date, or vice versa.  If it isn't obvious, use this
   with some care."
   [^ArrayBuffer abuf dtype]
-  (ArrayBuffer. (.-ary-data abuf) (.-offset abuf) (.-n-elems abuf) dtype))
+  (ArrayBuffer. (.-ary-data abuf) (.-offset abuf) (.-n-elems abuf) dtype nil nil))
 
 (casting/add-object-datatype! :array-buffer ArrayBuffer false)
 
@@ -203,7 +237,8 @@
         sidx (.-sidx section)
         eidx (.-eidx section)]
     (ArrayBuffer. (.-array section) sidx (- eidx sidx)
-                  (dtype-proto/elemwise-datatype owner))))
+                  (dtype-proto/elemwise-datatype owner)
+                  nil nil)))
 
 (defn array-buffer-convertible-copy-raw-data
   "Given an array buffer convertible object implement copy-raw->data"
@@ -624,7 +659,7 @@
   ([java-ary buf-dtype]
    (let [ary-dtype (dtype-proto/elemwise-datatype java-ary)]
      (ArrayBuffer. (ensure-array java-ary) 0 (Array/getLength java-ary)
-                   (ensure-datatypes ary-dtype buf-dtype)))))
+                   (ensure-datatypes ary-dtype buf-dtype) nil nil))))
 
 
 (defn array-buffer->map
@@ -680,7 +715,8 @@
        :->array-buffer (fn [ary]
                          (ArrayBuffer. ary 0
                                        (len-fn ary)
-                                       (dtype-proto/elemwise-datatype ary)))}
+                                       (dtype-proto/elemwise-datatype ary)
+                                       nil nil))}
       dtype-proto/PSubBuffer
       {:sub-buffer (fn [ary ^long off ^long len]
                      (hamf/subvec ary off (+ off len)))}
