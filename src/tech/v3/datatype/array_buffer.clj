@@ -191,9 +191,12 @@
     (let [off (int off)
           len (int len)
           alen (Array/getLength ary-data)]
-      (when (> (+ off len) alen)
-        (throw (RuntimeException. (str "Out of range - extent: " (+ off len) " - alength: " alen))))
-      (ArrayBuffer. ary-data (+ offset off) len dtype (meta item) buffer)))
+      (if (and (== off 0) (== len n-elems))
+        item
+        (do
+          (when (> (+ off len) alen)
+            (throw (RuntimeException. (str "Out of range - extent: " (+ off len) " - alength: " alen))))
+          (ArrayBuffer. ary-data (+ offset off) len dtype meta nil)))))
   dtype-proto/PToWriter
   (convertible-to-writer? [item] true)
   (->writer [item] (dtype-proto/->buffer item))
