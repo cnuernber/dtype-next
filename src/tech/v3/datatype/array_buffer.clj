@@ -172,6 +172,8 @@
   dtype-proto/PToArrayBuffer
   (convertible-to-array-buffer? [buf] true)
   (->array-buffer [buf] buf)
+  dtype-proto/PClone
+  (clone [buf] (ArrayBuffer. (dtype-proto/clone ary-data) 0 n-elems dtype nil nil))
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [buf] dtype)
   dtype-proto/PElemwiseReaderCast
@@ -217,7 +219,7 @@
                       rv))
   (setLong [this idx v] (.writeLong (buffer!) idx v))
   (setDouble [this idx v] (.writeDouble (buffer!) idx v))
-  (cloneList [this] (.cloneList (buffer!)))
+  (cloneList [this] (.clone this))
   (reduce [this rfn] (.reduce (buffer!) rfn))
   (reduce [this rfn init] (.reduce (buffer!) rfn init)))
 
@@ -691,7 +693,7 @@
 
 
 (defn- implement-array!
-  [dtype len-fn]
+  [dtype len-fn clone-fn]
   (let [ary-cls (typecast/datatype->array-cls dtype)
         array-dtype (keyword (str (name dtype) "-array"))
         ary->buffer (fn [ary]
@@ -711,6 +713,8 @@
       {:datatype (constantly array-dtype)}
       dtype-proto/PECount
       {:ecount len-fn}
+      dtype-proto/PClone
+      {:clone clone-fn}
       dtype-proto/PEndianness
       {:endianness (constantly :little-endian)}
       dtype-proto/PToArrayBuffer
@@ -743,7 +747,9 @@
         array-types
         (map
          (fn [ary-type]
-           `(implement-array! ~ary-type #(alength (typecast/datatype->array ~ary-type %))))))))
+           `(implement-array! ~ary-type #(alength (typecast/datatype->array ~ary-type %))
+                              #(Arrays/copyOf (typecast/datatype->array ~ary-type %)
+                                              (alength (typecast/datatype->array ~ary-type %)))))))))
 
 
 (initial-implement-arrays)
