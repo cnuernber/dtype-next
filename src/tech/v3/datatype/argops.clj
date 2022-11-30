@@ -571,8 +571,8 @@
                       unordered?)
          rdr (dtype-base/->reader rdr)
          key-fn (if-let [user-key-fn (get options :key-fn)]
-                  (fn [^long idx] (user-key-fn (.readObject rdr idx)))
-                  (fn [^long idx] (.readObject rdr idx)))]
+                  (hamf/long->obj idx (user-key-fn (.readObject rdr idx)))
+                  (hamf/long->obj idx (.readObject rdr idx)))]
      (hamf/group-by-reducer key-fn
                             (unary-pred/index-reducer storage-datatype)
                             (merge {:ordered? (not unordered?)

@@ -6,7 +6,9 @@
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.list]
             [com.github.ztellman.primitive-math :as pmath]
-            [clojure.set :as set])
+            [ham-fisted.api :as hamf]
+            [ham-fisted.lazy-noncaching :as lznc]
+            [ham-fisted.set :as set])
   (:import [tech.v3.datatype UnaryOperator
             Buffer
             DoubleConsumers$MinMaxSum
@@ -32,7 +34,7 @@
    :mean {:dependencies [:sum]
           :formula (fn [stats-data]
                      (pmath// (double (:sum stats-data))
-                              (double (:n-values stats-data))))}
+                              (double (:n-elems stats-data))))}
    :moment-2 {:dependencies [:mean]
               :reduction (fn [stats-data]
                            (let [mean (double (:mean stats-data))]
@@ -59,13 +61,13 @@
    :variance {:dependencies [:moment-2]
               :formula (fn [stats-data]
                          (pmath// (double (:moment-2 stats-data))
-                                  (unchecked-dec (double (:n-values stats-data)))))}
+                                  (unchecked-dec (double (:n-elems stats-data)))))}
    :standard-deviation {:dependencies [:variance]
                         :formula (fn [stats-data]
                                    (Math/sqrt (double (:variance stats-data))))}
    :skew {:dependencies [:moment-3 :standard-deviation]
           :formula (fn [stats-data]
-                     (let [n-elemsd (double (:n-values stats-data))
+                     (let [n-elemsd (double (:n-elems stats-data))
                            n-elems-12 (pmath/* (pmath/- n-elemsd 1.0)
                                                (pmath/- n-elemsd 2.0))
                            stddev (double (:standard-deviation stats-data))
@@ -78,7 +80,7 @@
    ;;{ [n(n+1) / (n -1)(n - 2)(n-3)] sum[(x_i - mean)^4] / std^4 } - [3(n-1)^2 / (n-2)(n-3)]
    :kurtosis {:dependencies [:moment-4 :variance]
               :formula (fn [stats-data]
-                         (let [n-elemsd (double (:n-values stats-data))]
+                         (let [n-elemsd (double (:n-elems stats-data))]
                            (if (>= n-elemsd 4.0)
                              (let [variance (double (:variance stats-data))
                                    moment-4 (double (:moment-4 stats-data))
@@ -107,37 +109,6 @@
         (set))))))
 
 
-(def ^:private reduction-rank
-  (memoize
-   (fn [item]
-     (let [node (stats-tower item)
-           node-deps (:dependencies node)
-           node-rank (long (if (:reduction node)
-                             1
-                             0))]
-       (+ node-rank
-          (long (apply clojure.core/max 0 (map reduction-rank node-deps))))))))
-
-
-(def ^:private reduction-groups
-  (memoize
-   (fn [stat-dependencies]
-     (->> stat-dependencies
-          (filter #(get-in stats-tower [% :reduction]))
-          (group-by reduction-rank)
-          (sort-by first)
-          (map (fn [[_rank kwds]]
-                 {:reductions (->> kwds
-                                   (map (fn [kwd]
-                                          [kwd (get-in stats-tower
-                                                       [kwd :reduction])]))
-                                   (into {}))
-                  :dependencies
-                  (->> kwds
-                       (mapcat #(get-in stats-tower [% :dependencies]))
-                       set)}))))))
-
-
 (defn- calculate-descriptive-stat
   "Calculate a single statistic.  Utility method for calculate-descriptive-stats
   method below."
@@ -150,14 +121,13 @@
                                dependencies)
              stat-data
              (if reduction
-               (let [{:keys [n-elems data]}
-                     (dtype-reductions/double-reductions
-                      {statname (reduction stat-data)}
-                      rdr
-                      options)]
-                 (assoc stat-data
-                        statname (get data statname)
-                        :n-values n-elems))
+               (let [^UnaryOperator op (reduction stat-data)
+                     {:keys [n-elems sum]}
+                     (->> (dtype-base/as-reader rdr :float64)
+                          (lznc/map (hamf/double-unary-operator
+                                     v (.unaryDouble op v)))
+                          (hamf/sum-stable-nelems options))]
+                 (assoc stat-data statname sum :n-elems n-elems))
                stat-data)
              stat-data (if formula
                          (assoc stat-data statname
@@ -170,60 +140,11 @@
    (calculate-descriptive-stat statname {} nil rdr)))
 
 
-(defn- reduce-group
-  "There are optimized versions of reductions that combine various operations
-  into the same run.  It would be very cool if the compiler could do this
-  optimization but we are either a ways away and we cannot load dynamic classes in
-  the graal native pathway."
-  [stats-data reductions options rdr]
-  (let [reductions-set (set (keys reductions))
-        stats-data (merge stats-data
-                          (when (some reductions-set [:min :max :sum])
-                            (let [result
-                                  (-> (dtype-reductions/staged-double-consumer-reduction
-                                       #(DoubleConsumers$MinMaxSum.)
-                                       options rdr)
-                                      (into {}))]
-                              (merge {:n-values (:n-elems result)}
-                                     result)))
-                          (when (some reductions-set [:moment-2 :moment-3 :moment-4])
-                            (let [result
-                                  (->> (dtype-reductions/staged-double-consumer-reduction
-                                        #(DoubleConsumers$Moments.
-                                          (double (:mean stats-data)))
-                                        options rdr)
-                                       (into {}))]
-                              (merge {:n-values (:n-elems result)}
-                                     result))))
-        reductions-set (set/difference reductions-set
-                                       #{:min :max :sum :moment-2
-                                         :moment-3 :moment-4})]
-    (if (seq reductions-set)
-      (let [{:keys [n-elems data]}
-            (dtype-reductions/double-reductions
-             (->> (select-keys reductions reductions-set)
-                  (map (fn [[kwd red-fn]]
-                         [kwd (red-fn stats-data)]))
-                  (into {}))
-                        options
-                        rdr)]
-        (merge {:n-values n-elems }
-               data
-               stats-data))
-      stats-data)))
-
-
-(defn- options->apache-nan-strategy
-  ^NaNStrategy [options]
-  (case (:nan-strategy options)
-    :keep NaNStrategy/FIXED
-    :exception NaNStrategy/FAILED
-    NaNStrategy/REMOVED))
-
-
 (def all-descriptive-stats-names
   #{:min :quartile-1 :sum :mean :mode :median :quartile-3 :max
-    :variance :standard-deviation :skew :n-values :kurtosis})
+    :variance :standard-deviation :skew :n-elems :kurtosis})
+
+(hamf/bind-double-consumer-reducer! #(DoubleConsumers$MinMaxSum.))
 
 
 (defn descriptive-statistics
@@ -231,7 +152,7 @@
 
   Available stats:
   #{:min :quartile-1 :sum :mean :mode :median :quartile-3 :max
-    :variance :standard-deviation :skew :n-values :kurtosis}
+    :variance :standard-deviation :skew :n-elems :kurtosis}
 
   options
     - `:nan-strategy` - defaults to :remove, one of
@@ -241,81 +162,75 @@
   ([stats-names stats-data {:keys [nan-strategy]
                             :or {nan-strategy :remove}
                             :as options} rdr]
-   (let [rdr (dtype-base/->reader
-              (if (dtype-base/reader? rdr)
-                rdr
-                (dtype-cmc/make-container
-                 :jvm-heap
-                 :float64
-                 {:nan-strategy :keep}
-                 (or rdr [])))
-              :float64)
-         stats-set (set stats-names)
+   (let [stats-set (hamf/immut-set stats-names)
+         stats-data (or stats-data {})
          median? (stats-set :median)
          percentile-set #{:quartile-1 :quartile-3}
          percentile? (some stats-set percentile-set)
          percentile-set (set/intersection stats-set percentile-set)
          stats-set (set/difference stats-set percentile-set)
-         ^Buffer rdr (if (or median? percentile?)
-                       (let [darray (dtype-cmc/->array-buffer
-                                     :float64 (assoc options :nan-strategy
-                                                     nan-strategy) rdr)]
-                              ;;arrays/sort is blindingly fast.
-                         (when median?
-                           (Arrays/sort ^doubles (.ary-data darray)
-                                        (.offset darray)
-                                        (+ (.offset darray)
-                                           (.n-elems darray))))
-                         (dtype-base/->reader darray))
-                       rdr)
-         ;;In this case we have already filtered out nans at the cost of copying the
-         ;;entire array of data.
-         options (if median?
-                   (assoc options :nan-strategy :keep)
-                   options)
-         n-elems (dtype-base/ecount rdr)
+         rdr (->> (or (dtype-base/as-reader rdr :float64) rdr)
+                  (hamf/apply-nan-strategy options))
+         ;;update options to reflect filtering
+         options (assoc options :nan-strategy :keep)
+         rdr (->> (if (or median? percentile?)
+                    (let [darray (dtype-cmc/->array-buffer :float64 rdr)]
+                      ;;arrays/sort is blindingly fast.
+                      (when median?
+                        (Arrays/sort ^doubles (.ary-data darray)
+                                     (.offset darray)
+                                     (+ (.offset darray)
+                                        (.n-elems darray))))
+                      darray)
+                    rdr))
          stats-data (merge
-                     {:n-values n-elems}
-                     (if (== 0 n-elems)
-                       {:min ##NaN
+                     (cond
+                       (hamf/empty? rdr)
+                       {:n-elems 0
+                        :min ##NaN
                         :max ##NaN
                         :median ##NaN}
-                       (when median?
-                         {:min (rdr 0)
-                          :max (rdr (unchecked-dec n-elems))
-                          :median (rdr (quot n-elems 2))}))
+                       (or median? percentile?)
+                       (let [n-elems (dtype-base/ecount rdr)]
+                         (if median?
+                           {:min (rdr 0)
+                            :max (rdr -1)
+                            :median (rdr (quot n-elems 2))
+                            :n-elems n-elems}
+                           {:min (rdr 0)
+                            :max (rdr -1)
+                            :n-elems n-elems})))
                      stats-data)
-
-         calculate-stats-set (set/difference stats-set (set (keys stats-data)))
-         dependency-set (reduce set/union (map node-dependencies calculate-stats-set))
-         calculated-dependency-set (reduce set/union
-                                           (map node-dependencies (keys stats-data)))
-         required-dependency-set (set/difference dependency-set
-                                                 calculated-dependency-set)
-         stats-data
-         (->> (reduction-groups required-dependency-set)
-              (reduce
-               (fn [stats-data group]
-                 (let [reductions (:reductions group)
-                       dependencies (:dependencies group)
-                       ;;these caclculations are guaranteed to not need
-                       ;;to do any reductions.
-                       stats-data (reduce #(calculate-descriptive-stat
-                                            %2
-                                            %1
-                                            options
-                                            rdr)
-                                          stats-data
-                                          dependencies)]
-                   (reduce-group stats-data reductions options rdr)))
-               stats-data))
+         provided-keys (hamf/map-keyset stats-data)
+         calculate-stats-set (set/difference stats-set provided-keys)
+         dependency-set (apply set/reduce-union (map node-dependencies calculate-stats-set))
+         required-dependency-set (set/difference dependency-set provided-keys)
+         stats-data (if (not (empty? (set/intersection required-dependency-set
+                                                       #{:sum :min :max :n-elems})))
+                      (merge stats-data (hamf/preduce-reducer (DoubleConsumers$MinMaxSum.)
+                                                              rdr))
+                      stats-data)
+         stats-data (if (required-dependency-set :mean)
+                      (assoc stats-data :mean (/ (double (stats-data :sum))
+                                                 (double (stats-data :n-elems))))
+                      stats-data)
+         stats-data (if (not (empty? (set/intersection required-dependency-set
+                                                       #{:moment-2 :moment-3 :moment-4})))
+                      (merge stats-data (hamf/preduce-reducer
+                                         (hamf/double-consumer-reducer
+                                          #(DoubleConsumers$Moments. (:mean stats-data)))
+                                         rdr))
+                      stats-data)
+         provided-keys (hamf/map-keyset stats-data)
+         required-dependency-set (set/difference required-dependency-set provided-keys)
          stats-data (reduce #(calculate-descriptive-stat %2 %1 options rdr)
                             stats-data
-                            calculate-stats-set)
+                            ;;any leftover stats-tower items must be formula-driven based on
+                            ;;precalculated stats.
+                            (set/intersection (hamf/map-keyset stats-tower)
+                                              required-dependency-set))
          stats-data (if percentile?
-                      (let [p (doto (Percentile.)
-                                (.withNaNStrategy (options->apache-nan-strategy
-                                                   options)))
+                      (let [p (Percentile.)
                             ary-buf (dtype-base/as-array-buffer rdr)]
                         (.setData p ^doubles (.ary-data ary-buf) (.offset ary-buf)
                                   (.n-elems ary-buf))
@@ -331,7 +246,7 @@
   ([stats-names rdr]
    (descriptive-statistics stats-names nil nil rdr))
   ([rdr]
-   (descriptive-statistics [:n-values :min :mean :max :standard-deviation]
+   (descriptive-statistics [:n-elems :min :mean :max :standard-deviation]
                            nil nil rdr)))
 
 
@@ -360,6 +275,7 @@
 
 (define-descriptive-stats)
 
+(defn- dreader [data] (or (dtype-base/as-reader data :float64) data))
 
 
 (defn sum
@@ -373,20 +289,22 @@
 
 (defn min
   (^double [data options]
-   (if (== 0 (dtype-base/ecount data))
-     Double/NaN
-     (dtype-reductions/commutative-binary-double
-      (:tech.numerics/min binary-op/builtin-ops) options data)))
+   (let [data (dreader data)]
+     (if (hamf/empty? data)
+       Double/NaN
+       (dtype-reductions/commutative-binary-double
+        (:tech.numerics/min binary-op/builtin-ops) options data))))
   (^double [data]
    (min data nil)))
 
 
 (defn max
   (^double [data options]
-   (if (== 0 (dtype-base/ecount data))
-     Double/NaN
-     (dtype-reductions/commutative-binary-double
-      (:tech.numerics/max binary-op/builtin-ops) options data)))
+   (let [data (dreader data)]
+     (if (hamf/empty? data)
+       Double/NaN
+       (dtype-reductions/commutative-binary-double
+        (:tech.numerics/max binary-op/builtin-ops) options data))))
   (^double [data]
    (max data nil)))
 
@@ -394,12 +312,13 @@
 (defn mean
   "double mean of data"
   (^double [data options]
-   (if (== 0 (dtype-base/ecount data))
-     Double/NaN
-     (let [{:keys [n-elems sum]} (dtype-reductions/staged-double-consumer-reduction
-                                  :tech.numerics/+ options data)]
-       (pmath// (double sum)
-                (double n-elems)))))
+   (let [data (dreader data)]
+     (if (hamf/empty? data)
+       Double/NaN
+       (let [{:keys [n-elems sum]} (dtype-reductions/staged-double-consumer-reduction
+                                    :tech.numerics/+ options data)]
+         (pmath// (double sum)
+                  (double n-elems))))))
   (^double [data]
    (mean data nil)))
 
@@ -477,7 +396,6 @@
   (^Buffer [percentages options data]
    (let [ary-buf (dtype-cmc/->array-buffer :float64 options data)
          p (doto (Percentile.)
-             (.withNaNStrategy (options->apache-nan-strategy {:nan-strategy :keep}))
              (.withEstimationType (options->percentile-estimation-strategy options))
              (.setData ^doubles (.ary-data ary-buf) (.offset ary-buf)
                        (.n-elems ary-buf)))]
@@ -500,12 +418,11 @@
   (or (< val (- q1 (* range-mult iqr)))
       (> val (+ q3 (* range-mult iqr)))"
   [item & [range-mult]]
-  (let [[_ q1 _ q3 _] (quartiles item)
+  (let [[q1 q3] (percentiles [25 75] item)
         q1 (double q1)
         q3 (double q3)
         iqr (- q3 q1)
         range-mult (double (or range-mult 1.5))]
-    (reify UnaryPredicates$DoubleUnaryPredicate
-      (unaryDouble [this x]
-        (or (< x (- q1 (* range-mult iqr)))
-            (> x (+ q3 (* range-mult iqr))))))))
+    (hamf/double-predicate
+     x (or (< x (- q1 (* range-mult iqr)))
+           (> x (+ q3 (* range-mult iqr)))))))

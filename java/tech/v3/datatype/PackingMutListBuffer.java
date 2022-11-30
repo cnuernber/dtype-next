@@ -70,6 +70,7 @@ public class PackingMutListBuffer implements Buffer {
     data.setLong((int)idx, Casts.longCast(packFn.invoke(obj)));
   }
   public boolean add(Object v) { return data.add(packFn.invoke(v)); }
+  public void addLong(long v) { data.addLong(v); }
   public boolean addAll(Collection c) {
     return addAllReducible(c);
   }

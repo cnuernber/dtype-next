@@ -126,13 +126,13 @@
           (.set container replace-idx val)))))
   Reducible
   (reduce [this other]
-    (hamf/reduce hamf/double-consumer-accumulator this @other))
+    (reduce hamf/consumer-accumulator this @other))
   IDeref
   (deref [this] container))
 
 
 (defn reservoir-sampler
-    "Return hamf parallel reducer that will accept doubles and whose value is the
+    "Return hamf parallel reducer that will accept objects and whose value is the
   reservoir of data.
 
   Merging consists of adding elements from the second distribution into the first.

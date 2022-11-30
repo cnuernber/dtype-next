@@ -232,12 +232,4 @@
   "Perform a commutative binary reduction.  The space of the reduction will
   be determined by the datatype of the reader."
   [op rdr]
-  (if (dtype-base/reader? rdr)
-    (let [op-space (casting/simple-operation-space (dtype-base/elemwise-datatype rdr))
-          rdr (dtype-base/->reader rdr op-space)
-          op (->operator op)]
-      (case op-space
-        :int64 (reductions/commutative-binary-long op rdr)
-        :float64 (reductions/commutative-binary-double op rdr)
-        (reductions/commutative-binary-object op rdr)))
-    (reduce op rdr)))
+  (reductions/commutative-binary-reduce op rdr))

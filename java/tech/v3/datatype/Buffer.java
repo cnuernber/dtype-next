@@ -184,6 +184,23 @@ public interface Buffer extends DatatypeBase, IMutList<Object>
     return init;
   }
 
+  default void fillRange(long sidx, long eidx, Object v) {
+    ChunkedList.checkIndexRange(0, lsize(), sidx, eidx);
+    for(; sidx < eidx; ++sidx)
+      writeObject(sidx, v);
+  }
+
+  default void fillRange(long startidx, List v) {
+    if(v.isEmpty()) return;
+    ChunkedList.checkIndexRange(0, lsize(), startidx, startidx + v.size());
+    Reductions.serialReduction(new Reductions.IndexedAccum(new IFnDef.OLOO() {
+	public Object invokePrim(Object acc, long idx, Object v) {
+	  ((Buffer)acc).writeObject(idx+startidx, v);
+	  return acc;
+	}
+      }), this, v);
+  }
+
   default Object parallelReduction(IFn initValFn, IFn rfn, IFn mergeFn,
 				   ParallelOptions options) {
     return Reductions.parallelIndexGroupReduce(new IFnDef.LLO() {
@@ -330,33 +347,18 @@ public interface Buffer extends DatatypeBase, IMutList<Object>
     public Buffer subBuffer(long sidx, long eidx) {
       return new CopyingReducer(src.subBuffer(sidx,eidx), dst.subBuffer(sidx,eidx));
     }
+    public Object parallelReduction(IFn initValFn, IFn rfn, IFn mergeFn,
+				    ParallelOptions options) {
+      return Reductions.parallelIndexGroupReduce(new IFnDef.LLO() {
+	  public Object invokePrim(long sidx, long eidx) {
+	    dst.fillRange(sidx, src.subBuffer(sidx, eidx));
+	    return initValFn.invoke();
+	  }
+	}, lsize(), mergeFn, options);
+    }
     public Object reduce(IFn rfn, Object acc) {
-      IFn rrfn;
-      if(rfn instanceof IFn.OLO) {
-	final IFn.OLO rf = (IFn.OLO)rfn;
-	rrfn = new Reductions.IndexedLongAccum(new IFnDef.OLLO() {
-	    public Object invokePrim(Object acc, long idx, long v) {
-	      dst.writeLong(idx, v);
-	      return rf.invokePrim(acc, v);
-	    }
-	  });
-      } else if (rfn instanceof IFn.ODO) {
-	final IFn.ODO rf = (IFn.ODO)rfn;
-	rrfn = new Reductions.IndexedDoubleAccum(new IFnDef.OLDO() {
-	    public Object invokePrim(Object acc, long idx, double v) {
-	      dst.writeDouble(idx, v);
-	      return rf.invokePrim(acc, v);
-	    }
-	  });
-      } else {
-	rrfn = new Reductions.IndexedAccum(new IFnDef.OLOO() {
-	    public Object invokePrim(Object acc, long idx, Object v) {
-	      dst.writeObject(idx,v);
-	      return rfn.invoke(acc,v);
-	    }
-	  });
-      }
-      return src.reduce(rrfn, acc);
+      dst.fillRange(0, src);
+      return acc;
     }
   }
 };

@@ -92,15 +92,15 @@ public class MutListBuffer implements Buffer, Cloneable {
   public boolean addAllReducible(Object obj) {
     return data.addAllReducible(obj);
   }
-  public void removeRange(int startidx, int endidx) {
+  public void removeRange(long startidx, long endidx) {
     data.removeRange(startidx, endidx);
   }
   @SuppressWarnings("unchecked")
-  public void fillRange(int startidx, final int endidx, Object v) {
+  public void fillRange(long startidx, final long endidx, Object v) {
     data.fillRange(startidx, endidx, v);
   }
   @SuppressWarnings("unchecked")
-  public void fillRange(int startidx, List v) {
+  public void fillRange(long startidx, List v) {
     data.fillRange(startidx, v);
   }
   public Object toNativeArray() { return data.toNativeArray(); }

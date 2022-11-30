@@ -375,10 +375,10 @@
        (~(symbol (str list-name ".")) ~'data (+ ~'sidx ssidx#) (- seidx# ssidx#) ~'m))
      ArrayLists$ArrayOwner
      (fill [this# ssidx# seidx# v#]
-       (ArrayLists/checkIndexRange ~'n-elems ssidx# seidx#)
+       (ArrayLists/checkIndexRange ~'n-elems (long ssidx#) (long seidx#))
        (Arrays/fill ~'data (+ ~'sidx ssidx#) (+ ~'sidx seidx#) (~object->host v#)))
      (copyOfRange [this# ssidx# seidx#]
-       (ArrayLists/checkIndexRange ~'n-elems ssidx# seidx#)
+       (ArrayLists/checkIndexRange ~'n-elems (long ssidx#) (long seidx#))
        (Arrays/copyOfRange ~'data (+ ~'sidx ssidx#) (+ ~'sidx seidx#)))
      (copyOf [this# len#]
        (Arrays/copyOfRange ~'data ~'sidx (+ ~'sidx len#)))
@@ -500,7 +500,7 @@
        (set! ~'n-elems (- ~'n-elems (- eidx# sidx#))))
      ArrayLists$ArrayOwner
      (fill [this# sidx# eidx# v#]
-       (ArrayLists/checkIndexRange ~'n-elems sidx# eidx#)
+       (ArrayLists/checkIndexRange ~'n-elems (long sidx#) (long eidx#))
        (Arrays/fill ~'data sidx# eidx# (~object->host v#)))
      (copyOfRange [this# sidx# eidx#]
        (Arrays/copyOfRange ~'data sidx# eidx#))

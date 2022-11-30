@@ -654,18 +654,18 @@
 
 
 (deftest seq-empty-stats
-  (let [stats #{:min :max :n-values :median}
+  (let [stats #{:min :max :n-elems :median}
         dfn-map-eq (fn [key-seq expected data-map]
                      (every? identity (dfn/eq expected
                                               (mapv data-map key-seq))))]
-    (is (= {:min 1, :median 2, :max 4 :n-values 3}
+    (is (= {:min 1, :median 2, :max 4 :n-elems 3}
            (->> (dfn/descriptive-statistics stats (list 1 2 ##NaN 4))
                 (map (fn [[k v]]
                        [k (int v)]))
                 (into {}))))
-    (is (dfn-map-eq [:min :median :max :n-values] [##NaN ##NaN ##NaN 0]
+    (is (dfn-map-eq [:min :median :max :n-elems] [##NaN ##NaN ##NaN 0]
                     (dfn/descriptive-statistics stats (list ##NaN ##NaN ##NaN))))
-    (is (dfn-map-eq [:min :max :n-values] [##NaN ##NaN 0]
+    (is (dfn-map-eq [:min :max :n-elems] [##NaN ##NaN 0]
                     (dfn/descriptive-statistics
                      (disj stats :median)
                      (list ##NaN ##NaN ##NaN))))
