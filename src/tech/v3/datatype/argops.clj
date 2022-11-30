@@ -23,7 +23,6 @@
             Comparators$LongComp
             Comparators$DoubleComp
             BinaryPredicate
-            IndexReduction
             Buffer
             UnaryOperator BinaryOperator
             UnaryPredicate BinaryPredicate]
