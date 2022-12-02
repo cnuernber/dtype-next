@@ -3,11 +3,13 @@
   a low-level sampler object and a double-reservoir that implements DoubleConsumer and
   derefs to a buffer of doubles."
   (:require [tech.v3.datatype.array-buffer :as abuf]
+            [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
+            [tech.v3.datatype.packing :as packing]
             [ham-fisted.protocols :as hamf-proto]
             [ham-fisted.api :as hamf])
-  (:import [java.util.function LongSupplier Consumer]
+  (:import [java.util.function LongSupplier Consumer LongConsumer DoubleConsumer]
            [java.util Random]
            [org.apache.commons.math3.random MersenneTwister]
            [ham_fisted IMutList Reducible]
@@ -131,6 +133,40 @@
   (deref [this] container))
 
 
+(deftype LongRes [^IMutList container
+                  ^long reservoir-size
+                  ^LongSupplier sampler]
+  LongConsumer
+  (accept [this val]
+    (if (< (.size container) reservoir-size)
+      (.addLong container val)
+      (let [replace-idx (.getAsLong sampler)]
+        (when (>= replace-idx 0)
+          (.setLong container replace-idx val)))))
+  Reducible
+  (reduce [this other]
+    (reduce hamf/long-consumer-accumulator this @other))
+  IDeref
+  (deref [this] container))
+
+
+(deftype DoubleRes [^IMutList container
+                    ^long reservoir-size
+                    ^LongSupplier sampler]
+  DoubleConsumer
+  (accept [this val]
+    (if (< (.size container) reservoir-size)
+      (.addDouble container val)
+      (let [replace-idx (.getAsLong sampler)]
+        (when (>= replace-idx 0)
+          (.setDouble container replace-idx val)))))
+  Reducible
+  (reduce [this other]
+    (reduce hamf/double-consumer-accumulator this @other))
+  IDeref
+  (deref [this] container))
+
+
 (defn reservoir-sampler
     "Return hamf parallel reducer that will accept objects and whose value is the
   reservoir of data.
@@ -168,12 +204,35 @@ tech.v3.datatype.sampling> (hamf/preduce-reducer (reservoir-sampler 10 {:datatyp
   "
   ([reservoir-size] (reservoir-sampler reservoir-size nil))
   ([^long reservoir-size options]
-   (reify
-     hamf-proto/Reducer
-     (->init-val-fn [s] #(ObjectRes. (abuf/array-list (get options :datatype :object))
-                                     reservoir-size
-                                     (reservoir-sampler-supplier reservoir-size options)))
-     (->rfn [s] hamf/consumer-accumulator)
-     (finalize [s v] (deref v))
-     hamf-proto/ParallelReducer
-     (->merge-fn [this] hamf/reducible-merge))))
+   (let [dtype (get options :datatype :object)]
+     (case (casting/simple-operation-space (packing/unpack-datatype
+                                            (get options :datatype :object)))
+       :int64
+       (reify
+         hamf-proto/Reducer
+         (->init-val-fn [s] #(LongRes. (abuf/array-list dtype)
+                                       reservoir-size
+                                       (reservoir-sampler-supplier reservoir-size options)))
+         (->rfn [s] hamf/long-consumer-accumulator)
+         (finalize [s v] (deref v))
+         hamf-proto/ParallelReducer
+         (->merge-fn [this] hamf/reducible-merge))
+       :float64
+       (reify
+         hamf-proto/Reducer
+         (->init-val-fn [s] #(DoubleRes. (abuf/array-list dtype)
+                                         reservoir-size
+                                         (reservoir-sampler-supplier reservoir-size options)))
+         (->rfn [s] hamf/double-consumer-accumulator)
+         (finalize [s v] (deref v))
+         hamf-proto/ParallelReducer
+         (->merge-fn [this] hamf/reducible-merge))
+       (reify
+         hamf-proto/Reducer
+         (->init-val-fn [s] #(ObjectRes. (abuf/array-list dtype)
+                                         reservoir-size
+                                         (reservoir-sampler-supplier reservoir-size options)))
+         (->rfn [s] hamf/consumer-accumulator)
+         (finalize [s v] (deref v))
+         hamf-proto/ParallelReducer
+         (->merge-fn [this] hamf/reducible-merge))))))
