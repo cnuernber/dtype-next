@@ -294,6 +294,7 @@
                                         -1 Long/MIN_VALUE
                                         Long/MAX_VALUE Long/MIN_VALUE))
         (->rfn [r] hamf/long-consumer-accumulator)
+        hamf-proto/Finalize
         (finalize [r l] @l)
         hamf-proto/ParallelReducer
         (->merge-fn [r] hamf/reducible-merge))
@@ -305,6 +306,7 @@
                     acc v
                     (.add ^RoaringBitmap acc (unchecked-int v))
                     acc))
+        hamf-proto/Finalize
         (finalize [r l] l)
         hamf-proto/ParallelReducer
         (->merge-fn [r] (fn [^RoaringBitmap l ^RoaringBitmap r]
