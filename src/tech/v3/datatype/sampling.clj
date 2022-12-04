@@ -214,6 +214,7 @@ tech.v3.datatype.sampling> (hamf/preduce-reducer (reservoir-sampler 10 {:datatyp
                                        reservoir-size
                                        (reservoir-sampler-supplier reservoir-size options)))
          (->rfn [s] hamf/long-consumer-accumulator)
+         hamf-proto/Finalize
          (finalize [s v] (deref v))
          hamf-proto/ParallelReducer
          (->merge-fn [this] hamf/reducible-merge))
@@ -224,6 +225,7 @@ tech.v3.datatype.sampling> (hamf/preduce-reducer (reservoir-sampler 10 {:datatyp
                                          reservoir-size
                                          (reservoir-sampler-supplier reservoir-size options)))
          (->rfn [s] hamf/double-consumer-accumulator)
+         hamf-proto/Finalize
          (finalize [s v] (deref v))
          hamf-proto/ParallelReducer
          (->merge-fn [this] hamf/reducible-merge))
@@ -233,6 +235,7 @@ tech.v3.datatype.sampling> (hamf/preduce-reducer (reservoir-sampler 10 {:datatyp
                                          reservoir-size
                                          (reservoir-sampler-supplier reservoir-size options)))
          (->rfn [s] hamf/consumer-accumulator)
+         hamf-proto/Finalize
          (finalize [s v] (deref v))
          hamf-proto/ParallelReducer
          (->merge-fn [this] hamf/reducible-merge))))))
