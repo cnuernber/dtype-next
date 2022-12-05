@@ -6,6 +6,7 @@
             [tech.v3.datatype.argtypes :as argtypes]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.argops :as argops]
+            [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.unary-op :as unary-op]
             [tech.v3.datatype.binary-op :as binary-op]
             [tech.v3.datatype.dispatch :refer [vectorized-dispatch-1
@@ -123,15 +124,11 @@
                      x nil)))
   ([map-fn res-dtype x y]
    (let [map-fn (binary-op/->operator map-fn)
-         op-res-space (:result-space (meta map-fn))
-         op-res-space (if (or (nil? op-res-space)
-                              (identical? :object op-res-space))
-                        (casting/widest-datatype
-                         (dtype-base/elemwise-datatype x)
-                         (dtype-base/elemwise-datatype y))
-                        op-res-space)
-         res-dtype (or res-dtype op-res-space)
-         op-space (casting/simple-operation-space res-dtype)]
+         op-space (or (:operation-space (meta map-fn))
+                      (casting/widest-datatype
+                       (packing/unpack-datatype (dtype-base/elemwise-datatype x))
+                       (packing/unpack-datatype (dtype-base/elemwise-datatype y))))
+         res-dtype (or res-dtype op-space)]
      (binary-dispatch (with-meta map-fn
                         {:operation-space op-space
                          :result-space res-dtype})

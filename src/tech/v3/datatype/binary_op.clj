@@ -41,9 +41,10 @@
            (.invokePrim ^IFn$DDD item l r)))
        {:operation-space :float64})
      :else
-     (reify BinaryOperator
-       (binaryObject [this lhs rhs]
-         (item lhs rhs)))))
+     (with-meta (reify BinaryOperator
+                  (binaryObject [this lhs rhs]
+                    (item lhs rhs)))
+       {:operation-space :object})))
   (^BinaryOperator [item] (->operator item :_unnamed)))
 
 
@@ -119,7 +120,7 @@
 
 (defn reader
   (^Buffer [^BinaryOperator binop res-dtype lhs rhs]
-   (let [op-space (casting/simple-operation-space res-dtype)
+   (let [op-space (or (get (meta binop) :operation-space) res-dtype)
          lhs (dtype-base/->reader lhs op-space)
          rhs (dtype-base/->reader rhs op-space)
          n-elems (.lsize lhs)
@@ -139,13 +140,30 @@
          (readDouble [rdr idx] (.binaryDouble binop
                                               (.readDouble lhs idx)
                                               (.readDouble rhs idx))))
-       (reify ObjectReader
-         (elemwiseDatatype [rdr] res-dtype)
-         (lsize [rdr] n-elems)
-         (readObject [rdr idx]
-           (.binaryObject binop
-                          (.readObject lhs idx)
-                          (.readObject rhs idx)))))))
+       (case (casting/simple-operation-space res-dtype)
+         :int64
+         (reify LongReader
+           (elemwiseDatatype [rdr] res-dtype)
+           (lsize [rdr] n-elems)
+           (readLong [rdr idx]
+             (Casts/longCast (.binaryObject binop
+                                            (.readObject lhs idx)
+                                            (.readObject rhs idx)))))
+         :float64
+         (reify DoubleReader
+           (elemwiseDatatype [rdr] res-dtype)
+           (lsize [rdr] n-elems)
+           (readDouble [rdr idx]
+             (Casts/doubleCast (.binaryObject binop
+                                              (.readObject lhs idx)
+                                              (.readObject rhs idx)))))
+         (reify ObjectReader
+           (elemwiseDatatype [rdr] res-dtype)
+           (lsize [rdr] n-elems)
+           (readObject [rdr idx]
+             (.binaryObject binop
+                            (.readObject lhs idx)
+                            (.readObject rhs idx))))))))
   (^Buffer [binop lhs rhs]
    (reader binop (casting/widest-datatype
                   (dtype-base/elemwise-datatype lhs)

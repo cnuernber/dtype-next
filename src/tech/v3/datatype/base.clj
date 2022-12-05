@@ -678,10 +678,7 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [item] :object)
   dtype-proto/PDatatype
-  (datatype [item]
-    (if-let [buffer (as-concrete-buffer item)]
-      (dtype-proto/datatype buffer)
-      (dtype-proto/elemwise-datatype item)))
+  (datatype [item] (dtype-proto/elemwise-datatype item))
   dtype-proto/PElemwiseCast
   (elemwise-cast [item new-dtype]
     (let [src-dtype (dtype-proto/elemwise-datatype item)]

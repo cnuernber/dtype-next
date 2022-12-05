@@ -17,4 +17,6 @@ public interface UnaryPredicate extends ElemwiseDatatype, IFnDef.LO, IFnDef.DO
   default Object elemwiseDatatype () { return Keyword.intern(null, "object"); }
   default Object invoke(Object arg) { return unaryObject(arg); }
   default boolean test(Object arg) { return unaryObject(arg); }
+  default Object invokePrim(long arg) { return unaryLong(arg); }
+  default Object invokePrim(double arg) { return unaryDouble(arg); }
 }
