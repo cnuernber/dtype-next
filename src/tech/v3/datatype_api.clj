@@ -29,7 +29,9 @@
             [tech.v3.datatype.fastobjs :as fastobjs])
   (:import [tech.v3.datatype BooleanReader LongReader DoubleReader ObjectReader
             Buffer ArrayBufferData NativeBufferData]
-           [ham_fisted IMutList Casts]
+           [ham_fisted IMutList Casts ChunkedList
+            IFnDef$LO IFnDef$LL IFnDef$LD Transformables]
+           [clojure.lang IFn$LO IFn$LL IFn$LD]
            [org.roaringbitmap RoaringBitmap])
   (:refer-clojure :exclude [cast reverse]))
 
@@ -123,6 +125,95 @@
     (dtype-proto/clone item)))
 
 
+(defn ^:no-doc make-reader-fn
+  [datatype advertised-datatype n-elems read-fn]
+  (let [n-elems (long n-elems)]
+    (cond
+      (identical? :boolean datatype)
+      (reify BooleanReader
+        (elemwiseDatatype [rdr] advertised-datatype)
+        (lsize [rdr] n-elems)
+        (readObject [rdr idx]
+          (errors/check-idx idx n-elems)
+          (Casts/booleanCast (.invokePrim ^IFn$LO read-fn idx)))
+        (subBuffer [rdr sidx eidx]
+          (ChunkedList/sublistCheck sidx eidx n-elems)
+          (make-reader-fn datatype advertised-datatype (- eidx sidx)
+                          (reify IFnDef$LO
+                            (invokePrim [this idx]
+                              (.invokePrim ^IFn$LO read-fn (+ sidx idx))))))
+        (reduce [rdr rfn init]
+          (loop [idx 0
+                 acc init]
+            (if (and (< idx n-elems) (not (reduced? acc)))
+              (recur (unchecked-inc idx) (rfn acc
+                                              (Casts/booleanCast
+                                               (.invokePrim ^IFn$LO read-fn idx))))
+              acc))))
+      (casting/integer-type? datatype)
+      (reify LongReader
+        (elemwiseDatatype [rdr] advertised-datatype)
+        (lsize [rdr#] n-elems)
+        (readLong [rdr idx]
+          (errors/check-idx idx n-elems)
+          (.invokePrim ^IFn$LL read-fn idx))
+        (subBuffer [rdr sidx eidx]
+          (ChunkedList/sublistCheck sidx eidx n-elems)
+          (make-reader-fn datatype advertised-datatype (- eidx sidx)
+                          (reify IFnDef$LL
+                            (invokePrim [this idx]
+                              (.invokePrim ^IFn$LL read-fn (+ sidx idx))))))
+        (reduce [rdr rfn init]
+          (let [rfn (Transformables/toLongReductionFn rfn)]
+            (loop [idx 0
+                   acc init]
+              (if (and (< idx n-elems) (not (reduced? acc)))
+                (recur (unchecked-inc idx) (.invokePrim rfn acc
+                                                        (.invokePrim ^IFn$LL read-fn idx)))
+                acc)))))
+      (casting/float-type? datatype)
+      (reify DoubleReader
+        (elemwiseDatatype [rdr] advertised-datatype)
+        (lsize [rdr#] n-elems)
+        (readDouble [rdr idx]
+          (errors/check-idx idx n-elems)
+          (.invokePrim ^IFn$LD read-fn idx))
+        (subBuffer [rdr sidx eidx]
+          (ChunkedList/sublistCheck sidx eidx n-elems)
+          (make-reader-fn datatype advertised-datatype (- eidx sidx)
+                          (reify IFnDef$LD
+                            (invokePrim [this idx]
+                              (.invokePrim ^IFn$LD read-fn (+ sidx idx))))))
+        (reduce [rdr rfn init]
+          (let [rfn (Transformables/toDoubleReductionFn rfn)]
+            (loop [idx 0
+                   acc init]
+              (if (and (< idx n-elems) (not (reduced? acc)))
+                (recur (unchecked-inc idx) (.invokePrim rfn acc
+                                                        (.invokePrim ^IFn$LD read-fn idx)))
+                acc)))))
+      :else
+      (reify ObjectReader
+        (elemwiseDatatype [rdr] advertised-datatype)
+        (lsize [rdr] n-elems)
+        (readObject [rdr idx]
+          (errors/check-idx idx n-elems)
+          (.invokePrim ^IFn$LO read-fn idx))
+        (subBuffer [rdr sidx eidx]
+          (ChunkedList/sublistCheck sidx eidx n-elems)
+          (make-reader-fn datatype advertised-datatype (- eidx sidx)
+                          (reify IFnDef$LO
+                            (invokePrim [this idx]
+                              (.invokePrim ^IFn$LO read-fn (+ sidx idx))))))
+        (reduce [rdr rfn init]
+          (loop [idx 0
+                 acc init]
+            (if (and (< idx n-elems) (not (reduced? acc)))
+              (recur (unchecked-inc idx) (rfn acc
+                                              (.invokePrim ^IFn$LO read-fn idx)))
+              acc)))))))
+
+
 (defmacro make-reader
   "Make a reader.  Datatype must be a compile time visible object.
   read-op has 'idx' in scope which is the index to read from.  Returns a
@@ -150,29 +241,18 @@ user> (dtype/make-reader :float32 5 (* idx 2))
    `(do
       (casting/ensure-valid-datatype ~advertised-datatype)
       (casting/ensure-valid-datatype ~reader-datatype)
-      (let [~'n-elems (long ~n-elems)]
-        ~(cond
-           (= :boolean reader-datatype)
-           `(reify BooleanReader
-              (elemwiseDatatype [rdr#] ~advertised-datatype)
-              (lsize [rdr#] ~'n-elems)
-              (readObject [rdr# ~'idx]
-                (Casts/booleanCast ~read-op)))
-           (casting/integer-type? reader-datatype)
-           `(reify LongReader
-              (elemwiseDatatype [rdr#] ~advertised-datatype)
-              (lsize [rdr#] ~'n-elems)
-              (readLong [rdr# ~'idx] (Casts/longCast ~read-op)))
-           (casting/float-type? reader-datatype)
-           `(reify DoubleReader
-              (elemwiseDatatype [rdr#] ~advertised-datatype)
-              (lsize [rdr#] ~'n-elems)
-              (readDouble [rdr# ~'idx] (Casts/doubleCast ~read-op)))
-           :else
-           `(reify ObjectReader
-              (elemwiseDatatype [rdr#] ~advertised-datatype)
-              (lsize [rdr#] ~'n-elems)
-              (readObject [rdr# ~'idx] ~read-op)))))))
+      (make-reader-fn
+       ~reader-datatype ~advertised-datatype ~n-elems
+       ~(cond
+          (casting/integer-type? reader-datatype)
+          `(reify IFnDef$LL
+             (invokePrim [this# ~'idx] (Casts/longCast ~read-op)))
+          (casting/float-type? reader-datatype)
+          `(reify IFnDef$LD
+             (invokePrim [this# ~'idx] (Casts/doubleCast ~read-op)))
+          :else
+          `(reify IFnDef$LO
+             (invokePrim [this# ~'idx] ~read-op)))))))
 
 
 (defn reverse
