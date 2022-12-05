@@ -5,6 +5,7 @@
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.list :as dtype-list]
             [tech.v3.datatype.dispatch :as dispatch]
+            [tech.v3.datatype.packing :as packing]
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.monotonic-range :as mono-range]
             [ham-fisted.api :as hamf]
@@ -95,7 +96,8 @@
   ^Buffer [pred src-rdr]
   (let [pred (->predicate pred)
         op-space (casting/simple-operation-space
-                  (dtype-base/elemwise-datatype src-rdr))
+                  (packing/unpack-datatype
+                   (dtype-base/operational-elemwise-datatype src-rdr)))
         src-rdr (dtype-base/->reader src-rdr op-space)]
     (case op-space
       :int64

@@ -128,7 +128,7 @@
   "Double sum of data using
   [Kahan compensated summation](https://en.wikipedia.org/wiki/Kahan_summation_algorithm)."
   (^double [options rdr]
-   (hamf/sum options (dtype-base/->reader rdr :float64)))
+   (hamf/sum options (or (dtype-base/as-reader rdr :float64) rdr)))
   (^double [rdr]
    (double-summation {} rdr)))
 

@@ -94,9 +94,9 @@ public class FastStruct extends APersistentMap implements IObj, IReduceInit {
 
   public Object valAt(Object key){
     Object i = slots.get(key);
-    if(i != null) {
-      return vals.get(RT.uncheckedIntCast(i));
-    }
+    if(i != null)
+      return vals.get((int)(Casts.longCast(i)));
+
     return ext.valAt(key);
   }
 
