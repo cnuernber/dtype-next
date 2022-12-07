@@ -10,7 +10,7 @@
 
 (defn ->reader
   ^Buffer [data]
-  (or (dt-base/as-reader data)
+  (or (dt-base/as-reader data :float64)
       (dt-base/->reader (vec data))))
 
 (defn sum
@@ -94,8 +94,11 @@
          (loop [idx start-idx
                 sum 0.0]
            (if (< idx eidx)
-             (let [temp (pmath/- (.readDouble lhs idx)
-                                 (.readDouble rhs idx))]
+             (let [ll (.readDouble lhs idx)
+                   rr (.readDouble rhs idx)
+                   temp (if (and (Double/isNaN ll) (Double/isNaN rr))
+                          0.0
+                          (pmath/- ll rr))]
                (recur (unchecked-inc idx)
                       (pmath/+ sum (pmath/* temp temp))))
              sum))))

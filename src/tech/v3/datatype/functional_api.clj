@@ -165,19 +165,20 @@
 
 (def ^:private optimized-opts*
   (delay
-    (merge
-     {:sum fn-opt/sum
-      :dot-product fn-opt/dot-product
-      :magnitude-squared fn-opt/magnitude-squared
-      :distance-squared fn-opt/distance-squared}
-     (graal-native/when-not-defined-graal-native
-      (when (clojure.core/>= (vm-major-version) 17)
-        (try
-          ((requiring-resolve 'tech.v3.datatype.functional.vecopt/optimized-operations))
-          (catch Exception e
-            (log/debug "JDK17 vector ops unavailable - to enable please enable vector op module:
+    {:sum fn-opt/sum
+     :dot-product fn-opt/dot-product
+     :magnitude-squared fn-opt/magnitude-squared
+     :distance-squared fn-opt/distance-squared}
+    ;;vec ops disabled as distance-squared requires nan-checking when used with
+    ;;columns with missing values.
+    #_(graal-native/when-not-defined-graal-native
+     (when (clojure.core/>= (vm-major-version) 17)
+       (try
+         ((requiring-resolve 'tech.v3.datatype.functional.vecopt/optimized-operations))
+         (catch Exception e
+           (log/debug "JDK17 vector ops unavailable - to enable please enable vector op module:
 \t--add-modules jdk.incubator.vector")
-            {})))))))
+           {}))))))
 
 
 
@@ -188,7 +189,7 @@
   compensation.  For a more but slightly slower but far more correct sum operator,
   use [[sum]]."
   ^double [data]
-  (double ((:sum @optimized-opts*) data)))
+  (hamf/sum-fast (clojure.core/or (dtype-base/as-reader data :float64) data)))
 
 
 (defn mean-fast

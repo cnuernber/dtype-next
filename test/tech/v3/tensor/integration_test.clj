@@ -3,6 +3,7 @@
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.argops :as argops]
             [tech.v3.tensor :as dtt]
+            [ham-fisted.api :as hamf]
             [com.github.ztellman.primitive-math :as pmath]
             [clojure.test :refer [deftest is]])
   (:import [tech.v3.datatype NDBuffer]))
@@ -68,9 +69,10 @@
 
         inline-fn #(as-> source-image dest-image
                      (dtt/select dest-image :all :all [2 1 0])
-                     (dtype/emap (fn [^long x]
-                                   (-> (+ x 50)
-                                       (min 255)))
+                     (dtype/emap (hamf/long-unary-operator
+                                  x
+                                  (-> (+ x 50)
+                                      (min 255)))
                                  :int16
                                  dest-image)
                      (dtype/copy! dest-image

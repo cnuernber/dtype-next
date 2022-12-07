@@ -1,5 +1,6 @@
 (ns tech.v3.datatype.io-indexed-buffer
   (:require [tech.v3.datatype.base :as dtype-base]
+            [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.protocols :as dtype-proto]
             [ham-fisted.api :as hamf])
   (:import [tech.v3.datatype Buffer]
@@ -10,7 +11,7 @@
 
 
 (defn indexed-buffer
-  "Create a new Buffer implementatino that indexes into a previous
+  "Create a new Buffer implementation that indexes into a previous
   Buffer implementation via the provided indexes."
   (^Buffer [indexes item]
    ;;Check if this is much more efficiently addressed as a sub-buffer operation.
@@ -38,6 +39,26 @@
 
          (allowsRead [this] (.allowsRead item))
          (allowsWrite [this] (.allowsWrite item))
+         ;;Used in high performance copies
+         (fillRange [this sidx src]
+           (case (casting/simple-operation-space (dtype-base/elemwise-datatype item))
+             :int64
+             (reduce (hamf/indexed-long-accum
+                      acc idx v
+                      (.writeLong ^Buffer acc (.readLong indexes (+ sidx idx)) v) acc)
+                     item
+                     src)
+             :float64
+             (reduce (hamf/indexed-double-accum
+                      acc idx v
+                      (.writeDouble ^Buffer acc (.readLong indexes (+ sidx idx)) v) acc)
+                     item
+                     src)
+             (reduce (hamf/indexed-accum
+                      acc idx v
+                      (.writeObject ^Buffer acc (.readObject indexes (+ sidx idx)) v) acc)
+                     item
+                     src)))
          (reduce [this rfn init]
            (.reduce indexes
                     (cond

@@ -220,6 +220,7 @@
     (let [n-channels (long n-channels)
           src-io (dtype-base/->buffer int-buffer)]
       (reify LongBuffer
+        (elemwiseDatatype [rdr] :uint8)
         (lsize [rdr] n-elems)
         (allowsRead [rdr] true)
         (allowsWrite [rdr] true)
