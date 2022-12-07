@@ -1,3 +1,7 @@
+## 1.000-beta-1
+ * Major changes - hamf integration.  Reductions are now first class, type array lists are faster.  All
+   container types now support fast reduction via clojure.core/reduce.
+ 
 ## 9.033
  * [issue 65](https://github.com/cnuernber/dtype-next/issues/61) - Upgrade guava to remove conflict with
    clojurescript compiler.
