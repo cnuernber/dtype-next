@@ -1,4 +1,5 @@
 (ns tech.v3.datatype.protocols
+  (:require [ham-fisted.set :as set])
   (:import [tech.v3.datatype ElemwiseDatatype ECount Buffer BinaryBuffer]
            [clojure.lang Counted]
            [java.util List Map Set]
@@ -282,3 +283,18 @@ Note that this makes no mention of indianness; buffers are in the format of the 
     (let [offset (int offset)
           ec (int elem-count)]
       (.fillRange buf offset (+ offset ec) value))))
+
+
+(defn set-and-not
+  [l r]
+  (set/difference l r))
+
+
+(defn set-and
+  [l r]
+  (set/intersection l r))
+
+
+(defn set-or
+  [l r]
+  (set/union l r))
