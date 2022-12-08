@@ -18,8 +18,8 @@
            [tech.v3.datatype Buffer BufferCollection BinaryBuffer
             LongBuffer DoubleBuffer]
            [clojure.lang RT IObj Counted Indexed IFn
-            IFn$LL IFn$LD IFn$LO IFn$LLO IFn$LDO IFn$LOO]
-           [ham_fisted Casts Transformables IMutList]))
+            IFn$LL IFn$LD IFn$LO IFn$LLO IFn$LDO IFn$LOO IFn$OLO]
+           [ham_fisted Casts Transformables IMutList ChunkedList]))
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
@@ -243,11 +243,17 @@
     (errors/check-idx idx n-elems)
     (.invokePrim set-fn idx (long (pack-fn val))))
   (reduce [rdr rfn acc]
-    (loop [idx 0
-           acc acc]
-      (if (and (< idx n-elems) (not (reduced? acc)))
-        (recur (unchecked-inc idx) (rfn acc (unpack-fn (.invokePrim get-fn idx))))
-        acc))))
+    (if (instance? rdr IFn$OLO)
+      (loop [idx 0
+             acc acc]
+        (if (and (< idx n-elems) (not (reduced? acc)))
+          (recur (unchecked-inc idx) (.invokePrim ^IFn$OLO rfn acc (.invokePrim get-fn idx)))
+          acc))
+      (loop [idx 0
+             acc acc]
+        (if (and (< idx n-elems) (not (reduced? acc)))
+          (recur (unchecked-inc idx) (rfn acc (unpack-fn (.invokePrim get-fn idx))))
+          acc)))))
 
 
 (dtype-pp/implement-tostring-print PackedNativeBuf)
@@ -296,6 +302,12 @@
   (accumPlusLong [this idx val]
     (errors/check-idx idx n-elems)
     (.invokePrim set-fn idx (+ val (.invokePrim get-fn idx))))
+  (fillRange [rdr sidx v]
+    (ChunkedList/checkIndexRange 0 n-elems sidx (+ sidx (long (dtype-proto/ecount v))))
+    (reduce (hamf/indexed-long-accum
+             acc idx v (.invokePrim set-fn (+ idx sidx) v))
+            nil
+            v))
   (reduce [rdr rfn acc]
     (let [rfn (Transformables/toLongReductionFn rfn)]
       (loop [idx 0
@@ -351,6 +363,12 @@
   (accumPlusDouble [this idx val]
     (errors/check-idx idx n-elems)
     (.invokePrim set-fn idx (+ val (.invokePrim get-fn idx))))
+  (fillRange [rdr sidx v]
+    (ChunkedList/checkIndexRange 0 n-elems sidx (+ sidx (long (dtype-proto/ecount v))))
+    (reduce (hamf/indexed-double-accum
+             acc idx v (.invokePrim set-fn (+ idx sidx) v))
+            nil
+            v))
   (reduce [rdr rfn acc]
     (let [rfn (Transformables/toDoubleReductionFn rfn)]
       (loop [idx 0 acc acc]
