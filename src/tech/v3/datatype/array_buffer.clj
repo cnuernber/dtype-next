@@ -220,6 +220,7 @@
   (setLong [this idx v] (.writeLong (buffer!) idx v))
   (setDouble [this idx v] (.writeDouble (buffer!) idx v))
   (cloneList [this] (.clone this))
+  (fillRange [this sidx v] (.fillRange (buffer!) sidx v))
   (reduce [this rfn] (.reduce (buffer!) rfn))
   (reduce [this rfn init] (.reduce (buffer!) rfn init)))
 

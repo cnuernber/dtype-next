@@ -551,6 +551,7 @@
   (nth [this idx def-val] (.nth (buffer!) idx def-val))
   (invoke [this idx] (.invoke (buffer!) idx))
   (invoke [this idx value] (.invoke (buffer!) idx value))
+  (fillRange [this idx v] (.fillRange (buffer!) idx v))
   (reduce [this rfn acc] (.reduce (buffer!) rfn acc))
   (reduce [this rfn] (.reduce (buffer!) rfn))
   Object
