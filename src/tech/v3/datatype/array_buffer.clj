@@ -590,15 +590,37 @@
          (.addAllReducible ^IMutList alist data)
          (hamf/subvec alist 0)))))
   (^IMutList [dtype data sidx eidx m]
-   (ensure-datatypes (dtype-proto/elemwise-datatype data) dtype)
-   (-> (let [ne (- (long eidx) (long sidx))]
-         (case dtype
-           :uint8 (UByteArraySubList. data sidx ne m)
-           :uint16 (UShortArraySubList. data sidx ne m)
-           :uint32 (UIntArraySubList. data sidx ne m)
-           :uint64 (ULongArraySubList. data sidx ne m)
-           (ArrayLists/toList data (long sidx) (long eidx) ^IPersistentMap m)))
-       (array-list->packed-list dtype))))
+   (let [data-dt (dtype-proto/elemwise-datatype data)
+         sidx (long sidx)
+         eidx (long eidx)]
+     (ensure-datatypes data-dt dtype)
+     (-> (let [ne (- (long eidx) (long sidx))]
+           (case dtype
+             :uint8 (UByteArraySubList. data sidx ne m)
+             :uint16 (UShortArraySubList. data sidx ne m)
+             :uint32 (UIntArraySubList. data sidx ne m)
+             :uint64 (ULongArraySubList. data sidx ne m)
+             (case data-dt
+               :int8 (ArrayLists/toList ^bytes data sidx eidx ^IPersistentMap m)
+               :boolean (ArrayLists/toList ^booleans data sidx eidx ^IPersistentMap m)
+               :int16 (ArrayLists/toList ^shorts data sidx eidx ^IPersistentMap m)
+               :char (ArrayLists/toList ^chars data sidx eidx ^IPersistentMap m)
+               :int32 (ArrayLists/toList ^ints data sidx eidx ^IPersistentMap m)
+               :int64 (ArrayLists/toList ^longs data sidx eidx ^IPersistentMap m)
+               :float32 (ArrayLists/toList ^floats data sidx eidx ^IPersistentMap m)
+               :float64 (ArrayLists/toList ^doubles data sidx eidx ^IPersistentMap m)
+               (ArrayLists/toList ^objects data (long sidx) (long eidx) ^IPersistentMap m))))
+         (array-list->packed-list dtype)))))
+
+
+(defn copy-of
+  "Create a copy of the array buffer's data"
+  [^ArrayBuffer abuf]
+  (let [alist (dtype-proto/->buffer abuf)
+        data (if (instance? PackingMutListBuffer alist)
+               (.data ^PackingMutListBuffer alist)
+               (.data ^MutListBuffer alist))]
+    (.copyOfRange ^ArrayLists$ArrayOwner data 0 (.-n-elems abuf))))
 
 
 (defn as-growable-list

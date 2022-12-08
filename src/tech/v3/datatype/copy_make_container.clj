@@ -159,13 +159,15 @@
     "nil value passed into ->array")
    (let [item (apply-nan-strat datatype nan-strategy item)
          abuf (dtype-base/as-array-buffer item)]
-     (if (and abuf
-              (identical? (.-dtype abuf) (casting/datatype->host-datatype datatype))
-              (== (.-offset abuf) 0)
-              (== (.-n-elems abuf)
-                  (dtype-base/ecount (.-ary-data abuf))))
-       (.-ary-data abuf)
-       (.toNativeArray ^IMutList (make-container :jvm-heap (casting/datatype->safe-host-type datatype) item)))))
+     (if (and abuf (identical? (.-dtype abuf) (casting/datatype->host-datatype datatype)))
+       (if (and (== (.-offset abuf) 0)
+                (== (.-n-elems abuf)
+                    (dtype-base/ecount (.-ary-data abuf))))
+         (.-ary-data abuf)
+         (array-buffer/copy-of abuf))
+       (-> (make-container (casting/datatype->safe-host-type datatype) (if abuf abuf item))
+           (dtype-base/as-array-buffer)
+           (->array)))))
   ([datatype item]
    (->array datatype nil item))
   (^ArrayBuffer [item]
@@ -175,38 +177,51 @@
 (defn ->byte-array
   "Efficiently convert nearly anything into a byte array."
   ^bytes [data]
-  (->array :int8 nil data))
+  (if (instance? (Class/forName "[B") data)
+    data
+    (->array :int8 nil data)))
 
 (defn ->short-array
   "Efficiently convert nearly anything into a short array."
   ^shorts [data]
-  (->array :int16 nil data))
+  (if (instance? (Class/forName "[S") data)
+    data
+    (->array :int16 nil data)))
 
 (defn ->char-array
   "Efficiently convert nearly anything into a char array."
   ^chars [data]
-  (->array :char nil data))
+  (if (instance? (Class/forName "[C") data)
+    data
+    (->array :char nil data)))
 
 
 (defn ->int-array
   "Efficiently convert nearly anything into a int array."
   ^ints [data]
-  (->array :int32 nil data))
+  (if (instance? (Class/forName "[I") data)
+    data
+    (->array :int32 nil data)))
 
 (defn ->long-array
   "Efficiently convert nearly anything into a long array."
   ^longs [data]
-  (->array :int64 nil data))
+  (if (instance? (Class/forName "[J") data)
+    data
+    (->array :int64 nil data)))
 
 (defn ->float-array
     "Nan-aware conversion to double array.
   See documentation for ->array-buffer.  Returns a double array.
   options -
    * nan-strategy - :keep (default) :remove :exception"
-  (^doubles [options data]
-   (->array :float32 options data))
-  (^doubles [data]
-   (->array :float32 data)))
+  (^floats [options data]
+   (if (and (identical? :keep (get options :nan-strategy :keep))
+            (instance? (Class/forName "[F") data))
+     data
+     (->array :float32 options data)))
+  (^floats [data]
+   (->float-array nil data)))
 
 
 (defn ->double-array
@@ -215,6 +230,9 @@
   options -
    * nan-strategy - :keep (default) :remove :exception"
   (^doubles [options data]
-   (->array :float64 options data))
+   (if (and (identical? :keep (get options :nan-strategy :keep))
+            (instance? (Class/forName "[D") data))
+     data
+     (->array :float64 options data)))
   (^doubles [data]
-   (->array :float64 data)))
+   (->double-array nil data)))
