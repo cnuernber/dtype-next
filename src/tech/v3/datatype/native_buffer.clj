@@ -288,7 +288,7 @@
     (.invokePrim set-fn address idx (long (pack-fn val))))
   (reduce [rdr rfn acc]
     (let [addr address]
-      (if (instance? rdr IFn$OLO)
+      (if (instance? IFn$OLO rdr)
         (loop [idx 0
                acc acc]
           (if (and (< idx n-elems) (not (reduced? acc)))
