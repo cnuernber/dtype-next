@@ -293,7 +293,7 @@
 
   Available stats:
   #{:min :quartile-1 :sum :mean :mode :median :quartile-3 :max
-    :variance :standard-deviation :skew :n-values :kurtosis}
+    :variance :standard-deviation :skew :n-elems :kurtosis}
 
   options
     - `:nan-strategy` - defaults to :remove, one of

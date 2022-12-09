@@ -77,9 +77,9 @@
   See documentation for ->array-buffer.  Returns a double array.
   options -
    * nan-strategy - :keep (default) :remove :exception"
-  (^{:tag doubles} [options data]
+  (^{:tag floats} [options data]
   (tech.v3.datatype.copy-make-container/->float-array options data))
-  (^{:tag doubles} [data]
+  (^{:tag floats} [data]
   (tech.v3.datatype.copy-make-container/->float-array data)))
 
 
@@ -374,7 +374,7 @@
 
 
 (defn indexed-buffer
-  "Create a new Buffer implementatino that indexes into a previous
+  "Create a new Buffer implementation that indexes into a previous
   Buffer implementation via the provided indexes."
   (^{:tag tech.v3.datatype.Buffer} [indexes item]
   (tech.v3.datatype.io-indexed-buffer/indexed-buffer indexes item)))
@@ -453,6 +453,11 @@ user> (dtype/make-reader :float32 5 (* idx 2))
   `(tech.v3.datatype-api/make-reader ~datatype ~n-elems ~read-op))
   ([reader-datatype advertised-datatype n-elems read-op]
   `(tech.v3.datatype-api/make-reader ~reader-datatype ~advertised-datatype ~n-elems ~read-op)))
+
+
+(defn make-reader-fn
+  ([datatype advertised-datatype n-elems read-fn]
+  (tech.v3.datatype-api/make-reader-fn datatype advertised-datatype n-elems read-fn)))
 
 
 (defn map-factory
