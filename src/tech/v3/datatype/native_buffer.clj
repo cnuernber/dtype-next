@@ -18,7 +18,8 @@
            [tech.v3.datatype Buffer BufferCollection BinaryBuffer
             LongBuffer DoubleBuffer]
            [clojure.lang RT IObj Counted Indexed IFn
-            IFn$LL IFn$LD IFn$LO IFn$LLO IFn$LDO IFn$LOO IFn$OLO]
+            IFn$LL IFn$LD IFn$LO IFn$LLO IFn$LDO IFn$LOO IFn$OLO
+            IFn$LLL IFn$LLD IFn$LLO IFn$LLLO IFn$LLDO IFn$LLOO]
            [ham_fisted Casts Transformables IMutList ChunkedList]))
 
 (set! *warn-on-reflection* true)
@@ -140,61 +141,104 @@
 
 
 (defmacro ^:private native-buffer-accessors
-  [datatype address swap?]
-  `(let [~address (long ~address)]
-     ~(let [get-fn (cond
-                     (casting/integer-type? datatype)
-                     `(hamf/long-unary-operator
-                       ~'idx (-> (~(raw-read datatype swap?) (unsafe)
-                                  (adj-address ~datatype ~address))
-                                 (swap-value ~datatype ~swap?)
-                                 (data->jvm ~datatype ~swap?)))
-                     (casting/float-type? datatype)
-                     `(hamf/long->double
-                       ~'idx (-> (~(raw-read datatype swap?) (unsafe)
-                                  (adj-address ~datatype ~address))
-                                 (swap-value ~datatype ~swap?)
-                                 (data->jvm ~datatype ~swap?)))
-                     (or (identical? datatype :boolean)
-                         (identical? datatype :char))
-                     `(hamf/long->obj ~'idx (-> (~(raw-read datatype swap?) (unsafe)
-                                                 (adj-address ~datatype ~address))
-                                                (data->jvm ~datatype ~swap?)))
-                     :else
-                     (throw (Exception. (str "Unrecognized datatype: " ~datatype))))
-            set-fn (cond
-                     (casting/integer-type? datatype)
-                     `(fn [~(with-meta 'idx {:tag 'long})
-                           ~(with-meta 'arg {:tag 'long})]
-                        (~(raw-write datatype swap?) (unsafe)
-                         (adj-address ~datatype ~address)
-                         (-> (jvm->data ~'arg ~datatype ~swap?)
-                             (swap-value ~datatype ~swap?))))
-                     (casting/float-type? datatype)
-                     `(fn [~(with-meta 'idx {:tag 'long})
-                           ~(with-meta 'arg {:tag 'double})]
-                        (~(raw-write datatype swap?) (unsafe)
-                         (adj-address ~datatype ~address)
-                         (-> (jvm->data ~'arg ~datatype ~swap?)
-                             (swap-value ~datatype ~swap?))))
-                     (or (identical? datatype :boolean)
-                         (identical? datatype :char))
-                     `(fn [~(with-meta 'idx {:tag 'long}) ~'arg]
-                        (~(raw-write datatype swap?) (unsafe)
-                         (adj-address ~datatype ~address)
-                         (-> (jvm->data ~'arg ~datatype ~swap?)
-                             (swap-value ~datatype ~swap?))))
-                     :else
-                     (throw (Exception. (str "Unrecognized datatype: " ~datatype))))]
-        `{:get-fn ~get-fn
-          :set-fn ~set-fn})))
+  [datatype swap?]
+  `{:get-fn ~(cond
+               (casting/integer-type? datatype)
+               `(fn ~(with-meta [(with-meta 'address {:tag 'long})
+                                 (with-meta 'idx {:tag 'long})]
+                       {:tag 'long})
+                  (-> (~(raw-read datatype swap?) (unsafe)
+                       (adj-address ~datatype ~'address))
+                      (swap-value ~datatype ~swap?)
+                      (data->jvm ~datatype ~swap?)))
+               (casting/float-type? datatype)
+               `(fn ~(with-meta [(with-meta 'address {:tag 'long})
+                                 (with-meta 'idx {:tag 'long})]
+                       {:tag 'double})
+                  (-> (~(raw-read datatype swap?) (unsafe)
+                       (adj-address ~datatype ~'address))
+                      (swap-value ~datatype ~swap?)
+                      (data->jvm ~datatype ~swap?)))
+               (or (identical? datatype :boolean)
+                   (identical? datatype :char))
+               `(fn [~(with-meta 'address {:tag 'long})
+                     ~(with-meta 'idx {:tag 'long})]
+                  (-> (~(raw-read datatype swap?) (unsafe)
+                       (adj-address ~datatype ~'address))
+                      (data->jvm ~datatype ~swap?)))
+               :else
+               (throw (Exception. (str "Unrecognized datatype: " ~datatype))))
+    :set-fn ~(cond
+               (casting/integer-type? datatype)
+               `(fn [~(with-meta 'address {:tag 'long})
+                     ~(with-meta 'idx {:tag 'long})
+                     ~(with-meta 'arg {:tag 'long})]
+                  (~(raw-write datatype swap?) (unsafe)
+                   (adj-address ~datatype ~'address)
+                   (-> (jvm->data ~'arg ~datatype ~swap?)
+                       (swap-value ~datatype ~swap?))))
+               (casting/float-type? datatype)
+               `(fn [~(with-meta 'address {:tag 'long})
+                     ~(with-meta 'idx {:tag 'long})
+                     ~(with-meta 'arg {:tag 'double})]
+                  (~(raw-write datatype swap?) (unsafe)
+                   (adj-address ~datatype ~'address)
+                   (-> (jvm->data ~'arg ~datatype ~swap?)
+                       (swap-value ~datatype ~swap?))))
+               (or (identical? datatype :boolean)
+                   (identical? datatype :char))
+               `(fn [~(with-meta 'address {:tag 'long})
+                     ~(with-meta 'idx {:tag 'long})
+                     ~'arg]
+                  (~(raw-write datatype swap?) (unsafe)
+                   (adj-address ~datatype ~'address)
+                   (-> (jvm->data ~'arg ~datatype ~swap?)
+                       (swap-value ~datatype ~swap?))))
+               :else
+               (throw (Exception. (str "Unrecognized datatype: " ~datatype))))})
+
+
+(def accessor-maps
+  (->> (for [dtype [:boolean :int8 :uint8 :int16 :uint16 :char :int32 :uint32 :int64 :uint64
+                    :float32 :float64]
+             swap? [true false]]
+         [[dtype swap?]
+          (if swap?
+            (case dtype
+              :boolean (native-buffer-accessors :boolean true)
+              :int8 (native-buffer-accessors :int8 true)
+              :uint8 (native-buffer-accessors :uint8 true)
+              :int16 (native-buffer-accessors :int16 true)
+              :uint16 (native-buffer-accessors :uint16 true)
+              :char (native-buffer-accessors :char true)
+              :int32 (native-buffer-accessors :int32 true)
+              :uint32 (native-buffer-accessors :uint32 true)
+              :int64 (native-buffer-accessors :int64 true)
+              :uint64 (native-buffer-accessors :uint64 true)
+              :float32 (native-buffer-accessors :float32 true)
+              :float64 (native-buffer-accessors :float64 true))
+            (case dtype
+              :boolean (native-buffer-accessors :boolean false)
+              :int8 (native-buffer-accessors :int8 false)
+              :uint8 (native-buffer-accessors :uint8 false)
+              :int16 (native-buffer-accessors :int16 false)
+              :uint16 (native-buffer-accessors :uint16 false)
+              :char (native-buffer-accessors :char false)
+              :int32 (native-buffer-accessors :int32 false)
+              :uint32 (native-buffer-accessors :uint32 false)
+              :int64 (native-buffer-accessors :int64 false)
+              :uint64 (native-buffer-accessors :uint64 false)
+              :float32 (native-buffer-accessors :float32 false)
+              :float64 (native-buffer-accessors :float64 false)))])
+       (into {})))
 
 
 (deftype ^:private PackedNativeBuf [datatype
                                     buffer
+                                    ^long address
                                     ^long n-elems
-                                    ^IFn$LL get-fn
-                                    ^IFn$LLO set-fn
+                                    ^IFn$LLL get-fn
+                                    ^IFn$LLLO set-fn
                                     pack-fn
                                     unpack-fn]
   dtype-proto/PToNativeBuffer
@@ -228,32 +272,34 @@
           (dtype-proto/->buffer))))
   (readLong [rdr idx]
     (errors/check-idx idx n-elems)
-    (.invokePrim get-fn idx))
+    (.invokePrim get-fn address idx))
   (writeLong [rdr idx val]
     (errors/check-idx idx n-elems)
-    (.invokePrim set-fn idx val))
+    (.invokePrim set-fn address idx val))
   (readDouble [rdr idx]
     (double (.readLong rdr idx)))
   (writeDouble [rdr idx val]
     (.writeLong rdr idx (Casts/longCast val)))
   (readObject [rdr idx]
     (errors/check-idx idx n-elems)
-    (unpack-fn (.invokePrim get-fn idx)))
+    (unpack-fn (.invokePrim get-fn address idx)))
   (writeObject [rdr idx val]
     (errors/check-idx idx n-elems)
-    (.invokePrim set-fn idx (long (pack-fn val))))
+    (.invokePrim set-fn address idx (long (pack-fn val))))
   (reduce [rdr rfn acc]
-    (if (instance? rdr IFn$OLO)
-      (loop [idx 0
-             acc acc]
-        (if (and (< idx n-elems) (not (reduced? acc)))
-          (recur (unchecked-inc idx) (.invokePrim ^IFn$OLO rfn acc (.invokePrim get-fn idx)))
-          acc))
-      (loop [idx 0
-             acc acc]
-        (if (and (< idx n-elems) (not (reduced? acc)))
-          (recur (unchecked-inc idx) (rfn acc (unpack-fn (.invokePrim get-fn idx))))
-          acc)))))
+    (let [addr address]
+      (if (instance? rdr IFn$OLO)
+        (loop [idx 0
+               acc acc]
+          (if (and (< idx n-elems) (not (reduced? acc)))
+            (recur (unchecked-inc idx) (.invokePrim ^IFn$OLO rfn acc
+                                                    (.invokePrim get-fn addr idx)))
+            acc))
+        (loop [idx 0
+               acc acc]
+          (if (and (< idx n-elems) (not (reduced? acc)))
+            (recur (unchecked-inc idx) (rfn acc (unpack-fn (.invokePrim get-fn addr idx))))
+            acc))))))
 
 
 (dtype-pp/implement-tostring-print PackedNativeBuf)
@@ -261,9 +307,10 @@
 
 (deftype ^:private LongNativeBuf [datatype
                                   buffer
+                                  ^long address
                                   ^long n-elems
-                                  ^IFn$LL get-fn
-                                  ^IFn$LLO set-fn]
+                                  ^IFn$LLL get-fn
+                                  ^IFn$LLLO set-fn]
   dtype-proto/PToNativeBuffer
   (convertible-to-native-buffer? [this] true)
   (->native-buffer [this] buffer)
@@ -295,25 +342,27 @@
           (dtype-proto/->buffer))))
   (readLong [rdr idx]
     (errors/check-idx idx n-elems)
-    (.invokePrim get-fn idx))
+    (.invokePrim get-fn address idx))
   (writeLong [rdr idx val]
     (errors/check-idx idx n-elems)
-    (.invokePrim set-fn idx val))
+    (.invokePrim set-fn address idx val))
   (accumPlusLong [this idx val]
     (errors/check-idx idx n-elems)
-    (.invokePrim set-fn idx (+ val (.invokePrim get-fn idx))))
+    (.invokePrim set-fn address idx (+ val (.invokePrim get-fn address idx))))
   (fillRange [rdr sidx v]
     (ChunkedList/checkIndexRange 0 n-elems sidx (+ sidx (long (dtype-proto/ecount v))))
-    (reduce (hamf/indexed-long-accum
-             acc idx v (.invokePrim set-fn (+ idx sidx) v))
-            nil
-            v))
+    (let [addr address]
+      (reduce (hamf/indexed-long-accum
+               acc idx v (.invokePrim set-fn addr (+ idx sidx) v))
+              nil
+              v)))
   (reduce [rdr rfn acc]
-    (let [rfn (Transformables/toLongReductionFn rfn)]
+    (let [rfn (Transformables/toLongReductionFn rfn)
+          addr address]
       (loop [idx 0
              acc acc]
         (if (and (< idx n-elems) (not (reduced? acc)))
-          (recur (unchecked-inc idx) (.invokePrim rfn acc (.invokePrim get-fn idx)))
+          (recur (unchecked-inc idx) (.invokePrim rfn acc (.invokePrim get-fn addr idx)))
           acc)))))
 
 
@@ -322,9 +371,10 @@
 
 (deftype ^:private DoubleNativeBuf [datatype
                                     buffer
+                                    ^long address
                                     ^long n-elems
-                                    ^IFn$LD get-fn
-                                    ^IFn$LDO set-fn]
+                                    ^IFn$LLD get-fn
+                                    ^IFn$LLDO set-fn]
   dtype-proto/PToNativeBuffer
   (convertible-to-native-buffer? [this] true)
   (->native-buffer [this] buffer)
@@ -356,24 +406,26 @@
           (dtype-proto/->buffer))))
   (readDouble [rdr idx]
     (errors/check-idx idx n-elems)
-    (.invokePrim get-fn idx))
+    (.invokePrim get-fn address idx))
   (writeDouble [rdr idx val]
     (errors/check-idx idx n-elems)
-    (.invokePrim set-fn idx val))
+    (.invokePrim set-fn address idx val))
   (accumPlusDouble [this idx val]
     (errors/check-idx idx n-elems)
-    (.invokePrim set-fn idx (+ val (.invokePrim get-fn idx))))
+    (.invokePrim set-fn address idx (+ val (.invokePrim get-fn address idx))))
   (fillRange [rdr sidx v]
     (ChunkedList/checkIndexRange 0 n-elems sidx (+ sidx (long (dtype-proto/ecount v))))
-    (reduce (hamf/indexed-double-accum
-             acc idx v (.invokePrim set-fn (+ idx sidx) v))
-            nil
-            v))
+    (let [addr address]
+      (reduce (hamf/indexed-double-accum
+               acc idx v (.invokePrim set-fn addr (+ idx sidx) v))
+              nil
+              v)))
   (reduce [rdr rfn acc]
-    (let [rfn (Transformables/toDoubleReductionFn rfn)]
+    (let [rfn (Transformables/toDoubleReductionFn rfn)
+          addr address]
       (loop [idx 0 acc acc]
         (if (and (< idx n-elems) (not (reduced? acc)))
-          (recur (unchecked-inc idx) (.invokePrim rfn acc (.invokePrim get-fn idx)))
+          (recur (unchecked-inc idx) (.invokePrim rfn acc (.invokePrim get-fn addr idx)))
           acc)))))
 
 
@@ -382,9 +434,10 @@
 
 (deftype ObjectNativeBuf [datatype
                           buffer
+                          ^long address
                           ^long n-elems
-                          ^IFn$LO get-fn
-                          ^IFn$LOO set-fn]
+                          ^IFn$LLO get-fn
+                          ^IFn$LLOO set-fn]
   dtype-proto/PToNativeBuffer
   (convertible-to-native-buffer? [this] true)
   (->native-buffer [this] buffer)
@@ -416,15 +469,16 @@
           (dtype-proto/->buffer))))
   (readObject [rdr idx]
     (errors/check-idx idx n-elems)
-    (.invokePrim get-fn idx))
+    (.invokePrim get-fn address idx))
   (writeObject [rdr idx val]
     (errors/check-idx idx n-elems)
-    (.invokePrim set-fn idx val))
+    (.invokePrim set-fn address idx val))
   (reduce [rdr rfn acc]
-    (loop [idx 0 acc acc]
-      (if (and (< idx n-elems) (not (reduced? acc)))
-        (recur (unchecked-inc idx) (rfn acc (.invokePrim get-fn idx)))
-        acc))))
+    (let [addr address]
+      (loop [idx 0 acc acc]
+        (if (and (< idx n-elems) (not (reduced? acc)))
+          (recur (unchecked-inc idx) (rfn acc (.invokePrim get-fn addr idx)))
+          acc)))))
 
 
 (dtype-pp/implement-tostring-print ObjectNativeBuf)
@@ -432,20 +486,21 @@
 
 
 (defn- native-buffer->buffer-impl
-  [datatype advertised-datatype buffer n-elems accessor-map]
+  [datatype advertised-datatype buffer address n-elems accessor-map]
   (let [[pack-fn unpack-fn] (packing/packing-pair advertised-datatype)
         n-elems (long n-elems)
-        {:keys [get-fn set-fn]} accessor-map]
+        {:keys [get-fn set-fn]} accessor-map
+        ^NativeBuffer buffer buffer]
     (cond
       (casting/integer-type? datatype)
       (if pack-fn
-        (PackedNativeBuf. advertised-datatype buffer n-elems get-fn set-fn
+        (PackedNativeBuf. advertised-datatype buffer address n-elems get-fn set-fn
                           pack-fn unpack-fn)
-        (LongNativeBuf. advertised-datatype buffer n-elems get-fn set-fn))
+        (LongNativeBuf. advertised-datatype buffer address n-elems get-fn set-fn))
       (casting/float-type? datatype)
-      (DoubleNativeBuf. advertised-datatype buffer n-elems get-fn set-fn)
+      (DoubleNativeBuf. advertised-datatype buffer address n-elems get-fn set-fn)
       :else
-      (ObjectNativeBuf.  advertised-datatype buffer n-elems get-fn set-fn))))
+      (ObjectNativeBuf. advertised-datatype buffer address n-elems get-fn set-fn))))
 
 
 (declare native-buffer->buffer native-buffer->map construct-binary-buffer)
@@ -576,36 +631,9 @@
         address (.address this)
         n-elems (.n-elems this)
         swap? (not= (.endianness this) (dtype-proto/platform-endianness))
-        un-aliased (casting/un-alias-datatype datatype)
-        accessor-map
-        (if swap?
-          (case un-aliased
-            :boolean (native-buffer-accessors :boolean address true)
-            :int8 (native-buffer-accessors :int8 address true)
-            :uint8 (native-buffer-accessors :uint8 address true)
-            :int16 (native-buffer-accessors :int16 address true)
-            :uint16 (native-buffer-accessors :uint16 address true)
-            :char (native-buffer-accessors :char address true)
-            :int32 (native-buffer-accessors :int32 address true)
-            :uint32 (native-buffer-accessors :uint32 address true)
-            :int64 (native-buffer-accessors :int64 address true)
-            :uint64 (native-buffer-accessors :uint64 address true)
-            :float32 (native-buffer-accessors :float32 address true)
-            :float64 (native-buffer-accessors :float64 address true))
-          (case (casting/un-alias-datatype datatype)
-            :boolean (native-buffer-accessors :boolean address false)
-            :int8 (native-buffer-accessors :int8 address false)
-            :uint8 (native-buffer-accessors :uint8 address false)
-            :int16 (native-buffer-accessors :int16 address false)
-            :uint16 (native-buffer-accessors :uint16 address false)
-            :char (native-buffer-accessors :char address false)
-            :int32 (native-buffer-accessors :int32 address false)
-            :uint32 (native-buffer-accessors :uint32 address false)
-            :int64 (native-buffer-accessors :int64 address false)
-            :uint64 (native-buffer-accessors :uint64 address false)
-            :float32 (native-buffer-accessors :float32 address false)
-            :float64 (native-buffer-accessors :float64 address false)))]
-    (native-buffer->buffer-impl un-aliased datatype this n-elems accessor-map)))
+        un-aliased (casting/un-alias-datatype datatype)]
+    (native-buffer->buffer-impl un-aliased datatype this (.-address this) n-elems
+                                (get accessor-maps [un-aliased swap?]))))
 
 
 (defn- validate-endianness
