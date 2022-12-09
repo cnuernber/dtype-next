@@ -20,7 +20,7 @@
            [clojure.lang RT IObj Counted Indexed IFn
             IFn$LL IFn$LD IFn$LO IFn$LLO IFn$LDO IFn$LOO IFn$OLO
             IFn$LLL IFn$LLD IFn$LLO IFn$LLLO IFn$LLDO IFn$LLOO]
-           [ham_fisted Casts Transformables IMutList ChunkedList]))
+           [ham_fisted Casts Transformables IMutList ChunkedList Reductions]))
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
@@ -294,12 +294,12 @@
           (if (and (< idx n-elems) (not (reduced? acc)))
             (recur (unchecked-inc idx) (.invokePrim ^IFn$OLO rfn acc
                                                     (.invokePrim get-fn addr idx)))
-            acc))
+            (Reductions/unreduce acc)))
         (loop [idx 0
                acc acc]
           (if (and (< idx n-elems) (not (reduced? acc)))
             (recur (unchecked-inc idx) (rfn acc (unpack-fn (.invokePrim get-fn addr idx))))
-            acc))))))
+            (Reductions/unreduce acc)))))))
 
 
 (dtype-pp/implement-tostring-print PackedNativeBuf)
@@ -363,7 +363,7 @@
              acc acc]
         (if (and (< idx n-elems) (not (reduced? acc)))
           (recur (unchecked-inc idx) (.invokePrim rfn acc (.invokePrim get-fn addr idx)))
-          acc)))))
+          (Reductions/unreduce acc))))))
 
 
 (dtype-pp/implement-tostring-print LongNativeBuf)
@@ -426,7 +426,7 @@
       (loop [idx 0 acc acc]
         (if (and (< idx n-elems) (not (reduced? acc)))
           (recur (unchecked-inc idx) (.invokePrim rfn acc (.invokePrim get-fn addr idx)))
-          acc)))))
+          (Reductions/unreduce acc))))))
 
 
 (dtype-pp/implement-tostring-print DoubleNativeBuf)
@@ -478,7 +478,7 @@
       (loop [idx 0 acc acc]
         (if (and (< idx n-elems) (not (reduced? acc)))
           (recur (unchecked-inc idx) (rfn acc (.invokePrim get-fn addr idx)))
-          acc)))))
+          (Reductions/unreduce acc))))))
 
 
 (dtype-pp/implement-tostring-print ObjectNativeBuf)

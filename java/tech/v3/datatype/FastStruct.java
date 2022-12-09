@@ -239,7 +239,7 @@ public class FastStruct extends APersistentMap implements IObj, IReduceInit {
     if( ext != null && !RT.isReduced(init))
       return Reductions.serialReduction(rfn, init, ext);
     else
-      return init;
+      return Reductions.unreduce(init);
   }
 
   /**

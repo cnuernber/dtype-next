@@ -56,7 +56,7 @@
                   (recur (unchecked-inc sidx) (.invokePrim rfn acc
                                                            (+ v (-> (rem sidx shape)
                                                                     (* stride)))))
-                  acc)))))
+                  (Reductions/unreduce acc))))))
         (let [^Buffer shape shape
               n-shape (.lsize shape)]
           (fn [^IFn$OLO rfn acc v sidx eidx]
@@ -70,7 +70,7 @@
                          (.invokePrim rfn acc
                                       (+ v (-> (.readLong shape (rem sidx n-shape))
                                                (* stride)))))
-                  acc))))))
+                  (Reductions/unreduce acc)))))))
       (let [next-reducer (dim-reducer (inc dim)
                                       shape-ary strides
                                       max-shape-strides)
@@ -94,7 +94,7 @@
                         sub-sidx (rem sidx max-shape-stride)
                         sub-eidx (+ sub-sidx (- (min eidx next-sidx) sidx))]
                     (recur next-sidx (next-reducer rfn acc v sub-sidx sub-eidx)))
-                  acc)))))))))
+                  (Reductions/unreduce acc))))))))))
 
 
 (defn elem-idx->addr-fn

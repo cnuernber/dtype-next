@@ -51,6 +51,6 @@ public interface DoubleBuffer extends Buffer
     final long sz = lsize();
     for (long idx = 0; idx < sz && !RT.isReduced(init); ++idx)
       init = rf.invokePrim(init, readDouble(idx));
-    return init;
+    return Reductions.unreduce(init);
   }
 }

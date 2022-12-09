@@ -29,8 +29,8 @@
             [tech.v3.datatype.fastobjs :as fastobjs])
   (:import [tech.v3.datatype BooleanReader LongReader DoubleReader ObjectReader
             Buffer ArrayBufferData NativeBufferData]
-           [ham_fisted IMutList Casts ChunkedList
-            IFnDef$LO IFnDef$LL IFnDef$LD Transformables]
+           [ham_fisted IMutList Casts ChunkedList IFnDef$LO IFnDef$LL IFnDef$LD Transformables
+            Reductions]
            [clojure.lang IFn$LO IFn$LL IFn$LD]
            [org.roaringbitmap RoaringBitmap])
   (:refer-clojure :exclude [cast reverse]))
@@ -149,7 +149,7 @@
               (recur (unchecked-inc idx) (rfn acc
                                               (Casts/booleanCast
                                                (.invokePrim ^IFn$LO read-fn idx))))
-              acc))))
+              (Reductions/unreduce acc)))))
       (casting/integer-type? datatype)
       (reify LongReader
         (elemwiseDatatype [rdr] advertised-datatype)
@@ -170,7 +170,7 @@
               (if (and (< idx n-elems) (not (reduced? acc)))
                 (recur (unchecked-inc idx) (.invokePrim rfn acc
                                                         (.invokePrim ^IFn$LL read-fn idx)))
-                acc)))))
+                (Reductions/unreduce acc))))))
       (casting/float-type? datatype)
       (reify DoubleReader
         (elemwiseDatatype [rdr] advertised-datatype)
@@ -191,7 +191,7 @@
               (if (and (< idx n-elems) (not (reduced? acc)))
                 (recur (unchecked-inc idx) (.invokePrim rfn acc
                                                         (.invokePrim ^IFn$LD read-fn idx)))
-                acc)))))
+                (Reductions/unreduce acc))))))
       :else
       (reify ObjectReader
         (elemwiseDatatype [rdr] advertised-datatype)
@@ -211,7 +211,7 @@
             (if (and (< idx n-elems) (not (reduced? acc)))
               (recur (unchecked-inc idx) (rfn acc
                                               (.invokePrim ^IFn$LO read-fn idx)))
-              acc)))))))
+              (Reductions/unreduce acc))))))))
 
 
 (defmacro make-reader

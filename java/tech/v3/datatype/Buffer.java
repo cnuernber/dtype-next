@@ -100,7 +100,7 @@ public interface Buffer extends DatatypeBase, IMutList<Object>
 	for(long idx = sidx; idx < ee && !RT.isReduced(init); ++idx)
 	  init = rfn.invoke(init, l.readObject(idx));
       }
-      return init;
+      return Reductions.unreduce(init);
     }
     public Buffer withMeta(IPersistentMap m) { return ((Buffer)list.withMeta(m)).subBuffer(sidx, eidx); }
     public IPersistentMap meta() { return list.meta(); }

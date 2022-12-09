@@ -55,6 +55,6 @@ public interface LongBuffer extends Buffer
     final long sz = lsize();
     for (long idx = 0; idx < sz && !RT.isReduced(init); ++idx)
       init = rf.invokePrim(init, readLong(idx));
-    return init;
+    return Reductions.unreduce(init);
   }
 }
