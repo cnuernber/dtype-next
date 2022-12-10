@@ -17,6 +17,7 @@ import clojure.lang.IFn;
 import clojure.lang.IReduceInit;
 import java.util.NoSuchElementException;
 import java.util.List;
+import java.util.RandomAccess;
 import java.util.Map;
 import java.util.LinkedHashMap;
 import java.util.Iterator;
@@ -246,7 +247,7 @@ public class FastStruct extends APersistentMap implements IObj, IReduceInit {
    * Create a factory that will create map implementations based on a single list of values.
    * Values have to be in the same order as column names.
    */
-  public static Function<List,Map> createFactory(List colnames) {
+  public static IFn createFactory(List colnames) {
     int nEntries = colnames.size();
     if( nEntries == 0 ) {
       throw new RuntimeException("No column names provided");
@@ -259,8 +260,10 @@ public class FastStruct extends APersistentMap implements IObj, IReduceInit {
     if( colnames.size() != slots.size() ) {
       throw new RuntimeException("Duplicate colname name: " + String.valueOf(slots));
     }
-    return new Function<List,Map>() {
-      public Map apply(List valList) {
+    return new IFnDef.OO() {
+      public Object invoke(Object values) {
+	if(!(values instanceof RandomAccess)) throw new RuntimeException("Values must be a random access list.");
+	final List valList = (List)values;
 	if( slots.size() != valList.size() ) {
 	  throw new RuntimeException("Number of values: " + String.valueOf(valList.size()) +
 				     " doesn't equal the number of keys: " + String.valueOf(slots.size()));
@@ -271,6 +274,6 @@ public class FastStruct extends APersistentMap implements IObj, IReduceInit {
   }
 
   public static FastStruct createFromColumnNames(List colnames, List vals) {
-    return (FastStruct)createFactory(colnames).apply(vals);
+    return (FastStruct)createFactory(colnames).invoke(vals);
   }
 }
