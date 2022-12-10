@@ -50,26 +50,27 @@
       (when-not (or (== 1 (count item-shape)) (get-in item-info [:storage :gapless]))
         (throw (Exception. "Only dense neanderthal matrixes supported")))
       (let [ninfo (dtype-base/->native-buffer item)]
-        (-> {:ptr (.address ninfo)
-             :elemwise-datatype item-dtype
-             :datatype {:container-type :tensor
-                        :elemwise-datatype item-dtype}
-             :endianness (.endianness ninfo)
-             :shape item-shape
-             ;;TVM needs the device type
-             :device-type (:device item-info)
-             :strides (mapv #(* (casting/numeric-byte-width item-dtype) %)
-                            (if (= 2 (count item-shape))
-                              (let [item-strides
-                                    [(if (= :row (:layout item-info))
-                                       (second item-shape)
-                                       (first item-shape))
-                                     1]]
-                                (if (= :column (:layout item-info))
-                                  (reverse item-strides)
-                                  item-strides))
-                              [(:stride item-info)]))}
-            (resource/chain-resources item)))))
+        {:ptr (.address ninfo)
+         :elemwise-datatype item-dtype
+         :datatype {:container-type :tensor
+                    :elemwise-datatype item-dtype}
+         :endianness (.endianness ninfo)
+         :shape item-shape
+         ;;TVM needs the device type
+         :device-type (:device item-info)
+         :strides (mapv #(* (casting/numeric-byte-width item-dtype) %)
+                        (if (= 2 (count item-shape))
+                          (let [item-strides
+                                [(if (= :row (:layout item-info))
+                                   (second item-shape)
+                                   (first item-shape))
+                                 1]]
+                            (if (= :column (:layout item-info))
+                              (reverse item-strides)
+                              item-strides))
+                          [(:stride item-info)]))
+         ;;This allows gc to see that the neanderthal source data is still referenced
+         :native-buffer item})))
 
   dtype-proto/PToBuffer
   (convertible-to-buffer? [item] (= :cpu (:device (.info item))))

@@ -26,3 +26,18 @@
     (let [second-row (second (n-core/rows b))]
       (is (dfn/equals (dtt/ensure-tensor second-row)
                       [3 4 5])))))
+
+
+(deftest single-col-row-matrix
+  (is (dfn/equals (dtt/ensure-tensor (n-native/dge 1 3 (range 3) {:layout :row}))
+                  (dtt/->tensor (range 3))))
+
+  (is (dfn/equals (dtt/ensure-tensor (n-native/dge 1 3 (range 3) {:layout :column}))
+                  (dtt/->tensor (range 3))))
+
+
+  (is (dfn/equals (dtt/ensure-tensor (n-native/dge 3 1 (range 3) {:layout :row}))
+                  (dtt/->tensor (range 3))))
+
+  (is (dfn/equals (dtt/ensure-tensor (n-native/dge 3 1 (range 3) {:layout :column}))
+                  (dtt/->tensor (range 3)))))

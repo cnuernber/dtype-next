@@ -773,8 +773,7 @@
                       strides)
       (throw (ex-info "Strides are not commensurate with datatype size." {})))
     (let [max-stride-idx (argops/argmax strides)
-          buffer-len (* (long (dtype-base/get-value shape max-stride-idx))
-                        (long (dtype-base/get-value strides max-stride-idx)))
+          buffer-len (long (apply max (map * shape strides)))
           ;;Move strides into elem-count instead of byte-count
           strides (mapv #(quot (long %) dtype-size)
                         strides)]
