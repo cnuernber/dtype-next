@@ -7,12 +7,14 @@
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.argops :as argops]
+            [tech.v3.datatype.unary-pred :as unary-pred]
             [tech.v3.datatype.rolling :as rolling]
             [tech.v3.datatype.gradient :as dt-grad]
             [tech.v3.datatype.wavelet]
             [tech.v3.datatype.datetime]
             [ham-fisted.lazy-noncaching :as lznc]
             [ham-fisted.api :as hamf]
+            [ham-fisted.protocols :as hamf-proto]
             [benchmark.api :as bench])
   (:import [java.nio FloatBuffer]
            [java.util ArrayList]
@@ -830,6 +832,14 @@
     (is (= lhs {:a 1 :b 2 :c 3 :d 4}))
     (is (not= lhs (assoc lhs :e 4)))
     (is (= (assoc lhs :e 4) (assoc lhs :e 4)))))
+
+
+(deftest empty-index-reduce-merge
+  (let [ifn (-> (unary-pred/index-reducer :int32)
+                (hamf-proto/->init-val-fn))]
+    (is (= []
+           (-> (.reduce (ifn) (ifn))
+               (deref))))))
 
 
 (comment

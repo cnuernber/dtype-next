@@ -110,14 +110,14 @@
             (ArrayHelpers/aset obj-ary 4 v5)
             (ArrayHelpers/aset obj-ary 5 v6)
             (ArrayHelpers/aset obj-ary 7 v8)
-            (.apply sfact (LazilyPersistentVector/createOwning obj-ary)))))
+            (sfact (LazilyPersistentVector/createOwning obj-ary)))))
     (let [sfact (FastStruct/createFactory (vec keys))]
       (fn [& args]
         (if (instance? ArraySeq args)
-          (.apply sfact (LazilyPersistentVector/createOwning (.array ^ArraySeq args)))
+          (sfact (LazilyPersistentVector/createOwning (.array ^ArraySeq args)))
           (let [al (ArrayList.)]
             (.addAll al ^Collection args)
-            (.apply sfact al)))))))
+            (sfact al)))))))
 
 
 (comment

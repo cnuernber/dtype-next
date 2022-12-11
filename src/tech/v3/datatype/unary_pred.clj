@@ -246,23 +246,27 @@
     (set! max-value (max lval max-value)))
   Reducible
   (reduce [this other]
-    (let [^IndexList other other
-          new-min (min min-value (.-min-value other))
-          new-max (max max-value (.-max-value other))]
-      (if (and (not (== increment Long/MAX_VALUE))
-               (== increment (.-increment other))
-               (== (+ last-value increment) (.-first-value other)))
-        (IndexList. list first-value (.-last-value other) increment min-value max-value)
-        (let [^IMutList list list]
-          (when (not (== increment Long/MAX_VALUE))
-            (.addAll list (hamf/range first-value (+ last-value increment) increment)))
-          (if (== (.-increment other) Long/MAX_VALUE)
-            (.addAll list (.-list other))
-            (.addAll list (hamf/range (.-first-value other)
-                                      (+ (.-last-value other)
-                                         (.-increment other))
-                                      (.-increment other))))
-          (IndexList. list first-value (list -1) Long/MAX_VALUE min-value max-value)))))
+    (cond
+      (== first-value Long/MIN_VALUE) other
+      (== (.-first-value ^IndexList other) Long/MIN_VALUE) this
+      :else
+      (let [^IndexList other other
+            new-min (min min-value (.-min-value other))
+            new-max (max max-value (.-max-value other))]
+        (if (and (not (== increment Long/MAX_VALUE))
+                 (== increment (.-increment other))
+                 (== (+ last-value increment) (.-first-value other)))
+          (IndexList. list first-value (.-last-value other) increment min-value max-value)
+          (let [^IMutList list list]
+            (when (not (== increment Long/MAX_VALUE))
+              (.addAll list (hamf/range first-value (+ last-value increment) increment)))
+            (if (== (.-increment other) Long/MAX_VALUE)
+              (.addAll list (.-list other))
+              (.addAll list (hamf/range (.-first-value other)
+                                        (+ (.-last-value other)
+                                           (.-increment other))
+                                        (.-increment other))))
+            (IndexList. list first-value (list -1) Long/MAX_VALUE min-value max-value))))))
   IDeref
   (deref [_this]
     (vary-meta
