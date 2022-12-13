@@ -211,7 +211,6 @@
   (ffi-base/ptr-return
     [[:invokeinterface MemoryAddress "toRawLongValue" [:long]]]))
 
-
 (defn emit-fn-def
   [hdl-name rettype argtypes]
   (->> (concat
@@ -223,7 +222,7 @@
                                    Addressable
                                    :ptr-as-platform)
                        argtypes)
-                     [(ffi-base/argtype->insn Addressable
+                     [(ffi-base/argtype->insn MemoryAddress
                                                :ptr-as-platform
                                                rettype)])]]
          (ffi-base/exact-type-retval
@@ -231,7 +230,6 @@
            (fn [_ptr-type]
              ptr-return)))
        (vec)))
-
 
 (defn define-mmodel-library
   [classname fn-defs _symbols _options]
