@@ -7,6 +7,7 @@
   (:import [java.util Map Set HashSet Collection]
            [java.util.concurrent ConcurrentHashMap]
            [clojure.lang RT Keyword]
+           [tech.v3.datatype HasheqWrap]
            [ham_fisted Casts]
            [java.math BigDecimal]
            [java.util UUID]))
@@ -104,9 +105,24 @@
                (->hash-set))))
 
 
+(defn base-host-datatype?
+  [dtype]
+  (case dtype
+    :int32 true
+    :int16 true
+    :float32 true
+    :float64 true
+    :int64 true
+    :int8 true
+    :boolean true
+    :object true
+    false))
+
+
 (defn valid-datatype?
   [datatype]
-  (.contains ^Set @valid-datatype-set datatype))
+  (or (base-host-datatype? datatype)
+      (.contains ^Set @valid-datatype-set datatype)))
 
 
 (defn ensure-valid-datatype
@@ -184,17 +200,35 @@
      (or (int-types dtype)
          (float-types dtype)))))
 
+(defn- unaliased-float-type?
+  [dtype]
+  (if (or (identical? dtype :float64)
+          (identical? dtype :float32))
+    true
+    false))
+
 (defn float-type?
   [dtype]
-  (let [dtype (un-alias-datatype dtype)]
-    (boolean
-     (float-types dtype))))
+  (unaliased-float-type? (un-alias-datatype dtype)))
+
+
+(defn- unaliased-integer-type?
+  [dtype]
+  (case dtype
+    :int64 true
+    :int32 true
+    :uint8 true
+    :int16 true
+    :uint64 true
+    :uint16 true
+    :int8 true
+    :uint32 true
+    false))
 
 
 (defn integer-type?
   [dtype]
-  (let [dtype (un-alias-datatype dtype)]
-    (boolean (int-types dtype))))
+  (unaliased-integer-type? (un-alias-datatype dtype)))
 
 
 (defn signed-integer-type?
@@ -433,22 +467,37 @@
       dtype
       :object)))
 
+(defn- case-flatten
+  [dtype]
+  (case dtype
+    :int32 dtype
+    :int16 dtype
+    :float32 dtype
+    :float64 dtype
+    :int64 dtype
+    :int8 dtype
+    :boolean dtype
+    :char dtype
+    :object))
+
 
 (defn safe-flatten
   [dtype]
-  (-> dtype
-      datatype->safe-host-type
-      flatten-datatype))
+  (if (base-host-datatype? dtype)
+    dtype
+    (-> dtype
+        datatype->safe-host-type
+        case-flatten)))
 
 
 (defn host-flatten
   [dtype]
-  (if (.contains base-host-datatypes-hashset dtype)
+  (if (base-host-datatype? dtype)
     dtype
     (-> dtype
         un-alias-datatype
         datatype->host-datatype
-        flatten-datatype)))
+        case-flatten)))
 
 
 (defn- perform-cast
@@ -600,21 +649,20 @@
 (defn simple-operation-space
   "Flatten datatypes down into long, double, or object."
   ([lhs-dtype rhs-dtype]
-   (cond
-     (or (nil? lhs-dtype)
-         (nil? rhs-dtype))
+   (if (or (nil? lhs-dtype)
+           (nil? rhs-dtype))
      :object
-     (and (= :boolean lhs-dtype)
-          (= :boolean rhs-dtype))
-     :boolean
-     (and (integer-type? lhs-dtype)
-          (integer-type? rhs-dtype))
-     :int64
-     (and (numeric-type? lhs-dtype)
-          (numeric-type? rhs-dtype))
-     :float64
-     :else
-     :object))
+     (let [lhs-dtype (un-alias-datatype lhs-dtype)
+           rhs-dtype (un-alias-datatype rhs-dtype)]
+       (cond
+         (and (unaliased-integer-type? lhs-dtype)
+              (unaliased-integer-type? rhs-dtype))
+         :int64
+         (and (or (unaliased-integer-type? lhs-dtype) (unaliased-float-type? lhs-dtype))
+              (or (unaliased-integer-type? rhs-dtype) (unaliased-float-type? rhs-dtype)))
+         :float64
+         :else
+         :object))))
   ([lhs-dtype]
    (simple-operation-space lhs-dtype lhs-dtype)))
 

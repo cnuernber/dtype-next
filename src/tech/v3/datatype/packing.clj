@@ -42,7 +42,9 @@
 (defn unpack-datatype
   "Returns the unpacked datatype for this packed datatype."
   [datatype]
-  (get-in unpack-table [datatype :object-datatype] datatype))
+  (if (casting/base-host-datatype? datatype)
+    datatype
+    (get-in unpack-table [datatype :object-datatype] datatype)))
 
 (defn unpacked-datatype?
   "Returns true if this is a datatype that could be packed."

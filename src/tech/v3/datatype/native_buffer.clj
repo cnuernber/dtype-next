@@ -3,6 +3,7 @@
   to a long integer address of memory."
   (:require [tech.v3.resource :as resource]
             [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.copy :as copy]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.typecast :as typecast]
@@ -254,6 +255,10 @@
   (convertible-to-binary-buffer? [item] true)
   (->binary-buffer [item]
     (dtype-proto/->binary-buffer buffer))
+  dtype-proto/PSetConstant
+  (set-constant! [this sidx len v] (dtype-proto/set-constant! buffer sidx len v))
+  dtype-proto/PMemcpyInfo
+  (memcpy-info [this] (dtype-proto/memcpy-info buffer))
   Object
   (toString [this] (.toString ^Object buffer))
   (equals [this o] (.equiv this o))
@@ -286,6 +291,7 @@
   (writeObject [rdr idx val]
     (errors/check-idx idx n-elems)
     (.invokePrim set-fn address idx (long (pack-fn val))))
+  (fillRange [this sidx eidx v] (dtype-proto/set-constant! buffer sidx (- eidx sidx) v))
   (reduce [rdr rfn acc]
     (let [addr address]
       (if (instance? IFn$OLO rdr)
@@ -324,6 +330,10 @@
   (convertible-to-binary-buffer? [item] true)
   (->binary-buffer [item]
     (dtype-proto/->binary-buffer buffer))
+  dtype-proto/PSetConstant
+  (set-constant! [this sidx len v] (dtype-proto/set-constant! buffer sidx len v))
+  dtype-proto/PMemcpyInfo
+  (memcpy-info [this] (dtype-proto/memcpy-info buffer))
   Object
   (toString [this] (.toString ^Object buffer))
   (equals [this o] (.equiv this o))
@@ -356,6 +366,7 @@
                acc idx v (.invokePrim set-fn addr (+ idx sidx) v))
               nil
               v)))
+  (fillRange [this sidx eidx v] (dtype-proto/set-constant! buffer sidx (- eidx sidx) v))
   (reduce [rdr rfn acc]
     (let [rfn (Transformables/toLongReductionFn rfn)
           addr address]
@@ -388,6 +399,10 @@
   (convertible-to-binary-buffer? [item] true)
   (->binary-buffer [item]
     (dtype-proto/->binary-buffer buffer))
+  dtype-proto/PSetConstant
+  (set-constant! [this sidx len v] (dtype-proto/set-constant! buffer sidx len v))
+  dtype-proto/PMemcpyInfo
+  (memcpy-info [this] (dtype-proto/memcpy-info buffer))
   Object
   (toString [this] (.toString ^Object buffer))
   (equals [this o] (.equiv this o))
@@ -413,8 +428,10 @@
   (accumPlusDouble [this idx val]
     (errors/check-idx idx n-elems)
     (.invokePrim set-fn address idx (+ val (.invokePrim get-fn address idx))))
+  (fillRange [this sidx eidx v] (dtype-proto/set-constant! buffer sidx (- eidx sidx) v))
   (fillRange [rdr sidx v]
-    (ChunkedList/checkIndexRange 0 n-elems sidx (+ sidx (long (dtype-proto/ecount v))))
+    (ChunkedList/checkIndexRange 0 n-elems sidx (+ sidx (Casts/longCast
+                                                         (dtype-proto/ecount v))))
     (let [addr address]
       (reduce (hamf/indexed-double-accum
                acc idx v (.invokePrim set-fn addr (+ idx sidx) v))
@@ -451,6 +468,8 @@
   (convertible-to-binary-buffer? [item] true)
   (->binary-buffer [item]
     (dtype-proto/->binary-buffer buffer))
+  dtype-proto/PMemcpyInfo
+  (memcpy-info [this] (dtype-proto/memcpy-info buffer))
   Object
   (toString [this] (.toString ^Object buffer))
   (equals [this o] (.equiv this o))
@@ -473,6 +492,7 @@
   (writeObject [rdr idx val]
     (errors/check-idx idx n-elems)
     (.invokePrim set-fn address idx val))
+  (fillRange [this sidx eidx v] (dtype-proto/set-constant! buffer sidx (- eidx sidx) v))
   (reduce [rdr rfn acc]
     (let [addr address]
       (loop [idx 0 acc acc]
@@ -584,6 +604,8 @@
   dtype-proto/PToBinaryBuffer
   (convertible-to-binary-buffer? [_buf] true)
   (->binary-buffer [buf] (construct-binary-buffer buf))
+  dtype-proto/PMemcpyInfo
+  (memcpy-info [this] [nil address])
   IMutList
   (meta [_item] metadata)
   (withMeta [item metadata]
@@ -592,6 +614,8 @@
                    cached-io
                    item))
   (size [_item] (int n-elems))
+  (subList [item sidx eidx]
+    (.sub-buffer item sidx (- eidx sidx)))
   (get [this idx] (.readObject (buffer!) idx))
   (getLong [this idx] (.readLong (buffer!) idx))
   (getDouble [this idx] (.readDouble (buffer!) idx))
@@ -607,8 +631,11 @@
   (invoke [this idx] (.invoke (buffer!) idx))
   (invoke [this idx value] (.invoke (buffer!) idx value))
   (fillRange [this idx v] (.fillRange (buffer!) idx v))
+  (fillRange [this sidx eidx v] (.set-constant! this sidx (- eidx sidx) v))
   (reduce [this rfn acc] (.reduce (buffer!) rfn acc))
   (reduce [this rfn] (.reduce (buffer!) rfn))
+  (parallelReduction [this ifn rfn mfn options]
+    (.parallelReduction (buffer!) ifn rfn mfn options))
   Object
   (toString [this]
     (if-not (:record-print? metadata)
@@ -798,7 +825,8 @@
      `tech.jna`."
   (^NativeBuffer [^long n-bytes {:keys [resource-type uninitialized?
                                         endianness log-level]
-                                 :or {resource-type :auto}}]
+                                 :or {resource-type :auto}
+                                 :as opts}]
    (let [endianness (-> (or endianness (dtype-proto/platform-endianness))
                         (validate-endianness))
          retval (NativeBuffer. (.allocateMemory (unsafe) n-bytes)
@@ -904,3 +932,92 @@
                    (casting/numeric-byte-width
                     (dtype-proto/elemwise-datatype nbuf)))]
     (NativeBinaryBuffer. nbuf (.address nbuf) n-bytes {})))
+
+
+(defn- unsafe-copy-memory
+  [^NativeBuffer src-buf ^NativeBuffer dst-buf]
+  (let [byte-width (casting/numeric-byte-width
+                    (casting/un-alias-datatype (.-datatype src-buf)))]
+    (.copyMemory (unsafe)
+                 nil (.-address src-buf)
+                 nil (.-address dst-buf)
+                 (* (.-n-elems src-buf) byte-width))
+    dst-buf))
+
+
+(defn alloc-uninitialized
+  "Allocate an uninitialized buffer.  See options for [[malloc]]."
+  ([dtype ec] (alloc-uninitialized dtype ec nil))
+  ([dtype ^long ec options]
+   (-> (malloc (* ec (casting/numeric-byte-width dtype))
+                    (assoc options :uninitialized? true))
+       (set-native-datatype dtype))))
+
+
+(defn alloc-zeros
+  "Allocate a buffer of zeros.  See options for [[malloc]]."
+  ([dtype ec] (alloc-zeros dtype ec nil))
+  ([dtype ^long ec options]
+   (-> (malloc (* ec (casting/numeric-byte-width dtype)) options)
+       (set-native-datatype dtype))))
+
+
+(defn ensure-native
+  "If input is already a native buffer and has the same datatype as output,
+  return input.  Else copy input into output and return output."
+  ([input outbuf]
+   (let [inb (when (dtype-proto/convertible-to-native-buffer? input)
+               (dtype-proto/->native-buffer input))
+         ec (long (dtype-proto/ecount outbuf))]
+     (if (and (identical? (dtype-proto/elemwise-datatype input)
+                          (dtype-proto/elemwise-datatype outbuf))
+              (>= (long (dtype-proto/ecount input)) ec)
+              inb)
+       inb
+       (do
+         (if (dtype-proto/convertible-to-reader? input)
+           (hamf/pgroups
+            (dtype-proto/ecount outbuf)
+            (fn [^long sidx ^long eidx]
+              (if (and (== sidx 0) (== eidx ec))
+                (.fillRange ^IMutList outbuf sidx input)
+                (.fillRange ^IMutList outbuf sidx
+                            (dtype-proto/sub-buffer input sidx (- eidx sidx))))))
+           (reduce (hamf/indexed-accum
+                    acc idx v
+                    (.set ^IMutList acc idx v)
+                    acc)
+                   outbuf
+                   input))
+         outbuf))))
+  ([input]
+   (if-let [inb (as-native-buffer input)]
+     inb
+     (copy/copy! input (alloc-uninitialized (dtype-proto/elemwise-datatype input)
+                                            (Casts/longCast (dtype-proto/ecount input)))))))
+
+
+(defn clone-native
+  "Extremely fast clone assuming src is a native buffer. Exception otherwise.
+  See options for [[malloc]]."
+  ([data options]
+   (let [^NativeBuffer nbuf (if (instance? NativeBuffer data)
+                              data
+                              (dtype-proto/->native-buffer data))
+         ne (.-n-elems nbuf)
+         dt (.-datatype nbuf)
+         n-bytes (* (casting/numeric-byte-width dt) ne)
+         rval (-> (malloc n-bytes (assoc options :uninitialized? true))
+                  (set-native-datatype dt))]
+     (unsafe-copy-memory nbuf rval)))
+  ([data] (clone-native data nil)))
+
+
+(defn as-native-buffer
+  "If this item is convertible to a tech.v3.datatype.native_buffer.NativeBuffer
+  return it.  Return nil otherwise."
+  ^NativeBuffer [item]
+  (if (instance? NativeBuffer item)
+    item
+    (when (dtype-proto/convertible-to-native-buffer? item)
+      (dtype-proto/->native-buffer item))))

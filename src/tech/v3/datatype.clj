@@ -4,6 +4,7 @@
   (:require [tech.v3.datatype-api]
             [tech.v3.datatype.argops]
             [tech.v3.datatype.argtypes]
+            [tech.v3.datatype.array-buffer]
             [tech.v3.datatype.base]
             [tech.v3.datatype.casting]
             [tech.v3.datatype.const-reader]
@@ -11,7 +12,8 @@
             [tech.v3.datatype.dispatch]
             [tech.v3.datatype.emap]
             [tech.v3.datatype.io-concat-buffer]
-            [tech.v3.datatype.io-indexed-buffer])
+            [tech.v3.datatype.io-indexed-buffer]
+            [tech.v3.datatype.native-buffer])
   (:refer-clojure :exclude [cast reverse]))
 
 (defn ->array
@@ -105,10 +107,8 @@
 
 
 (defn ->native-buffer
-  "Convert to a native buffer if possible, else throw an exception.
-  See as-native-buffer"
-  (^{:tag tech.v3.datatype.native_buffer.NativeBuffer} [item]
-  (tech.v3.datatype.base/->native-buffer item)))
+  (^{:tag tech.v3.datatype.native_buffer.NativeBuffer} [data]
+  (tech.v3.datatype-api/->native-buffer data)))
 
 
 (defn ->reader
@@ -140,6 +140,22 @@
   (tech.v3.datatype.base/->writer item)))
 
 
+(defn alloc-uninitialized
+  "Allocate an uninitialized buffer.  See options for [[malloc]]."
+  ([dtype ec]
+  (tech.v3.datatype.native-buffer/alloc-uninitialized dtype ec))
+  ([dtype ec options]
+  (tech.v3.datatype.native-buffer/alloc-uninitialized dtype ec options)))
+
+
+(defn alloc-zeros
+  "Allocate a buffer of zeros.  See options for [[malloc]]."
+  ([dtype ec]
+  (tech.v3.datatype.native-buffer/alloc-zeros dtype ec))
+  ([dtype ec options]
+  (tech.v3.datatype.native-buffer/alloc-zeros dtype ec options)))
+
+
 (defn arg-type
   "Return the type of a thing.  Types could be:
   :scalar
@@ -154,7 +170,7 @@
   "If this item is convertible to a tech.v3.datatype.array_buffer.ArrayBuffer
   then convert it and return the typed buffer"
   (^{:tag tech.v3.datatype.array_buffer.ArrayBuffer} [item]
-  (tech.v3.datatype.base/as-array-buffer item)))
+  (tech.v3.datatype.array-buffer/as-array-buffer item)))
 
 
 (defn as-array-buffer-data
@@ -179,9 +195,9 @@
 
 (defn as-native-buffer
   "If this item is convertible to a tech.v3.datatype.native_buffer.NativeBuffer
-  then convert it and return the typed buffer"
+  return it.  Return nil otherwise."
   (^{:tag tech.v3.datatype.native_buffer.NativeBuffer} [item]
-  (tech.v3.datatype.base/as-native-buffer item)))
+  (tech.v3.datatype.native-buffer/as-native-buffer item)))
 
 
 (defn as-native-buffer-data
@@ -240,6 +256,15 @@
   "Clone an object.  Can clone anything convertible to a reader."
   ([item]
   (tech.v3.datatype-api/clone item)))
+
+
+(defn clone-native
+  "Extremely fast clone assuming src is a native buffer. Exception otherwise.
+  See options for [[malloc]]."
+  ([data options]
+  (tech.v3.datatype.native-buffer/clone-native data options))
+  ([data]
+  (tech.v3.datatype.native-buffer/clone-native data)))
 
 
 (defn coalesce!
@@ -343,6 +368,15 @@
   (tech.v3.datatype.emap/emap map-fn res-dtype x y))
   ([map-fn res-dtype x y & args]
   (apply tech.v3.datatype.emap/emap map-fn res-dtype x y args)))
+
+
+(defn ensure-native
+  "If input is already a native buffer and has the same datatype as output,
+  return input.  Else copy input into output and return output."
+  ([input outbuf]
+  (tech.v3.datatype.native-buffer/ensure-native input outbuf))
+  ([input]
+  (tech.v3.datatype.native-buffer/ensure-native input)))
 
 
 (defn ensure-reader
@@ -460,6 +494,25 @@ user> (dtype/make-reader :float32 5 (* idx 2))
   (tech.v3.datatype-api/make-reader-fn datatype advertised-datatype n-elems read-fn)))
 
 
+(defn malloc
+  "Malloc memory.  If a desired buffer type is needed follow up with set-native-datatype.
+
+  Options:
+
+  * `:resource-type` - defaults to `:gc` - maps to `:track-type` in `tech.v3.resource`
+     but can also be set to nil in which case the data is not tracked this library will
+     not clean it up.
+  * `:uninitialized?` - do not initialize to zero.  Use for perf in very very rare cases.
+  * `:endianness` - Either `:little-endian` or `:big-endian` - defaults to platform.
+  * `:log-level` - one of `#{:debug :trace :info :warn :error :fatal}` or nil if no logging
+     is desired.  When enabled allocations and frees will be logged in the same manner as
+     `tech.jna`."
+  (^{:tag tech.v3.datatype.native_buffer.NativeBuffer} [n-bytes opts]
+  (tech.v3.datatype.native-buffer/malloc n-bytes opts))
+  (^{:tag tech.v3.datatype.native_buffer.NativeBuffer} [n-bytes]
+  (tech.v3.datatype.native-buffer/malloc n-bytes)))
+
+
 (defn map-factory
   "Create an IFn taking exactly n-keys arguments to rapidly create a map.
   This moves the key-checking to the factory creation and simply creates a
@@ -513,6 +566,12 @@ user> (dtype/make-reader :float32 5 (* idx 2))
   "Legacy method.  Performs elemwise-cast."
   ([item new-dtype]
   (tech.v3.datatype-api/set-datatype item new-dtype)))
+
+
+(defn set-native-datatype
+  "Set the datatype of a native buffer.  n-elems will be recalculated."
+  (^{:tag tech.v3.datatype.native_buffer.NativeBuffer} [item datatype]
+  (tech.v3.datatype.native-buffer/set-native-datatype item datatype)))
 
 
 (defn set-value!

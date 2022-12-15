@@ -90,7 +90,7 @@
          (dims/direct? (.dimensions item))))
   (->nd-buffer-descriptor [item]
     (let [item-buf (.buffer item)
-          nbuf (dtype-base/->native-buffer (.buffer item))]
+          nbuf (native-buffer/as-native-buffer (.buffer item))]
       {:ptr (.address nbuf)
        :datatype :tensor
        :elemwise-datatype (dtype-base/elemwise-datatype item-buf)

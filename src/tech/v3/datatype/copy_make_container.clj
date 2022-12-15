@@ -19,10 +19,10 @@
   "Mutably copy values from a src container into a destination container.
   Returns the destination container."
   ([src dst options]
-   (dtype-copy/copy! src dst (:unchecked? options))
+   (dtype-copy/copy! src dst)
    dst)
   ([src dst]
-   (dtype-copy/copy! src dst true)
+   (dtype-copy/copy! src dst)
    dst))
 
 

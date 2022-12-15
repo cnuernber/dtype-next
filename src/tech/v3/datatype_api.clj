@@ -2,8 +2,8 @@
   "Base namespace for container creation and elementwise access of data"
   (:require [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.datatype.errors :as errors]
-            [tech.v3.datatype.array-buffer]
-            [tech.v3.datatype.native-buffer]
+            [tech.v3.datatype.array-buffer :as abuf]
+            [tech.v3.datatype.native-buffer :as nbuf]
             [tech.v3.datatype.list]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.protocols :as dtype-proto]
@@ -29,6 +29,7 @@
             [tech.v3.datatype.fastobjs :as fastobjs])
   (:import [tech.v3.datatype BooleanReader LongReader DoubleReader ObjectReader
             Buffer ArrayBufferData NativeBufferData]
+           [tech.v3.datatype.native_buffer NativeBuffer]
            [ham_fisted IMutList Casts ChunkedList IFnDef$LO IFnDef$LL IFnDef$LD Transformables
             Reductions]
            [clojure.lang IFn$LO IFn$LL IFn$LD]
@@ -67,14 +68,32 @@
                 as-writer
                 ->writer
                 writer?
-                as-array-buffer
-                as-native-buffer
-                ->native-buffer
                 as-concrete-buffer
                 sub-buffer
                 get-value
                 set-value!
                 set-constant!)
+
+
+(export-symbols tech.v3.datatype.array-buffer
+                as-array-buffer)
+
+
+(export-symbols tech.v3.datatype.native-buffer
+                as-native-buffer
+                set-native-datatype
+                alloc-uninitialized
+                alloc-zeros
+                ensure-native
+                clone-native
+                malloc)
+
+
+(defn ->native-buffer
+  ^NativeBuffer [data]
+  (if-let [rval (as-native-buffer data)]
+    rval
+    (throw (RuntimeException. "Data cannot be in-place converted to a native buffer - see ensure-native."))))
 
 
 (defn as-array-buffer-data

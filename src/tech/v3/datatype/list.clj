@@ -1,6 +1,7 @@
 (ns tech.v3.datatype.list
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.casting :as casting]
+            [tech.v3.datatype.native-buffer :as nbuf]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.errors :refer [check-idx] :as errors]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
@@ -10,6 +11,7 @@
             [ham-fisted.api :as hamf])
   (:import [tech.v3.datatype Buffer MutListBuffer]
            [tech.v3.datatype.array_buffer IGrowableList]
+           [tech.v3.datatype.native_buffer NativeBuffer]
            [clojure.lang IObj Counted IFn]
            [ham_fisted ArrayLists IMutList]
            [java.util List]))
@@ -37,7 +39,7 @@
       ;;Once things get huge you have to be careful.
       (let [new-capacity (ArrayLists/newArrayLen new-size)
             old-buf buffer
-            native-buf (dtype-base/->native-buffer old-buf)
+            ^NativeBuffer native-buf (dtype-base/->native-buffer old-buf)
             new-buffer (dtype-cmc/make-container
                         :native-heap (.elemwise-datatype native-buf)
                         new-capacity

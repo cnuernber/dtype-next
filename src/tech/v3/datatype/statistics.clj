@@ -3,6 +3,7 @@
   (:require [tech.v3.datatype.binary-op :as binary-op]
             [tech.v3.datatype.reductions :as dtype-reductions]
             [tech.v3.datatype.base :as dtype-base]
+            [tech.v3.datatype.array-buffer :as abuf]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.list]
             [com.github.ztellman.primitive-math :as pmath]
@@ -231,7 +232,7 @@
                                               required-dependency-set))
          stats-data (if percentile?
                       (let [p (Percentile.)
-                            ary-buf (dtype-base/as-array-buffer rdr)]
+                            ary-buf (abuf/as-array-buffer rdr)]
                         (.setData p ^doubles (.ary-data ary-buf) (.offset ary-buf)
                                   (.n-elems ary-buf))
                         (merge stats-data

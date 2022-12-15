@@ -1,6 +1,7 @@
 (ns tech.v3.datatype.protocols
   (:require [ham-fisted.set :as set])
-  (:import [tech.v3.datatype ElemwiseDatatype ECount Buffer BinaryBuffer]
+  (:import [tech.v3.datatype ElemwiseDatatype ECount Buffer BinaryBuffer
+            ObjectReader]
            [clojure.lang Counted]
            [java.util List Map Set]
            [java.nio ByteOrder
@@ -65,6 +66,8 @@ with missing values."))
 
 
 (extend-protocol PECount
+  nil
+  (ecount [item] 0)
   Counted
   (ecount [item] (.count item))
   ECount
@@ -138,6 +141,17 @@ Note that this makes no mention of indianness; buffers are in the format of the 
   (convertible-to-reader? [item])
   (^Buffer ->reader [item]))
 
+
+(defonce EMPTY-READER (reify ObjectReader (lsize [this] 0)))
+
+(extend-type nil
+  PToBuffer
+  (convertible-to-buffer? [item] true)
+  (->buffer [item] EMPTY-READER)
+  (convertible-to-reader? [item] true)
+  (->reader [item] EMPTY-READER)
+  (convertible-to-writer? [item] false))
+
 (defprotocol PToBinaryBuffer
   (convertible-to-binary-buffer? [buf])
   (^BinaryBuffer ->binary-buffer [buf]))
@@ -175,6 +189,12 @@ Note that this makes no mention of indianness; buffers are in the format of the 
 (defprotocol PEndianness
   (endianness [item]
     "Either :little-endian or :big-endian"))
+
+
+(defprotocol PMemcpyInfo
+  (memcpy-info [item]
+    "Return a tuple of [object offset] used for unsafeCopyMemory call.
+Only arraybuffers and native buffers need implement this pathway."))
 
 
 (extend-protocol PEndianness

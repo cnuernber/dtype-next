@@ -1,7 +1,10 @@
+## 1.000-beta-9
+ * Faster native buffer specific pathways.  Very fast native buffer clone pathway.
+
 ## 1.000-beta-8
  * All buffers are comparable.
  * index reducers reduce correctly on empty.
- 
+
 ## 1.000-beta-6
  * lots more hamf integration work - better native buffer implementation - fixed bug converting
    1xY and Yx1 neanderthal matrixes.

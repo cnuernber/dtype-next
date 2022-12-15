@@ -4,6 +4,7 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.pprint :as dtype-pp]
+            [tech.v3.datatype.copy :as dt-copy]
             [ham-fisted.api :as hamf]
             [ham-fisted.iterator :as iterator]
             [com.github.ztellman.primitive-math :as pmath])
@@ -25,7 +26,8 @@
            [tech.v3.datatype Buffer ArrayHelpers BufferCollection BinaryBuffer
             ByteConversions NumericConversions]
            [java.util Arrays RandomAccess List]
-           [java.lang.reflect Array]))
+           [java.lang.reflect Array]
+           [sun.misc Unsafe]))
 
 
 (set! *warn-on-reflection* true)
@@ -33,6 +35,30 @@
 
 
 (declare array-sub-list set-datatype)
+
+
+(defn- array-base-offset-dt
+  ^long [ary-dt]
+  (Casts/longCast
+   (case ary-dt
+     :boolean Unsafe/ARRAY_BOOLEAN_BASE_OFFSET
+     :int8 Unsafe/ARRAY_BYTE_BASE_OFFSET
+     :int16 Unsafe/ARRAY_SHORT_BASE_OFFSET
+     :char Unsafe/ARRAY_CHAR_BASE_OFFSET
+     :int32 Unsafe/ARRAY_INT_BASE_OFFSET
+     :int64 Unsafe/ARRAY_LONG_BASE_OFFSET
+     :float32 Unsafe/ARRAY_FLOAT_BASE_OFFSET
+     :float64 Unsafe/ARRAY_DOUBLE_BASE_OFFSET
+     nil)))
+
+
+(defn- array-base-offset
+  (^long [ary]
+   (array-base-offset-dt (dtype-proto/elemwise-datatype ary)))
+  (^long [ary ^long offset]
+   (let [adt (dtype-proto/elemwise-datatype ary)]
+     (+ (array-base-offset-dt adt)
+        (* offset (casting/numeric-byte-width adt))))))
 
 
 (extend-type MutListBuffer
@@ -50,7 +76,9 @@
     (dtype-proto/->binary-buffer (.-data item)))
   dtype-proto/PCopyRawData
   (copy-raw->item! [raw-data ary-target target-offset options]
-    (dtype-proto/copy-raw->item! (.-data raw-data) ary-target target-offset options)))
+    (dtype-proto/copy-raw->item! (.-data raw-data) ary-target target-offset options))
+  dtype-proto/PMemcpyInfo
+  (memcpy-info [this] (dtype-proto/memcpy-info (.-data this))))
 
 
 (defmethod print-method MutListBuffer
@@ -161,6 +189,17 @@
        ~'buffer))
 
 
+(defn- buffer->array-list
+  ^IMutList [b]
+  (cond
+    (instance? MutListBuffer b)
+    (.data ^MutListBuffer b)
+    (instance? PackingMutListBuffer b)
+    (.data ^PackingMutListBuffer b)
+    :else
+    (throw (RuntimeException. (str "Unable to get array list from buffer: " (type b))))))
+
+
 (deftype ArrayBuffer [ary-data ^long offset ^long n-elems dtype
                       meta
                       ^{:unsynchronized-mutable true
@@ -207,10 +246,23 @@
   (->reader [item] (dtype-proto/->buffer item))
   dtype-proto/PEndianness
   (endianness [item] :little-endian)
+  dtype-proto/PMemcpyInfo
+  (memcpy-info [this]
+    (when (casting/numeric-type? dtype)
+      [ary-data (array-base-offset ary-data offset)]))
+  ArrayLists$ArrayOwner
+  (getArraySection [this] (ArraySection. ary-data offset (+ offset n-elems)))
+  (fill [this sidx eidx v]
+    (.fill ^ArrayLists$ArrayOwner (buffer->array-list (buffer!)) sidx eidx v))
+  (copyOfRange [this sidx eidx]
+    (.copyOfRange ^ArrayLists$ArrayOwner (buffer->array-list (buffer!)) sidx eidx))
+  (copyOf [this len]
+    (.copyOf ^ArrayLists$ArrayOwner (buffer->array-list (buffer!)) len))
   IMutList
   (meta [this] meta)
   (withMeta [this newm] (ArrayBuffer. ary-data offset n-elems dtype newm buffer))
   (size [this] (unchecked-int n-elems))
+  (subList [this sidx eidx] (.sub-buffer this sidx (- eidx sidx)))
   (get [this idx] (.readObject (buffer!) idx))
   (getLong [this idx] (.readLong (buffer!) idx))
   (getDouble [this idx] (.readDouble (buffer!) idx))
@@ -221,8 +273,11 @@
   (setDouble [this idx v] (.writeDouble (buffer!) idx v))
   (cloneList [this] (.clone this))
   (fillRange [this sidx v] (.fillRange (buffer!) sidx v))
+  (fillRange [this sidx eidx v] (.fillRange (buffer!) sidx eidx v))
   (reduce [this rfn] (.reduce (buffer!) rfn))
-  (reduce [this rfn init] (.reduce (buffer!) rfn init)))
+  (reduce [this rfn init] (.reduce (buffer!) rfn init))
+  (parallelReduction [this ifn rfn mfn options]
+    (.parallelReduction (buffer!) ifn rfn mfn options)))
 
 
 (dtype-pp/implement-tostring-print ArrayBuffer)
@@ -261,7 +316,12 @@
     dtype-proto/PCopyRawData
     {:copy-raw->item! array-buffer-convertible-copy-raw-data}
     dtype-proto/PEndianness
-    {:endianness (constantly :little-endian)}))
+    {:endianness (constantly :little-endian)}
+    dtype-proto/PMemcpyInfo
+    {:memcpy-info (fn [owner]
+                    (let [section (.getArraySection ^ArrayLists$ArrayOwner owner)]
+                      [(.-array section)
+                       (array-base-offset (.-array section) (.-sidx section))]))}))
 
 
 (defn bind-array-list
@@ -750,6 +810,8 @@
       dtype-proto/PSubBuffer
       {:sub-buffer (fn [ary ^long off ^long len]
                      (hamf/subvec ary off (+ off len)))}
+      dtype-proto/PMemcpyInfo
+      {:memcpy-info (fn [ary] [ary (array-base-offset-dt dtype)])}
       dtype-proto/PCopyRawData
       {:copy-raw->item! array-buffer-convertible-copy-raw-data}
       dtype-proto/PToBuffer
@@ -860,6 +922,25 @@
                                 len))))
 
 
+(extend-type ArrayBuffer
+  dtype-proto/PCopyRawData
+  (copy-raw->item! [raw-data ary-target target-offset options]
+    (dt-copy/copy! raw-data (dtype-proto/sub-buffer ary-target target-offset (.n-elems raw-data)))
+    [ary-target (+ (long target-offset) (.n-elems raw-data))]))
+
+
+(def ^:private obj-ary-cls (Class/forName "[Ljava.lang.Object;"))
+
+
+(extend-type Object
+  dtype-proto/PToArrayBuffer
+  (convertible-to-array-buffer? [buf] (instance? obj-ary-cls buf))
+  (->array-buffer [buf]
+    (when (instance? obj-ary-cls buf)
+      (ArrayBuffer. buf 0 (alength ^objects buf) (dtype-proto/elemwise-datatype buf)
+                    nil nil))))
+
+
 (extend-protocol dtype-proto/PToBinaryBuffer
   (Class/forName "[B")
   (convertible-to-binary-buffer? [ary] true)
@@ -881,3 +962,13 @@
       (ByteArrayBinaryBufferLE. (.-array section)
                                 (dtype-proto/->buffer ary)
                                 (.-sidx section) (.size section)))))
+
+
+(defn as-array-buffer
+  "If this item is convertible to a tech.v3.datatype.array_buffer.ArrayBuffer
+  then convert it and return the typed buffer"
+  ^ArrayBuffer [item]
+  (if (instance? ArrayBuffer item)
+    item
+    (when (dtype-proto/convertible-to-array-buffer? item)
+      (dtype-proto/->array-buffer item))))

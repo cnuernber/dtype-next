@@ -1,7 +1,5 @@
 (ns tech.v3.datatype.base
   (:require [tech.v3.datatype.protocols :as dtype-proto]
-            [tech.v3.datatype.array-buffer :as array-buffer]
-            [tech.v3.datatype.native-buffer]
             [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.errors :as errors]
@@ -11,14 +9,12 @@
   (:import [tech.v3.datatype Buffer BinaryBuffer
             ObjectBuffer ElemwiseDatatype ObjectReader NDBuffer
             LongReader DoubleReader]
-           [tech.v3.datatype.array_buffer ArrayBuffer]
-           [tech.v3.datatype.native_buffer NativeBuffer]
            [clojure.lang IPersistentCollection APersistentMap APersistentVector
             APersistentSet IPersistentMap]
            [java.util RandomAccess List Spliterator$OfDouble Spliterator$OfLong
             Spliterator$OfInt]
            [java.util.stream Stream DoubleStream LongStream IntStream]
-           [ham_fisted Reductions]))
+           [ham_fisted Reductions Casts]))
 
 
 (set! *warn-on-reflection* true)
@@ -90,7 +86,7 @@
   ^long [item]
   (if-not item
     0
-    (dtype-proto/ecount item)))
+    (Casts/longCast (dtype-proto/ecount item))))
 
 
 (defn shape
@@ -249,31 +245,26 @@
      "Item %s is not convertible to a binary buffer" item)
     retval))
 
-
 (defn as-array-buffer
   "If this item is convertible to a tech.v3.datatype.array_buffer.ArrayBuffer
   then convert it and return the typed buffer"
-  ^ArrayBuffer [item]
-  (if (instance? ArrayBuffer item)
-    item
-    (when (dtype-proto/convertible-to-array-buffer? item)
-      (dtype-proto/->array-buffer item))))
+  [item]
+  (when (dtype-proto/convertible-to-array-buffer? item)
+    (dtype-proto/->array-buffer item)))
 
 
 (defn as-native-buffer
   "If this item is convertible to a tech.v3.datatype.native_buffer.NativeBuffer
   then convert it and return the typed buffer"
-  ^NativeBuffer [item]
-  (if (instance? NativeBuffer item)
-    item
-    (when (dtype-proto/convertible-to-native-buffer? item)
-      (dtype-proto/->native-buffer item))))
+  [item]
+  (when (dtype-proto/convertible-to-native-buffer? item)
+    (dtype-proto/->native-buffer item)))
 
 
 (defn ->native-buffer
   "Convert to a native buffer if possible, else throw an exception.
   See as-native-buffer"
-  ^NativeBuffer [item]
+  [item]
   (if-let [retval (as-native-buffer item)]
     retval
     (errors/throwf "Item type %s is not convertible to an native buffer"
@@ -672,6 +663,8 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
             (aget ^"[Ljava.lang.Object;" barray chan)))))))
 
 
+(def ^:private obj-ary-cls (Class/forName "[Ljava.lang.Object;"))
+
 
 ;;Datatype library Object defaults.  Here lie dragons.
 (extend-type Object
@@ -727,24 +720,15 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
       (as-reader (elemwise-cast item new-dtype))))
   dtype-proto/PECount
   (ecount [item] (count item))
-  dtype-proto/PToArrayBuffer
-  (convertible-to-array-buffer? [buf] (.isArray (.getClass ^Object buf)))
-  (->array-buffer [buf]
-    (when-not (.isArray (.getClass ^Object buf))
-      (throw (Exception. "Item is not an array: %s" (type buf))))
-    (array-buffer/array-buffer buf))
   dtype-proto/PToBuffer
   (convertible-to-buffer? [buf]
     (or (dtype-proto/convertible-to-array-buffer? buf)
-        (dtype-proto/convertible-to-native-buffer? buf)
-        (.isArray (.getClass ^Object buf))))
+        (dtype-proto/convertible-to-native-buffer? buf)))
   (->buffer [buf]
     (if-let [buf-data (as-concrete-buffer buf)]
       (dtype-proto/->buffer buf-data)
-      (if (array? buf)
-        (dtype-proto/->buffer (array-buffer/array-buffer buf))
-        (errors/throwf "Buffer type %s is not convertible to buffer"
-                       (type buf)))))
+      (errors/throwf "Buffer type %s is not convertible to buffer"
+                     (type buf))))
   dtype-proto/PToReader
   (convertible-to-reader? [buf]
     (dtype-proto/convertible-to-buffer? buf))
@@ -794,8 +778,6 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
                   (type buf)))))))
   dtype-proto/PToNativeBuffer
   (convertible-to-native-buffer? [buf] false)
-  dtype-proto/PToArrayBuffer
-  (convertible-to-array-buffer? [buf] false)
   dtype-proto/PRangeConvertible
   (convertible-to-range? [buf] false)
   dtype-proto/PToBitmap

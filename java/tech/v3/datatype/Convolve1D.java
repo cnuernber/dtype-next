@@ -74,7 +74,6 @@ public final class Convolve1D {
 	Arrays.fill(retval, 0, left_overflow, left);
 	Arrays.fill(retval, left_overflow+len, new_len - 1, right);
 	break;
-
       case Reflect:
 	/* abcddcba|abcd|dcbaabcd */
 	for(int idx = 0; idx < max_overflow; ++idx) {
