@@ -1,4 +1,4 @@
-(defproject cnuernber/dtype-next "10.000-beta-11-SNAPSHOT"
+(defproject cnuernber/dtype-next "10.000-beta-11"
   :description "A Clojure library designed to aid in the implementation of high performance algorithms and systems."
   :url "http://github.com/cnuernber/dtype-next"
   :license {:name "EPL-2.0"
@@ -15,7 +15,7 @@
                  ;;ham fisted brings in:
                  ;; {it.unimi.dsi/fastutil-core {:mvn/version "8.5.8"}
                  ;;  com.google.guava/guava     {:mvn/version "31.1-jre"}}
-                 [com.cnuernber/ham-fisted         "1.000-beta-63"]]
+                 [com.cnuernber/ham-fisted         "1.000-beta-64"]]
   :java-source-paths ["java" "third-party" "java_public_api"]
   :source-paths ["src" "classes" "third-party"]
   :profiles {:dev
