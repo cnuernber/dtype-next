@@ -1,3 +1,7 @@
+## 1.000-beta-10
+ * Brand new experimental jdk-19 support for the ffi layer.
+ 
+ 
 ## 1.000-beta-9
  * Faster native buffer specific pathways.  Very fast native buffer clone pathway.
 
