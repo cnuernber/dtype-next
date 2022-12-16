@@ -300,8 +300,8 @@
     [:keep :remove :exception]. The fastest option is :keep but this
     may result in your results having NaN's in them.  You can also pass
   in a double predicate to filter custom double values."
-  ([stats-names stats-data options rdr]
-  (tech.v3.datatype.statistics/descriptive-statistics stats-names stats-data options rdr))
+  ([stats-names stats-data options src-rdr]
+  (tech.v3.datatype.statistics/descriptive-statistics stats-names stats-data options src-rdr))
   ([stats-names options rdr]
   (tech.v3.datatype.statistics/descriptive-statistics stats-names options rdr))
   ([stats-names rdr]

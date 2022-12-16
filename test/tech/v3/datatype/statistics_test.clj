@@ -37,6 +37,13 @@
 
 (deftest nan-min-max
   (let [test-data (double-array (edn/read-string (slurp "test/data/double-data.edn")))
-        {dmin :min dmax :max} (stats/descriptive-statistics [:min :max] test-data)]
+        {dmin :min dmax :max :as data} (stats/descriptive-statistics [:min :max] test-data)]
     (is (not (Double/isNaN dmin)))
     (is (not (Double/isNaN dmax)))))
+
+
+(deftest really-do-mode
+  (is (= "hey" (-> (stats/descriptive-statistics [:mode] ["hey" "you" "guys" "hey" "hey"])
+                   (:mode))))
+  (is (nil? (-> (stats/descriptive-statistics [:mode] nil)
+                (:mode)))))

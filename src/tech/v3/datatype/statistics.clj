@@ -147,6 +147,9 @@
 
 (hamf/bind-double-consumer-reducer! #(DoubleConsumers$MinMaxSum.))
 
+(defn- key?
+  [e] (when e (key e)))
+
 
 (defn descriptive-statistics
   "Calculate a set of descriptive statistics on a single reader.
@@ -162,15 +165,16 @@
   in a double predicate to filter custom double values."
   ([stats-names stats-data {:keys [nan-strategy]
                             :or {nan-strategy :remove}
-                            :as options} rdr]
+                            :as options} src-rdr]
    (let [stats-set (hamf/immut-set stats-names)
          stats-data (or stats-data {})
          median? (stats-set :median)
+         mode? (stats-set :mode)
          percentile-set #{:quartile-1 :quartile-3}
          percentile? (some stats-set percentile-set)
          percentile-set (set/intersection stats-set percentile-set)
-         stats-set (set/difference stats-set percentile-set)
-         rdr (->> (or (dtype-base/as-reader rdr :float64) rdr)
+         stats-set (disj (set/difference stats-set percentile-set) :mode)
+         rdr (->> (or (dtype-base/as-reader src-rdr :float64) src-rdr)
                   (hamf/apply-nan-strategy options))
          ;;update options to reflect filtering
          options (assoc options :nan-strategy :keep)
@@ -186,12 +190,14 @@
                     rdr))
          stats-data (merge
                      (cond
-                       (hamf/empty? rdr)
+                       (or (hamf/empty? src-rdr)
+                           (try (hamf/empty? rdr) (catch Throwable e true)))
                        {:n-elems 0
                         :min ##NaN
                         :max ##NaN
-                        :median ##NaN}
-                       (or median? percentile?)
+                        :median ##NaN
+                        :mode nil}
+                       (and (or median? percentile?) (not (hamf/empty? rdr)))
                        (let [n-elems (dtype-base/ecount rdr)]
                          (if median?
                            {:min (rdr 0)
@@ -202,6 +208,15 @@
                             :max (rdr -1)
                             :n-elems n-elems})))
                      stats-data)
+         stats-data (if mode?
+                      (assoc stats-data
+                             :mode (->> (hamf/frequencies
+                                         (or (dtype-base/as-reader src-rdr)
+                                             src-rdr))
+                                        (hamf/sort-by (hamf/obj->long e (val e)))
+                                        (hamf/last)
+                                        (key?)))
+                      stats-data)
          provided-keys (hamf/map-keyset stats-data)
          calculate-stats-set (set/difference stats-set provided-keys)
          dependency-set (apply set/reduce-union (map node-dependencies calculate-stats-set))
@@ -241,7 +256,8 @@
                                (when (:quartile-3 percentile-set)
                                  {:quartile-3 (.evaluate p 75.0)})))
                       stats-data)]
-     (select-keys stats-data (set/union stats-set percentile-set))))
+     (select-keys stats-data (-> (set/union stats-set percentile-set)
+                                 (set/union (when mode? #{:mode}))))))
   ([stats-names options rdr]
    (descriptive-statistics stats-names nil options rdr))
   ([stats-names rdr]

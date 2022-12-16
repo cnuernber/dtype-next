@@ -1,7 +1,11 @@
+## 1.000-beta-13
+ * First deps.edn based deployment.
+ * [issue 72](https://github.com/cnuernber/dtype-next/issues/72) - really support `:mode`.
+
 ## 1.000-beta-10
  * Brand new experimental jdk-19 support for the ffi layer.
- 
- 
+
+
 ## 1.000-beta-9
  * Faster native buffer specific pathways.  Very fast native buffer clone pathway.
 
