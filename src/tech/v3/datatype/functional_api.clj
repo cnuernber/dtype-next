@@ -327,6 +327,7 @@
                 descriptive-statistics
                 variance
                 standard-deviation
+                mode
                 mean
                 sum
                 median

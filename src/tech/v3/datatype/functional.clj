@@ -583,6 +583,12 @@ tech.v3.datatype.functional> (meta regressor)
   (apply tech.v3.datatype.functional-api/min x y args)))
 
 
+(defn mode
+  "Return the most value common occurance in the data."
+  ([data]
+  (tech.v3.datatype.statistics/mode data)))
+
+
 (defn nan?
   ([arg options]
   (tech.v3.datatype.functional-api/nan? arg options))

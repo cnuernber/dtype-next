@@ -151,6 +151,15 @@
   [e] (when e (key e)))
 
 
+(defn mode
+  "Return the most value common occurance in the data."
+  [data]
+  (->> (hamf/frequencies (or (dtype-base/as-reader data) data))
+       (hamf/sort-by (hamf/obj->long e (val e)))
+       (hamf/last)
+       (key?)))
+
+
 (defn descriptive-statistics
   "Calculate a set of descriptive statistics on a single reader.
 
@@ -209,13 +218,7 @@
                             :n-elems n-elems})))
                      stats-data)
          stats-data (if mode?
-                      (assoc stats-data
-                             :mode (->> (hamf/frequencies
-                                         (or (dtype-base/as-reader src-rdr)
-                                             src-rdr))
-                                        (hamf/sort-by (hamf/obj->long e (val e)))
-                                        (hamf/last)
-                                        (key?)))
+                      (assoc stats-data :mode (mode src-rdr))
                       stats-data)
          provided-keys (hamf/map-keyset stats-data)
          calculate-stats-set (set/difference stats-set provided-keys)

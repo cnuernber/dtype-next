@@ -8,6 +8,7 @@ pom.xml.asc
 *.jar
 *.class
 *.asc
+*.pom
 /.lein-*
 /.nrepl-port
 .hgignore
