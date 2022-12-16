@@ -5,7 +5,7 @@
             [tech.v3.datatype.base :as dt-base]
             [tech.v3.tensor :as dtt]
             [ham-fisted.api :as hamf]
-            [com.github.ztellman.primitive-math :as pmath])
+            [clj-commons.primitive-math :as pmath])
   (:import [tech.v3.datatype DoubleReader]))
 
 (set! *warn-on-reflection* true)

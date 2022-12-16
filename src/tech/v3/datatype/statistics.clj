@@ -6,7 +6,7 @@
             [tech.v3.datatype.array-buffer :as abuf]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.list]
-            [com.github.ztellman.primitive-math :as pmath]
+            [clj-commons.primitive-math :as pmath]
             [ham-fisted.api :as hamf]
             [ham-fisted.lazy-noncaching :as lznc]
             [ham-fisted.set :as set])

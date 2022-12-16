@@ -2,7 +2,7 @@
   (:require [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.errors :as errors]
-            [com.github.ztellman.primitive-math :as pmath])
+            [clj-commons.primitive-math :as pmath])
   (:import [java.util List]
            [tech.v3.datatype Buffer]
            [ham_fisted ChunkedList]))

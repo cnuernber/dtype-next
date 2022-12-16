@@ -5,7 +5,7 @@
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.reductions :as reductions]
             [ham-fisted.api :as hamf]
-            [com.github.ztellman.primitive-math :as pmath])
+            [clj-commons.primitive-math :as pmath])
   (:import [tech.v3.datatype LongReader DoubleReader ObjectReader
             BinaryOperator Buffer BinaryOperators$DoubleBinaryOperator
             BinaryOperators$LongBinaryOperator

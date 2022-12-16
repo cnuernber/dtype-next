@@ -1,5 +1,5 @@
 (ns tech.v3.datatype.double-ops
-  (:require [com.github.ztellman.primitive-math :as pmath]))
+  (:require [clj-commons.primitive-math :as pmath]))
 
 
 (defmacro SIGNIFICAND-BITS

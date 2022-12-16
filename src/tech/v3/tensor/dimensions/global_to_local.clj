@@ -5,7 +5,7 @@
             [tech.v3.datatype.index-algebra :as idx-alg]
             [tech.v3.datatype.graal-native :as graal-native]
             [tech.v3.datatype.protocols :as dtype-proto]
-            [com.github.ztellman.primitive-math :as pmath]
+            [clj-commons.primitive-math :as pmath]
             [clojure.tools.logging :as log]
             [camel-snake-kebab.core]
             [ham-fisted.api :as hamf]

@@ -3,7 +3,7 @@
             [tech.v3.datatype.index-algebra :as idx-alg]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.tensor.dimensions.shape :as shape]
-            [com.github.ztellman.primitive-math :as pmath])
+            [clj-commons.primitive-math :as pmath])
   (:import [java.util List]))
 
 

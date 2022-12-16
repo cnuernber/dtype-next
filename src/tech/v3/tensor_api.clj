@@ -36,7 +36,7 @@
             [tech.v3.tensor.tensor-copy :as tens-cpy]
             [tech.v3.datatype.export-symbols :as export-symbols]
             [tech.v3.parallel.for :as parallel-for]
-            [com.github.ztellman.primitive-math :as pmath]
+            [clj-commons.primitive-math :as pmath]
             [clojure.tools.logging :as log]
             [ham-fisted.api :as hamf])
   (:import [clojure.lang IObj IFn$OLO IFn$ODO IFn

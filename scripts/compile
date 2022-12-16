@@ -1,19 +1,4 @@
 #!/bin/bash
 
-set -e
-
-source scripts/activate-graal
-
-lein clean
-lein uberjar
-graalvm/bin/native-image \
-    --report-unsupported-elements-at-runtime \
-    --initialize-at-build-time \
-    --initialize-at-run-time=xerial.larray.mmap.MMapBuffer \
-    --no-fallback \
-    --no-server \
-    -H:+ReportExceptionStackTraces \
-    -J-Dclojure.spec.skip-macros=true \
-    -J-Dclojure.compiler.direct-linking=true \
-    -J-Dtech.v3.datatype.graal-native=true \
-    -jar target/dtype-next.jar tech.v3.datatype.main
+rm -rf target/classes
+clj -T:build compile

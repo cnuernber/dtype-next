@@ -1,0 +1,111 @@
+{:paths ["src" "resources" "target/classes"]
+ :deps {org.ow2.asm/asm {:mvn/version "9.0"}
+        insn/insn {:mvn/version "0.5.2"}
+        camel-snake-kebab/camel-snake-kebab {:mvn/version "0.4.2"}
+        org.xerial.larray/larray-mmap {:mvn/version  "0.4.1"}
+        org.apache.commons/commons-math3 {:mvn/version "3.6.1"}
+        org.roaringbitmap/RoaringBitmap {:mvn/version "0.9.0"}
+        com.github.wendykierp/JTransforms {:mvn/version "3.1"}
+        techascent/tech.resource {:mvn/version "5.06"}
+        com.cnuernber/ham-fisted {:mvn/version "1.000-beta-64"}
+        org.clj-commons/primitive-math {:mvn/version "1.0.0"}}
+ :aliases
+ {;; Run with clj -T:build function-in-build
+  :dev
+  {:extra-deps {criterium/criterium {:mvn/version "0.4.5"}
+                net.java.dev.jna/jna {:mvn/version "5.12.1"}
+                uncomplicate/neanderthal {:mvn/version "0.45.0"}
+                com.taoensso/nippy {:mvn/version "3.2.0"}
+                ch.qos.logback/logback-classic {:mvn/version "1.1.3"}
+                com.clojure-goes-fast/clj-memory-meter {:mvn/version "0.1.0"}
+                com.cnuernber/benchmark {:mvn/version "1.000-beta-2"}
+                techascent/tech.viz {:mvn/version "6.00-beta-16-2"}}
+   :extra-paths ["neanderthal" "test"]}
+
+  :jdk-17
+  {:jvm-opts ["--add-modules" "jdk.incubator.foreign,jdk.incubator.vector"
+              "--enable-native-access=ALL-UNNAMED"]}
+  :codegen
+  {:extra-paths ["src" "dev"]
+   :exec-fn tech.v3.datatype.codegen/-main}
+  :build
+  {:deps {io.github.clojure/tools.build {:git/tag "v0.8.1" :git/sha "7d40500"}}
+   :ns-default build}
+  :test
+  {:extra-deps {com.cognitect/test-runner
+                {:git/url "https://github.com/cognitect-labs/test-runner"
+                 :sha "209b64504cb3bd3b99ecfec7937b358a879f55c1"}
+                ch.qos.logback/logback-classic {:mvn/version "1.1.3"}}
+   :extra-paths ["neanderthal" "test"]
+   :main-opts ["-m" "cognitect.test-runner"]}
+
+  :codox
+  {:extra-deps {codox-theme-rdash/codox-theme-rdash {:mvn/version "0.1.2"}
+                nrepl/nrepl {:mvn/version "0.8.3"}
+                cider/cider-nrepl {:mvn/version "0.25.5"}
+                com.cnuernber/codox {:mvn/version "1.001"}}
+   :exec-fn codox.main/-main
+   :exec-args {:group-id "cnuernber"
+               :artifact-id "dtype-next"
+               :version "10.000-beta-12-SNAPSHOT"
+               :name "DType Next"
+               :description "High Performance Clojure Primitives"
+               :metadata {:doc/format :markdown}
+               :html {:transforms [[:head] [:append [:script {:async true
+                                                              :src "https://www.googletagmanager.com/gtag/js?id=G-95TVFC1FEB"}]]
+                                   [:head] [:append [:script "window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-95TVFC1FEB');"]]]}
+               :themes [:rdash]
+               :source-paths ["src"]
+               :output-path "docs"
+               :doc-paths ["topics"]
+               :source-uri "https://github.com/cnuernber/dtype-next/blob/master/{filepath}#L{line}"
+               :namespaces [tech.v3.datatype
+                            tech.v3.datatype.functional
+                            tech.v3.datatype.statistics
+                            tech.v3.datatype.errors
+                            tech.v3.tensor
+                            tech.v3.datatype.argops
+                            tech.v3.datatype.list
+                            tech.v3.datatype.bitmap
+                            tech.v3.datatype.datetime
+                            tech.v3.datatype.mmap
+                            tech.v3.datatype.convolve
+                            tech.v3.datatype.wavelet
+                            tech.v3.datatype.gradient
+                            tech.v3.datatype.mmap-writer
+                            tech.v3.datatype.native-buffer
+                            tech.v3.datatype.sampling
+                            tech.v3.datatype.nippy
+                            tech.v3.datatype.rolling
+                            tech.v3.datatype.jna
+                            tech.v3.datatype.ffi
+                            tech.v3.datatype.ffi.size-t
+                            tech.v3.datatype.ffi.clang
+                            tech.v3.datatype.struct
+                            tech.v3.datatype.locker
+                            tech.v3.tensor.dimensions
+                            tech.v3.tensor.color-gradients
+                            tech.v3.datatype.reductions
+                            tech.v3.datatype.packing
+                            tech.v3.datatype.ffi.graalvm
+                            tech.v3.parallel.for
+                            tech.v3.parallel.queue-iter
+                            tech.v3.datatype.char-input
+                            tech.v3.datatype.jvm-map
+                            tech.v3.libs.buffered-image
+                            tech.v3.libs.neanderthal]}}
+  :deploy
+  {:replace-deps {slipset/deps-deploy {:mvn/version "0.1.5"}}
+   :exec-fn deps-deploy.deps-deploy/deploy
+   :exec-args {:installer :remote
+               :sign-releases? true
+               :artifact "target/dtype-next.jar"}}
+  :install
+  {:replace-deps {slipset/deps-deploy {:mvn/version "0.1.5"}}
+   :exec-fn deps-deploy.deps-deploy/deploy
+   :exec-args {:installer :local
+               :artifact "target/dtype-next.jar"}}}}

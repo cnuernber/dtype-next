@@ -6,8 +6,7 @@
             [tech.v3.datatype.pprint :as dtype-pp]
             [tech.v3.datatype.copy :as dt-copy]
             [ham-fisted.api :as hamf]
-            [ham-fisted.iterator :as iterator]
-            [com.github.ztellman.primitive-math :as pmath])
+            [ham-fisted.iterator :as iterator])
   (:import [clojure.lang IObj Counted Indexed IFn IPersistentMap IReduceInit]
            [ham_fisted ArrayLists ArrayLists$ArrayOwner ArrayLists$ILongArrayList
             ArrayLists$ObjectArraySubList ArrayLists$ObjectArrayList

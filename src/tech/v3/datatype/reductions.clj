@@ -7,9 +7,7 @@
             [tech.v3.datatype.errors :as errors]
             [ham-fisted.lazy-noncaching :as lznc]
             [ham-fisted.api :as hamf])
-  (:import [tech.v3.datatype BinaryOperator UnaryOperator
-            BufferIterator
-            MultiConsumer Buffer]
+  (:import [tech.v3.datatype BinaryOperator UnaryOperator Buffer]
            [ham_fisted Reducible Reductions Sum IFnDef$OLO IFnDef$ODO Casts]
            [clojure.lang IDeref]
            [java.util Map Spliterator$OfDouble LinkedHashMap]

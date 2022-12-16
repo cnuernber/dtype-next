@@ -1,7 +1,7 @@
 (ns tech.v3.datatype.casting
   (:refer-clojure :exclude [cast])
   (:require [clojure.set :as c-set]
-            [com.github.ztellman.primitive-math :as pmath]
+            [clj-commons.primitive-math :as pmath]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.errors :as errors])
   (:import [java.util Map Set HashSet Collection]

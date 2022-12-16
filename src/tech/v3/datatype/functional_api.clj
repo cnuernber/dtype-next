@@ -30,7 +30,7 @@
             [tech.v3.datatype.list :as dtype-list]
             [tech.v3.datatype.graal-native :as graal-native]
             [ham-fisted.api :as hamf]
-            [com.github.ztellman.primitive-math :as pmath]
+            [clj-commons.primitive-math :as pmath]
             [clojure.tools.logging :as log]
             [clojure.set :as set])
   (:import [tech.v3.datatype BinaryOperator Buffer

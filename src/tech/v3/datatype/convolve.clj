@@ -7,7 +7,7 @@
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.parallel.for :as pfor]
-            [com.github.ztellman.primitive-math :as pmath]
+            [clj-commons.primitive-math :as pmath]
             [ham-fisted.api :as hamf])
   (:import [tech.v3.datatype Convolve1D Convolve1D$Mode ArrayHelpers DoubleReader
             Convolve1D$EdgeMode Convolve1D$Edging Complex]

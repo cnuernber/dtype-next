@@ -1,6 +1,7 @@
 /target
 /classes
 /checkouts
+.cpcache
 profiles.clj
 pom.xml
 pom.xml.asc

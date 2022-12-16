@@ -7,7 +7,6 @@
 
 (defn -main
   [& args]
-
   (log/info "Generating datatype api files")
 
     (export-symbols/write-api! 'tech.v3.datatype.functional-api

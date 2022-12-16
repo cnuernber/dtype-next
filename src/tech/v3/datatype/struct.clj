@@ -38,7 +38,7 @@ user> *2
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
-            [com.github.ztellman.primitive-math :as pmath])
+            [clj-commons.primitive-math :as pmath])
   (:import [tech.v3.datatype BinaryBuffer ObjectBuffer BooleanBuffer
             LongBuffer DoubleBuffer]
            [ham_fisted Casts]

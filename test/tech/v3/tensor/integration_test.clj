@@ -4,7 +4,7 @@
             [tech.v3.datatype.argops :as argops]
             [tech.v3.tensor :as dtt]
             [ham-fisted.api :as hamf]
-            [com.github.ztellman.primitive-math :as pmath]
+            [clj-commons.primitive-math :as pmath]
             [clojure.test :refer [deftest is]])
   (:import [tech.v3.datatype NDBuffer]))
 

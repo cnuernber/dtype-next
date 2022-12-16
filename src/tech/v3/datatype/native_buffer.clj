@@ -12,7 +12,7 @@
             [tech.v3.datatype.graal-native :as graal-native]
             [tech.v3.parallel.for :as parallel-for]
             [clojure.tools.logging :as log]
-            [com.github.ztellman.primitive-math :as pmath]
+            [clj-commons.primitive-math :as pmath]
             [ham-fisted.api :as hamf])
   (:import [tech.v3.datatype UnsafeUtil]
            [sun.misc Unsafe]
