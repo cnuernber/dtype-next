@@ -154,10 +154,7 @@
 (defn mode
   "Return the most value common occurance in the data."
   [data]
-  (->> (hamf/frequencies (or (dtype-base/as-reader data) data))
-       (hamf/sort-by (hamf/obj->long e (val e)))
-       (hamf/last)
-       (key?)))
+  (hamf/mode (or (dtype-base/as-reader data) data)))
 
 
 (defn descriptive-statistics
