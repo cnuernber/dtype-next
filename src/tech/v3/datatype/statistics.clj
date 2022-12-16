@@ -152,7 +152,7 @@
 
 
 (defn mode
-  "Return the most value common occurance in the data."
+  "Return the value of the most common occurance in the data."
   [data]
   (hamf/mode (or (dtype-base/as-reader data) data)))
 
