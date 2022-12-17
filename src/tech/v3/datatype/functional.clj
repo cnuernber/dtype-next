@@ -584,7 +584,7 @@ tech.v3.datatype.functional> (meta regressor)
 
 
 (defn mode
-  "Return the most value common occurance in the data."
+  "Return the value of the most common occurance in the data."
   ([data]
   (tech.v3.datatype.statistics/mode data)))
 
