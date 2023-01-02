@@ -140,8 +140,8 @@ public interface Buffer extends DatatypeBase, IMutList<Object>
   default long getLong(int idx) { return readLong(idx); }
   default double getDouble(int idx) { return readDouble(idx); }
   default void setLong(int idx, long v) { writeLong(idx, v); }
-  default void setDouble(int idx, double v) { writeDouble(idx, v); }
-  default Iterator iterator() { return new BufferIter(this); }
+  default void setDouble(int idx, double v) { writeDouble(idx, v); } 
+  default Iterator<Object> iterator() { return new BufferIter(this); }
   //Ensure reductions happen in the appropriate space.
   default Object reduce(IFn f) {
     final long sz = lsize();
@@ -242,7 +242,7 @@ public interface Buffer extends DatatypeBase, IMutList<Object>
     return notFound;
   }
 
-  class BufferSpliterator implements Spliterator {
+  class BufferSpliterator implements Spliterator<Object> {
     private final Buffer list;
     private final long sidx;
     private long eidx;
@@ -259,15 +259,16 @@ public interface Buffer extends DatatypeBase, IMutList<Object>
       this(list, 0, list.lsize());
     }
 
-    public Spliterator trySplit() {
+    public Spliterator<Object> trySplit() {
       final long nsidx = (eidx - sidx) / 2;
-      final Spliterator retval = new BufferSpliterator(list, nsidx, eidx);
+      final Spliterator<Object> retval = new BufferSpliterator(list, nsidx, eidx);
       eidx = nsidx;
       return retval;
     }
 
     public long estimateSize() { return eidx - sidx; }
 
+    @SuppressWarnings("unchecked")
     public boolean tryAdvance(Consumer action) {
       if (action == null)
 	throw new NullPointerException();
@@ -278,7 +279,8 @@ public interface Buffer extends DatatypeBase, IMutList<Object>
       }
       return retval;
     }
-
+    
+    @SuppressWarnings("unchecked")
     public void forEachRemaining(Consumer c) {
       final long ee = eidx;
       final Buffer ll = list;
@@ -310,7 +312,7 @@ public interface Buffer extends DatatypeBase, IMutList<Object>
     }
   }
 
-  default Spliterator spliterator() {
+  default Spliterator<Object> spliterator() {
     return new BufferSpliterator(this);
   }
 

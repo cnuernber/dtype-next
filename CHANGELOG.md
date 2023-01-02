@@ -1,6 +1,11 @@
+## 1.000-beta-17
+ * HUGE HAMF UPGRADE - see hamf changelog, this one changes the default base hamf map type.
+ * moved away from google guava, it is no longer a dependency.  We now use caffeine and
+   more java.util implementations.
+
 ## 1.000-beta-14
  * Faster `mode`.
- 
+
 ## 1.000-beta-13
  * First deps.edn based deployment.
  * [issue 72](https://github.com/cnuernber/dtype-next/issues/72) - really support `:mode`.

@@ -165,6 +165,7 @@ public interface NDBuffer extends DatatypeBase, IFnDef, IMutList
     }
   }
   //This is only implemented at the protocol level
+  @SuppressWarnings("unchecked")
   default IMutList<Object> subList(int start, int end) {
     return (IMutList<Object>)Clojure.var("tech.v3.datatype.protocols", "select").invoke(this, ArrayLists.toList(new Object[] { new Ranges.LongRange(start,end,1,null) }));
   }

@@ -50,7 +50,9 @@ public class MutListBuffer implements Buffer, Cloneable {
   public boolean allowsRead() { return true; }
   public boolean allowsWrite() { return supportsWrite; }
   public Object elemwiseDatatype () { return elemwiseDatatype; }
-  public IMutList subList(int sidx, int eidx) {
+  
+  @SuppressWarnings("unchecked")
+  public IMutList<Object> subList(int sidx, int eidx) {
     return new MutListBuffer(this, (IMutList)data.subList(sidx, eidx));
   }
   public Buffer subBuffer(long sidx, long eidx) {
@@ -74,17 +76,23 @@ public class MutListBuffer implements Buffer, Cloneable {
   public Object readObject(long idx) { return data.get((int)idx); }
   public void writeLong(long idx, long val) { data.setLong((int)idx, val); }
   public void writeDouble(long idx, double val) { data.setDouble((int)idx, val); }
+  @SuppressWarnings("unchecked")
   public void writeObject(long idx, Object val) { data.set((int)idx, val); }
   public Object get(int idx) { return data.get(idx); }
+  @SuppressWarnings("unchecked")
   public Object set(int idx, Object val) { return data.set(idx, val); }
   public void setLong(int idx, long v) { data.setLong(idx, v);; }
   public void setDouble(int idx, double v) { data.setDouble(idx, v); }
   public long getLong(int idx) { return data.getLong(idx); }
   public double getDouble(int idx) { return data.getDouble(idx); }
+  @SuppressWarnings("unchecked")
   public boolean add(Object v) { return data.add(v); }
+  @SuppressWarnings("unchecked")
   public void add(int idx, Object v) { data.add(idx, v); }
   public void addLong(long v) { data.addLong(v); }
   public void addDouble(double v) { data.addDouble(v); }
+  
+  @SuppressWarnings("unchecked")
   public boolean addAll(Collection c) {
     return data.addAll(c);
   }
@@ -111,11 +119,13 @@ public class MutListBuffer implements Buffer, Cloneable {
   public IntComparator indexComparator() { return data.indexComparator(); }
   public IntComparator indexComparator(Comparator c) { return data.indexComparator(c); }
   public int[] sortIndirect(Comparator c) { return data.sortIndirect(c); }
+  @SuppressWarnings("unchecked")
   public void sort(Comparator c) { data.sort(c); }
   public List immutSort(Comparator c) { return new MutListBuffer( this, data.immutSort(c) ); }
   public void shuffle(Random r) { data.shuffle(r); }
   public List immutShuffle(Random r) { return new MutListBuffer( this, data.immutShuffle(r) ); }
   public List reindex(int[] indexes) { return new MutListBuffer( this, data.reindex(indexes) ); }
+  @SuppressWarnings("unchecked")
   public int binarySearch(Object v, Comparator c) { return data.binarySearch(v, c); }
   public List reverse() { return new MutListBuffer(this, data.reverse()); }
   public void accPlusLong(int idx, long val) {

@@ -29,9 +29,9 @@
            [tech.v3.datatype.unary_pred IndexList]
            [java.util Comparator Map Iterator Collections Random LinkedHashMap]
            [java.util.function LongPredicate DoublePredicate Predicate]
-           [com.google.common.collect MinMaxPriorityQueue]
+           [java.util PriorityQueue]
            [org.roaringbitmap RoaringBitmap]
-           [ham_fisted ArrayLists]))
+           [ham_fisted ArrayLists ArrayHelpers]))
 
 
 (set! *warn-on-reflection* true)
@@ -268,7 +268,7 @@
   "Given a reader of values an a source comparator, return either an
   IntComparator or a LongComparator depending on the number of indexes
   in the reader that compares the values using the passed in comparator."
-  [src-comparator nan-strategy values]
+  ^Comparator [src-comparator nan-strategy values]
   (let [src-dtype (dtype-base/operational-elemwise-datatype values)
         values (ensure-reader values)
         n-values (.lsize values)
@@ -397,17 +397,27 @@
   ([N comparator {:keys [nan-strategy]
                   :or {nan-strategy :last}}
     values]
-   (let [val-dtype (dtype-base/operational-elemwise-datatype values)
+   (let [N (long N)
+         val-dtype (dtype-base/operational-elemwise-datatype values)
          comparator (-> (find-base-comparator comparator val-dtype)
                         (index-comparator nan-strategy values))
-         queue (-> (MinMaxPriorityQueue/orderedBy ^Comparator comparator)
-                   (.maximumSize (int N))
-                   (.create))
+         queue (PriorityQueue. (int N) (.reversed comparator))
          n-elems (dtype-base/ecount values)]
      (if (instance? IntComparator comparator)
-       (dotimes [idx n-elems] (.add queue (unchecked-int idx)))
-       (dotimes [idx n-elems] (.add queue idx)))
-     (int-array queue)))
+       (dotimes [idx n-elems]
+         (.offer queue (unchecked-int idx))
+         (when (> (.size queue) N)
+           (.poll queue)))
+       (dotimes [idx n-elems]
+         (.add queue idx)
+         (when (> (.size queue) N)
+           (.poll queue))))
+     (reduce (hamf/indexed-accum
+              acc idx v
+              (ArrayHelpers/aset ^ints acc idx (unchecked-int v))
+              acc)
+             (int-array (.size queue))
+             queue)))
   ([N comparator values] (arg-min-n N comparator nil values))
   ([N values] (arg-min-n N nil nil values)))
 

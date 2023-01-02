@@ -28,7 +28,6 @@ import ham_fisted.IFnDef;
 import ham_fisted.Reductions;
 import ham_fisted.Casts;
 import ham_fisted.IMutList;
-import com.google.common.collect.Iterables;
 
 
 
