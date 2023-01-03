@@ -81,6 +81,7 @@ public class FastStruct extends APersistentMap implements IObj, IReduceInit {
     return ext.entryAt(key);
   }
 
+  @SuppressWarnings("unchecked")
   public IPersistentMap assoc(Object key, Object val){
     Object v = slots.get(key);
     if(v != null) {
@@ -114,6 +115,7 @@ public class FastStruct extends APersistentMap implements IObj, IReduceInit {
     return assoc(key, val);
   }
 
+  @SuppressWarnings("unchecked")
   public IPersistentMap without(Object key) {
     if(slots.containsKey(key)) {
       LinkedHashMap newSlots = new LinkedHashMap(slots);
@@ -195,6 +197,7 @@ public class FastStruct extends APersistentMap implements IObj, IReduceInit {
     return RT.chunkIteratorSeq(iterator());
   }
 
+  @SuppressWarnings("unchecked")
   public IPersistentCollection empty(){
     ArrayList newData = new ArrayList(slots.size());
     for (int idx = 0; idx < slots.size(); ++idx)
@@ -246,6 +249,7 @@ public class FastStruct extends APersistentMap implements IObj, IReduceInit {
    * Create a factory that will create map implementations based on a single list of values.
    * Values have to be in the same order as column names.
    */
+  @SuppressWarnings("unchecked")
   public static IFn createFactory(List colnames) {
     int nEntries = colnames.size();
     if( nEntries == 0 ) {

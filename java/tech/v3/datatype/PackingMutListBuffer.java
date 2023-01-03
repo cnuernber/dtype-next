@@ -42,7 +42,7 @@ public class PackingMutListBuffer implements Buffer {
   public Object elemwiseDatatype () { return elemwiseDatatype; }
   public long lsize() { return data.size(); }
   public int size() { return data.size(); }
-  public IMutList subList(int sidx, int eidx) {
+  public IMutList<Object> subList(int sidx, int eidx) {
     return new PackingMutListBuffer(this, (IMutList)data.subList(sidx, eidx));
   }
   public Buffer subBuffer(long sidx, long eidx) {
@@ -69,6 +69,7 @@ public class PackingMutListBuffer implements Buffer {
   public void writeObject(long idx, Object obj) {
     data.setLong((int)idx, Casts.longCast(packFn.invoke(obj)));
   }
+  @SuppressWarnings("unchecked")
   public boolean add(Object v) { return data.add(packFn.invoke(v)); }
   public void addLong(long v) { data.addLong(v); }
   public boolean addAll(Collection c) {
