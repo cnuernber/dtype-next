@@ -1,3 +1,6 @@
+## 1.000-beta-18
+ * hamf bugfix - map compute.
+ 
 ## 1.000-beta-17
  * HUGE HAMF UPGRADE - see hamf changelog, this one changes the default base hamf map type.
  * moved away from google guava, it is no longer a dependency.  We now use caffeine and
