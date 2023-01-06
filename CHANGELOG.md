@@ -1,34 +1,38 @@
-## 1.000-beta-18
+## 10.000-beta-19
+ * JDK-19 Support.  Should be automatic; if you want to get rid of a warning see deps.edn file
+   for jdk-19 alias.
+
+## 10.000-beta-18
  * hamf bugfix - map compute.
  
-## 1.000-beta-17
+## 10.000-beta-17
  * HUGE HAMF UPGRADE - see hamf changelog, this one changes the default base hamf map type.
  * moved away from google guava, it is no longer a dependency.  We now use caffeine and
    more java.util implementations.
 
-## 1.000-beta-14
+## 10.000-beta-14
  * Faster `mode`.
 
-## 1.000-beta-13
+## 10.000-beta-13
  * First deps.edn based deployment.
  * [issue 72](https://github.com/cnuernber/dtype-next/issues/72) - really support `:mode`.
 
-## 1.000-beta-10
+## 10.000-beta-10
  * Brand new experimental jdk-19 support for the ffi layer.
 
 
-## 1.000-beta-9
+## 10.000-beta-9
  * Faster native buffer specific pathways.  Very fast native buffer clone pathway.
 
-## 1.000-beta-8
+## 10.000-beta-8
  * All buffers are comparable.
  * index reducers reduce correctly on empty.
 
-## 1.000-beta-6
+## 10.000-beta-6
  * lots more hamf integration work - better native buffer implementation - fixed bug converting
    1xY and Yx1 neanderthal matrixes.
 
-## 1.000-beta-1
+## 10.000-beta-1
  * Major changes - hamf integration.  Reductions are now first class, type array lists are faster.  All
    container types now support fast reduction via clojure.core/reduce.
 
