@@ -1,8 +1,8 @@
-(ns tech.v3.datatype.ffi.nio-buf-mmodel
+(ns tech.v3.datatype.ffi.nio-buf-mmodel-jdk19
   (:require [tech.v3.datatype.protocols :as dtype-proto])
-  (:import [jdk.incubator.foreign MemoryAddress ResourceScope]
-           [java.nio ByteBuffer ByteOrder])
-  )
+  (:import [java.lang.foreign MemoryAddress MemorySegment MemorySession]
+           [java.nio ByteBuffer ByteOrder]))
+
 
 
 (set! *warn-on-reflection* true)
@@ -12,7 +12,7 @@
   ^ByteBuffer [nbuf ^long address ^long nbytes _options]
   (let [retval (if-not (== 0 nbytes)
                  (-> (MemoryAddress/ofLong address)
-                     (.asSegment nbytes (ResourceScope/globalScope))
+                     (MemorySegment/ofAddress nbytes (MemorySession/global))
                      (.asByteBuffer))
                  (ByteBuffer/allocateDirect 0))
         endianness (dtype-proto/endianness nbuf)]

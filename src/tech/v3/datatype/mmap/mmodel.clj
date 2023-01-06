@@ -1,5 +1,5 @@
 (ns tech.v3.datatype.mmap.mmodel
-  "Mmap based on the MemorySegment jdk16 memory model pathway"
+  "Mmap based on the MemorySegment jdk17 memory model pathway"
   (:require [tech.v3.datatype.ffi.native-buffer-mmodel :as nbuf-mmodel]
             [tech.v3.resource :as resource])
   (:import [jdk.incubator.foreign MemorySegment ResourceScope]

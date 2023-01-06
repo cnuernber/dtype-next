@@ -84,6 +84,8 @@
   :jdk-17
   {:jvm-opts ["--add-modules" "jdk.incubator.foreign,jdk.incubator.vector"
               "--enable-native-access=ALL-UNNAMED"]}
+  :jdk-19
+  {:jvm-opts ["--enable-native-access=ALL-UNNAMED"]}
   :codegen
   {:extra-paths ["src" "dev"]
    :exec-fn tech.v3.datatype.codegen/-main}

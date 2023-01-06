@@ -1,8 +1,0 @@
-#!/bin/bash
-
-if [ ! -e jdk-16.0.1 ]; then
-    scripts/get-jdk-16
-fi
-
-export PATH=$(pwd)/jdk-16.0.1/bin:$PATH
-export JAVA_HOME=$(pwd)/jdk-16.0.1/

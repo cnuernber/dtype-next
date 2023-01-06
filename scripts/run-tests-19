@@ -1,0 +1,7 @@
+#!/bin/bash
+
+source scripts/enable-jdk19
+
+scripts/compile
+clj -A:dev -A:jdk-19 -X:codegen
+clj -A:dev -A:jdk-19 -M:test
