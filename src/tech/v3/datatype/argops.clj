@@ -31,7 +31,7 @@
            [java.util.function LongPredicate DoublePredicate Predicate]
            [java.util PriorityQueue]
            [org.roaringbitmap RoaringBitmap]
-           [ham_fisted ArrayLists ArrayHelpers]))
+           [ham_fisted ArrayLists ArrayHelpers MapForward]))
 
 
 (set! *warn-on-reflection* true)
@@ -585,7 +585,7 @@
      (hamf/group-by-reducer key-fn
                             (unary-pred/index-reducer storage-datatype)
                             (merge {:ordered? (not unordered?)
-                                    :map-fn #(LinkedHashMap.)}
+                                    :map-fn #(MapForward. (LinkedHashMap.) nil)}
                                    options)
                             (hamf/range (dtype-base/ecount rdr)))))
   (^Map [rdr]
