@@ -1,3 +1,7 @@
+## 10.000-beta-21
+ * Fix for issue 74 - default result of arggoup is a map that is difficult
+   to use in normal Clojure workflows.
+ 
 ## 10.000-beta-20
  * JNA has to be the default ffi provider for now.  It just works better - it 
  finds shared libraries more reliably.  IF you want this to change, then
