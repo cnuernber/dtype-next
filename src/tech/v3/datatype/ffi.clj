@@ -357,21 +357,22 @@ Finally - on my favorite topic, efficiency, dtype-next has extremely fast copies
 (defn- ffi-impl
   "Get an implementation of the actual FFI interface.  This is for internal use only."
   []
+  ;;JNA must be first.  jdk-19 is too untested and doesn't work at this point in all contexts.
   (when (nil? @ffi-impl*)
     (try
-      (set-ffi-impl! :jdk)
+      (set-ffi-impl! :jna)
       (catch Throwable e
-        (log/debugf "Failed to load JDK 19 FFI implementation: %s" e)
+        (log/debugf e "Failed to load JNA FFI implementation")
         (try
-          (set-ffi-impl! :jdk-pre-19)
+          (set-ffi-impl! :jdk)
           (catch Throwable e
-            (log/debugf "Failed to load JDK pre-19 FFI implementation: %s" e)
+            (log/debugf "Failed to load JDK 19 FFI implementation: %s" e)
             (try
-              (set-ffi-impl! :jna)
+              (set-ffi-impl! :jdk-pre-19)
               (catch Throwable e
-                (reset! ffi-impl* :failed)
                 (log/error e "Failed to find a suitable FFI implementation.
-Attempted :jdk, :jdk-pre-19, and :jna -- call set-ffi-impl! from the repl to see specific failure."))))))))
+Attempted :jdk, :jdk-pre-19, and :jna -- call set-ffi-impl! from the repl to see specific failure.)")
+                (reset! ffi-impl* :failed))))))))
   @ffi-impl*)
 
 

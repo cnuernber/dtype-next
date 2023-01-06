@@ -1,3 +1,8 @@
+## 10.000-beta-20
+ * JNA has to be the default ffi provider for now.  It just works better - it 
+ finds shared libraries more reliably.  IF you want this to change, then
+ get libpython-clj to work and load numpy with the jdk-19 provider.
+ 
 ## 10.000-beta-19
  * JDK-19 Support.  Should be automatic; if you want to get rid of a warning see deps.edn file
    for jdk-19 alias.
