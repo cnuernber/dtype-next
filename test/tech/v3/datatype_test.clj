@@ -842,6 +842,15 @@
                (deref))))))
 
 
+(deftest arggroup-order
+  (is (= [:a :b :c :d :e :f]
+         (->> (argops/arggroup
+               (into [] cat [[:a :b :c :d :e :f]
+                             (shuffle (take 1000 (cycle [:a :b :c :d :e :f])))]))
+              (keys)
+              (vec)))))
+
+
 (comment
   (defn bench-sum
     []

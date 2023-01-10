@@ -28,10 +28,10 @@
             UnaryPredicate BinaryPredicate]
            [tech.v3.datatype.unary_pred IndexList]
            [java.util Comparator Map Iterator Collections Random LinkedHashMap]
-           [java.util.function LongPredicate DoublePredicate Predicate]
+           [java.util.function LongPredicate DoublePredicate Predicate LongConsumer]
            [java.util PriorityQueue]
            [org.roaringbitmap RoaringBitmap]
-           [ham_fisted ArrayLists ArrayHelpers MapForward]))
+           [ham_fisted ArrayLists ArrayHelpers MapForward IFnDef$OLO]))
 
 
 (set! *warn-on-reflection* true)
@@ -575,19 +575,13 @@
    (when-not (dtype-base/reader? rdr)
      (errors/throwf "Input must be convertible to a reader"))
    (let [storage-datatype (or storage-datatype (unary-pred/reader-index-space rdr))
-         unordered? (if (= storage-datatype :bitmap)
-                      true
-                      unordered?)
          rdr (dtype-base/->reader rdr)
          key-fn (if-let [user-key-fn (get options :key-fn)]
                   (hamf/long->obj idx (user-key-fn (.readObject rdr idx)))
                   (hamf/long->obj idx (.readObject rdr idx)))]
-     (hamf/group-by-reducer key-fn
-                            (unary-pred/index-reducer storage-datatype)
-                            (merge {:ordered? (not unordered?)
-                                    :map-fn #(MapForward. (LinkedHashMap.) nil)}
-                                   options)
-                            (hamf/range (dtype-base/ecount rdr)))))
+     (hamf/group-by-consumer key-fn (unary-pred/index-reducer storage-datatype)
+                             (merge {:map-fn #(MapForward. (LinkedHashMap.) nil)} options)
+                             (hamf/range (dtype-base/ecount rdr)))))
   (^Map [rdr]
    (arggroup nil rdr)))
 

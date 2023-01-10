@@ -1,3 +1,7 @@
+## 10.000-beta-22
+ * arggroup must respect the order in which it encounters keys.  This was done via using group-by-consumer
+   in hamf instead of group-by-reducer.   See documentation for group-by-consumer.
+ 
 ## 10.000-beta-21
  * Fix for issue 74 - default result of arggoup is a map that is difficult
    to use in normal Clojure workflows.
