@@ -811,6 +811,7 @@ user> (dfn/shift (range 10) -2)
 
 
 (defn sq
+  "Squares the input, like `(* x x)`"
   ([x options]
   (tech.v3.datatype.functional-api/sq x options))
   ([x]
@@ -903,5 +904,3 @@ user> (dfn/shift (range 10) -2)
   (tech.v3.datatype.functional-api/zero? arg options))
   ([arg]
   (tech.v3.datatype.functional-api/zero? arg)))
-
-
