@@ -1,6 +1,7 @@
 (ns tech.v3.datatype.datetime.operations
   (:require [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.datatype.base :as dtype-base]
+            [tech.v3.datatype.copy-make-container :as copy-cmc]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.datetime.packing :as dt-packing]
@@ -554,8 +555,8 @@
      convert-op
      #(dispatch/typed-map-2 convert-op :int64 %2 %3)
      (fn [_ lhs rhs]
-       (let [^Buffer lhs (argops/ensure-reader lhs)
-             ^Buffer rhs (argops/ensure-reader rhs)]
+       (let [^Buffer lhs (copy-cmc/ensure-reader lhs)
+             ^Buffer rhs (copy-cmc/ensure-reader rhs)]
          (if (= :object (casting/flatten-datatype lhs-dtype))
            (reify LongReader
              (elemwiseDatatype [rdr] units)

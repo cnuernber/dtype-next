@@ -1,11 +1,11 @@
 (ns tech.v3.datatype.emap
   (:require [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.copy-make-container :as copy-cmc]
             [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.argtypes :as argtypes]
             [tech.v3.datatype.base :as dtype-base]
-            [tech.v3.datatype.argops :as argops]
             [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.unary-op :as unary-op]
             [tech.v3.datatype.binary-op :as binary-op]
@@ -62,7 +62,7 @@
 (defn- emap-reader
   [map-fn res-dtype cast-fn args]
   (let [n-elems (long (dtype-base/ecount (first args)))
-        ^List args (mapv #(argops/ensure-reader % n-elems) args)
+        ^List args (mapv #(copy-cmc/ensure-reader % n-elems) args)
         argcount (.size args)]
     (case argcount
       1 (unary-op/reader map-fn res-dtype (args 0))

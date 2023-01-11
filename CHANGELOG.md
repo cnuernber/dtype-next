@@ -1,23 +1,27 @@
+## 10.000-beta-23
+ * Optimization of arggroup by turning into a set of reductions over subbuffers of the input
+   data.  This avoids some indexing costs.
+
 ## 10.000-beta-22
  * arggroup must respect the order in which it encounters keys.  This was done via using group-by-consumer
    in hamf instead of group-by-reducer.   See documentation for group-by-consumer.
- 
+
 ## 10.000-beta-21
  * Fix for issue 74 - default result of arggoup is a map that is difficult
    to use in normal Clojure workflows.
- 
+
 ## 10.000-beta-20
- * JNA has to be the default ffi provider for now.  It just works better - it 
+ * JNA has to be the default ffi provider for now.  It just works better - it
  finds shared libraries more reliably.  IF you want this to change, then
  get libpython-clj to work and load numpy with the jdk-19 provider.
- 
+
 ## 10.000-beta-19
  * JDK-19 Support.  Should be automatic; if you want to get rid of a warning see deps.edn file
    for jdk-19 alias.
 
 ## 10.000-beta-18
  * hamf bugfix - map compute.
- 
+
 ## 10.000-beta-17
  * HUGE HAMF UPGRADE - see hamf changelog, this one changes the default base hamf map type.
  * moved away from google guava, it is no longer a dependency.  We now use caffeine and

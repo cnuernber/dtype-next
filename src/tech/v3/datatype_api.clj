@@ -121,10 +121,6 @@
                 emap)
 
 
-(export-symbols tech.v3.datatype.argops
-                ensure-reader)
-
-
 (defn get-datatype
   "Legacy method, returns elemwise-datatype"
   [item]
@@ -325,7 +321,8 @@ user> (dtype/make-reader :float32 5 (* idx 2))
                 ->int-array
                 ->long-array
                 ->float-array
-                ->double-array)
+                ->double-array
+                ensure-reader)
 
 
 (defn make-list

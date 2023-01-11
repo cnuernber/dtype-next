@@ -8,16 +8,19 @@
             [tech.v3.datatype.binary-op :as binary-op]
             [tech.v3.datatype.unary-pred :as unary-pred]
             [tech.v3.datatype.binary-pred :as binary-pred]
+            [tech.v3.datatype.emap :as emap]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.reductions :as reductions]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.argtypes :as argtypes]
             [tech.v3.datatype.const-reader :as const-reader]
             [ham-fisted.api :as hamf]
+            [ham-fisted.protocols :as hamf-proto]
             [ham-fisted.lazy-noncaching :as lznc])
   (:import [it.unimi.dsi.fastutil.ints IntArrays IntComparator]
            [it.unimi.dsi.fastutil.longs LongArrays LongComparator]
            [it.unimi.dsi.fastutil.doubles DoubleComparator]
+           [clojure.lang IFn$OLO]
            [tech.v3.datatype
             Comparators$IntComp
             Comparators$LongComp
@@ -27,32 +30,15 @@
             UnaryOperator BinaryOperator
             UnaryPredicate BinaryPredicate]
            [tech.v3.datatype.unary_pred IndexList]
-           [java.util Comparator Map Iterator Collections Random LinkedHashMap]
+           [java.util Comparator Map Iterator Collections Random LinkedHashMap Map$Entry]
            [java.util.function LongPredicate DoublePredicate Predicate LongConsumer]
            [java.util PriorityQueue]
            [org.roaringbitmap RoaringBitmap]
-           [ham_fisted ArrayLists ArrayHelpers MapForward IFnDef$OLO]))
+           [ham_fisted ArrayLists ArrayHelpers MapForward IFnDef$OLO Reductions]))
 
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
-
-(defn ensure-reader
-  "Ensure item is randomly addressable.  This may copy the data into a randomly
-  accessible container."
-  (^Buffer [item n-const-elems]
-   (let [argtype (argtypes/arg-type item)]
-     (cond
-       (= argtype :scalar)
-       (const-reader/const-reader item n-const-elems)
-       (= argtype :iterable)
-       (-> (dtype-cmc/make-container :list (dtype-base/operational-elemwise-datatype item) {}
-                                     item)
-           (dtype-base/->reader))
-       :else
-       (dtype-base/->reader item (dtype-base/operational-elemwise-datatype item)))))
-  (^Buffer [item]
-   (ensure-reader item Long/MAX_VALUE)))
 
 
 (defn tech-numerics-kwd?
@@ -270,7 +256,7 @@
   in the reader that compares the values using the passed in comparator."
   ^Comparator [src-comparator nan-strategy values]
   (let [src-dtype (dtype-base/operational-elemwise-datatype values)
-        values (ensure-reader values)
+        values (dtype-cmc/ensure-reader values)
         n-values (.lsize values)
         src-comparator (if-let [bin-pred (:binary-predicate (meta src-comparator))]
                          (binary-pred/builtin-ops bin-pred)
@@ -571,17 +557,58 @@
     ordered
   - `:key-fn` - defaults to identity.  In this case the reader's values are used as the
     keys."
-  (^Map [{:keys [storage-datatype unordered?] :as options} rdr]
+  (^Map [{:keys [storage-datatype unordered? skip-finalize? map-fn] :as options} rdr]
    (when-not (dtype-base/reader? rdr)
      (errors/throwf "Input must be convertible to a reader"))
+   ;;This function can be written fairly trivially with hamf/group-by-consumer but
+   ;;since we know we are working in index space we can write it this way and get
+   ;;some improvement because we do not have to index into the reader with
+   ;;getObject calls, we can call the readers reduce method and thus get fast reduction
+   ;;over the input object
    (let [storage-datatype (or storage-datatype (unary-pred/reader-index-space rdr))
-         rdr (dtype-base/->reader rdr)
-         key-fn (if-let [user-key-fn (get options :key-fn)]
-                  (hamf/long->obj idx (user-key-fn (.readObject rdr idx)))
-                  (hamf/long->obj idx (.readObject rdr idx)))]
-     (hamf/group-by-consumer key-fn (unary-pred/index-reducer storage-datatype)
-                             (merge {:map-fn #(MapForward. (LinkedHashMap.) nil)} options)
-                             (hamf/range (dtype-base/ecount rdr)))))
+         n-elems (dtype-base/ecount rdr)
+         idx-rdr (unary-pred/index-reducer storage-datatype)
+         init-fn (hamf-proto/->init-val-fn idx-rdr)
+         ^IFn$OLO rfn (hamf-proto/->rfn idx-rdr)
+         afn (hamf/function k (init-fn))
+         merge-bifn (hamf/->bi-function (hamf-proto/->merge-fn idx-rdr))
+         map-merge #(hamf/mut-map-union! merge-bifn %1 %2)
+         op-space (casting/simple-operation-space (dtype-base/elemwise-datatype rdr))
+         fin-fn (if skip-finalize?
+                  identity
+                  (fn [^Map m]
+                    (do (hamf/preduce
+                         (constantly nil)
+                         (fn [acc ^Map$Entry e]
+                           (.setValue e (hamf-proto/finalize idx-rdr (.getValue e))))
+                         (fn [l r] l)
+                         m)
+                        m)))
+         map-fn (or map-fn #(MapForward. (java.util.LinkedHashMap.) nil))]
+     (->> (hamf/pgroups
+           n-elems
+           (fn [^long sidx ^long eidx]
+             (reduce (case op-space
+                       :int64 (hamf/indexed-long-accum
+                               acc idx v
+                               (let [l (.computeIfAbsent ^Map acc v afn)]
+                                 (.invokePrim rfn l (+ sidx idx))
+                                 acc))
+                       :float64 (hamf/indexed-double-accum
+                                 acc idx v
+                                 (let [l (.computeIfAbsent ^Map acc v afn)]
+                                   (.invokePrim rfn l (+ sidx idx))
+                                   acc))
+                       (hamf/indexed-accum
+                        acc idx v
+                        (let [l (.computeIfAbsent ^Map acc v afn)]
+                          (.invokePrim rfn l (+ sidx idx))
+                          acc)))
+                     (map-fn)
+                     (dtype-base/sub-buffer rdr sidx (- eidx sidx))))
+           {:min-n 1000})
+          (Reductions/iterableMerge (hamf/options->parallel-options {:min-n 1000}) map-merge)
+          (fin-fn))))
   (^Map [rdr]
    (arggroup nil rdr)))
 
@@ -592,7 +619,9 @@
   the datatype of the indexes else the system will decide based on reader length.
   See arggroup for Options."
   (^Map [partition-fn options rdr]
-   (arggroup (merge {:key-fn (or partition-fn identity)} options) rdr))
+   (arggroup options (if partition-fn
+                       (emap/emap partition-fn nil rdr)
+                       rdr)))
   (^Map [partition-fn rdr]
    (arggroup-by partition-fn nil rdr)))
 

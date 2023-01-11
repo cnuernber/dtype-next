@@ -7,10 +7,12 @@
             [tech.v3.datatype.array-buffer :as array-buffer]
             [tech.v3.datatype.native-buffer :as native-buffer]
             [tech.v3.datatype.casting :as casting]
+            [tech.v3.datatype.const-reader :as const-reader]
             [tech.v3.datatype.reductions :as reductions]
             [tech.v3.datatype.argtypes :as argtypes]
             [ham-fisted.lazy-noncaching :as lznc])
   (:import [tech.v3.datatype.array_buffer ArrayBuffer]
+           [tech.v3.datatype Buffer]
            [org.apache.commons.math3.exception NotANumberException]
            [ham_fisted IMutList]))
 
@@ -236,3 +238,21 @@
      (->array :float64 options data)))
   (^doubles [data]
    (->double-array nil data)))
+
+
+(defn ensure-reader
+  "Ensure item is randomly addressable.  This may copy the data into a randomly
+  accessible container."
+  (^Buffer [item n-const-elems]
+   (let [argtype (argtypes/arg-type item)]
+     (cond
+       (= argtype :scalar)
+       (const-reader/const-reader item n-const-elems)
+       (= argtype :iterable)
+       (-> (make-container :list (dtype-base/operational-elemwise-datatype item) {}
+                           item)
+           (dtype-base/->reader))
+       :else
+       (dtype-base/->reader item (dtype-base/operational-elemwise-datatype item)))))
+  (^Buffer [item]
+   (ensure-reader item Long/MAX_VALUE)))
