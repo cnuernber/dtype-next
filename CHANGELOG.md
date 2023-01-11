@@ -1,3 +1,6 @@
+## 10.000-beta-25
+ * arggroup is now heavily optimized and near optimal.
+ 
 ## 10.000-beta-24
  * Docs for dfn/sq.
 

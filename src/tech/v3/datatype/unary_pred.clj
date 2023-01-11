@@ -15,7 +15,7 @@
             UnaryPredicates$DoubleUnaryPredicate
             UnaryPredicates$LongUnaryPredicate
             UnaryPredicates$ObjectUnaryPredicate
-            Buffer BooleanReader]
+            Buffer BooleanReader IndexConsumer]
            [org.roaringbitmap RoaringBitmap]
            [ham_fisted Casts Ranges$LongRange IMutList Reducible]
            [java.util List]
@@ -231,10 +231,10 @@
       (set! first-value lval)
       (let [new-incr (- lval last-value)]
         (cond
-          (and (not (== new-incr 0)) (== increment Long/MIN_VALUE))
-          (set! increment new-incr)
           (== increment Long/MAX_VALUE)
           (.addLong list lval)
+          (and (not (== new-incr 0)) (== increment Long/MIN_VALUE))
+          (set! increment new-incr)
           (or (== new-incr 0) (not (== increment new-incr)))
           (do (if (== increment Long/MIN_VALUE)
                 (.addLong list first-value)
@@ -296,9 +296,7 @@
       (or (identical? dtype :int32) (identical? dtype :int64))
       (reify
         hamf-proto/Reducer
-        (->init-val-fn [r] #(IndexList. (dtype-list/make-list dtype) Long/MIN_VALUE
-                                        -1 Long/MIN_VALUE
-                                        Long/MAX_VALUE Long/MIN_VALUE))
+        (->init-val-fn [r] #(IndexConsumer. hamf/range (dtype-list/make-list dtype)))
         (->rfn [r] hamf/long-consumer-accumulator)
         hamf-proto/Finalize
         (finalize [r l] @l)
