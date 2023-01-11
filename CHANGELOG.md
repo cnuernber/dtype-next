@@ -1,3 +1,6 @@
+## 10.000-beta-24
+ * Docs for dfn/sq.
+
 ## 10.000-beta-23
  * Optimization of arggroup by turning into a set of reductions over subbuffers of the input
    data.  This avoids some indexing costs.
