@@ -233,6 +233,7 @@
         (cond
           (== increment Long/MAX_VALUE)
           (.addLong list lval)
+          (== increment new-incr) nil
           (and (not (== new-incr 0)) (== increment Long/MIN_VALUE))
           (set! increment new-incr)
           (or (== new-incr 0) (not (== increment new-incr)))
