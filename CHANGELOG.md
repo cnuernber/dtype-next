@@ -1,6 +1,9 @@
+## 10.000-beta-27
+ * hamf-helpers for very high performance scenarios.  See ham-fisted changelog.
+
 ## 10.000-beta-25
  * arggroup is now heavily optimized and near optimal.
- 
+
 ## 10.000-beta-24
  * Docs for dfn/sq.
 
