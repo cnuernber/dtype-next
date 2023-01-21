@@ -269,6 +269,7 @@
      ~@(->> [:tech.numerics/and
              :tech.numerics/or
              :tech.numerics/eq
+             :tech.numerics/bit-test
              :tech.numerics/not-eq]
             (map (fn [k]
                    (let [fn-symbol (symbol (name k))]

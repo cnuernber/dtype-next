@@ -233,7 +233,6 @@
         (make-int-long-binary-op :tech.numerics/bit-xor (pmath/bit-xor x y))
         (make-int-long-binary-op :tech.numerics/bit-clear (bit-clear x y))
         (make-int-long-binary-op :tech.numerics/bit-flip (bit-flip x y))
-        (make-int-long-binary-op :tech.numerics/bit-test (bit-test x y))
         (make-int-long-binary-op :tech.numerics/bit-set (bit-set x y))
         (make-int-long-binary-op :tech.numerics/bit-shift-left (pmath/bit-shift-left x y))
         (make-int-long-binary-op :tech.numerics/bit-shift-right (pmath/bit-shift-right x y))

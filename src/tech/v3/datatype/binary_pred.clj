@@ -198,7 +198,17 @@
                       (let [comp-val (long (if (instance? Comparable x)
                                              (.compareTo ^Comparable x y)
                                              (compare x y)))]
-                        (pmath/<= comp-val 0)))})
+                        (pmath/<= comp-val 0)))
+   :tech.numerics/bit-test (reify
+                             BinaryPredicate
+                             (binaryLong [this lhs rhs]
+                               (bit-test lhs rhs))
+                             (binaryDouble [this lhs rhs]
+                               (.binaryLong this (Casts/longCast lhs) (Casts/longCast rhs)))
+                             (binaryObject [this lhs rhs]
+                               (.binaryLong this (Casts/longCast lhs) (Casts/longCast rhs)))
+                             dtype-proto/POperator
+                             (op-name [this] :bit-test))})
 
 (defn builtin
   "Return the builtin binary predicate for the given keyword or error."

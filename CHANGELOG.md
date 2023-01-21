@@ -1,3 +1,6 @@
+## 10.000-beta-28
+ * bit-test is now fixed - a binary predicate, not a binary operation.
+ 
 ## 10.000-beta-27
  * hamf-helpers for very high performance scenarios.  See ham-fisted changelog.
 
