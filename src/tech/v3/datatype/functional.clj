@@ -186,10 +186,8 @@
 
 
 (defn bit-test
-  ([x y]
-  (tech.v3.datatype.functional-api/bit-test x y))
-  ([x y & args]
-  (apply tech.v3.datatype.functional-api/bit-test x y args)))
+  ([lhs rhs]
+  (tech.v3.datatype.functional-api/bit-test lhs rhs)))
 
 
 (defn bit-xor
