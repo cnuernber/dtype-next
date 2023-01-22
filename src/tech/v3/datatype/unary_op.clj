@@ -158,7 +158,9 @@
   (apply-unary-op [lhs res-dtype unary-op]
     (let [unary-op (->operator unary-op)
           input-dtype (dtype-base/elemwise-datatype lhs)
-          op-space (casting/simple-operation-space res-dtype input-dtype)
+          op-space (if-let [un-op-space (get (meta unary-op) :operation-space)]
+                     (casting/simple-operation-space un-op-space input-dtype)
+                     (casting/simple-operation-space res-dtype input-dtype))
           lhs (dtype-base/->reader lhs op-space)
           n-elems (.lsize lhs)
           nested-fn (fn [res-dtype2 unary-op2]
