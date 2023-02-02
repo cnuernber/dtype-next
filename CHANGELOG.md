@@ -1,3 +1,6 @@
+## 10.000-beta-35
+ * Various ham-fisted updates - faster mapv, etc.
+
 ## 10.000-beta-30
  * combined emap operations were producing NAN in some cases.
  * ham-fisted contains some fancy helpers so you can implement custom ireduceinit pathways.
