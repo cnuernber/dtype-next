@@ -2,4 +2,4 @@
 
 scripts/compile
 clj -A:dev -X:codegen
-clj -A:dev -M:test
+clj -A:dev -M:test --dir test --dir neanderthal
