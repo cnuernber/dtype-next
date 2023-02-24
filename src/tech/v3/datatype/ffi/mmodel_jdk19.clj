@@ -3,7 +3,8 @@
             [tech.v3.datatype.ffi :as ffi]
             [tech.v3.datatype.ffi.base :as ffi-base]
             [tech.v3.datatype.ffi.ptr-value :as ptr-value]
-            [tech.v3.datatype.ffi.size-t :as ffi-size-t])
+            [tech.v3.datatype.ffi.size-t :as ffi-size-t]
+            [tech.v3.datatype.ffi.libpath :as libpath])
   (:import [clojure.lang Keyword]
            [java.lang.foreign
              Addressable FunctionDescriptor Linker MemoryAddress MemoryLayout MemorySession
@@ -46,12 +47,15 @@
     (do (System/load (.toString ^Path libname))
         (SymbolLookup/loaderLookup))
     (string? libname)
-    (do (let [libname (str libname)]
-          (if (or (.contains libname "/")
-                  (.contains libname "\\"))
-              (System/load libname)
-              (System/loadLibrary libname)))
-        (SymbolLookup/loaderLookup))
+    (libpath/load-library! (fn [libname]
+                             (let [libname (str libname)]
+                               (if (or (.contains libname "/")
+                                       (.contains libname "\\"))
+                                 (System/load libname)
+                                 (System/loadLibrary libname))
+                               (SymbolLookup/loaderLookup)))
+                           #(instance? SymbolLookup %)
+                           libname)
     (nil? libname)
     (.defaultLookup (Linker/nativeLinker))
     :else

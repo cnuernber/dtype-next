@@ -81,6 +81,18 @@
                 techascent/tech.viz {:mvn/version "6.00-beta-16-2"}}
    :extra-paths ["neanderthal" "test"]}
 
+
+  :dev-mac-m1
+  {:extra-deps {criterium/criterium {:mvn/version "0.4.5"}
+                net.java.dev.jna/jna {:mvn/version "5.12.1"}
+                ;uncomplicate/neanderthal {:mvn/version "0.45.0"}
+                com.taoensso/nippy {:mvn/version "3.2.0"}
+                ch.qos.logback/logback-classic {:mvn/version "1.3.5"}
+                com.clojure-goes-fast/clj-memory-meter {:mvn/version "0.1.0"}
+                com.cnuernber/benchmark {:mvn/version "1.000-beta-2"}
+                techascent/tech.viz {:mvn/version "6.00-beta-16-2"}}
+   :extra-paths ["test"]}
+
   :jdk-17
   {:jvm-opts ["--add-modules" "jdk.incubator.foreign,jdk.incubator.vector"
               "--enable-native-access=ALL-UNNAMED"]}

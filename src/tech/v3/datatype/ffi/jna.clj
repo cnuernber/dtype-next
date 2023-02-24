@@ -2,6 +2,7 @@
   (:require [tech.v3.datatype.ffi :as ffi]
             [tech.v3.datatype.ffi.base :as ffi-base]
             [tech.v3.datatype.ffi.ptr-value :as ptr-value]
+            [tech.v3.datatype.ffi.libpath :as libpath]
             [clojure.tools.logging :as log])
   (:import [com.sun.jna NativeLibrary Pointer Callback CallbackReference]
            [clojure.lang IDeref]
@@ -28,7 +29,9 @@
   (cond
     (instance? NativeLibrary libname) libname
     (string? libname)
-    (NativeLibrary/getInstance (str libname))
+    (libpath/load-library! #(NativeLibrary/getInstance (str %))
+                           #(instance? NativeLibrary %)
+                           libname)
     (nil? libname)
     (NativeLibrary/getProcess)))
 
