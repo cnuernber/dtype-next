@@ -1,3 +1,7 @@
+## 10.000-beta-36
+ * m-1 macs get an extra search path as homebrew doesn't install libs in standard
+   directories.
+ 
 ## 10.000-beta-35
  * Various ham-fisted updates - faster mapv, etc.
 
