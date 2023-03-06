@@ -26,6 +26,7 @@
             ByteConversions NumericConversions]
            [java.util Arrays RandomAccess List]
            [java.lang.reflect Array]
+           [java.nio ByteBuffer ByteOrder]
            [sun.misc Unsafe]))
 
 
@@ -840,7 +841,7 @@
 
 
 (deftype ByteArrayBinaryBufferLE [^bytes ary-data
-                                  ^Buffer buffer
+                                  ^ByteBuffer nio-buffer
                                   ^long offset
                                   ^long n-elems]
   dtype-proto/PEndianness
@@ -850,55 +851,29 @@
   (allowsBinaryRead [_this] true)
   (readBinByte [_this byteOffset] (aget ary-data (+ offset byteOffset)))
   (readBinShort [_this byteOffset]
-    (let [byteOffset (+ byteOffset offset)]
-      (ByteConversions/shortFromBytesLE (aget ary-data byteOffset)
-                                        (aget ary-data (+ byteOffset 1)))))
+    (.getShort nio-buffer (+ offset byteOffset)))
   (readBinInt [_this byteOffset]
-    (let [byteOffset (+ byteOffset offset)]
-      (ByteConversions/intFromBytesLE (aget ary-data byteOffset)
-                                      (aget ary-data (+ byteOffset 1))
-                                      (aget ary-data (+ byteOffset 2))
-                                      (aget ary-data (+ byteOffset 3)))))
+    (.getInt nio-buffer (+ byteOffset offset)))
   (readBinLong [_this byteOffset]
-    (let [byteOffset (+ byteOffset offset)]
-      (ByteConversions/longFromBytesLE (aget ary-data byteOffset)
-                                       (aget ary-data (+ byteOffset 1))
-                                       (aget ary-data (+ byteOffset 2))
-                                       (aget ary-data (+ byteOffset 3))
-                                       (aget ary-data (+ byteOffset 4))
-                                       (aget ary-data (+ byteOffset 5))
-                                       (aget ary-data (+ byteOffset 6))
-                                       (aget ary-data (+ byteOffset 7)))))
+    (.getLong nio-buffer (+ byteOffset offset)))
   (readBinFloat [_this byteOffset]
-    (let [byteOffset (+ byteOffset offset)]
-      (ByteConversions/floatFromBytesLE (aget ary-data byteOffset)
-                                        (aget ary-data (+ byteOffset 1))
-                                        (aget ary-data (+ byteOffset 2))
-                                        (aget ary-data (+ byteOffset 3)))))
+    (.getFloat nio-buffer (+ byteOffset offset)))
   (readBinDouble [_this byteOffset]
-    (let [byteOffset (+ byteOffset offset)]
-      (ByteConversions/doubleFromBytesLE (aget ary-data byteOffset)
-                                         (aget ary-data (+ byteOffset 1))
-                                         (aget ary-data (+ byteOffset 2))
-                                         (aget ary-data (+ byteOffset 3))
-                                         (aget ary-data (+ byteOffset 4))
-                                         (aget ary-data (+ byteOffset 5))
-                                         (aget ary-data (+ byteOffset 6))
-                                         (aget ary-data (+ byteOffset 7)))))
+    (.getDouble nio-buffer (+ byteOffset offset)))
 
   (allowsBinaryWrite [_this] true)
   (writeBinByte [_this byteOffset data]
     (aset ary-data (+ byteOffset offset) data))
   (writeBinShort [_this byteOffset data]
-    (ByteConversions/shortToWriterLE data buffer (+ byteOffset offset)))
+    (.putShort nio-buffer (+ byteOffset offset) data))
   (writeBinInt [_this byteOffset data]
-    (ByteConversions/intToWriterLE data buffer (+ byteOffset offset)))
+    (.putInt nio-buffer (+ byteOffset offset) data))
   (writeBinLong [_this byteOffset data]
-    (ByteConversions/longToWriterLE data buffer (+ byteOffset offset)))
+    (.putLong nio-buffer (+ byteOffset offset) data))
   (writeBinFloat [_this byteOffset data]
-    (ByteConversions/floatToWriterLE data buffer (+ byteOffset offset)))
+    (.putFloat nio-buffer (+ byteOffset offset) data))
   (writeBinDouble [_this byteOffset data]
-    (ByteConversions/doubleToWriterLE data buffer (+ byteOffset offset)))
+    (.putDouble nio-buffer (+ byteOffset offset) data))
   dtype-proto/PClone
   (clone [_this]
     (-> (dtype-proto/sub-buffer ary-data offset n-elems)
@@ -913,12 +888,8 @@
   (sub-buffer [this off len]
     (let [off (long off)
           len (long len)]
-      (ByteArrayBinaryBufferLE. ary-data
-                                (-> (dtype-proto/->array-buffer this)
-                                    (dtype-proto/sub-buffer off len)
-                                    (dtype-proto/->buffer))
-                                (+ offset off)
-                                len))))
+      (-> (dtype-proto/sub-buffer ary-data off len)
+          (dtype-proto/->binary-buffer)))))
 
 
 (extend-type ArrayBuffer
@@ -939,27 +910,31 @@
       (ArrayBuffer. buf 0 (alength ^objects buf) (dtype-proto/elemwise-datatype buf)
                     nil nil))))
 
+(defn- wrap-bytes-le
+  ^ByteBuffer [^bytes b]
+  (.order (ByteBuffer/wrap b) (ByteOrder/LITTLE_ENDIAN)))
+
 
 (extend-protocol dtype-proto/PToBinaryBuffer
   (Class/forName "[B")
   (convertible-to-binary-buffer? [ary] true)
   (->binary-buffer [ary]
     (ByteArrayBinaryBufferLE. ary
-                              (dtype-proto/->buffer ary)
+                              (wrap-bytes-le ary)
                               0 (alength ^bytes ary)))
   ArrayLists$ByteArraySubList
   (convertible-to-binary-buffer? [ary] true)
   (->binary-buffer [ary]
     (let [section (.getArraySection ary)]
       (ByteArrayBinaryBufferLE. (.-array section)
-                                (dtype-proto/->buffer ary)
+                                (wrap-bytes-le (.-array section))
                                 (.-sidx section) (.size section))))
   ByteArrayList
   (convertible-to-binary-buffer? [ary] true)
   (->binary-buffer [ary]
     (let [section (.getArraySection ary)]
       (ByteArrayBinaryBufferLE. (.-array section)
-                                (dtype-proto/->buffer ary)
+                                (wrap-bytes-le (.-array section))
                                 (.-sidx section) (.size section)))))
 
 
