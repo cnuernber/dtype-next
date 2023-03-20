@@ -1,3 +1,6 @@
+## 10.000-beta-38
+ * Major ham-fisted update.
+ 
 ## 10.000-beta-36
  * m-1 macs get an extra search path as homebrew doesn't install libs in standard
    directories.
