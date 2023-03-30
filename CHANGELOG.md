@@ -1,4 +1,4 @@
-## 10.000-beta-41
+## 10.000-beta-42
  * major speed increase making java double, float, int, and long arrays from
    existing dtype-next buffers.
    
