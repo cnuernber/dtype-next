@@ -10,6 +10,7 @@
             [tech.v3.datatype.const-reader :as const-reader]
             [tech.v3.datatype.reductions :as reductions]
             [tech.v3.datatype.argtypes :as argtypes]
+            [ham-fisted.api :as hamf]
             [ham-fisted.lazy-noncaching :as lznc])
   (:import [tech.v3.datatype.array_buffer ArrayBuffer]
            [tech.v3.datatype Buffer]
@@ -35,10 +36,15 @@
    "nil elem-seq-or-count passed into make-container")
   (if (#{:scalar :iterable} (argtypes/arg-type elem-seq-or-count))
     (array-buffer/array-sub-list datatype elem-seq-or-count)
-    (let [rdr (dtype-base/->reader elem-seq-or-count)
-          data (array-buffer/array-sub-list datatype (.lsize rdr))]
-      (copy! elem-seq-or-count data options)
-      data)))
+    (let [rdr (dtype-base/->reader elem-seq-or-count datatype)]
+      (case datatype
+        :float64 (array-buffer/array-buffer (hamf/double-array rdr))
+        :float32 (array-buffer/array-buffer (hamf/float-array rdr))
+        :int64 (array-buffer/array-buffer (hamf/long-array rdr))
+        :int32 (array-buffer/array-buffer (hamf/int-array rdr))
+        (let [data (array-buffer/array-sub-list datatype (.lsize rdr))]
+          (copy! elem-seq-or-count data options)
+          data)))))
 
 
 (defmethod dtype-proto/make-container :java-array
