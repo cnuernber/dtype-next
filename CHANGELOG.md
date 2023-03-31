@@ -1,7 +1,10 @@
+## 10.000-beta-43
+ * Small update to hamf to do certain reductions in java.
+
 ## 10.000-beta-42
  * major speed increase making java double, float, int, and long arrays from
    existing dtype-next buffers.
-   
+
 ## 10.000-beta-40
  * Minor ham-fisted update.
 

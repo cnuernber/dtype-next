@@ -179,13 +179,7 @@
                             (invokePrim [this idx]
                               (.invokePrim ^IFn$LL read-fn (+ sidx idx))))))
         (reduce [rdr rfn init]
-          (let [rfn (Transformables/toLongReductionFn rfn)]
-            (loop [idx 0
-                   acc init]
-              (if (and (< idx n-elems) (not (reduced? acc)))
-                (recur (unchecked-inc idx) (.invokePrim rfn acc
-                                                        (.invokePrim ^IFn$LL read-fn idx)))
-                (Reductions/unreduce acc))))))
+          (Reductions/longSamplerReduction rfn init read-fn n-elems)))
       (casting/float-type? datatype)
       (reify DoubleReader
         (elemwiseDatatype [rdr] advertised-datatype)
@@ -199,14 +193,8 @@
                           (reify IFnDef$LD
                             (invokePrim [this idx]
                               (.invokePrim ^IFn$LD read-fn (+ sidx idx))))))
-        (reduce [rdr rfn init]
-          (let [rfn (Transformables/toDoubleReductionFn rfn)]
-            (loop [idx 0
-                   acc init]
-              (if (and (< idx n-elems) (not (reduced? acc)))
-                (recur (unchecked-inc idx) (.invokePrim rfn acc
-                                                        (.invokePrim ^IFn$LD read-fn idx)))
-                (Reductions/unreduce acc))))))
+        (reduce [rdr rfn acc]
+          (Reductions/doubleSamplerReduction rfn acc read-fn n-elems)))
       :else
       (reify ObjectReader
         (elemwiseDatatype [rdr] advertised-datatype)
@@ -220,13 +208,8 @@
                           (reify IFnDef$LO
                             (invokePrim [this idx]
                               (.invokePrim ^IFn$LO read-fn (+ sidx idx))))))
-        (reduce [rdr rfn init]
-          (loop [idx 0
-                 acc init]
-            (if (and (< idx n-elems) (not (reduced? acc)))
-              (recur (unchecked-inc idx) (rfn acc
-                                              (.invokePrim ^IFn$LO read-fn idx)))
-              (Reductions/unreduce acc))))))))
+        (reduce [rdr rfn acc]
+          (Reductions/samplerReduction rfn acc read-fn n-elems))))))
 
 
 (defmacro make-reader
