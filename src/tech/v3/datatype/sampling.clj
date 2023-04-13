@@ -8,7 +8,8 @@
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.packing :as packing]
             [ham-fisted.protocols :as hamf-proto]
-            [ham-fisted.api :as hamf])
+            [ham-fisted.api :as hamf]
+            [ham-fisted.reduce :as hamf-rf])
   (:import [java.util.function LongSupplier Consumer LongConsumer DoubleConsumer]
            [java.util Random]
            [org.apache.commons.math3.random MersenneTwister]
@@ -128,7 +129,7 @@
           (.set container replace-idx val)))))
   Reducible
   (reduce [this other]
-    (reduce hamf/consumer-accumulator this @other))
+    (reduce hamf-rf/consumer-accumulator this @other))
   IDeref
   (deref [this] container))
 
@@ -145,7 +146,7 @@
           (.setLong container replace-idx val)))))
   Reducible
   (reduce [this other]
-    (reduce hamf/long-consumer-accumulator this @other))
+    (reduce hamf-rf/long-consumer-accumulator this @other))
   IDeref
   (deref [this] container))
 
@@ -162,7 +163,7 @@
           (.setDouble container replace-idx val)))))
   Reducible
   (reduce [this other]
-    (reduce hamf/double-consumer-accumulator this @other))
+    (reduce hamf-rf/double-consumer-accumulator this @other))
   IDeref
   (deref [this] container))
 
@@ -213,29 +214,29 @@ tech.v3.datatype.sampling> (hamf/preduce-reducer (reservoir-sampler 10 {:datatyp
          (->init-val-fn [s] #(LongRes. (abuf/array-list dtype)
                                        reservoir-size
                                        (reservoir-sampler-supplier reservoir-size options)))
-         (->rfn [s] hamf/long-consumer-accumulator)
+         (->rfn [s] hamf-rf/long-consumer-accumulator)
          hamf-proto/Finalize
          (finalize [s v] (deref v))
          hamf-proto/ParallelReducer
-         (->merge-fn [this] hamf/reducible-merge))
+         (->merge-fn [this] hamf-rf/reducible-merge))
        :float64
        (reify
          hamf-proto/Reducer
          (->init-val-fn [s] #(DoubleRes. (abuf/array-list dtype)
                                          reservoir-size
                                          (reservoir-sampler-supplier reservoir-size options)))
-         (->rfn [s] hamf/double-consumer-accumulator)
+         (->rfn [s] hamf-rf/double-consumer-accumulator)
          hamf-proto/Finalize
          (finalize [s v] (deref v))
          hamf-proto/ParallelReducer
-         (->merge-fn [this] hamf/reducible-merge))
+         (->merge-fn [this] hamf-rf/reducible-merge))
        (reify
          hamf-proto/Reducer
          (->init-val-fn [s] #(ObjectRes. (abuf/array-list dtype)
                                          reservoir-size
                                          (reservoir-sampler-supplier reservoir-size options)))
-         (->rfn [s] hamf/consumer-accumulator)
+         (->rfn [s] hamf-rf/consumer-accumulator)
          hamf-proto/Finalize
          (finalize [s v] (deref v))
          hamf-proto/ParallelReducer
-         (->merge-fn [this] hamf/reducible-merge))))))
+         (->merge-fn [this] hamf-rf/reducible-merge))))))
