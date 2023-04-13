@@ -4,7 +4,9 @@
             [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.double-ops :refer [get-significand]]
-            [ham-fisted.api :as hamf])
+            [ham-fisted.api :as hamf]
+            [ham-fisted.function :as hamf-fn]
+            [ham-fisted.reduce :as hamf-rf])
   (:import [tech.v3.datatype LongReader DoubleReader ObjectReader
             UnaryOperator Buffer
             UnaryOperators$DoubleUnaryOperator
@@ -111,17 +113,17 @@
                                  (unaryLong [this v]
                                    (->> (.unaryLong unary-op1 v)
                                         (.unaryLong unary-op2))))
-                        :float64 (hamf/double->long
+                        :float64 (hamf-fn/double->long
                                   v (->> (.unaryDouble unary-op1 v)
                                          (Casts/longCast)
                                          (.unaryLong unary-op2)))
-                        (hamf/obj->long
+                        (hamf-fn/obj->long
                          v (->> (.unaryObject unary-op1 v)
                                 (Casts/longCast)
                                 (.unaryLong unary-op2))))
                       :float64
                       (case op-space1
-                        :int64 (hamf/long->double
+                        :int64 (hamf-fn/long->double
                                 v (->> (.unaryLong unary-op1 v)
                                        (double)
                                        (.unaryDouble unary-op2)))
@@ -129,7 +131,7 @@
                                    (unaryDouble [this v]
                                      (->> (.unaryDouble unary-op1 v)
                                           (.unaryDouble unary-op2))))
-                        (hamf/obj->double
+                        (hamf-fn/obj->double
                          v (->> (.unaryObject unary-op1 v)
                                 (Casts/doubleCast)
                                 (.unaryDouble unary-op2))))
@@ -202,14 +204,14 @@
              (fn [rfn]
                (cond
                  (instance? IFn$ODO rfn)
-                 (hamf/double-accumulator
+                 (hamf-rf/double-accumulator
                   acc v (.invokePrim ^IFn$ODO rfn acc (.unaryDouble unary-op v)))
                  (instance? IFn$OLO rfn)
-                 (hamf/double-accumulator
+                 (hamf-rf/double-accumulator
                   acc v (.invokePrim ^IFn$OLO rfn acc
                                      (Casts/longCast (.unaryDouble unary-op v))))
                  :else
-                 (hamf/double-accumulator acc v (rfn acc (.unaryDouble unary-op v)))))]
+                 (hamf-rf/double-accumulator acc v (rfn acc (.unaryDouble unary-op v)))))]
          (reify DoubleReader
            (elemwiseDatatype [rdr] res-dtype)
            (lsize [rdr] n-elems)

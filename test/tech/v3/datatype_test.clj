@@ -138,6 +138,8 @@
           dtype-copy (fn []
                        (dtype/copy! src-nbuf dst-nbuf num-items))
 
+          dtype-clone-ary (fn [] (dtype/clone src-data))
+
           make-array (fn []
                        (dtype/make-container :java-array :float32 dst-buf))
           marshal-buf (int-array num-items)
@@ -149,6 +151,7 @@
                :buffer-copy buffer-copy
                :dtype-copy dtype-copy
                :make-array make-array
+               :dtype-clone-ary dtype-clone-ary
                :marshal-copy marshal-copy}
           run-timed-fns (fn []
                           (->> fns

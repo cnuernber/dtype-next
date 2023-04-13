@@ -13,6 +13,8 @@
             [tech.v3.datatype.array-buffer]
             [clojure.core.protocols :as cl-proto]
             [ham-fisted.api :as hamf]
+            [ham-fisted.reduce :as hamf-rf]
+            [ham-fisted.function :as hamf-fn]
             [ham-fisted.lazy-noncaching :as lznc]
             [ham-fisted.protocols :as hamf-proto]
             [ham-fisted.set :as set])
@@ -137,7 +139,7 @@
   (convertible-to-bitmap? [item] true)
   (as-roaring-bitmap [item] item)
   hamf-proto/PAdd
-  (add-fn [lhs] (hamf/long-accumulator
+  (add-fn [lhs] (hamf-rf/long-accumulator
                  acc v (.add ^RoaringBitmap acc (unchecked-int v)) acc))
   hamf-proto/SetOps
   (set? [lhs] true)
@@ -145,7 +147,7 @@
   (difference [lhs rhs] (RoaringBitmap/andNot lhs (->bitmap rhs)))
   (union [lhs rhs] (RoaringBitmap/or lhs (->bitmap rhs)))
   (xor [lhs rhs] (RoaringBitmap/xor lhs (->bitmap rhs)))
-  (contains-fn [lhs] (hamf/long-predicate v (.contains lhs (unchecked-int v))))
+  (contains-fn [lhs] (hamf-fn/long-predicate v (.contains lhs (unchecked-int v))))
   (cardinality [lhs] (.getCardinality lhs))
   hamf-proto/BitSet
   (bitset? [lhs] true)

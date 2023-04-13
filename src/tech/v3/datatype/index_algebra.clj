@@ -12,7 +12,8 @@
             [tech.v3.datatype.argops :as argops]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.unary-pred :as unary-pred]
-            [ham-fisted.api :as hamf])
+            [ham-fisted.api :as hamf]
+            [ham-fisted.reduce :as hamf-rf])
   (:import [tech.v3.datatype Buffer LongReader]
            [clojure.lang MapEntry]
            [java.util Map]))
@@ -26,7 +27,7 @@
   "Create a range if possible.  If not, return a reader that knows the found mins
   and maxes."
   [data]
-  (hamf/reduce-reducer (unary-pred/index-reducer :int64) data))
+  (hamf-rf/reduce-reducer (unary-pred/index-reducer :int64) data))
 
 
 (defn- simplify-reader

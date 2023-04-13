@@ -13,7 +13,8 @@
             [tech.v3.parallel.for :as parallel-for]
             [clojure.tools.logging :as log]
             [clj-commons.primitive-math :as pmath]
-            [ham-fisted.api :as hamf])
+            [ham-fisted.api :as hamf]
+            [ham-fisted.reduce :as hamf-rf])
   (:import [tech.v3.datatype UnsafeUtil]
            [sun.misc Unsafe]
            [tech.v3.datatype Buffer BufferCollection BinaryBuffer
@@ -362,7 +363,7 @@
   (fillRange [rdr sidx v]
     (ChunkedList/checkIndexRange 0 n-elems sidx (+ sidx (long (dtype-proto/ecount v))))
     (let [addr address]
-      (reduce (hamf/indexed-long-accum
+      (reduce (hamf-rf/indexed-long-accum
                acc idx v (.invokePrim set-fn addr (+ idx sidx) v))
               nil
               v)))
@@ -433,7 +434,7 @@
     (ChunkedList/checkIndexRange 0 n-elems sidx (+ sidx (Casts/longCast
                                                          (dtype-proto/ecount v))))
     (let [addr address]
-      (reduce (hamf/indexed-double-accum
+      (reduce (hamf-rf/indexed-double-accum
                acc idx v (.invokePrim set-fn addr (+ idx sidx) v))
               nil
               v)))
@@ -983,7 +984,7 @@
                 (.fillRange ^IMutList outbuf sidx input)
                 (.fillRange ^IMutList outbuf sidx
                             (dtype-proto/sub-buffer input sidx (- eidx sidx))))))
-           (reduce (hamf/indexed-accum
+           (reduce (hamf-rf/indexed-accum
                     acc idx v
                     (.set ^IMutList acc idx v)
                     acc)

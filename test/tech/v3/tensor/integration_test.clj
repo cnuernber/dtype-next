@@ -4,6 +4,7 @@
             [tech.v3.datatype.argops :as argops]
             [tech.v3.tensor :as dtt]
             [ham-fisted.api :as hamf]
+            [ham-fisted.function :as hamf-fn]
             [clj-commons.primitive-math :as pmath]
             [clojure.test :refer [deftest is]])
   (:import [tech.v3.datatype NDBuffer]))
@@ -60,7 +61,7 @@
         ;; There are 2N checks for correct datatype in this pathway; everything else
         ;; is read/operated on as a short integer.
         reader-composition  #(-> source-image
-                                 (dtt/select :all :all (long-array [2 1 0]))
+                                 (dtt/select :all :all [2 1 0])
                                  (dfn/+ 50)
                                  ;;Clamp top end to 0-255
                                  (dfn/min 255)
@@ -69,7 +70,7 @@
 
         inline-fn #(as-> source-image dest-image
                      (dtt/select dest-image :all :all [2 1 0])
-                     (dtype/emap (hamf/long-unary-operator
+                     (dtype/emap (hamf-fn/long-unary-operator
                                   x
                                   (-> (+ x 50)
                                       (min 255)))

@@ -2,7 +2,8 @@
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.protocols :as dtype-proto]
-            [ham-fisted.api :as hamf])
+            [ham-fisted.api :as hamf]
+            [ham-fisted.reduce :as hamf-rf])
   (:import [tech.v3.datatype Buffer]
            [clojure.lang IFn$OLO IFn$ODO]))
 
@@ -43,18 +44,18 @@
          (fillRange [this sidx src]
            (case (casting/simple-operation-space (dtype-base/elemwise-datatype item))
              :int64
-             (reduce (hamf/indexed-long-accum
+             (reduce (hamf-rf/indexed-long-accum
                       acc idx v
                       (.writeLong ^Buffer acc (.readLong indexes (+ sidx idx)) v) acc)
                      item
                      src)
              :float64
-             (reduce (hamf/indexed-double-accum
+             (reduce (hamf-rf/indexed-double-accum
                       acc idx v
                       (.writeDouble ^Buffer acc (.readLong indexes (+ sidx idx)) v) acc)
                      item
                      src)
-             (reduce (hamf/indexed-accum
+             (reduce (hamf-rf/indexed-accum
                       acc idx v
                       (.writeObject ^Buffer acc (.readObject indexes (+ sidx idx)) v) acc)
                      item
@@ -63,15 +64,15 @@
            (.reduce indexes
                     (cond
                       (instance? IFn$OLO rfn)
-                      (hamf/long-accumulator
+                      (hamf-rf/long-accumulator
                        acc v
                        (.invokePrim ^IFn$OLO rfn acc (.readLong item v)))
                       (instance? IFn$ODO rfn)
-                      (hamf/long-accumulator
+                      (hamf-rf/long-accumulator
                        acc v
                        (.invokePrim ^IFn$ODO rfn acc (.readDouble item v)))
                       :else
-                      (hamf/long-accumulator
+                      (hamf-rf/long-accumulator
                        acc v
                        (rfn acc (.readObject item v))))
                     init))
@@ -79,13 +80,13 @@
            (.parallelReduction indexes init-val-fn
                                (cond
                                  (instance? IFn$OLO rfn)
-                                 (hamf/long-accumulator
+                                 (hamf-rf/long-accumulator
                                   acc v (.invokePrim ^IFn$OLO rfn acc (.readLong item v)))
                                  (instance? IFn$ODO rfn)
-                                 (hamf/long-accumulator
+                                 (hamf-rf/long-accumulator
                                   acc v (.invokePrim ^IFn$ODO rfn acc (.readDouble item v)))
                                  :else
-                                 (hamf/long-accumulator
+                                 (hamf-rf/long-accumulator
                                   acc v (rfn acc (.readObject item v))))
                                merge-fn
                                options))

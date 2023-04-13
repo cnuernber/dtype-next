@@ -1,3 +1,8 @@
+## 10.000-beta-44
+ * Pushing refactoring/simplification of hamf through system.  Breaking changes
+   for projects relying specifically on hamf.  These are specifically changes 
+   related to bringing the whole system out of beta!
+
 ## 10.000-beta-43
  * Small update to hamf to do certain reductions in java.
 

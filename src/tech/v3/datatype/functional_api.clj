@@ -30,6 +30,8 @@
             [tech.v3.datatype.list :as dtype-list]
             [tech.v3.datatype.graal-native :as graal-native]
             [ham-fisted.api :as hamf]
+            [ham-fisted.function :as hamf-fn]
+            [ham-fisted.reduce :as hamf-rf]
             [clj-commons.primitive-math :as pmath]
             [clojure.tools.logging :as log]
             [clojure.set :as set])
@@ -436,14 +438,14 @@
         result (hamf/double-array-list n-elems)
         ^DoublePredicate filter
         (case (get options :nan-strategy :remove)
-          :keep (hamf/double-predicate v true)
-          :remove (hamf/double-predicate v (not (Double/isNaN v)))
-          :exception (hamf/double-predicate v
+          :keep (hamf-fn/double-predicate v true)
+          :remove (hamf-fn/double-predicate v (not (Double/isNaN v)))
+          :exception (hamf-fn/double-predicate v
                                             (do
                                               (when (Double/isNaN v)
                                                 (throw (RuntimeException. "Nan Detected")))
                                               true)))]
-    @(reduce hamf/double-consumer-accumulator
+    @(reduce hamf-rf/double-consumer-accumulator
              (CumOpConsumer. op 0.0 true filter result)
              data)))
 

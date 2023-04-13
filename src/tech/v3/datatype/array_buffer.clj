@@ -6,6 +6,7 @@
             [tech.v3.datatype.pprint :as dtype-pp]
             [tech.v3.datatype.copy :as dt-copy]
             [ham-fisted.api :as hamf]
+            [ham-fisted.reduce :as hamf-rf]
             [ham-fisted.iterator :as iterator])
   (:import [clojure.lang IObj Counted Indexed IFn IPersistentMap IReduceInit]
            [ham_fisted ArrayLists ArrayLists$ArrayOwner ArrayLists$ILongArrayList
@@ -550,7 +551,7 @@
                (.ensureCapacity this# newlen#)
                (set! ~'n-elems newlen#)
                (.fillRange this# curlen# ~'c)))
-           (reduce (hamf/long-accumulator
+           (reduce (hamf-rf/long-accumulator
                     acc# v# (.addLong ^IMutList acc# v#) acc#)
                    this#
                    c#))

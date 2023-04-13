@@ -15,6 +15,8 @@
             [tech.v3.datatype.argtypes :as argtypes]
             [tech.v3.datatype.const-reader :as const-reader]
             [ham-fisted.api :as hamf]
+            [ham-fisted.reduce :as hamf-rf]
+            [ham-fisted.function :as hamf-fn]
             [ham-fisted.protocols :as hamf-proto]
             [ham-fisted.lazy-noncaching :as lznc])
   (:import [it.unimi.dsi.fastutil.ints IntArrays IntComparator]
@@ -398,7 +400,7 @@
          (.add queue idx)
          (when (> (.size queue) N)
            (.poll queue))))
-     (reduce (hamf/indexed-accum
+     (reduce (hamf-rf/indexed-accum
               acc idx v
               (ArrayHelpers/aset ^ints acc idx (unchecked-int v))
               acc)
@@ -491,22 +493,22 @@
      (let [n-elems (.lsize rdr)]
        (cond
          (instance? LongPredicate pred)
-         (hamf/preduce-reducer
+         (hamf-rf/preduce-reducer
           (unary-pred/index-reducer (get options :storage-type n-elems)) options
           (->> (hamf/range n-elems)
-               (lznc/filter (hamf/long-predicate
+               (lznc/filter (hamf-fn/long-predicate
                              v (.test ^LongPredicate pred (.readLong rdr v))))))
          (instance? DoublePredicate pred)
-         (hamf/preduce-reducer
+         (hamf-rf/preduce-reducer
           (unary-pred/index-reducer (get options :storage-type n-elems)) options
           (->> (hamf/range n-elems)
-               (lznc/filter (hamf/long-predicate
+               (lznc/filter (hamf-fn/long-predicate
                              v (.test ^DoublePredicate pred (.readDouble rdr v))))))
          (instance? Predicate pred)
-         (hamf/preduce-reducer
+         (hamf-rf/preduce-reducer
           (unary-pred/index-reducer (get options :storage-type n-elems)) options
           (->> (hamf/range n-elems)
-               (lznc/filter (hamf/long-predicate
+               (lznc/filter (hamf-fn/long-predicate
                              v (.test ^Predicate pred (.readObject rdr v))))))
          :else
          (let [pred (->unary-predicate pred)]
@@ -570,14 +572,14 @@
          idx-rdr (unary-pred/index-reducer storage-datatype)
          init-fn (hamf-proto/->init-val-fn idx-rdr)
          ^IFn$OLO rfn (hamf-proto/->rfn idx-rdr)
-         afn (hamf/function k (init-fn))
-         merge-bifn (hamf/->bi-function (hamf-proto/->merge-fn idx-rdr))
+         afn (hamf-fn/function k (init-fn))
+         merge-bifn (hamf-fn/->bi-function (hamf-proto/->merge-fn idx-rdr))
          map-merge #(hamf/mut-map-union! merge-bifn %1 %2)
          op-space (casting/simple-operation-space (dtype-base/elemwise-datatype rdr))
          fin-fn (if skip-finalize?
                   identity
                   (fn [^Map m]
-                    (do (hamf/preduce
+                    (do (hamf-rf/preduce
                          (constantly nil)
                          (fn [acc ^Map$Entry e]
                            (.setValue e (hamf-proto/finalize idx-rdr (.getValue e))))
@@ -589,17 +591,17 @@
            n-elems
            (fn [^long sidx ^long eidx]
              (reduce (case op-space
-                       :int64 (hamf/indexed-long-accum
+                       :int64 (hamf-rf/indexed-long-accum
                                acc idx v
                                (let [l (.computeIfAbsent ^Map acc v afn)]
                                  (.invokePrim rfn l (+ sidx idx))
                                  acc))
-                       :float64 (hamf/indexed-double-accum
+                       :float64 (hamf-rf/indexed-double-accum
                                  acc idx v
                                  (let [l (.computeIfAbsent ^Map acc v afn)]
                                    (.invokePrim rfn l (+ sidx idx))
                                    acc))
-                       (hamf/indexed-accum
+                       (hamf-rf/indexed-accum
                         acc idx v
                         (let [l (.computeIfAbsent ^Map acc v afn)]
                           (.invokePrim rfn l (+ sidx idx))
@@ -607,7 +609,7 @@
                      (map-fn)
                      (dtype-base/sub-buffer rdr sidx (- eidx sidx))))
            {:min-n 1000})
-          (Reductions/iterableMerge (hamf/options->parallel-options {:min-n 1000}) map-merge)
+          (Reductions/iterableMerge (hamf-rf/options->parallel-options {:min-n 1000}) map-merge)
           (fin-fn))))
   (^Map [rdr]
    (arggroup nil rdr)))

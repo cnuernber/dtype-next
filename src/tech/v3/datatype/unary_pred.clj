@@ -9,8 +9,10 @@
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.monotonic-range :as mono-range]
             [ham-fisted.api :as hamf]
+            [ham-fisted.reduce :as hamf-rf]
             [ham-fisted.protocols :as hamf-proto]
-            [ham-fisted.lazy-noncaching :as lznc])
+            [ham-fisted.lazy-noncaching :as lznc]
+            [ham-fisted.function :as hamf-fn])
   (:import [tech.v3.datatype UnaryPredicate Buffer
             UnaryPredicates$DoubleUnaryPredicate
             UnaryPredicates$LongUnaryPredicate
@@ -298,16 +300,16 @@
       (reify
         hamf-proto/Reducer
         (->init-val-fn [r] #(IndexConsumer. hamf/range (dtype-list/make-list dtype)))
-        (->rfn [r] hamf/long-consumer-accumulator)
+        (->rfn [r] hamf-rf/long-consumer-accumulator)
         hamf-proto/Finalize
         (finalize [r l] @l)
         hamf-proto/ParallelReducer
-        (->merge-fn [r] hamf/reducible-merge))
+        (->merge-fn [r] hamf-rf/reducible-merge))
       (identical? dtype :bitmap)
       (reify
         hamf-proto/Reducer
         (->init-val-fn [r] #(RoaringBitmap.))
-        (->rfn [r] (hamf/long-accumulator
+        (->rfn [r] (hamf-rf/long-accumulator
                     acc v
                     (.add ^RoaringBitmap acc (unchecked-int v))
                     acc))
@@ -329,10 +331,10 @@
          storage-type (or storage-type
                           (reader-index-space bool-item))]
      (->> (hamf/range n-elems)
-          (lznc/filter (hamf/long-predicate
+          (lznc/filter (hamf-fn/long-predicate
                         idx
                         (Casts/booleanCast (.readObject reader idx))))
-          (hamf/preduce-reducer (index-reducer storage-type)
+          (hamf-rf/preduce-reducer (index-reducer storage-type)
                                 {:ordered? true}))))
   (^Buffer [bool-item]
    (bool-reader->indexes nil bool-item)))

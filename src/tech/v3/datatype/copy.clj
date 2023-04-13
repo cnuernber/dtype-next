@@ -5,7 +5,8 @@
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.packing :as packing]
-            [ham-fisted.api :as hamf])
+            [ham-fisted.api :as hamf]
+            [ham-fisted.reduce :as hamf-rf])
   (:import [sun.misc Unsafe]
            [ham_fisted ArrayLists$ArrayOwner]
            [tech.v3.datatype UnsafeUtil Buffer]
@@ -27,8 +28,8 @@
 (defn- passthrough-accum
   [acc v] acc)
 
-(def passthrough-long-accum (hamf/long-accumulator acc v acc))
-(def passthrough-double-accum (hamf/double-accumulator acc v acc))
+(def passthrough-long-accum (hamf-rf/long-accumulator acc v acc))
+(def passthrough-double-accum (hamf-rf/double-accumulator acc v acc))
 
 (defn generic-copy!
   [src dst]
@@ -43,13 +44,13 @@
                                  n-elems (.lsize dst)))))
     (if (< n-elems 1024)
       (.fillRange dst 0 src)
-      (hamf/preduce (constantly nil)
-                    (case (casting/simple-operation-space dst-dtype)
-                      :int64 passthrough-long-accum
-                      :float64 passthrough-double-accum
-                      passthrough-accum)
-                    passthrough-accum
-                    (Buffer$CopyingReducer. src dst)))
+      (hamf-rf/preduce (constantly nil)
+                       (case (casting/simple-operation-space dst-dtype)
+                         :int64 passthrough-long-accum
+                         :float64 passthrough-double-accum
+                         passthrough-accum)
+                       passthrough-accum
+                       (Buffer$CopyingReducer. src dst)))
     dst))
 
 
@@ -118,13 +119,13 @@
      (let [op-space (casting/simple-operation-space (dtype-proto/elemwise-datatype dst))
            ^Buffer dst-buf (dtype-base/->writer dst)
            rfn (case op-space
-                 :int64 (hamf/indexed-long-accum
+                 :int64 (hamf-rf/indexed-long-accum
                          acc idx v
                          (.writeLong ^Buffer acc idx v) acc)
-                 :float64 (hamf/indexed-double-accum
+                 :float64 (hamf-rf/indexed-double-accum
                            acc idx v
                            (.writeDouble ^Buffer acc idx v) acc)
-                 (hamf/indexed-accum
+                 (hamf-rf/indexed-accum
                   acc idx v
                   (.writeObject ^Buffer acc idx v) acc))]
        (when-not (== (count src) (dtype-base/ecount dst))

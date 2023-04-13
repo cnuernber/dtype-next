@@ -8,6 +8,9 @@
             [tech.v3.datatype.list]
             [clj-commons.primitive-math :as pmath]
             [ham-fisted.api :as hamf]
+            [ham-fisted.function :as hamf-fn]
+            [ham-fisted.reduce :as hamf-rf]
+            [ham-fisted.mut-map :as hamf-map]
             [ham-fisted.lazy-noncaching :as lznc]
             [ham-fisted.set :as set])
   (:import [tech.v3.datatype UnaryOperator
@@ -125,7 +128,7 @@
                (let [^UnaryOperator op (reduction stat-data)
                      {:keys [n-elems sum]}
                      (->> (dtype-base/as-reader rdr :float64)
-                          (lznc/map (hamf/double-unary-operator
+                          (lznc/map (hamf-fn/double-unary-operator
                                      v (.unaryDouble op v)))
                           (hamf/sum-stable-nelems options))]
                  (assoc stat-data statname sum :n-elems n-elems))
@@ -145,7 +148,7 @@
   #{:min :quartile-1 :sum :mean :mode :median :quartile-3 :max
     :variance :standard-deviation :skew :n-elems :kurtosis})
 
-(hamf/bind-double-consumer-reducer! #(DoubleConsumers$MinMaxSum.))
+(hamf-rf/bind-double-consumer-reducer! #(DoubleConsumers$MinMaxSum.))
 
 (defn- key?
   [e] (when e (key e)))
@@ -217,13 +220,13 @@
          stats-data (if mode?
                       (assoc stats-data :mode (mode src-rdr))
                       stats-data)
-         provided-keys (hamf/map-keyset stats-data)
+         provided-keys (hamf-map/keyset stats-data)
          calculate-stats-set (set/difference stats-set provided-keys)
          dependency-set (apply set/reduce-union (map node-dependencies calculate-stats-set))
          required-dependency-set (set/difference dependency-set provided-keys)
          stats-data (if (not (empty? (set/intersection required-dependency-set
                                                        #{:sum :min :max :n-elems})))
-                      (merge stats-data (hamf/preduce-reducer (DoubleConsumers$MinMaxSum.)
+                      (merge stats-data (hamf-rf/preduce-reducer (DoubleConsumers$MinMaxSum.)
                                                               rdr))
                       stats-data)
          stats-data (if (required-dependency-set :mean)
@@ -232,18 +235,18 @@
                       stats-data)
          stats-data (if (not (empty? (set/intersection required-dependency-set
                                                        #{:moment-2 :moment-3 :moment-4})))
-                      (merge stats-data (hamf/preduce-reducer
-                                         (hamf/double-consumer-reducer
+                      (merge stats-data (hamf-rf/preduce-reducer
+                                         (hamf-rf/double-consumer-reducer
                                           #(DoubleConsumers$Moments. (:mean stats-data)))
                                          rdr))
                       stats-data)
-         provided-keys (hamf/map-keyset stats-data)
+         provided-keys (hamf-map/keyset stats-data)
          required-dependency-set (set/difference required-dependency-set provided-keys)
          stats-data (reduce #(calculate-descriptive-stat %2 %1 options rdr)
                             stats-data
                             ;;any leftover stats-tower items must be formula-driven based on
                             ;;precalculated stats.
-                            (set/intersection (hamf/map-keyset stats-tower)
+                            (set/intersection (hamf-map/keyset stats-tower)
                                               required-dependency-set))
          stats-data (if percentile?
                       (let [p (Percentile.)
@@ -440,6 +443,6 @@
         q3 (double q3)
         iqr (- q3 q1)
         range-mult (double (or range-mult 1.5))]
-    (hamf/double-predicate
+    (hamf-fn/double-predicate
      x (or (< x (- q1 (* range-mult iqr)))
            (> x (+ q3 (* range-mult iqr)))))))

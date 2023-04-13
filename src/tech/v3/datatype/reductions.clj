@@ -6,7 +6,9 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.errors :as errors]
             [ham-fisted.lazy-noncaching :as lznc]
-            [ham-fisted.api :as hamf])
+            [ham-fisted.api :as hamf]
+            [ham-fisted.reduce :as hamf-rf]
+            [ham-fisted.function :as hamf-fn])
   (:import [tech.v3.datatype BinaryOperator UnaryOperator Buffer]
            [ham_fisted Reducible Reductions Sum IFnDef$OLO IFnDef$ODO Casts]
            [clojure.lang IDeref]
@@ -105,16 +107,16 @@
   ([staged-consumer-fn options rdr]
    (let [rdr (or (dtype-base/as-reader rdr :float64) rdr)
          rdr (case (get options :nan-strategy :remove)
-               :remove (lznc/filter (hamf/double-predicate v (not (Double/isNaN v))) rdr)
+               :remove (lznc/filter (hamf-fn/double-predicate v (not (Double/isNaN v))) rdr)
                :keep rdr
-               :exception (lznc/map (hamf/double-unary-operator
+               :exception (lznc/map (hamf-fn/double-unary-operator
                                      v
                                      (when (Double/isNaN v)
                                        (throw (RuntimeException. "NaN detected")))
                                      v)))
          staged-consumer-fn (reducer-value->consumer-fn staged-consumer-fn)]
-     (-> (hamf/preduce staged-consumer-fn hamf/double-consumer-accumulator
-                       hamf/reducible-merge
+     (-> (hamf-rf/preduce staged-consumer-fn hamf-rf/double-consumer-accumulator
+                       hamf-rf/reducible-merge
                        options
                        rdr)
          (deref))))
@@ -136,7 +138,7 @@
   into a new double stream."
   (^double [^UnaryOperator op options rdr]
    (->> (dtype-base/->reader rdr options)
-        (lznc/map (hamf/double-unary-operator
+        (lznc/map (hamf-fn/double-unary-operator
                    v (.unaryDouble op v)))
         (hamf/sum options)))
   (^double [op rdr]
@@ -157,8 +159,8 @@
   (^double [^BinaryOperator op options rdr]
    (->> (or (dtype-base/->reader rdr :float64) rdr)
         (hamf/apply-nan-strategy options)
-        (hamf/preduce (constantly nil)
-                      (hamf/double-accumulator
+        (hamf-rf/preduce (constantly nil)
+                      (hamf-rf/double-accumulator
                        acc v
                        (if acc
                          (.binaryDouble op acc v)
@@ -175,8 +177,8 @@
   operator needs to be both commutative and associative."
   ^long [^BinaryOperator op rdr]
   (->> (or (dtype-base/as-reader rdr :int64) rdr)
-       (hamf/preduce (constantly nil)
-                      (hamf/long-accumulator
+       (hamf-rf/preduce (constantly nil)
+                      (hamf-rf/long-accumulator
                        acc v
                        (if acc
                          (.binaryLong op acc v)
@@ -193,6 +195,6 @@
       :int64 (commutative-binary-long op data)
       :float64 (commutative-binary-double op data)
       (->> (or (dtype-base/as-reader data) data)
-           (hamf/preduce (constantly nil)
+           (hamf-rf/preduce (constantly nil)
                          (fn [acc v] (if acc (op acc v) v))
                          (checked-binary-merge l r (op l r)))))))
