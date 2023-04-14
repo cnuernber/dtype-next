@@ -38,7 +38,9 @@
             [tech.v3.parallel.for :as parallel-for]
             [clj-commons.primitive-math :as pmath]
             [clojure.tools.logging :as log]
-            [ham-fisted.api :as hamf])
+            [ham-fisted.api :as hamf]
+            [ham-fisted.lazy-noncaching :as lznc]
+            [ham-fisted.function :as hamf-fn])
   (:import [clojure.lang IObj IFn$OLO IFn$ODO IFn
             IFn$LOO IFn$LLOO IFn$LLLOO]
            [tech.v3.datatype LongNDReader Buffer NDBuffer
@@ -1305,6 +1307,71 @@ user> (dtype/shape (dtt/reduce-axis dfn/sum t 2))
    (reduce-axis reduce-fn tensor axis nil))
   ([reduce-fn tensor]
    (reduce-axis reduce-fn tensor -1 nil)))
+
+
+(defn map-axis
+  "Map a function from vector->vector replacing the values along an axis.
+
+
+  * map-fn - maps from vector->vector.  Must return a vector of the same
+    count as the input.
+  * tensor - input tensor to use.
+  * axis - Defaults to -1 meaning the last axis.  So the default would
+    map across the rows of a matrix.
+
+Example:
+
+```clojure
+user> t
+#tech.v3.tensor<float64>[4 3]
+[[0.000 1.000 2.000]
+ [3.000 4.000 5.000]
+ [6.000 7.000 8.000]
+ [9.000 10.00 11.00]]
+user> (require '[tech.v3.datatype.functional :as dfn])
+nil
+user> (defn center-1d [d] (dfn// d (dfn/mean d)))
+#'user/center-1d
+user> (dtt/map-axis center-1d t -1)
+#tech.v3.tensor<float64>[4 3]
+[[ 0.000 1.000 2.000]
+ [0.7500 1.000 1.250]
+ [0.8571 1.000 1.143]
+ [0.9000 1.000 1.100]]
+user> (dtt/map-axis center-1d t -2)
+#tech.v3.tensor<float64>[4 3]
+[[ 0.000 0.1818 0.3077]
+ [0.6667 0.7273 0.7692]
+ [ 1.333  1.273  1.231]
+ [ 2.000  1.818  1.692]]
+```"
+  ([map-fn tensor axis]
+   (let [rank (count (dtype-base/shape tensor))
+         dec-rank (dec rank)
+         retval (dtype-proto/clone tensor)
+         orig-axis (long axis)
+         axis (if (>= orig-axis 0)
+                orig-axis
+                (+ rank orig-axis))
+         _ (when (>= axis rank)
+             (throw (RuntimeException. (str "Axis: " orig-axis " is >= tensor rank: " rank))))
+         ;;transpose the tensor so the reduction axis is the last one
+         [tensor dest] (if-not (== dec-rank axis)
+                         (let [tshape (hamf/concatv (lznc/remove
+                                                     (hamf-fn/long-predicate v (== axis v))
+                                                     (range rank))
+                                                    [axis])]
+                           [(transpose tensor tshape)
+                            (transpose retval tshape)])
+                         [tensor retval])
+         ;;slice to produce a sequence of rows
+         src-slices (slice tensor dec-rank)
+         dst-slices (slice dest dec-rank)]
+     (dotimes [idx (count src-slices)]
+       (.fillRange ^Buffer (dtype-proto/->buffer (dst-slices idx)) 0 (map-fn (src-slices idx))))
+     retval))
+  ([map-fn tensor]
+   (map-axis map-fn tensor -1)))
 
 
 (comment

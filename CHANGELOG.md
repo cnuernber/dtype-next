@@ -1,6 +1,11 @@
+## 10.000-beta-46
+ * Fixes related to upgrading TMD to latest ham-fisted.
+ * added `map-axis` to tensor api.  This is similar to `reduce-axis` except it does not reduce
+   the dimensions of the matrix but returns a new one.
+
 ## 10.000-beta-44
  * Pushing refactoring/simplification of hamf through system.  Breaking changes
-   for projects relying specifically on hamf.  These are specifically changes 
+   for projects relying specifically on hamf.  These are specifically changes
    related to bringing the whole system out of beta!
 
 ## 10.000-beta-43

@@ -163,6 +163,48 @@ user> (dtt/compute-tensor [2 2 2] (fn [& args] (vec args)) :object)
   (tech.v3.tensor-api/ensure-tensor item)))
 
 
+(defn map-axis
+  "Map a function from vector->vector replacing the values along an axis.
+
+
+  * map-fn - maps from vector->vector.  Must return a vector of the same
+    count as the input.
+  * tensor - input tensor to use.
+  * axis - Defaults to -1 meaning the last axis.  So the default would
+    map across the rows of a matrix.
+
+Example:
+
+```clojure
+user> t
+#tech.v3.tensor<float64>[4 3]
+[[0.000 1.000 2.000]
+ [3.000 4.000 5.000]
+ [6.000 7.000 8.000]
+ [9.000 10.00 11.00]]
+user> (require '[tech.v3.datatype.functional :as dfn])
+nil
+user> (defn center-1d [d] (dfn// d (dfn/mean d)))
+#'user/center-1d
+user> (dtt/map-axis center-1d t -1)
+#tech.v3.tensor<float64>[4 3]
+[[ 0.000 1.000 2.000]
+ [0.7500 1.000 1.250]
+ [0.8571 1.000 1.143]
+ [0.9000 1.000 1.100]]
+user> (dtt/map-axis center-1d t -2)
+#tech.v3.tensor<float64>[4 3]
+[[ 0.000 0.1818 0.3077]
+ [0.6667 0.7273 0.7692]
+ [ 1.333  1.273  1.231]
+ [ 2.000  1.818  1.692]]
+```"
+  ([map-fn tensor axis]
+  (tech.v3.tensor-api/map-axis map-fn tensor axis))
+  ([map-fn tensor]
+  (tech.v3.tensor-api/map-axis map-fn tensor)))
+
+
 (defn mget
   "Get an item from an ND object.  If fewer dimensions are
   specified than exist then the return value is a new tensor as a select operation is
