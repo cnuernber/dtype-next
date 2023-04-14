@@ -17,6 +17,15 @@
            [ham_fisted Casts]))
 
 
+(defn- merge1
+  [lhs rhs]
+  (cond
+    (empty? lhs) rhs
+    (empty? rhs) lhs
+    :else
+    (into lhs rhs)))
+
+
 (defn unary-dispatch
   [op x options]
   (vectorized-dispatch-1
@@ -24,7 +33,7 @@
    ;;the default iterable application is fine.
    nil
    #(dtype-proto/apply-unary-op %2 %1 op)
-   (merge (meta op) options)
+   (merge1 (meta op) options)
    x))
 
 

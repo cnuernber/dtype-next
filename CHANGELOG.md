@@ -1,3 +1,8 @@
+## 10.000-beta-47
+ * tensor `reduce-axis` and `map-axis` have had their argument order changed to be tensor-first as this
+   allows a nice `->` application.
+ * `map-axis` received some optimization attention.
+
 ## 10.000-beta-46
  * Fixes related to upgrading TMD to latest ham-fisted.
  * added `map-axis` to tensor api.  This is similar to `reduce-axis` except it does not reduce

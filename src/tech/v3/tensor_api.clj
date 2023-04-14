@@ -1237,9 +1237,9 @@ user> (dtt/compute-tensor [2 2 2] (fn [& args] (vec args)) :object)
   "Reduce a tensor along an axis using reduce-fn on the elemwise entries.
 
 
+  * tensor - input tensor to use.
   * reduce-fn - lazily applied reduction applied to each input.  Inputs are
     1-dimensional vectors.  Use clone to force the operation.
-  * tensor - input tensor to use.
   * axis - Defaults to -1 meaning the last axis.  So the default would
     reduce across the rows of a matrix.
   * res-dtype - result datatype, defaults to the datatype of the incoming
@@ -1248,38 +1248,35 @@ user> (dtt/compute-tensor [2 2 2] (fn [& args] (vec args)) :object)
 Example:
 
 ```clojure
+user> (def t (dtt/->tensor (partition 3 (range 12)) :datatype :float64))
+#'user/t
 user> t
-#tech.v3.tensor<object>[4 3]
-[[0  1  2]
- [3  4  5]
- [6  7  8]
- [9 10 11]]
-user> (dtt/reduce-axis dfn/sum t 0)
-#tech.v3.tensor<object>[3]
-[18.00 22.00 26.00]
-user> (dtt/reduce-axis dfn/sum t 1)
-#tech.v3.tensor<object>[4]
-[3.000 12.00 21.00 30.00]
-user> (dtt/reduce-axis dfn/sum t)
-#tech.v3.tensor<object>[4]
-[3.000 12.00 21.00 30.00]
-user> (dtt/reduce-axis dfn/sum t 0 :float64)
+#tech.v3.tensor<float64>[4 3]
+[[0.000 1.000 2.000]
+ [3.000 4.000 5.000]
+ [6.000 7.000 8.000]
+ [9.000 10.00 11.00]]
+user> (dtt/reduce-axis t dfn/sum 0)
 #tech.v3.tensor<float64>[3]
 [18.00 22.00 26.00]
-
-
+user> (dtt/reduce-axis t dfn/sum 1)
 user> (def t (dtt/new-tensor [2 3 5]))
 #'user/t
-user> (dtype/shape (dtt/reduce-axis dfn/sum t 0))
+user> (dtype/shape (dtt/reduce-axis t dfn/sum 0))
+Syntax error compiling at (*cider-repl cnuernber/dtype-next:localhost:37199(clj)*:83:7).
+No such namespace: dtype
+user> (require '[tech.v3.datatype :as dt])
+nil
+user> (dt/shape (dtt/reduce-axis t dfn/sum 0))
 [3 5]
-user> (dtype/shape (dtt/reduce-axis dfn/sum t 1))
+user> (dt/shape (dtt/reduce-axis t dfn/sum 1))
 [2 5]
-user> (dtype/shape (dtt/reduce-axis dfn/sum t 2))
+user> (dt/shape (dtt/reduce-axis t dfn/sum 2))
 [2 3]
 ```
 
   For the opposite - adding dimensions via repetition - see [[broadcast]]."
-  ([reduce-fn tensor axis res-dtype]
+  ([tensor reduce-fn axis res-dtype]
    (let [rank (count (dtype-base/shape tensor))
          dec-rank (dec rank)
          res-dtype (or res-dtype (dtype-base/elemwise-datatype tensor))
@@ -1303,19 +1300,18 @@ user> (dtype/shape (dtt/reduce-axis dfn/sum t 2))
      (-> (emap/emap reduce-fn res-dtype slices)
          ;;reshape to the result shape
          (reshape result-shape))))
-  ([reduce-fn tensor axis]
-   (reduce-axis reduce-fn tensor axis nil))
-  ([reduce-fn tensor]
-   (reduce-axis reduce-fn tensor -1 nil)))
+  ([tensor reduce-fn axis]
+   (reduce-axis tensor reduce-fn axis nil))
+  ([tensor reduce-fn]
+   (reduce-axis tensor reduce-fn -1 nil)))
 
 
 (defn map-axis
   "Map a function from vector->vector replacing the values along an axis.
 
-
+  * tensor - input tensor to use.
   * map-fn - maps from vector->vector.  Must return a vector of the same
     count as the input.
-  * tensor - input tensor to use.
   * axis - Defaults to -1 meaning the last axis.  So the default would
     map across the rows of a matrix.
 
@@ -1332,20 +1328,20 @@ user> (require '[tech.v3.datatype.functional :as dfn])
 nil
 user> (defn center-1d [d] (dfn// d (dfn/mean d)))
 #'user/center-1d
-user> (dtt/map-axis center-1d t -1)
+user> (dtt/map-axis t center-1d -1)
 #tech.v3.tensor<float64>[4 3]
 [[ 0.000 1.000 2.000]
  [0.7500 1.000 1.250]
  [0.8571 1.000 1.143]
  [0.9000 1.000 1.100]]
-user> (dtt/map-axis center-1d t -2)
+user> (dtt/map-axis t center-1d -2)
 #tech.v3.tensor<float64>[4 3]
 [[ 0.000 0.1818 0.3077]
  [0.6667 0.7273 0.7692]
  [ 1.333  1.273  1.231]
  [ 2.000  1.818  1.692]]
 ```"
-  ([map-fn tensor axis]
+  ([tensor map-fn axis]
    (let [rank (count (dtype-base/shape tensor))
          dec-rank (dec rank)
          retval (dtype-proto/clone tensor)
@@ -1370,7 +1366,7 @@ user> (dtt/map-axis center-1d t -2)
      (dotimes [idx (count src-slices)]
        (.fillRange ^Buffer (dtype-proto/->buffer (dst-slices idx)) 0 (map-fn (src-slices idx))))
      retval))
-  ([map-fn tensor]
+  ([tensor map-fn]
    (map-axis map-fn tensor -1)))
 
 

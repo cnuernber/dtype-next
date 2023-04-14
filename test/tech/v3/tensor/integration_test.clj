@@ -185,22 +185,22 @@
 (deftest reduce-axis
   (let [src-tens (dtt/->tensor (partition 3 (range 12)))]
     (is (= [18.0 22.0 26.0]
-           (vec (dtt/reduce-axis dfn/sum src-tens 0))))
+           (vec (dtt/reduce-axis src-tens dfn/sum 0))))
     (is (= [3.0 12.0 21.0 30.0]
-           (vec (dtt/reduce-axis dfn/sum src-tens 1)))))
+           (vec (dtt/reduce-axis src-tens dfn/sum 1)))))
   (let [src-tens (dtt/->tensor (partition 3 (partition 5 (range 30))))]
     (is (= [2 3 5]
            (dtype/shape src-tens)))
     (is (dfn/equals (dtt/->tensor [[15.00 17.00 19.00 21.00 23.00]
                                    [25.00 27.00 29.00 31.00 33.00]
                                    [35.00 37.00 39.00 41.00 43.00]])
-                    (dtt/reduce-axis dfn/sum src-tens 0)))
+                    (dtt/reduce-axis src-tens dfn/sum 0)))
     (is (dfn/equals (dtt/->tensor [[15.00 18.00 21.00 24.00 27.00]
                                    [60.00 63.00 66.00 69.00 72.00]])
-                    (dtt/reduce-axis dfn/sum src-tens 1)))
+                    (dtt/reduce-axis src-tens dfn/sum 1)))
     (is (dfn/equals (dtt/->tensor [[10.00 35.00 60.00]
                                    [85.00 110.0 135.0]])
-                    (dtt/reduce-axis dfn/sum src-tens 2)))))
+                    (dtt/reduce-axis src-tens dfn/sum 2)))))
 
 
 (defn array-of-array->tensor

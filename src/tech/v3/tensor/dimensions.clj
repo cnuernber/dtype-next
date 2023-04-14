@@ -195,20 +195,19 @@
 (defn direct?
   "Is this dimension object a direct dimensions meaning the shape has no
   indirect (indexed) access."
-  [{:keys [shape-direct?]}]
-  shape-direct?)
+  [^Dimensions dims]
+  (.-shape-direct? dims))
 
 
 (defn native?
   "Does this dimension object describe packed, in-order access of the underlying data buffer?"
-  [{:keys [native?]}]
-  native?)
+  [^Dimensions dims]
+  (.-native? dims))
 
 
 (defn dense?
   "Do the strides indicate a packed data buffer with no holes.  Currently mapped to native?"
-  [{:keys [native?]}]
-  native?)
+  [dims] (native? dims))
 
 
 (defn indirect?

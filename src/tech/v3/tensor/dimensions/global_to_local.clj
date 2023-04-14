@@ -46,7 +46,7 @@
     (if (== dim (unchecked-dec n-dim))
       (if (number? shape)
         (let [shape (long shape)]
-          (fn [^IFn$OLO rfn acc v sidx eidx]
+          (fn constant-shape-reducer [^IFn$OLO rfn acc v sidx eidx]
             (let [v (long v)
                   sidx (long sidx)
                   eidx (long eidx)]
@@ -59,7 +59,7 @@
                   (Reductions/unreduce acc))))))
         (let [^Buffer shape shape
               n-shape (.lsize shape)]
-          (fn [^IFn$OLO rfn acc v sidx eidx]
+          (fn indirect-shape-reducer [^IFn$OLO rfn acc v sidx eidx]
             (let [v (long v)
                   sidx (long sidx)
                   eidx (long eidx)]
@@ -77,7 +77,7 @@
             max-shape-stride (aget max-shape-strides dim)]
         (let [^Buffer sbuf (if (number? shape) nil shape)
               n-shape (long (if (number? shape) shape (.lsize sbuf)))]
-          (fn [rfn acc v sidx eidx]
+          (fn mid-shape-reducer [rfn acc v sidx eidx]
             (let [v (long v)
                   sidx (long sidx)
                   eidx (long eidx)]
@@ -134,42 +134,70 @@
                   (recur (pmath/inc dim) (pmath/+ result local-val)))
                 result))))
         (let [reducer (dim-reducer 0 shape strides max-shape-strides)]
-          (reify
-            LongReader
-            (lsize [rdr] n-elems)
-            (readLong [rdr idx]
-              (loop [dim 0
-                     result 0]
-                (if (< dim n-dims)
-                  (let [idx (pmath// idx (aget max-shape-strides dim))
-                        shape-val (aget shape dim)
-                        stride (aget strides dim)
-                        local-val (if (number? shape-val)
-                                    (-> (pmath/rem idx (long shape-val))
-                                        (pmath/* stride))
-                                    (-> (.readLong ^Buffer shape-val
-                                                   (pmath/rem idx
-                                                              (.lsize ^Buffer shape-val)))
-                                        (pmath/* stride)))]
-                    (recur (pmath/inc dim) (pmath/+ result local-val)))
-                  result)))
-            (subBuffer [rdr sidx eidx]
-              (ChunkedList/sublistCheck sidx eidx n-elems)
-              (let [sne (- eidx sidx)]
-                (reify LongReader
-                  (lsize [rr] sne)
-                  (readLong [rr idx] (.readLong rdr (+ idx sidx)))
-                  (subBuffer [rr ssidx seidx]
-                    (ChunkedList/sublistCheck ssidx seidx sne)
-                    (.subBuffer rdr (+ sidx ssidx) (+ sidx seidx)))
-                  (reduce [rr rfn init]
-                    (.longReduction rdr (Transformables/toLongReductionFn rfn) init
-                                    sidx eidx)))))
-            (reduce [this rfn init]
-              (.longReduction this (Transformables/toLongReductionFn rfn) init 0 n-elems))
-            SubRangeLongReduction
-            (longReduction [this rfn init sidx eidx]
-              (reducer rfn init 0 sidx eidx))))))
+          ;;Catch common case of 1 dimensional vector with a number for the shape as opposed to
+          ;;a list of indexes
+          (if (and (== n-dims 1)
+                   (number? (aget shape 0)))
+            (let [shape-val (long (aget shape 0))
+                  stride (aget strides 0)]
+              (reify
+                LongReader
+                (lsize [rdr] n-elems)
+                (readLong [rdr idx]
+                  (-> (pmath/rem idx (long shape-val)) (pmath/* stride)))
+                (subBuffer [rdr sidx eidx]
+                  (ChunkedList/sublistCheck sidx eidx n-elems)
+                  (let [sne (- eidx sidx)]
+                    (reify LongReader
+                      (lsize [rr] sne)
+                      (readLong [rr idx] (.readLong rdr (+ idx sidx)))
+                      (subBuffer [rr ssidx seidx]
+                        (ChunkedList/sublistCheck ssidx seidx sne)
+                        (.subBuffer rdr (+ sidx ssidx) (+ sidx seidx)))
+                      (reduce [rr rfn init]
+                        (.longReduction rdr (Transformables/toLongReductionFn rfn) init
+                                        sidx eidx)))))
+                (reduce [this rfn init]
+                  (.longReduction this (Transformables/toLongReductionFn rfn) init 0 n-elems))
+                SubRangeLongReduction
+                (longReduction [this rfn init sidx eidx]
+                  (reducer rfn init 0 sidx eidx))))
+            (reify
+              LongReader
+              (lsize [rdr] n-elems)
+              (readLong [rdr idx]
+                (loop [dim 0
+                       result 0]
+                  (if (< dim n-dims)
+                    (let [idx (pmath// idx (aget max-shape-strides dim))
+                          shape-val (aget shape dim)
+                          stride (aget strides dim)
+                          local-val (if (number? shape-val)
+                                      (-> (pmath/rem idx (long shape-val))
+                                          (pmath/* stride))
+                                      (-> (.readLong ^Buffer shape-val
+                                                     (pmath/rem idx
+                                                                (.lsize ^Buffer shape-val)))
+                                          (pmath/* stride)))]
+                      (recur (pmath/inc dim) (pmath/+ result local-val)))
+                    result)))
+              (subBuffer [rdr sidx eidx]
+                (ChunkedList/sublistCheck sidx eidx n-elems)
+                (let [sne (- eidx sidx)]
+                  (reify LongReader
+                    (lsize [rr] sne)
+                    (readLong [rr idx] (.readLong rdr (+ idx sidx)))
+                    (subBuffer [rr ssidx seidx]
+                      (ChunkedList/sublistCheck ssidx seidx sne)
+                      (.subBuffer rdr (+ sidx ssidx) (+ sidx seidx)))
+                    (reduce [rr rfn init]
+                      (.longReduction rdr (Transformables/toLongReductionFn rfn) init
+                                      sidx eidx)))))
+              (reduce [this rfn init]
+                (.longReduction this (Transformables/toLongReductionFn rfn) init 0 n-elems))
+              SubRangeLongReduction
+              (longReduction [this rfn init sidx eidx]
+                (reducer rfn init 0 sidx eidx)))))))
     (catch Throwable e
       (log/errorf e "Failed to produce idx->addr fn for reduced dimensions %s"
                   (pr-str reduced-dims))
