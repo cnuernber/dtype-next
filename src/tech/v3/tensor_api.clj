@@ -1367,7 +1367,7 @@ user> (dtt/map-axis t center-1d -2)
        (.fillRange ^Buffer (dtype-proto/->buffer (dst-slices idx)) 0 (map-fn (src-slices idx))))
      retval))
   ([tensor map-fn]
-   (map-axis map-fn tensor -1)))
+   (map-axis tensor map-fn -1)))
 
 
 (comment
