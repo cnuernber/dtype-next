@@ -1,3 +1,6 @@
+## 10.000-beta-49
+ * Major fix to ham-fisted's hashtables.  This should be considered a must-have upgrade.
+
 ## 10.000-beta-47
  * tensor `reduce-axis` and `map-axis` have had their argument order changed to be tensor-first as this
    allows a nice `->` application.
