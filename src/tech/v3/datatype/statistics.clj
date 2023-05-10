@@ -415,8 +415,9 @@
   nan-strategy can be one of [:keep :remove :exception] and defaults to :exception."
   (^Buffer [percentages options data]
    (let [ary-buf (dtype-cmc/->array-buffer :float64 options data)
-         p (doto (Percentile.)
-             (.withEstimationType (options->percentile-estimation-strategy options))
+         p (doto (.withEstimationType
+                  (Percentile.)
+                  (options->percentile-estimation-strategy options))
              (.setData ^doubles (.ary-data ary-buf) (.offset ary-buf)
                        (.n-elems ary-buf)))]
      (dtype-base/->reader (mapv #(.evaluate p (double %)) percentages))))
