@@ -2,7 +2,7 @@
   (:require [tech.v3.datatype :as dtype]
             [tech.v3.datatype.statistics :as stats]
             [tech.v3.datatype.functional :as dfn]
-            [clojure.test :refer [deftest is]]
+            [clojure.test :refer [deftest is testing]]
             [clojure.data :as cdata]
             [clojure.pprint :as pp]
             [clojure.edn :as edn]))
@@ -33,7 +33,17 @@
          (stats/quartiles test-data)))
     (let [test-fn (stats/quartile-outlier-fn test-data)]
       (is (= [true false false true]
-             (mapv test-fn [-100 15 50 100]))))))
+             (mapv test-fn [-100 15 50 100])))))
+  (testing "an :estimation-type option can be specified"
+    (let [percentiles [25 50 75]
+          data [1 2 3 4 10]]
+      (is (= [1.5 3.0 7.0]
+             (stats/percentiles percentiles data)))
+      (is (= [1.5 3.0 7.0]
+             (stats/percentiles percentiles {:estimation-type :legacy} data)))
+      (is (= [2.0 3.0 4.0]
+             (stats/percentiles percentiles {:estimation-type :r1} data))))))
+
 
 (deftest nan-min-max
   (let [test-data (double-array (edn/read-string (slurp "test/data/double-data.edn")))
