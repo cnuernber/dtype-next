@@ -104,8 +104,8 @@ user> (dtt/compute-tensor [2 2 2] (fn [& args] (vec args)) :object)
 ```"
   ([shape per-pixel-op datatype]
   (tech.v3.tensor-api/compute-tensor shape per-pixel-op datatype))
-  ([output-shape per-pixel-op]
-  (tech.v3.tensor-api/compute-tensor output-shape per-pixel-op)))
+  ([shape per-pixel-op]
+  (tech.v3.tensor-api/compute-tensor shape per-pixel-op)))
 
 
 (defn const-tensor
@@ -509,5 +509,3 @@ user> (dtt/transpose tensor [1 2 0])
   `(tech.v3.tensor-api/typed-compute-tensor ~advertised-datatype ~rank ~shape ~op-code-args ~op-code))
   ([advertised-datatype shape op-code-args op-code]
   `(tech.v3.tensor-api/typed-compute-tensor ~advertised-datatype ~shape ~op-code-args ~op-code)))
-
-
