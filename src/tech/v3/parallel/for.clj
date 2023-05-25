@@ -136,7 +136,7 @@
   `(let [num-iters# (long ~num-iters)]
      (->> (hamf/upgroups
            num-iters#
-           (fn [^long sidx# ^long eidx#]
+           (fn [^{:tag ~'long} sidx# ^{:tag ~'long} eidx#]
              (let [glen# (- eidx# sidx#)]
                (dotimes [idx# glen#]
                  (let [~idx-var (+ idx# sidx#)]
