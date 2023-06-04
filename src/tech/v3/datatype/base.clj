@@ -312,7 +312,7 @@
 tech.v3.tensor.integration-test> (def test-tens (dtt/->tensor (->> (range 27)
                                      (partition 3)
                                      (partition 3))
-                                :datatype :float64))
+                                {:datatype :float64}))
 
 #'tech.v3.tensor.integration-test/test-tens
 tech.v3.tensor.integration-test> test-tens
@@ -1043,3 +1043,15 @@ user> (dtt/transpose tensor [1 2 0])
    (let [value (last args)]
      (dtype-proto/mset! t (concat [x y z w] (butlast args)) value)
      t)))
+
+
+(extend-protocol dtype-proto/PClone
+  java.util.HashMap
+  (clone [item] (.clone item))
+  java.util.concurrent.ConcurrentHashMap
+  (clone [item] (java.util.concurrent.ConcurrentHashMap. item))
+  ham_fisted.MutHashTable
+  (clone [item] (.clone item))
+  ham_fisted.LongMutHashTable
+  (clone [item] (.clone item))
+  )

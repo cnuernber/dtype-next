@@ -157,9 +157,6 @@
   (.. img getRaster getDataBuffer))
 
 
-(declare draw-image! as-ubyte-tensor)
-
-
 (extend-type BufferedImage
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [item]
@@ -262,7 +259,7 @@
 (defn as-ubyte-tensor
   "Get the buffered image as a uint8 tensor.  Works for byte and integer-buffer
   backed images."
-  [^BufferedImage img & _options]
+  [^BufferedImage img]
   (let [img-width (.getWidth img)
         img-height (.getHeight img)]
     (->
@@ -329,11 +326,11 @@
   "Draw a source image onto a destination image.  This can be used for scaling,
   cropping, or copying images."
   [^BufferedImage src-img ^BufferedImage dst-image
-   & {:keys [src-x-offset src-y-offset
-             src-rect-width src-rect-height
-             dst-x-offset dst-y-offset
-             dst-rect-width dst-rect-height
-             interpolation-type]}]
+   & [{:keys [src-x-offset src-y-offset
+              src-rect-width src-rect-height
+              dst-x-offset dst-y-offset
+              dst-rect-width dst-rect-height
+              interpolation-type]}]]
   (let [dst-x-offset (long (or dst-x-offset 0))
         dst-y-offset (long (or dst-y-offset 0))
         src-x-offset (long (or src-x-offset 0))
@@ -365,10 +362,11 @@
 
 
 (defn downsample-bilinear
-  "Reduce an image size using bilinear filtering."
-  ^BufferedImage [^BufferedImage src-img & {:keys [dst-img-width
-                                                   dst-img-height
-                                                   dst-img-type]}]
+  "Reduce an image size using bilinear filtering.  This is a buffered-image->buffered->image
+  transformation."
+  ^BufferedImage [^BufferedImage src-img & [{:keys [dst-img-width
+                                                    dst-img-height
+                                                    dst-img-type]}]]
   (let [src-img-width (.getWidth src-img)
         src-img-height (.getHeight src-img)
         dst-img-width (long (or dst-img-width
@@ -377,11 +375,10 @@
                                  (quot src-img-height 2)))
         dst-img-type (or dst-img-type (image-type src-img))
         resized (new-image dst-img-height dst-img-width dst-img-type)]
-    (draw-image! src-img resized
-                 :src-rect-width src-img-width
-                 :src-rect-height src-img-height
-                 :dst-rect-width dst-img-width
-                 :dst-rect-height dst-img-height
+    (draw-image! src-img resized {:src-rect-width src-img-width
+                                  :src-rect-height src-img-height
+                                  :dst-rect-width dst-img-width
+                                  :dst-rect-height dst-img-height}
                  :interpolation-type :bilinear)))
 
 
@@ -404,11 +401,11 @@
                                 :bilinear
                                 :nearest))]
     (draw-image! src-img retval
-                 :src-rect-width src-width
-                 :src-rect-height src-height
-                 :dst-rect-width new-width
-                 :dst-rect-height new-height
-                 :interpolation-type resize-algorithm)))
+                 {:src-rect-width src-width
+                  :src-rect-height src-height
+                  :dst-rect-width new-width
+                  :dst-rect-height new-height
+                  :interpolation-type resize-algorithm})))
 
 (defn clone
   "Clone an image into a new buffered image."

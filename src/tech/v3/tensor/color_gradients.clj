@@ -80,6 +80,10 @@ function returned: %s"
    If data-min, data-max aren't provided they are found in the data.
    A buffered image is returned.
 
+
+  **10.000 - Note that this function now takes an option map as opposed to a variable number of option
+  arguments.**
+
   src-tens - Source tensor whose shape determines the shape of the final image.
 
   gradient-name -  may be a keyword, in which it must be a key in @gradient-map and
@@ -117,12 +121,12 @@ function returned: %s"
 
 
 
-  [src-tens gradient-name & {:keys [data-min data-max
-                                    alpha?
-                                    check-invalid?
-                                    invert-gradient?
-                                    gradient-default-n]
-                             :or {gradient-default-n 200}}]
+  [src-tens gradient-name & [{:keys [data-min data-max
+                                     alpha?
+                                     check-invalid?
+                                     invert-gradient?
+                                     gradient-default-n]
+                              :or {gradient-default-n 200}}]]
   (let [src-tens (dtt/ensure-tensor src-tens)
         img-shape (dtype/shape src-tens)
         {data-min :min
@@ -216,10 +220,10 @@ function returned: %s"
 (defn colorize->clj
   "Same as colorize but returns a ND sequence of [b g r] persistent vectors.
   For options, see documentation in colorize."
-  [src-tens gradient-name & options]
+  [src-tens gradient-name & [options]]
   (when (seq src-tens)
     (let [src-dims (dtype/shape src-tens)]
-      (-> (apply colorize src-tens gradient-name options)
+      (-> (colorize src-tens gradient-name options)
           ;;In case of 1d.  colorize always returns buffered image which is always
           ;;2d.
           (dtt/reshape (concat src-dims [3]))

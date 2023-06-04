@@ -694,8 +694,14 @@ tech.v3.datatype.functional> (meta regressor)
 (defn quartile-outlier-fn
   "Create a function that, given floating point data, will return true or false
   if that data is an outlier.  Default range mult is 1.5:
+
+```clojure
   (or (< val (- q1 (* range-mult iqr)))
-      (> val (+ q3 (* range-mult iqr)))"
+      (> val (+ q3 (* range-mult iqr)))
+```
+
+  Options:
+  * `:range-mult` - the multiplier used."
   ([item & args]
   (apply tech.v3.datatype.statistics/quartile-outlier-fn item args)))
 

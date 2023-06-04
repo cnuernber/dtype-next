@@ -106,7 +106,7 @@
   ;; to get buffer descriptors from nio buffers if they are direct mapped.
   (let [test-tensor (dtt/->tensor (->> (range 9)
                                        (partition 3))
-                                  :datatype :float64)]
+                                  {:datatype :float64})]
     (is (not (dtype/as-nd-buffer-descriptor test-tensor)))
     (is (-> (dtt/ensure-nd-buffer-descriptor test-tensor)
             :ptr))
@@ -151,7 +151,7 @@
 
 (deftest tensor-destructure
   (let [[a b c] (first (dtt/->tensor (partition 3 (range 9))
-                                      :datatype :int64))]
+                                     {:datatype :int64}))]
     (is (= [a b c]
            [0 1 2]))))
 
@@ -162,7 +162,7 @@
     (is (= [[0 1 2] [256 257 258] [512 513 514]]
            (-> sel-tens
                ;; set the type to something we can test against
-               (dtt/clone :datatype :int32)
+               (dtt/clone {:datatype :int32})
                (dtt/->jvm))))))
 
 
@@ -235,7 +235,7 @@
   (let [test-tens (dtt/->tensor (->> (range 27)
                                      (partition 3)
                                      (partition 3))
-                                :datatype :float64)
+                                {:datatype :float64})
         sv-tens (dtt/reshape (double-array [1 2 3]) [3 1])
         tt1 (dtype/set-value! (dtype/clone test-tens) [:all :all (range 2)] 0)
         ;;broadcast test

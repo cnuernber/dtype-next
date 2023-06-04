@@ -456,7 +456,7 @@
 (dtype-pp/implement-tostring-print DirectTensor)
 
 
-(defn construct-tensor
+(defn ^:no-doc construct-tensor
   "Construct an implementation of tech.v3.datatype.NDBuffer from a buffer and
   a dimensions object.  See dimensions/dimensions."
   ^NDBuffer [buffer dimensions & [metadata]]
@@ -535,6 +535,9 @@
   type can be specified.  The datatype defaults to the datatype of the input data and container
   type defaults to jvm-heap.
 
+  **10.000 - Note that this function now takes an option map as opposed to a variable number of option
+  arguments.**
+
   Options:
 
   * `:datatype` - Data of the storage.  Defaults to the datatype of the passed-in data.
@@ -542,8 +545,8 @@
     `:jvm-heap`.
   * `:resource-type` - One of `tech.v3.resource/track` `:track-type` options.  If allocating
      native tensors, `nil` corresponds to `:gc:`."
-  ^NDBuffer [data & {:keys [datatype container-type]
-                     :as options}]
+  ^NDBuffer [data & [{:keys [datatype container-type]
+                      :as options}]]
   (let [data-shape (dtype-base/shape data)
         datatype (if (dtype-base/array? data)
                    (dtype-base/nested-array-elemwise-datatype data)
@@ -572,6 +575,9 @@
 
 (defn new-tensor
   "Create a new tensor with a given shape.
+
+  **10.000 - Note that this function now takes an option map as opposed to a variable number of option
+  arguments.**
 
   Options:
 
@@ -693,6 +699,9 @@
   "Clone a tensor via copying the tensor into a new container.  Datatype defaults
   to the datatype of the tensor and container-type defaults to `:java-heap`.
 
+  **10.000 - Note that this function now takes an option map as opposed to a variable number of option
+  arguments.**
+
   Options:
 
   * `:datatype` - Specify a new datatype to copy data into.
@@ -700,9 +709,9 @@
      Defaults to `:jvm-heap`.
     * `:resource-type` - One of `tech.v3.resource/track` `:track-type` options.  If allocating
      native tensors, `nil` corresponds to `gc:`."
-  ^NDBuffer [tens & {:keys [datatype]
-                     :or {datatype (dtype-base/elemwise-datatype tens)}
-                     :as options}]
+  ^NDBuffer [tens & [{:keys [datatype]
+                      :or {datatype (dtype-base/elemwise-datatype tens)}
+                      :as options}]]
   (dtype-cmc/copy! tens (apply new-tensor (dtype-base/shape tens)
                                (->> (assoc options :datatype datatype)
                                     (seq)
@@ -710,10 +719,14 @@
 
 
 (defn ->jvm
-  "Conversion to storage that is efficient for the jvm.
-  Base storage is either jvm-array or persistent-vector."
-  [item & {:keys [datatype base-storage]
-           :or {base-storage :persistent-vector}}]
+  "Conversion to storage that structurally represented the tensor so for exampe
+  a [2 2] tensor will be of the form [[1 2][3 4]].
+  Base storage is either jvm-array or persistent-vector.
+
+  **10.000 - Note that this function now takes an option map as opposed to a variable number of option
+  arguments.**"
+  [item & [{:keys [datatype base-storage]
+            :or {base-storage :persistent-vector}}]]
   ;;Get the data off the device
   (let [item-shape (dtype-base/shape item)
         item-ecount (dtype-base/ecount item)
@@ -758,7 +771,7 @@
   (let [tens (ensure-tensor tens)]
     (if (dtype-proto/convertible-to-nd-buffer-desc? tens)
       (dtype-proto/->nd-buffer-descriptor tens)
-      (-> (clone tens :container-type :native-heap)
+      (-> (clone tens {:container-type :native-heap})
           dtype-proto/->nd-buffer-descriptor))))
 
 
@@ -1248,7 +1261,7 @@ user> (dtt/compute-tensor [2 2 2] (fn [& args] (vec args)) :object)
 Example:
 
 ```clojure
-user> (def t (dtt/->tensor (partition 3 (range 12)) :datatype :float64))
+user> (def t (dtt/->tensor (partition 3 (range 12)) {:datatype :float64}))
 #'user/t
 user> t
 #tech.v3.tensor<float64>[4 3]

@@ -291,7 +291,7 @@ Finally - on my favorite topic, efficiency, dtype-next has extremely fast copies
 (defn c->string
   "Convert a zero-terminated c-string to a java string.  See documentation for
   `string->c` for encodings."
-  ^String [data & [encoding]]
+  ^String [data & [{:keys [encoding]}]]
   (let [ptr-data (->pointer data)]
     (if (== 0 (.address ptr-data))
       nil

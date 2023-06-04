@@ -6,13 +6,13 @@
 
 (defn ->jvm-flatten
   [tensor]
-  (-> (tens/->jvm tensor :datatype :int32)
+  (-> (tens/->jvm tensor {:datatype :int32})
       flatten))
 
 
 (deftest select-test
   (let [mat-tens (tens/->tensor (repeat 2 (partition 3 (range 9)))
-                                :datatype :int32)]
+                                {:datatype :int32})]
     (let [sel-tens (tens/select mat-tens :all :all [1 2])]
       (is (= (vec (flatten (repeat 2 [1 2 4 5 7 8])))
              (->jvm-flatten sel-tens)))

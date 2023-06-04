@@ -22,8 +22,12 @@
             [tech.v3.datatype.base]))
 
 (defn ->jvm
-  "Conversion to storage that is efficient for the jvm.
-  Base storage is either jvm-array or persistent-vector."
+  "Conversion to storage that structurally represented the tensor so for exampe
+  a [2 2] tensor will be of the form [[1 2][3 4]].
+  Base storage is either jvm-array or persistent-vector.
+
+  **10.000 - Note that this function now takes an option map as opposed to a variable number of option
+  arguments.**"
   ([item & args]
   (apply tech.v3.tensor-api/->jvm item args)))
 
@@ -32,6 +36,9 @@
   "Convert some data into a tensor via copying the data.  The datatype and container
   type can be specified.  The datatype defaults to the datatype of the input data and container
   type defaults to jvm-heap.
+
+  **10.000 - Note that this function now takes an option map as opposed to a variable number of option
+  arguments.**
 
   Options:
 
@@ -63,6 +70,9 @@
 (defn clone
   "Clone a tensor via copying the tensor into a new container.  Datatype defaults
   to the datatype of the tensor and container-type defaults to `:java-heap`.
+
+  **10.000 - Note that this function now takes an option map as opposed to a variable number of option
+  arguments.**
 
   Options:
 
@@ -104,8 +114,8 @@ user> (dtt/compute-tensor [2 2 2] (fn [& args] (vec args)) :object)
 ```"
   ([shape per-pixel-op datatype]
   (tech.v3.tensor-api/compute-tensor shape per-pixel-op datatype))
-  ([shape per-pixel-op]
-  (tech.v3.tensor-api/compute-tensor shape per-pixel-op)))
+  ([output-shape per-pixel-op]
+  (tech.v3.tensor-api/compute-tensor output-shape per-pixel-op)))
 
 
 (defn const-tensor
@@ -272,6 +282,9 @@ user> (dtt/map-axis t center-1d -2)
 (defn new-tensor
   "Create a new tensor with a given shape.
 
+  **10.000 - Note that this function now takes an option map as opposed to a variable number of option
+  arguments.**
+
   Options:
 
   * `:datatype` - Data of the storage.  Defaults to `:float64`.
@@ -298,7 +311,7 @@ user> (dtt/map-axis t center-1d -2)
 Example:
 
 ```clojure
-user> (def t (dtt/->tensor (partition 3 (range 12)) :datatype :float64))
+user> (def t (dtt/->tensor (partition 3 (range 12)) {:datatype :float64}))
 #'user/t
 user> t
 #tech.v3.tensor<float64>[4 3]
@@ -509,3 +522,5 @@ user> (dtt/transpose tensor [1 2 0])
   `(tech.v3.tensor-api/typed-compute-tensor ~advertised-datatype ~rank ~shape ~op-code-args ~op-code))
   ([advertised-datatype shape op-code-args op-code]
   `(tech.v3.tensor-api/typed-compute-tensor ~advertised-datatype ~shape ~op-code-args ~op-code)))
+
+

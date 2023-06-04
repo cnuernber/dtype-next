@@ -8,10 +8,10 @@
 
 (deftest various-nippy
   (let [jvm-tens (dtt/->tensor (partition 3 (range 9))
-                               :datatype :float64)
+                               {:datatype :float64})
         native-tens (dtt/->tensor (partition 3 (range 9))
-                                  :datatype :float64
-                                  :container-type :native-heap)
+                                  {:datatype :float64
+                                   :container-type :native-heap})
         nippy-data (nippy/freeze [jvm-tens native-tens])
         [test-jvm-tens test-native-tens] (nippy/thaw nippy-data)]
     (is (dfn/equals jvm-tens native-tens))

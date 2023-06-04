@@ -436,9 +436,15 @@
 (defn quartile-outlier-fn
   "Create a function that, given floating point data, will return true or false
   if that data is an outlier.  Default range mult is 1.5:
+
+```clojure
   (or (< val (- q1 (* range-mult iqr)))
-      (> val (+ q3 (* range-mult iqr)))"
-  [item & [range-mult]]
+      (> val (+ q3 (* range-mult iqr)))
+```
+
+  Options:
+  * `:range-mult` - the multiplier used."
+  [item & [{:keys [range-mult]}]]
   (let [[q1 q3] (percentiles [25 75] item)
         q1 (double q1)
         q3 (double q3)

@@ -42,7 +42,7 @@
                      ;;correlate doesn' involve reversing the window
                      (dt-conv/correlate1d data window (merge {:mode :same} options))))
                  widths)
-      (dtt/->tensor :datatype :float64))))
+      (dtt/->tensor {:datatype :float64}))))
   ([data wavelet-fn widths]
    (cwt data wavelet-fn widths nil)))
 

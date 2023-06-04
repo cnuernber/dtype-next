@@ -22,11 +22,11 @@
                                  [  0  0  0   0]
                                  [255 42 34 209]])
                   (-> (cgrad/colorize test-nan-tens :temperature-map
-                                      :alpha? true
-                                      :check-invalid? true
-                                      :invert-gradient? true
-                                      :data-min 0
-                                      :data-max 512)
+                                      {:alpha? true
+                                       :check-invalid? true
+                                       :invert-gradient? true
+                                       :data-min 0
+                                       :data-max 512})
                       (dtt/select 0 (range 4) :all)))))
 
 

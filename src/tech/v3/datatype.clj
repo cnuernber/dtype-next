@@ -584,7 +584,7 @@ user> (dtype/make-reader :float32 5 (* idx 2))
 tech.v3.tensor.integration-test> (def test-tens (dtt/->tensor (->> (range 27)
                                      (partition 3)
                                      (partition 3))
-                                :datatype :float64))
+                                {:datatype :float64}))
 
 #'tech.v3.tensor.integration-test/test-tens
 tech.v3.tensor.integration-test> test-tens
