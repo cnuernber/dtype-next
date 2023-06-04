@@ -169,7 +169,8 @@
 
 
 (defn iter-fn
-  "Create a non threadsafe clojure fn that will iterate the iterator."
+  "Create a non threadsafe clojure fn that will iterate the iterator.  Once iterator is exhausted further
+  invocations of the function will return nil."
   [item]
   (let [iter (pfor/->iterator item)]
     (fn []
