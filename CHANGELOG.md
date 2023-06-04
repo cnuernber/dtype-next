@@ -1,3 +1,7 @@
+## 10.000-beta-50
+ * MAJOR API CHANGES - last before 10.000 release!!
+   * See [issue-82](https://github.com/cnuernber/dtype-next/issues/82).
+
 ## 10.000-beta-49
  * Major fix to ham-fisted's hashtables.  This should be considered a must-have upgrade.
 
