@@ -146,13 +146,16 @@
           (apply dims/select (.dimensions t) select-args)
           buffer (or (.buffer t) (.bufferIO t))
           buf-offset (long buf-offset)
-          new-buffer (if-not (and (== buf-offset 0)
-                                  (or (not buf-len)
-                                      (== (dtype-base/ecount buffer) (long buf-len))))
-                       (if buf-len
-                         (dtype-base/sub-buffer buffer buf-offset buf-len)
-                         (dtype-base/sub-buffer buffer buf-offset))
-                       buffer)]
+          ;; _ (println "buflen" buf-len)
+          new-buffer (if (and buf-len (== 0 (long buf-len)))
+                       buffer
+                       (if-not (and (== buf-offset 0)
+                                    (or (not buf-len)
+                                        (== (dtype-base/ecount buffer) (long buf-len))))
+                         (if (and buf-len (not= 0 buf-len))
+                           (dtype-base/sub-buffer buffer buf-offset buf-len)
+                           (dtype-base/sub-buffer buffer buf-offset))
+                         buffer))]
     (construct-tensor new-buffer new-dims (meta t))))
   (transpose [t transpose-vec]
     (construct-tensor (or (.buffer t)

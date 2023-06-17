@@ -20,8 +20,9 @@
   "Finds the longest string length of each column in an array of Strings."
   [m]
   (let [item-shape (dtype-base/shape m)
-        n-dims (count item-shape)]
-    (if (> n-dims 1)
+        n-dims (count item-shape)
+        ec (dtype-base/ecount m)]
+    (if (and (> ec 0) (> n-dims 1))
       (let [n-cols (last item-shape)]
         (->> (range n-cols)
              (mapv (fn [col-idx]
@@ -30,7 +31,7 @@
                                                       [col-idx]))
                           dtype-base/->reader
                           (map #(.length ^String %))
-                          (apply max))))))
+                          (apply max 0))))))
       (mapv #(.length ^String %) (dtype-base/->reader m)))))
 
 

@@ -240,7 +240,7 @@
          (let [^Buffer select-arg (if (= select-arg :lla)
                                     (dtype-range/reverse-range n-elems)
                                     (dimension->reader select-arg))
-               n-select-arg (.lsize select-arg)]
+               n-select-arg (long (dtype-proto/ecount select-arg))]
            (if (dtype-proto/convertible-to-range? select-arg)
              (let [select-arg (dtype-proto/->range select-arg {})]
                (if (dtype-proto/convertible-to-range? dim)

@@ -276,3 +276,16 @@
         src-tens (dtt/mset! src-tens [0x20 0x20 0x20 0xFF])]
     (is (= [0x20 0x20 0x20 0xFF]
            (vec (dtt/mget src-tens 0 0))))))
+
+
+(deftest select-lla
+  (is (= [9 8 7 6 5 4 3 2 1 0] (vec (dtt/select (range 10) :lla)))))
+
+(deftest zero-dims
+  (let [a (dtt/new-tensor [10 0 10])]
+    (is (= [10 0 10] (dtype/shape a)))
+    (is (= [0 10] (dtype/shape (dtt/select a 2))))
+    (is (= [0 10] (dtype/shape (dtt/select a 2 :all))))
+    (is (= [0 10] (dtype/shape (dtt/select a 2 :lla))))
+    (is (= [0] (dtype/shape (dtt/select a 2 :all 4))))
+    (is (= [2 0 3] (dtype/shape (dtt/select a (range 2 4) :all (range 6 9)))))))

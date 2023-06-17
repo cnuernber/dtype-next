@@ -3,6 +3,7 @@
             [tech.v3.datatype.index-algebra :as idx-alg]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.tensor.dimensions.shape :as shape]
+            [ham-fisted.api :as hamf]
             [clj-commons.primitive-math :as pmath])
   (:import [java.util List]))
 
@@ -185,27 +186,32 @@
 
 
 (defn buffer-ecount
-  "Return a minimum buffer element count of possible."
+  "Return a minimum buffer element count if possible."
   [shape strides]
   (let [n-dims (count shape)
         ^List shape shape
         ^List strides strides]
     (loop [idx 0
            buffer-length (Long. 1)]
-      (if (< idx n-dims)
+      (if (and (not (nil? buffer-length))
+               (> (long buffer-length) 0)
+               (< idx n-dims))
         (let [new-shape-val (.get shape idx)
               stride-val (long (.get strides idx))
-              [cmin cmax :as mmax]
+              buffer-length
               (cond
                 (number? new-shape-val)
-                [0 (dec (long new-shape-val))]
+                (if (== 0 (long new-shape-val))
+                  0
+                  (+ (long buffer-length) (* stride-val (dec (long new-shape-val)))))
+                (hamf/empty? new-shape-val)
+                0
                 (dtype-proto/has-constant-time-min-max? new-shape-val)
-                [(long (dtype-proto/constant-time-min new-shape-val))
-                 (long (dtype-proto/constant-time-max new-shape-val))])
-              buffer-length (when (and buffer-length mmax)
-                              (+ (long buffer-length)
-                                 (* stride-val
-                                    (- (long cmax) (long cmin)))))]
+                (let [cmin (long (dtype-proto/constant-time-min new-shape-val))
+                      cmax (long (dtype-proto/constant-time-max new-shape-val))]
+                  (+ (long buffer-length)
+                     (* stride-val
+                        (- (long cmax) (long cmin))))))]
           (recur (unchecked-inc idx) buffer-length))
         buffer-length))))
 
