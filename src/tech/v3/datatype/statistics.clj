@@ -174,7 +174,7 @@
   in a double predicate to filter custom double values."
   ([stats-names stats-data {:keys [nan-strategy]
                             :or {nan-strategy :remove}
-                            :as options} src-rdr]
+                            :as options} x]
    (let [stats-set (hamf/immut-set stats-names)
          stats-data (or stats-data {})
          median? (stats-set :median)
@@ -183,7 +183,7 @@
          percentile? (some stats-set percentile-set)
          percentile-set (set/intersection stats-set percentile-set)
          stats-set (disj (set/difference stats-set percentile-set) :mode)
-         rdr (->> (or (dtype-base/as-reader src-rdr :float64) src-rdr)
+         rdr (->> (or (dtype-base/as-reader x :float64) x)
                   (hamf/apply-nan-strategy options))
          ;;update options to reflect filtering
          options (assoc options :nan-strategy :keep)
@@ -199,7 +199,7 @@
                     rdr))
          stats-data (merge
                      (cond
-                       (or (hamf/empty? src-rdr)
+                       (or (hamf/empty? x)
                            (try (hamf/empty? rdr) (catch Throwable e true)))
                        {:n-elems 0
                         :min ##NaN
@@ -218,7 +218,7 @@
                             :n-elems n-elems})))
                      stats-data)
          stats-data (if mode?
-                      (assoc stats-data :mode (mode src-rdr))
+                      (assoc stats-data :mode (mode x))
                       stats-data)
          provided-keys (hamf-map/keyset stats-data)
          calculate-stats-set (set/difference stats-set provided-keys)
@@ -278,19 +278,19 @@
                    (let [fn-symbol (symbol (name tower-key))]
                      (if (:dependencies tower-node)
                        `(defn ~fn-symbol
-                          (~(with-meta ['data 'options] {:tag 'double})
+                          (~(with-meta ['x 'options] {:tag 'double})
                            (~tower-key (descriptive-statistics #{~tower-key}
                                                                ~'options
-                                                               ~'data)))
-                          (~(with-meta ['data]
+                                                               ~'x)))
+                          (~(with-meta ['x]
                               {:tag 'double})
-                           (~fn-symbol ~'data nil)))
+                           (~fn-symbol ~'x nil)))
                        `(defn ~fn-symbol
-                          (~(with-meta ['data 'options] {:tag 'double})
+                          (~(with-meta ['x 'options] {:tag 'double})
                            (~tower-key (calculate-descriptive-stat
-                                        ~tower-key nil ~'options ~'data)))
-                          (~(with-meta ['data] {:tag 'double})
-                           (~fn-symbol ~'data nil))))))))))
+                                        ~tower-key nil ~'options ~'x)))
+                          (~(with-meta ['x] {:tag 'double})
+                           (~fn-symbol ~'x nil))))))))))
 
 
 (define-descriptive-stats)
@@ -301,94 +301,94 @@
 (defn sum
   "Double sum of data using
   [Kahan compensated summation](https://en.wikipedia.org/wiki/Kahan_summation_algorithm)."
-  (^double [data options]
-   (dtype-reductions/double-summation options data))
-  (^double [data]
-   (sum data nil)))
+  (^double [x options]
+   (dtype-reductions/double-summation options x))
+  (^double [x]
+   (sum x nil)))
 
 
 (defn min
-  (^double [data options]
-   (let [data (dreader data)]
-     (if (hamf/empty? data)
+  (^double [x options]
+   (let [x (dreader x)]
+     (if (hamf/empty? x)
        Double/NaN
        (dtype-reductions/commutative-binary-double
-        (:tech.numerics/min binary-op/builtin-ops) options data))))
-  (^double [data]
-   (min data nil)))
+        (:tech.numerics/min binary-op/builtin-ops) options x))))
+  (^double [x]
+   (min x nil)))
 
 
 (defn max
-  (^double [data options]
-   (let [data (dreader data)]
-     (if (hamf/empty? data)
+  (^double [x options]
+   (let [x (dreader x)]
+     (if (hamf/empty? x)
        Double/NaN
        (dtype-reductions/commutative-binary-double
-        (:tech.numerics/max binary-op/builtin-ops) options data))))
-  (^double [data]
-   (max data nil)))
+        (:tech.numerics/max binary-op/builtin-ops) options x))))
+  (^double [x]
+   (max x nil)))
 
 
 (defn mean
-  "double mean of data"
-  (^double [data options]
-   (let [data (dreader data)]
-     (if (hamf/empty? data)
+  "double mean of x"
+  (^double [x options]
+   (let [x (dreader x)]
+     (if (hamf/empty? x)
        Double/NaN
        (let [{:keys [n-elems sum]} (dtype-reductions/staged-double-consumer-reduction
-                                    :tech.numerics/+ options data)]
+                                    :tech.numerics/+ options x)]
          (pmath// (double sum)
                   (double n-elems))))))
-  (^double [data]
-   (mean data nil)))
+  (^double [x]
+   (mean x nil)))
 
 
 (defn median
-  (^double [data options]
-   (:median (descriptive-statistics [:median] options data)))
-  (^double [data]
-   (:median (descriptive-statistics [:median] data))))
+  (^double [x options]
+   (:median (descriptive-statistics [:median] options x)))
+  (^double [x]
+   (:median (descriptive-statistics [:median] x))))
 
 
 (defn quartile-1
-  (^double[data options]
-   (:quartile-1 (descriptive-statistics [:quartile-1] options data)))
-  (^double [data]
-   (:quartile-1 (descriptive-statistics [:quartile-1] data))))
+  (^double[x options]
+   (:quartile-1 (descriptive-statistics [:quartile-1] options x)))
+  (^double [x]
+   (:quartile-1 (descriptive-statistics [:quartile-1] x))))
 
 
 (defn quartile-3
-  (^double [data options]
-   (:quartile-3 (descriptive-statistics [:quartile-3] options data)))
-  (^double [data]
-   (:quartile-3 (descriptive-statistics [:quartile-3] data))))
+  (^double [x options]
+   (:quartile-3 (descriptive-statistics [:quartile-3] options x)))
+  (^double [x]
+   (:quartile-3 (descriptive-statistics [:quartile-3] x))))
 
 
 (defn pearsons-correlation
-  (^double [options lhs rhs]
+  (^double [options x y]
    (-> (PearsonsCorrelation.)
-       (.correlation (dtype-cmc/->double-array options lhs)
-                     (dtype-cmc/->double-array options rhs))))
-  (^double [lhs rhs]
-   (pearsons-correlation nil lhs rhs)))
+       (.correlation (dtype-cmc/->double-array options x)
+                     (dtype-cmc/->double-array options y))))
+  (^double [x y]
+   (pearsons-correlation nil x y)))
 
 
 (defn spearmans-correlation
-  (^double [options lhs rhs]
+  (^double [options x y]
    (-> (SpearmansCorrelation.)
-       (.correlation (dtype-cmc/->double-array options lhs)
-                     (dtype-cmc/->double-array options rhs))))
-  (^double [lhs rhs]
-   (spearmans-correlation nil lhs rhs)))
+       (.correlation (dtype-cmc/->double-array options x)
+                     (dtype-cmc/->double-array options y))))
+  (^double [x y]
+   (spearmans-correlation nil x y)))
 
 
 (defn kendalls-correlation
-  (^double [options lhs rhs]
+  (^double [options x y]
    (-> (KendallsCorrelation.)
-       (.correlation (dtype-cmc/->double-array options lhs)
-                     (dtype-cmc/->double-array options rhs))))
-  (^double [lhs rhs]
-   (kendalls-correlation nil lhs rhs)))
+       (.correlation (dtype-cmc/->double-array options x)
+                     (dtype-cmc/->double-array options y))))
+  (^double [x y]
+   (kendalls-correlation nil x y)))
 
 
 (defn- options->percentile-estimation-strategy
@@ -413,24 +413,24 @@
   here: https://commons.apache.org/proper/commons-math/javadocs/api-3.3/index.html.
 
   nan-strategy can be one of [:keep :remove :exception] and defaults to :exception."
-  (^Buffer [percentages options data]
-   (let [ary-buf (dtype-cmc/->array-buffer :float64 options data)
+  (^Buffer [percentages options x]
+   (let [ary-buf (dtype-cmc/->array-buffer :float64 options x)
          p (doto (.withEstimationType
                   (Percentile.)
                   (options->percentile-estimation-strategy options))
              (.setData ^doubles (.ary-data ary-buf) (.offset ary-buf)
                        (.n-elems ary-buf)))]
      (dtype-base/->reader (mapv #(.evaluate p (double %)) percentages))))
-  (^Buffer [percentages data]
-   (percentiles percentages nil data)))
+  (^Buffer [percentages x]
+   (percentiles percentages nil x)))
 
 
 (defn quartiles
   "return [min, 25 50 75 max] of item"
-  (^Buffer [item]
-   (percentiles [0.001 25 50 75 100] item))
-  (^Buffer [options item]
-   (percentiles [0.001 25 50 75 100] options item)))
+  (^Buffer [x]
+   (percentiles [0.001 25 50 75 100] x))
+  (^Buffer [options x]
+   (percentiles [0.001 25 50 75 100] options x)))
 
 
 (defn quartile-outlier-fn
@@ -444,12 +444,14 @@
 
   Options:
   * `:range-mult` - the multiplier used."
-  [item & {:keys [range-mult]}]
-  (let [[q1 q3] (percentiles [25 75] item)
+  [x & {:keys [range-mult]}]
+  (let [[q1 q3] (percentiles [25 75] x)
         q1 (double q1)
         q3 (double q3)
         iqr (- q3 q1)
-        range-mult (double (or range-mult 1.5))]
+        range-mult (double (or range-mult 1.5))
+        lowb (- q1 (* range-mult iqr))
+        highb (+ q3 (* range-mult iqr))]
     (hamf-fn/double-predicate
-     x (or (< x (- q1 (* range-mult iqr)))
-           (> x (+ q3 (* range-mult iqr)))))))
+     x (or (< x lowb)
+           (> x highb)))))

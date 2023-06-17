@@ -179,24 +179,24 @@ user> (rolling/fixed-rolling-window (range 20) 5 dfn/sum {:relative-window-posit
 [10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 89 92 94 95]
 user>
 ```"
-  ([item window-size window-fn {:keys [relative-window-position
-                                       edge-mode
-                                       _datatype]
-                                :or {relative-window-position :center
-                                     edge-mode :clamp}
-                                :as options}]
+  ([x window-size window-fn {:keys [relative-window-position
+                                    edge-mode
+                                    _datatype]
+                             :or {relative-window-position :center
+                                  edge-mode :clamp}
+                             :as options}]
    (vectorized-dispatch-1
     (fn [_] (throw (ex-info "Rolling windows aren't defined on scalars" {})))
-    (fn [_res-dtype item]
-      (fixed-reader-rolling-window (vec item) window-size relative-window-position
+    (fn [_res-dtype x]
+      (fixed-reader-rolling-window (vec x) window-size relative-window-position
                                    edge-mode window-fn options))
-    (fn [_result-dtype item]
-      (fixed-reader-rolling-window item window-size relative-window-position
+    (fn [_result-dtype x]
+      (fixed-reader-rolling-window x window-size relative-window-position
                                    edge-mode window-fn options))
     nil
-    item))
-  ([item window-size window-fn]
-   (fixed-rolling-window item window-size window-fn nil)))
+    x))
+  ([x window-size window-fn]
+   (fixed-rolling-window x window-size window-fn nil)))
 
 
 (defn- to-compare-fn

@@ -55,31 +55,31 @@
 
 
 (defn <
-  ([lhs mid rhs]
-  (tech.v3.datatype.functional-api/< lhs mid rhs))
-  ([lhs rhs]
-  (tech.v3.datatype.functional-api/< lhs rhs)))
+  ([x y z]
+  (tech.v3.datatype.functional-api/< x y z))
+  ([x y]
+  (tech.v3.datatype.functional-api/< x y)))
 
 
 (defn <=
-  ([lhs mid rhs]
-  (tech.v3.datatype.functional-api/<= lhs mid rhs))
-  ([lhs rhs]
-  (tech.v3.datatype.functional-api/<= lhs rhs)))
+  ([x y z]
+  (tech.v3.datatype.functional-api/<= x y z))
+  ([x y]
+  (tech.v3.datatype.functional-api/<= x y)))
 
 
 (defn >
-  ([lhs mid rhs]
-  (tech.v3.datatype.functional-api/> lhs mid rhs))
-  ([lhs rhs]
-  (tech.v3.datatype.functional-api/> lhs rhs)))
+  ([x y z]
+  (tech.v3.datatype.functional-api/> x y z))
+  ([x y]
+  (tech.v3.datatype.functional-api/> x y)))
 
 
 (defn >=
-  ([lhs mid rhs]
-  (tech.v3.datatype.functional-api/>= lhs mid rhs))
-  ([lhs rhs]
-  (tech.v3.datatype.functional-api/>= lhs rhs)))
+  ([x y z]
+  (tech.v3.datatype.functional-api/>= x y z))
+  ([x y]
+  (tech.v3.datatype.functional-api/>= x y)))
 
 
 (defn abs
@@ -97,8 +97,8 @@
 
 
 (defn and
-  ([lhs rhs]
-  (tech.v3.datatype.functional-api/and lhs rhs)))
+  ([x y]
+  (tech.v3.datatype.functional-api/and x y)))
 
 
 (defn asin
@@ -186,8 +186,8 @@
 
 
 (defn bit-test
-  ([lhs rhs]
-  (tech.v3.datatype.functional-api/bit-test lhs rhs)))
+  ([x y]
+  (tech.v3.datatype.functional-api/bit-test x y)))
 
 
 (defn bit-xor
@@ -199,10 +199,10 @@
 
 (defn bool-reader->indexes
   "Given a reader, produce a filtered list of indexes filtering out 'false' values."
-  (^{:tag tech.v3.datatype.Buffer} [options bool-item]
-  (tech.v3.datatype.unary-pred/bool-reader->indexes options bool-item))
-  (^{:tag tech.v3.datatype.Buffer} [bool-item]
-  (tech.v3.datatype.unary-pred/bool-reader->indexes bool-item)))
+  (^{:tag tech.v3.datatype.Buffer} [options x]
+  (tech.v3.datatype.unary-pred/bool-reader->indexes options x))
+  (^{:tag tech.v3.datatype.Buffer} [x]
+  (tech.v3.datatype.unary-pred/bool-reader->indexes x)))
 
 
 (defn cbrt
@@ -239,10 +239,10 @@
   Options:
 
   * `:nan-strategy` - one of `:keep`, `:remove`, `:exception`.  Defaults to `:remove`."
-  ([options data]
-  (tech.v3.datatype.functional-api/cummax options data))
-  ([data]
-  (tech.v3.datatype.functional-api/cummax data)))
+  ([x options]
+  (tech.v3.datatype.functional-api/cummax x options))
+  ([x]
+  (tech.v3.datatype.functional-api/cummax x)))
 
 
 (defn cummin
@@ -251,15 +251,10 @@
   Options:
 
   * `:nan-strategy` - one of `:keep`, `:remove`, `:exception`.  Defaults to `:remove`."
-  ([options data]
-  (tech.v3.datatype.functional-api/cummin options data))
-  ([data]
-  (tech.v3.datatype.functional-api/cummin data)))
-
-
-(defn cumop
-  ([options op data]
-  (tech.v3.datatype.functional-api/cumop options op data)))
+  ([x options]
+  (tech.v3.datatype.functional-api/cummin x options))
+  ([x]
+  (tech.v3.datatype.functional-api/cummin x)))
 
 
 (defn cumprod
@@ -268,10 +263,10 @@
   Options:
 
   * `:nan-strategy` - one of `:keep`, `:remove`, `:exception`.  Defaults to `:remove`."
-  ([options data]
-  (tech.v3.datatype.functional-api/cumprod options data))
-  ([data]
-  (tech.v3.datatype.functional-api/cumprod data)))
+  ([x options]
+  (tech.v3.datatype.functional-api/cumprod x options))
+  ([x]
+  (tech.v3.datatype.functional-api/cumprod x)))
 
 
 (defn cumsum
@@ -280,10 +275,10 @@
   Options:
 
   * `:nan-strategy` - one of `:keep`, `:remove`, `:exception`.  Defaults to `:remove`."
-  ([options data]
-  (tech.v3.datatype.functional-api/cumsum options data))
-  ([data]
-  (tech.v3.datatype.functional-api/cumsum data)))
+  ([x options]
+  (tech.v3.datatype.functional-api/cumsum x options))
+  ([x]
+  (tech.v3.datatype.functional-api/cumsum x)))
 
 
 (defn descriptive-statistics
@@ -298,8 +293,8 @@
     [:keep :remove :exception]. The fastest option is :keep but this
     may result in your results having NaN's in them.  You can also pass
   in a double predicate to filter custom double values."
-  ([stats-names stats-data options src-rdr]
-  (tech.v3.datatype.statistics/descriptive-statistics stats-names stats-data options src-rdr))
+  ([stats-names stats-data options x]
+  (tech.v3.datatype.statistics/descriptive-statistics stats-names stats-data options x))
   ([stats-names options rdr]
   (tech.v3.datatype.statistics/descriptive-statistics stats-names options rdr))
   ([stats-names rdr]
@@ -309,35 +304,35 @@
 
 
 (defn distance
-  (^{:tag double} [lhs rhs]
-  (tech.v3.datatype.functional-api/distance lhs rhs)))
+  (^{:tag double} [x y]
+  (tech.v3.datatype.functional-api/distance x y)))
 
 
 (defn distance-squared
-  (^{:tag double} [lhs rhs]
-  (tech.v3.datatype.functional-api/distance-squared lhs rhs)))
+  (^{:tag double} [x y]
+  (tech.v3.datatype.functional-api/distance-squared x y)))
 
 
 (defn dot-product
-  (^{:tag double} [lhs rhs]
-  (tech.v3.datatype.functional-api/dot-product lhs rhs)))
+  (^{:tag double} [x y]
+  (tech.v3.datatype.functional-api/dot-product x y)))
 
 
 (defn eq
-  ([lhs rhs]
-  (tech.v3.datatype.functional-api/eq lhs rhs)))
+  ([x y]
+  (tech.v3.datatype.functional-api/eq x y)))
 
 
 (defn equals
-  ([lhs rhs & args]
-  (apply tech.v3.datatype.functional-api/equals lhs rhs args)))
+  ([x y & args]
+  (apply tech.v3.datatype.functional-api/equals x y args)))
 
 
 (defn even?
-  ([arg options]
-  (tech.v3.datatype.functional-api/even? arg options))
-  ([arg]
-  (tech.v3.datatype.functional-api/even? arg)))
+  ([x options]
+  (tech.v3.datatype.functional-api/even? x options))
+  ([x]
+  (tech.v3.datatype.functional-api/even? x)))
 
 
 (defn exp
@@ -361,15 +356,15 @@
   indexes.  Uses linear interpolation to fill in areas, operates in double space.
   Returns
   {:result :missing}"
-  ([numeric-data max-span]
-  (tech.v3.datatype.functional-api/fill-range numeric-data max-span)))
+  ([x max-span]
+  (tech.v3.datatype.functional-api/fill-range x max-span)))
 
 
 (defn finite?
-  ([arg options]
-  (tech.v3.datatype.functional-api/finite? arg options))
-  ([arg]
-  (tech.v3.datatype.functional-api/finite? arg)))
+  ([x options]
+  (tech.v3.datatype.functional-api/finite? x options))
+  ([x]
+  (tech.v3.datatype.functional-api/finite? x)))
 
 
 (defn fixed-rolling-window
@@ -407,10 +402,10 @@ user> (rolling/fixed-rolling-window (range 20) 5 dfn/sum {:relative-window-posit
 [10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 89 92 94 95]
 user>
 ```"
-  ([item window-size window-fn options]
-  (tech.v3.datatype.rolling/fixed-rolling-window item window-size window-fn options))
-  ([item window-size window-fn]
-  (tech.v3.datatype.rolling/fixed-rolling-window item window-size window-fn)))
+  ([x window-size window-fn options]
+  (tech.v3.datatype.rolling/fixed-rolling-window x window-size window-fn options))
+  ([x window-size window-fn]
+  (tech.v3.datatype.rolling/fixed-rolling-window x window-size window-fn)))
 
 
 (defn floor
@@ -449,24 +444,24 @@ user>
 
 
 (defn infinite?
-  ([arg options]
-  (tech.v3.datatype.functional-api/infinite? arg options))
-  ([arg]
-  (tech.v3.datatype.functional-api/infinite? arg)))
+  ([x options]
+  (tech.v3.datatype.functional-api/infinite? x options))
+  ([x]
+  (tech.v3.datatype.functional-api/infinite? x)))
 
 
 (defn kendalls-correlation
-  (^{:tag double} [options lhs rhs]
-  (tech.v3.datatype.statistics/kendalls-correlation options lhs rhs))
-  (^{:tag double} [lhs rhs]
-  (tech.v3.datatype.statistics/kendalls-correlation lhs rhs)))
+  (^{:tag double} [options x y]
+  (tech.v3.datatype.statistics/kendalls-correlation options x y))
+  (^{:tag double} [x y]
+  (tech.v3.datatype.statistics/kendalls-correlation x y)))
 
 
 (defn kurtosis
-  (^{:tag double} [data options]
-  (tech.v3.datatype.statistics/kurtosis data options))
-  (^{:tag double} [data]
-  (tech.v3.datatype.statistics/kurtosis data)))
+  (^{:tag double} [x options]
+  (tech.v3.datatype.statistics/kurtosis x options))
+  (^{:tag double} [x]
+  (tech.v3.datatype.statistics/kurtosis x)))
 
 
 (defn linear-regressor
@@ -523,22 +518,20 @@ tech.v3.datatype.functional> (meta regressor)
 
 
 (defn magnitude
-  (^{:tag double} [item _options]
-  (tech.v3.datatype.functional-api/magnitude item _options))
-  (^{:tag double} [item]
-  (tech.v3.datatype.functional-api/magnitude item)))
+  (^{:tag double} [x]
+  (tech.v3.datatype.functional-api/magnitude x)))
 
 
 (defn magnitude-squared
-  (^{:tag double} [data]
-  (tech.v3.datatype.functional-api/magnitude-squared data)))
+  (^{:tag double} [x]
+  (tech.v3.datatype.functional-api/magnitude-squared x)))
 
 
 (defn mathematical-integer?
-  ([arg options]
-  (tech.v3.datatype.functional-api/mathematical-integer? arg options))
-  ([arg]
-  (tech.v3.datatype.functional-api/mathematical-integer? arg)))
+  ([x options]
+  (tech.v3.datatype.functional-api/mathematical-integer? x options))
+  ([x]
+  (tech.v3.datatype.functional-api/mathematical-integer? x)))
 
 
 (defn max
@@ -551,25 +544,25 @@ tech.v3.datatype.functional> (meta regressor)
 
 
 (defn mean
-  "double mean of data"
-  (^{:tag double} [data options]
-  (tech.v3.datatype.statistics/mean data options))
-  (^{:tag double} [data]
-  (tech.v3.datatype.statistics/mean data)))
+  "double mean of x"
+  (^{:tag double} [x options]
+  (tech.v3.datatype.statistics/mean x options))
+  (^{:tag double} [x]
+  (tech.v3.datatype.statistics/mean x)))
 
 
 (defn mean-fast
-  "Take the mean of the data.  This operation doesn't know anything about nan hence it is
+  "Take the mean of the x.  This operation doesn't know anything about nan hence it is
   a bit faster than the base [[mean]] fn."
-  (^{:tag double} [data]
-  (tech.v3.datatype.functional-api/mean-fast data)))
+  (^{:tag double} [x]
+  (tech.v3.datatype.functional-api/mean-fast x)))
 
 
 (defn median
-  (^{:tag double} [data options]
-  (tech.v3.datatype.statistics/median data options))
-  (^{:tag double} [data]
-  (tech.v3.datatype.statistics/median data)))
+  (^{:tag double} [x options]
+  (tech.v3.datatype.statistics/median x options))
+  (^{:tag double} [x]
+  (tech.v3.datatype.statistics/median x)))
 
 
 (defn min
@@ -588,17 +581,17 @@ tech.v3.datatype.functional> (meta regressor)
 
 
 (defn nan?
-  ([arg options]
-  (tech.v3.datatype.functional-api/nan? arg options))
-  ([arg]
-  (tech.v3.datatype.functional-api/nan? arg)))
+  ([x options]
+  (tech.v3.datatype.functional-api/nan? x options))
+  ([x]
+  (tech.v3.datatype.functional-api/nan? x)))
 
 
 (defn neg?
-  ([arg options]
-  (tech.v3.datatype.functional-api/neg? arg options))
-  ([arg]
-  (tech.v3.datatype.functional-api/neg? arg)))
+  ([x options]
+  (tech.v3.datatype.functional-api/neg? x options))
+  ([x]
+  (tech.v3.datatype.functional-api/neg? x)))
 
 
 (defn next-down
@@ -616,39 +609,39 @@ tech.v3.datatype.functional> (meta regressor)
 
 
 (defn normalize
-  ([item]
-  (tech.v3.datatype.functional-api/normalize item)))
+  ([x]
+  (tech.v3.datatype.functional-api/normalize x)))
 
 
 (defn not
-  ([arg options]
-  (tech.v3.datatype.functional-api/not arg options))
-  ([arg]
-  (tech.v3.datatype.functional-api/not arg)))
+  ([x options]
+  (tech.v3.datatype.functional-api/not x options))
+  ([x]
+  (tech.v3.datatype.functional-api/not x)))
 
 
 (defn not-eq
-  ([lhs rhs]
-  (tech.v3.datatype.functional-api/not-eq lhs rhs)))
+  ([x y]
+  (tech.v3.datatype.functional-api/not-eq x y)))
 
 
 (defn odd?
-  ([arg options]
-  (tech.v3.datatype.functional-api/odd? arg options))
-  ([arg]
-  (tech.v3.datatype.functional-api/odd? arg)))
+  ([x options]
+  (tech.v3.datatype.functional-api/odd? x options))
+  ([x]
+  (tech.v3.datatype.functional-api/odd? x)))
 
 
 (defn or
-  ([lhs rhs]
-  (tech.v3.datatype.functional-api/or lhs rhs)))
+  ([x y]
+  (tech.v3.datatype.functional-api/or x y)))
 
 
 (defn pearsons-correlation
-  (^{:tag double} [options lhs rhs]
-  (tech.v3.datatype.statistics/pearsons-correlation options lhs rhs))
-  (^{:tag double} [lhs rhs]
-  (tech.v3.datatype.statistics/pearsons-correlation lhs rhs)))
+  (^{:tag double} [options x y]
+  (tech.v3.datatype.statistics/pearsons-correlation options x y))
+  (^{:tag double} [x y]
+  (tech.v3.datatype.statistics/pearsons-correlation x y)))
 
 
 (defn percentiles
@@ -657,17 +650,17 @@ tech.v3.datatype.functional> (meta regressor)
   here: https://commons.apache.org/proper/commons-math/javadocs/api-3.3/index.html.
 
   nan-strategy can be one of [:keep :remove :exception] and defaults to :exception."
-  (^{:tag tech.v3.datatype.Buffer} [percentages options data]
-  (tech.v3.datatype.statistics/percentiles percentages options data))
-  (^{:tag tech.v3.datatype.Buffer} [percentages data]
-  (tech.v3.datatype.statistics/percentiles percentages data)))
+  (^{:tag tech.v3.datatype.Buffer} [percentages options x]
+  (tech.v3.datatype.statistics/percentiles percentages options x))
+  (^{:tag tech.v3.datatype.Buffer} [percentages x]
+  (tech.v3.datatype.statistics/percentiles percentages x)))
 
 
 (defn pos?
-  ([arg options]
-  (tech.v3.datatype.functional-api/pos? arg options))
-  ([arg]
-  (tech.v3.datatype.functional-api/pos? arg)))
+  ([x options]
+  (tech.v3.datatype.functional-api/pos? x options))
+  ([x]
+  (tech.v3.datatype.functional-api/pos? x)))
 
 
 (defn pow
@@ -678,17 +671,17 @@ tech.v3.datatype.functional> (meta regressor)
 
 
 (defn quartile-1
-  (^{:tag double} [data options]
-  (tech.v3.datatype.statistics/quartile-1 data options))
-  (^{:tag double} [data]
-  (tech.v3.datatype.statistics/quartile-1 data)))
+  (^{:tag double} [x options]
+  (tech.v3.datatype.statistics/quartile-1 x options))
+  (^{:tag double} [x]
+  (tech.v3.datatype.statistics/quartile-1 x)))
 
 
 (defn quartile-3
-  (^{:tag double} [data options]
-  (tech.v3.datatype.statistics/quartile-3 data options))
-  (^{:tag double} [data]
-  (tech.v3.datatype.statistics/quartile-3 data)))
+  (^{:tag double} [x options]
+  (tech.v3.datatype.statistics/quartile-3 x options))
+  (^{:tag double} [x]
+  (tech.v3.datatype.statistics/quartile-3 x)))
 
 
 (defn quartile-outlier-fn
@@ -702,16 +695,16 @@ tech.v3.datatype.functional> (meta regressor)
 
   Options:
   * `:range-mult` - the multiplier used."
-  ([item & args]
-  (apply tech.v3.datatype.statistics/quartile-outlier-fn item args)))
+  ([x & args]
+  (apply tech.v3.datatype.statistics/quartile-outlier-fn x args)))
 
 
 (defn quartiles
   "return [min, 25 50 75 max] of item"
-  (^{:tag tech.v3.datatype.Buffer} [item]
-  (tech.v3.datatype.statistics/quartiles item))
-  (^{:tag tech.v3.datatype.Buffer} [options item]
-  (tech.v3.datatype.statistics/quartiles options item)))
+  (^{:tag tech.v3.datatype.Buffer} [x]
+  (tech.v3.datatype.statistics/quartiles x))
+  (^{:tag tech.v3.datatype.Buffer} [options x]
+  (tech.v3.datatype.statistics/quartiles options x)))
 
 
 (defn quot
@@ -722,23 +715,23 @@ tech.v3.datatype.functional> (meta regressor)
 
 
 (defn reduce-*
-  ([rdr]
-  (tech.v3.datatype.functional-api/reduce-* rdr)))
+  ([x]
+  (tech.v3.datatype.functional-api/reduce-* x)))
 
 
 (defn reduce-+
-  ([rdr]
-  (tech.v3.datatype.functional-api/reduce-+ rdr)))
+  ([x]
+  (tech.v3.datatype.functional-api/reduce-+ x)))
 
 
 (defn reduce-max
-  ([rdr]
-  (tech.v3.datatype.functional-api/reduce-max rdr)))
+  ([x]
+  (tech.v3.datatype.functional-api/reduce-max x)))
 
 
 (defn reduce-min
-  ([rdr]
-  (tech.v3.datatype.functional-api/reduce-min rdr)))
+  ([x]
+  (tech.v3.datatype.functional-api/reduce-min x)))
 
 
 (defn rem
@@ -775,8 +768,8 @@ user> (dfn/shift (range 10) 2)
 user> (dfn/shift (range 10) -2)
 [2 3 4 5 6 7 8 9 9 9]
 ```"
-  (^{:tag tech.v3.datatype.Buffer} [rdr n]
-  (tech.v3.datatype.functional-api/shift rdr n)))
+  (^{:tag tech.v3.datatype.Buffer} [x n]
+  (tech.v3.datatype.functional-api/shift x n)))
 
 
 (defn signum
@@ -801,17 +794,17 @@ user> (dfn/shift (range 10) -2)
 
 
 (defn skew
-  (^{:tag double} [data options]
-  (tech.v3.datatype.statistics/skew data options))
-  (^{:tag double} [data]
-  (tech.v3.datatype.statistics/skew data)))
+  (^{:tag double} [x options]
+  (tech.v3.datatype.statistics/skew x options))
+  (^{:tag double} [x]
+  (tech.v3.datatype.statistics/skew x)))
 
 
 (defn spearmans-correlation
-  (^{:tag double} [options lhs rhs]
-  (tech.v3.datatype.statistics/spearmans-correlation options lhs rhs))
-  (^{:tag double} [lhs rhs]
-  (tech.v3.datatype.statistics/spearmans-correlation lhs rhs)))
+  (^{:tag double} [options x y]
+  (tech.v3.datatype.statistics/spearmans-correlation options x y))
+  (^{:tag double} [x y]
+  (tech.v3.datatype.statistics/spearmans-correlation x y)))
 
 
 (defn sq
@@ -829,19 +822,19 @@ user> (dfn/shift (range 10) -2)
 
 
 (defn standard-deviation
-  (^{:tag double} [data options]
-  (tech.v3.datatype.statistics/standard-deviation data options))
-  (^{:tag double} [data]
-  (tech.v3.datatype.statistics/standard-deviation data)))
+  (^{:tag double} [x options]
+  (tech.v3.datatype.statistics/standard-deviation x options))
+  (^{:tag double} [x]
+  (tech.v3.datatype.statistics/standard-deviation x)))
 
 
 (defn sum
   "Double sum of data using
   [Kahan compensated summation](https://en.wikipedia.org/wiki/Kahan_summation_algorithm)."
-  (^{:tag double} [data options]
-  (tech.v3.datatype.statistics/sum data options))
-  (^{:tag double} [data]
-  (tech.v3.datatype.statistics/sum data)))
+  (^{:tag double} [x options]
+  (tech.v3.datatype.statistics/sum x options))
+  (^{:tag double} [x]
+  (tech.v3.datatype.statistics/sum x)))
 
 
 (defn sum-fast
@@ -849,8 +842,8 @@ user> (dfn/shift (range 10) -2)
   kahans compensation although via parallelization it implements pairwise summation
   compensation.  For a more but slightly slower but far more correct sum operator,
   use [[sum]]."
-  (^{:tag double} [data]
-  (tech.v3.datatype.functional-api/sum-fast data)))
+  (^{:tag double} [x]
+  (tech.v3.datatype.functional-api/sum-fast x)))
 
 
 (defn tan
@@ -896,16 +889,16 @@ user> (dfn/shift (range 10) -2)
 
 
 (defn variance
-  (^{:tag double} [data options]
-  (tech.v3.datatype.statistics/variance data options))
-  (^{:tag double} [data]
-  (tech.v3.datatype.statistics/variance data)))
+  (^{:tag double} [x options]
+  (tech.v3.datatype.statistics/variance x options))
+  (^{:tag double} [x]
+  (tech.v3.datatype.statistics/variance x)))
 
 
 (defn zero?
-  ([arg options]
-  (tech.v3.datatype.functional-api/zero? arg options))
-  ([arg]
-  (tech.v3.datatype.functional-api/zero? arg)))
+  ([x options]
+  (tech.v3.datatype.functional-api/zero? x options))
+  ([x]
+  (tech.v3.datatype.functional-api/zero? x)))
 
 

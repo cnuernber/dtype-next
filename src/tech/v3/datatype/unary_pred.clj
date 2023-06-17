@@ -325,16 +325,15 @@
 
 (defn bool-reader->indexes
   "Given a reader, produce a filtered list of indexes filtering out 'false' values."
-  (^Buffer [{:keys [storage-type] :as _options} bool-item]
-   (let [n-elems (dtype-base/ecount bool-item)
-         reader (dtype-base/->reader bool-item)
-         storage-type (or storage-type
-                          (reader-index-space bool-item))]
+  (^Buffer [{:keys [storage-type] :as _options} x]
+   (let [n-elems (dtype-base/ecount x)
+         reader (dtype-base/->reader x)
+         storage-type (or storage-type (reader-index-space x))]
      (->> (hamf/range n-elems)
           (lznc/filter (hamf-fn/long-predicate
                         idx
                         (Casts/booleanCast (.readObject reader idx))))
           (hamf-rf/preduce-reducer (index-reducer storage-type)
                                 {:ordered? true}))))
-  (^Buffer [bool-item]
-   (bool-reader->indexes nil bool-item)))
+  (^Buffer [x]
+   (bool-reader->indexes nil x)))

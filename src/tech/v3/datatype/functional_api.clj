@@ -132,28 +132,28 @@
 
 ;;Implement only reductions that we know we will use.
 (defn reduce-+
-  [rdr]
+  [x]
   ;;There is a fast path specifically for summations
   (dtype-reductions/commutative-binary-reduce
-   (:tech.numerics/+ binary-op/builtin-ops) rdr))
+   (:tech.numerics/+ binary-op/builtin-ops) x))
 
 
 (defn reduce-*
-  [rdr]
+  [x]
   (dtype-reductions/commutative-binary-reduce
-   (:tech.numerics/* binary-op/builtin-ops) rdr))
+   (:tech.numerics/* binary-op/builtin-ops) x))
 
 
 (defn reduce-max
-  [rdr]
+  [x]
   (dtype-reductions/commutative-binary-reduce
-   (:tech.numerics/max binary-op/builtin-ops) rdr))
+   (:tech.numerics/max binary-op/builtin-ops) x))
 
 
 (defn reduce-min
-  [rdr]
+  [x]
   (dtype-reductions/commutative-binary-reduce
-   (:tech.numerics/min binary-op/builtin-ops) rdr))
+   (:tech.numerics/min binary-op/builtin-ops) x))
 
 
 (defn- vm-major-version
@@ -190,55 +190,52 @@
   kahans compensation although via parallelization it implements pairwise summation
   compensation.  For a more but slightly slower but far more correct sum operator,
   use [[sum]]."
-  ^double [data]
-  (hamf/sum-fast (clojure.core/or (dtype-base/as-reader data :float64) data)))
+  ^double [x]
+  (hamf/sum-fast (clojure.core/or (dtype-base/as-reader x :float64) x)))
 
 
 (defn mean-fast
-  "Take the mean of the data.  This operation doesn't know anything about nan hence it is
+  "Take the mean of the x.  This operation doesn't know anything about nan hence it is
   a bit faster than the base [[mean]] fn."
-  ^double [data]
-  (/ (sum-fast data) (dtype-base/ecount data)))
+  ^double [x]
+  (/ (sum-fast x) (dtype-base/ecount x)))
 
 
 (defn magnitude-squared
-  ^double [data]
-  (double ((:magnitude-squared @optimized-opts*) data)))
+  ^double [x]
+  (double ((:magnitude-squared @optimized-opts*) x)))
 
 
 (defn dot-product
-  ^double [lhs rhs]
-  (double ((:dot-product @optimized-opts*) lhs rhs)))
+  ^double [x y]
+  (double ((:dot-product @optimized-opts*) x y)))
 
 
 (defn distance-squared
-  ^double [lhs rhs]
-  (double ((:distance-squared @optimized-opts*) lhs rhs)))
+  ^double [x y]
+  (double ((:distance-squared @optimized-opts*) x y)))
 
 
 (defn magnitude
-  (^double [item _options]
-   (-> (magnitude-squared item)
-       (Math/sqrt)))
-  (^double [item]
-   (magnitude item nil)))
+  ^double [x]
+  (magnitude x))
 
 
 (defn normalize
-  [item]
-  (let [mag (magnitude item)]
-    (-> (/ item mag)
+  [x]
+  (let [mag (magnitude x)]
+    (-> (/ x mag)
         (vary-meta assoc :magnitude mag))))
 
 
 (defn distance
-  ^double [lhs rhs]
-  (Math/sqrt (distance-squared lhs rhs)))
+  ^double [x y]
+  (Math/sqrt (distance-squared x y)))
 
 
 (defn equals
-  [lhs rhs & [error-bar]]
-  (clojure.core/< (double (distance lhs rhs))
+  [x y & [error-bar]]
+  (clojure.core/< (double (distance x y))
                   (double (clojure.core/or error-bar 0.001))))
 
 
@@ -251,15 +248,15 @@
                      `(let [v# (unary-pred/builtin-ops ~k)]
                         (defn ~(with-meta fn-symbol
                                  {:unary-predicate k})
-                          ([~'arg ~'options]
+                          ([~'x ~'options]
                            (vectorized-dispatch-1
                             v#
-                            (fn [dtype# item#] (unary-pred/iterable v# item#))
-                            (fn [dtype# item#] (unary-pred/reader v# item#))
+                            (fn [dtype# x#] (unary-pred/iterable v# x#))
+                            (fn [dtype# x#] (unary-pred/reader v# x#))
                             (merge (meta v#) ~'options)
-                            ~'arg))
-                          ([~'arg]
-                           (~fn-symbol ~'arg nil))))))))))
+                            ~'x))
+                          ([~'x]
+                           (~fn-symbol ~'x nil))))))))))
 
 
 (implement-unary-predicates)
@@ -278,7 +275,7 @@
                      `(let [v# (binary-pred/builtin-ops ~k)]
                         (defn ~(with-meta fn-symbol
                                  {:binary-predicate k})
-                          ([~'lhs ~'rhs]
+                          ([~'x ~'y]
                            (vectorized-dispatch-2
                             v#
                             (fn [op-dtype# lhs# rhs#]
@@ -286,7 +283,7 @@
                             (fn [op-dtype# lhs-rdr# rhs-rdr#]
                               (binary-pred/reader v# lhs-rdr# rhs-rdr#))
                             (meta v#)
-                            ~'lhs ~'rhs))))))))))
+                            ~'x ~'y))))))))))
 
 
 (implement-binary-predicates)
@@ -304,11 +301,11 @@
                      `(let [v# (binary-pred/builtin-ops ~k)]
                         (defn ~(with-meta fn-symbol
                                  {:binary-predicate k})
-                          ([~'lhs ~'mid ~'rhs]
+                          ([~'x ~'y ~'z]
                            (and
-                            (~fn-symbol ~'lhs ~'mid)
-                            (~fn-symbol ~'mid ~'rhs)))
-                          ([~'lhs ~'rhs]
+                            (~fn-symbol ~'x ~'y)
+                            (~fn-symbol ~'y ~'z)))
+                          ([~'x ~'y]
                            (vectorized-dispatch-2
                             v#
                             (fn [op-dtype# lhs# rhs#]
@@ -316,7 +313,7 @@
                             (fn [op-dtype# lhs-rdr# rhs-rdr#]
                               (binary-pred/reader v# lhs-rdr# rhs-rdr#))
                             (meta v#)
-                            ~'lhs ~'rhs))))))))))
+                            ~'x ~'y))))))))))
 
 
 (implement-compare-predicates)
@@ -357,8 +354,8 @@
   indexes.  Uses linear interpolation to fill in areas, operates in double space.
   Returns
   {:result :missing}"
-  [numeric-data max-span]
-  (let [num-reader (dtype-base/->reader numeric-data :float64)
+  [x max-span]
+  (let [num-reader (dtype-base/->reader x :float64)
         max-span (double max-span)
         n-elems (.lsize num-reader)
         n-spans (dec n-elems)
@@ -427,7 +424,7 @@
   (deref [this] result))
 
 
-(defn ^:no-doc cumop
+(defn- ^:no-doc cumop
   [options ^BinaryOperator op data]
   (let [data (if (dtype-base/reader? data)
                (dtype-base/as-reader data :float64)
@@ -456,10 +453,10 @@
   Options:
 
   * `:nan-strategy` - one of `:keep`, `:remove`, `:exception`.  Defaults to `:remove`."
-  ([options data]
-   (cumop options (binary-op/builtin-ops :tech.numerics/+) data))
-  ([data]
-   (cumsum nil data)))
+  ([x options]
+   (cumop options (binary-op/builtin-ops :tech.numerics/+) x))
+  ([x]
+   (cumsum x nil)))
 
 
 (defn cummin
@@ -468,10 +465,10 @@
   Options:
 
   * `:nan-strategy` - one of `:keep`, `:remove`, `:exception`.  Defaults to `:remove`."
-  ([options data]
-   (cumop options (binary-op/builtin-ops :tech.numerics/min) data))
-  ([data]
-   (cummin nil data)))
+  ([x options]
+   (cumop options (binary-op/builtin-ops :tech.numerics/min) x))
+  ([x]
+   (cummin x nil)))
 
 
 (defn cummax
@@ -480,10 +477,10 @@
   Options:
 
   * `:nan-strategy` - one of `:keep`, `:remove`, `:exception`.  Defaults to `:remove`."
-  ([options data]
-   (cumop options (binary-op/builtin-ops :tech.numerics/max) data))
-  ([data]
-   (cummax nil data)))
+  ([x options]
+   (cumop options (binary-op/builtin-ops :tech.numerics/max) x))
+  ([x]
+   (cummax x nil)))
 
 
 (defn cumprod
@@ -492,10 +489,10 @@
   Options:
 
   * `:nan-strategy` - one of `:keep`, `:remove`, `:exception`.  Defaults to `:remove`."
-  ([options data]
-   (cumop options (binary-op/builtin-ops :tech.numerics/*) data))
-  ([data]
-   (cumprod nil data)))
+  ([x options]
+   (cumop options (binary-op/builtin-ops :tech.numerics/*) x))
+  ([x]
+   (cumprod x nil)))
 
 
 (defn linear-regressor
@@ -548,8 +545,8 @@ user> (dfn/shift (range 10) 2)
 user> (dfn/shift (range 10) -2)
 [2 3 4 5 6 7 8 9 9 9]
 ```"
-  ^Buffer [rdr n]
-  (let [rdr (dtype-base/->reader rdr)
+  ^Buffer [x n]
+  (let [rdr (dtype-base/->reader x)
         dtype (casting/simple-operation-space (.elemwiseDatatype rdr))
         n-elems (.lsize rdr)
         max-idx (dec n-elems)
