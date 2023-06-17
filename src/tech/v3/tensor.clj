@@ -28,8 +28,8 @@
 
   **10.000 - Note that this function now takes an option map as opposed to a variable number of option
   arguments.**"
-  ([item & args]
-  (apply tech.v3.tensor-api/->jvm item args)))
+  ([tens & args]
+  (apply tech.v3.tensor-api/->jvm tens args)))
 
 
 (defn ->tensor
@@ -54,8 +54,8 @@
 (defn as-tensor
   "Attempts an in-place conversion of this object to a tech.v3.datatype.NDBuffer interface.
   For a guaranteed conversion, use ensure-tensor."
-  (^{:tag tech.v3.datatype.NDBuffer} [data]
-  (tech.v3.tensor-api/as-tensor data)))
+  (^{:tag tech.v3.datatype.NDBuffer} [tens]
+  (tech.v3.tensor-api/as-tensor tens)))
 
 
 (defn broadcast
@@ -63,8 +63,8 @@
   must be even multiples of the old shape's dimensions.  Elements are repeated.
 
   See [[reduce-axis]] for the opposite operation."
-  (^{:tag tech.v3.datatype.NDBuffer} [t new-shape]
-  (tech.v3.datatype.base/broadcast t new-shape)))
+  (^{:tag tech.v3.datatype.NDBuffer} [tens new-shape]
+  (tech.v3.datatype.base/broadcast tens new-shape)))
 
 
 (defn clone
@@ -87,8 +87,8 @@
 
 (defn columns
   "Return the columns of the tensor in a randomly-addressable structure."
-  (^{:tag java.util.List} [src]
-  (tech.v3.tensor-api/columns src)))
+  (^{:tag java.util.List} [tens]
+  (tech.v3.tensor-api/columns tens)))
 
 
 (defn compute-tensor
@@ -141,13 +141,13 @@ user> (dtt/compute-tensor [2 2 2] (fn [& args] (vec args)) :object)
 (defn dims-suitable-for-desc?
   "Are the dimensions of this object suitable for use in a buffer description?
   breaks due to striding."
-  ([item]
-  (tech.v3.tensor-api/dims-suitable-for-desc? item)))
+  ([tens]
+  (tech.v3.tensor-api/dims-suitable-for-desc? tens)))
 
 
 (defn ensure-native
   "Ensure this tensor is native backed and packed.
-  Item is cloned into a native tensor with the same datatype
+  Tens is cloned into a native tensor with the same datatype
   and :resource-type :auto by default.
 
   Options are the same as clone with the exception of :resource-type.
@@ -169,14 +169,14 @@ user> (dtt/compute-tensor [2 2 2] (fn [& args] (vec args)) :object)
 (defn ensure-tensor
   "Create an implementation of tech.v3.datatype.NDBuffer from an
   object.  If possible, represent the data in-place."
-  (^{:tag tech.v3.datatype.NDBuffer} [item]
-  (tech.v3.tensor-api/ensure-tensor item)))
+  (^{:tag tech.v3.datatype.NDBuffer} [tens]
+  (tech.v3.tensor-api/ensure-tensor tens)))
 
 
 (defn map-axis
   "Map a function from vector->vector replacing the values along an axis.
 
-  * tensor - input tensor to use.
+  * tens - input tensor to use.
   * map-fn - maps from vector->vector.  Must return a vector of the same
     count as the input.
   * axis - Defaults to -1 meaning the last axis.  So the default would
@@ -208,40 +208,40 @@ user> (dtt/map-axis t center-1d -2)
  [ 1.333  1.273  1.231]
  [ 2.000  1.818  1.692]]
 ```"
-  ([tensor map-fn axis]
-  (tech.v3.tensor-api/map-axis tensor map-fn axis))
-  ([tensor map-fn]
-  (tech.v3.tensor-api/map-axis tensor map-fn)))
+  ([tens map-fn axis]
+  (tech.v3.tensor-api/map-axis tens map-fn axis))
+  ([tens map-fn]
+  (tech.v3.tensor-api/map-axis tens map-fn)))
 
 
 (defn mget
   "Get an item from an ND object.  If fewer dimensions are
   specified than exist then the return value is a new tensor as a select operation is
   performed."
-  ([t x]
-  (tech.v3.datatype.base/mget t x))
-  ([t x y]
-  (tech.v3.datatype.base/mget t x y))
-  ([t x y z]
-  (tech.v3.datatype.base/mget t x y z))
-  ([t x y z & args]
-  (apply tech.v3.datatype.base/mget t x y z args)))
+  ([tens x]
+  (tech.v3.datatype.base/mget tens x))
+  ([tens x y]
+  (tech.v3.datatype.base/mget tens x y))
+  ([tens x y z]
+  (tech.v3.datatype.base/mget tens x y z))
+  ([tens x y z & args]
+  (apply tech.v3.datatype.base/mget tens x y z args)))
 
 
 (defn mset!
   "Set value(s) on an ND object.  If fewer indexes are provided than dimension then a
   tensor assignment is done and value is expected to be the same shape as the subrect
   of the tensor as indexed by the provided dimensions.  Returns t."
-  ([t value]
-  (tech.v3.datatype.base/mset! t value))
-  ([t x value]
-  (tech.v3.datatype.base/mset! t x value))
-  ([t x y value]
-  (tech.v3.datatype.base/mset! t x y value))
-  ([t x y z value]
-  (tech.v3.datatype.base/mset! t x y z value))
-  ([t x y z w & args]
-  (apply tech.v3.datatype.base/mset! t x y z w args)))
+  ([tens value]
+  (tech.v3.datatype.base/mset! tens value))
+  ([tens x value]
+  (tech.v3.datatype.base/mset! tens x value))
+  ([tens x y value]
+  (tech.v3.datatype.base/mset! tens x y value))
+  ([tens x y z value]
+  (tech.v3.datatype.base/mset! tens x y z value))
+  ([tens x y z w & args]
+  (apply tech.v3.datatype.base/mset! tens x y z w args)))
 
 
 (defn native-tensor
@@ -339,34 +339,34 @@ user> (dt/shape (dtt/reduce-axis t dfn/sum 2))
 ```
 
   For the opposite - adding dimensions via repetition - see [[broadcast]]."
-  ([tensor reduce-fn axis res-dtype]
-  (tech.v3.tensor-api/reduce-axis tensor reduce-fn axis res-dtype))
-  ([tensor reduce-fn axis]
-  (tech.v3.tensor-api/reduce-axis tensor reduce-fn axis))
-  ([tensor reduce-fn]
-  (tech.v3.tensor-api/reduce-axis tensor reduce-fn)))
+  ([tens reduce-fn axis res-dtype]
+  (tech.v3.tensor-api/reduce-axis tens reduce-fn axis res-dtype))
+  ([tens reduce-fn axis]
+  (tech.v3.tensor-api/reduce-axis tens reduce-fn axis))
+  ([tens reduce-fn]
+  (tech.v3.tensor-api/reduce-axis tens reduce-fn)))
 
 
 (defn reshape
   "Reshape this item into a new shape.  For this to work, the tensor
   namespace must be required.
   Always returns a tensor."
-  (^{:tag tech.v3.datatype.NDBuffer} [t new-shape]
-  (tech.v3.datatype.base/reshape t new-shape)))
+  (^{:tag tech.v3.datatype.NDBuffer} [tens new-shape]
+  (tech.v3.datatype.base/reshape tens new-shape)))
 
 
 (defn rotate
   "Rotate dimensions.  Offset-vec must have same count as the rank of t.  Elements of
   that dimension are rotated by the amount specified in the offset vector with 0
   indicating no rotation."
-  (^{:tag tech.v3.datatype.NDBuffer} [t offset-vec]
-  (tech.v3.datatype.base/rotate t offset-vec)))
+  (^{:tag tech.v3.datatype.NDBuffer} [tens offset-vec]
+  (tech.v3.datatype.base/rotate tens offset-vec)))
 
 
 (defn rows
   "Return the rows of the tensor in a randomly-addressable structure."
-  (^{:tag java.util.List} [src]
-  (tech.v3.tensor-api/rows src)))
+  (^{:tag java.util.List} [tens]
+  (tech.v3.tensor-api/rows tens)))
 
 
 (defn select
@@ -395,43 +395,43 @@ user> (dt/shape (dtt/reduce-axis t dfn/sum 2))
   [[2 3]
    [5 6]]
 ```"
-  (^{:tag tech.v3.datatype.NDBuffer} [t & args]
-  (apply tech.v3.datatype.base/select t args)))
+  (^{:tag tech.v3.datatype.NDBuffer} [tens & args]
+  (apply tech.v3.datatype.base/select tens args)))
 
 
 (defn simple-dimensions?
   "Are the dimensions of this object simple meaning read in order with no
   breaks due to striding."
-  ([item]
-  (tech.v3.tensor-api/simple-dimensions? item)))
+  ([tens]
+  (tech.v3.tensor-api/simple-dimensions? tens)))
 
 
 (defn slice
   "Slice off Y leftmost dimensions returning a reader of objects.
   If all dimensions are sliced of then the reader reads actual elements,
   else it reads subrect tensors."
-  (^{:tag java.util.List} [t n-dims]
-  (tech.v3.datatype.base/slice t n-dims)))
+  (^{:tag java.util.List} [tens n-dims]
+  (tech.v3.datatype.base/slice tens n-dims)))
 
 
 (defn slice-right
   "Slice off Y rightmost dimensions returning a reader of objects.
   If all dimensions are sliced of then the reader reads actual elements,
   else it reads subrect tensors."
-  (^{:tag java.util.List} [t n-dims]
-  (tech.v3.datatype.base/slice-right t n-dims)))
+  (^{:tag java.util.List} [tens n-dims]
+  (tech.v3.datatype.base/slice-right tens n-dims)))
 
 
 (defn tensor->buffer
   "Get the buffer from a tensor."
-  ([item]
-  (tech.v3.tensor-api/tensor->buffer item)))
+  ([tens]
+  (tech.v3.tensor-api/tensor->buffer tens)))
 
 
 (defn tensor->dimensions
   "Get the dimensions object from a tensor."
-  ([item]
-  (tech.v3.tensor-api/tensor->dimensions item)))
+  ([tens]
+  (tech.v3.tensor-api/tensor->dimensions tens)))
 
 
 (defn tensor-copy!
@@ -488,8 +488,8 @@ user> (dtt/transpose tensor [1 2 0])
   [:g :g :g]
   [:b :b :b]]]
 ```"
-  (^{:tag tech.v3.datatype.NDBuffer} [t reorder-indexes]
-  (tech.v3.datatype.base/transpose t reorder-indexes)))
+  (^{:tag tech.v3.datatype.NDBuffer} [tens reorder-indexes]
+  (tech.v3.datatype.base/transpose tens reorder-indexes)))
 
 
 (defmacro typed-compute-tensor

@@ -879,9 +879,9 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
   "Reshape this item into a new shape.  For this to work, the tensor
   namespace must be required.
   Always returns a tensor."
-  ^NDBuffer [t new-shape]
+  ^NDBuffer [tens new-shape]
   (check-ns 'tech.v3.tensor)
-  (dtype-proto/reshape t new-shape))
+  (dtype-proto/reshape tens new-shape))
 
 
 (defn select
@@ -910,9 +910,9 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
   [[2 3]
    [5 6]]
 ```"
-  ^NDBuffer [t & new-shape]
+  ^NDBuffer [tens & new-shape]
   (check-ns 'tech.v3.tensor)
-  (dtype-proto/select t new-shape))
+  (dtype-proto/select tens new-shape))
 
 
 (defn transpose
@@ -953,9 +953,9 @@ user> (dtt/transpose tensor [1 2 0])
   [:g :g :g]
   [:b :b :b]]]
 ```"
-  ^NDBuffer [t reorder-indexes]
+  ^NDBuffer [tens reorder-indexes]
   (check-ns 'tech.v3.tensor)
-  (dtype-proto/transpose t reorder-indexes))
+  (dtype-proto/transpose tens reorder-indexes))
 
 
 (defn broadcast
@@ -963,86 +963,86 @@ user> (dtt/transpose tensor [1 2 0])
   must be even multiples of the old shape's dimensions.  Elements are repeated.
 
   See [[reduce-axis]] for the opposite operation."
-  ^NDBuffer [t new-shape]
+  ^NDBuffer [tens new-shape]
   (check-ns 'tech.v3.tensor)
-  (dtype-proto/broadcast t new-shape))
+  (dtype-proto/broadcast tens new-shape))
 
 (defn rotate
   "Rotate dimensions.  Offset-vec must have same count as the rank of t.  Elements of
   that dimension are rotated by the amount specified in the offset vector with 0
   indicating no rotation."
-  ^NDBuffer [t offset-vec]
+  ^NDBuffer [tens offset-vec]
   (check-ns 'tech.v3.tensor)
-  (dtype-proto/rotate t offset-vec))
+  (dtype-proto/rotate tens offset-vec))
 
 (defn slice
   "Slice off Y leftmost dimensions returning a reader of objects.
   If all dimensions are sliced of then the reader reads actual elements,
   else it reads subrect tensors."
-  ^List [t n-dims]
+  ^List [tens n-dims]
   (check-ns 'tech.v3.tensor)
-  (dtype-proto/slice t n-dims false))
+  (dtype-proto/slice tens n-dims false))
 
 (defn slice-right
   "Slice off Y rightmost dimensions returning a reader of objects.
   If all dimensions are sliced of then the reader reads actual elements,
   else it reads subrect tensors."
-  ^List  [t n-dims]
+  ^List  [tens n-dims]
   (check-ns 'tech.v3.tensor)
-  (dtype-proto/slice t n-dims true))
+  (dtype-proto/slice tens n-dims true))
 
 (defn mget
   "Get an item from an ND object.  If fewer dimensions are
   specified than exist then the return value is a new tensor as a select operation is
   performed."
-  ([t x]
+  ([tens x]
    (check-ns 'tech.v3.tensor)
-   (if (instance? NDBuffer t)
-     (.ndReadObject ^NDBuffer t x)
-     (mget t [x])))
-  ([t x y]
-   (if (instance? NDBuffer t)
-     (.ndReadObject ^NDBuffer t x y)
-     (dtype-proto/mget t [x y])))
-  ([t x y z]
-   (if (instance? NDBuffer t)
-     (.ndReadObject ^NDBuffer t x y z)
-     (dtype-proto/mget t [x y z])))
-  ([t x y z & args]
-   (dtype-proto/mget t (concat [x y z] args))))
+   (if (instance? NDBuffer tens)
+     (.ndReadObject ^NDBuffer tens x)
+     (mget tens [x])))
+  ([tens x y]
+   (if (instance? NDBuffer tens)
+     (.ndReadObject ^NDBuffer tens x y)
+     (dtype-proto/mget tens [x y])))
+  ([tens x y z]
+   (if (instance? NDBuffer tens)
+     (.ndReadObject ^NDBuffer tens x y z)
+     (dtype-proto/mget tens [x y z])))
+  ([tens x y z & args]
+   (dtype-proto/mget tens (concat [x y z] args))))
 
 (defn mset!
   "Set value(s) on an ND object.  If fewer indexes are provided than dimension then a
   tensor assignment is done and value is expected to be the same shape as the subrect
   of the tensor as indexed by the provided dimensions.  Returns t."
-  ([t value]
+  ([tens value]
    (check-ns 'tech.v3.tensor)
    (if (= :scalar (argtypes/arg-type value))
-     (dtype-proto/set-constant! t 0 (ecount t) value)
-     (let [t-shp (shape t)
+     (dtype-proto/set-constant! tens 0 (ecount tens) value)
+     (let [t-shp (shape tens)
            value (dtype-proto/broadcast value t-shp)]
-       (dtype-proto/mset! t nil value)))
-   t)
-  ([t x value]
+       (dtype-proto/mset! tens nil value)))
+   tens)
+  ([tens x value]
    (check-ns 'tech.v3.tensor)
-   (if (instance? NDBuffer t)
-     (.ndWriteObject ^NDBuffer t x value)
-     (dtype-proto/mset! t [x] value))
-   t)
-  ([t x y value]
-   (if (instance? NDBuffer t)
-     (.ndWriteObject ^NDBuffer t x y value)
-     (dtype-proto/mset! t [x y] value))
-   t)
-  ([t x y z value]
-   (if (instance? NDBuffer t)
-     (.ndWriteObject ^NDBuffer t x y z value)
-     (dtype-proto/mset! t [x y z] value))
-   t)
-  ([t x y z w & args]
+   (if (instance? NDBuffer tens)
+     (.ndWriteObject ^NDBuffer tens x value)
+     (dtype-proto/mset! tens [x] value))
+   tens)
+  ([tens x y value]
+   (if (instance? NDBuffer tens)
+     (.ndWriteObject ^NDBuffer tens x y value)
+     (dtype-proto/mset! tens [x y] value))
+   tens)
+  ([tens x y z value]
+   (if (instance? NDBuffer tens)
+     (.ndWriteObject ^NDBuffer tens x y z value)
+     (dtype-proto/mset! tens [x y z] value))
+   tens)
+  ([tens x y z w & args]
    (let [value (last args)]
-     (dtype-proto/mset! t (concat [x y z w] (butlast args)) value)
-     t)))
+     (dtype-proto/mset! tens (concat [x y z w] (butlast args)) value)
+     tens)))
 
 
 (extend-protocol dtype-proto/PClone

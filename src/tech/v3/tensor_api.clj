@@ -502,32 +502,32 @@
 
 (defn tensor->buffer
   "Get the buffer from a tensor."
-  [item]
-  (errors/when-not-error (instance? NDBuffer item)
+  [tens]
+  (errors/when-not-error (instance? NDBuffer tens)
     "Item is not a tensor")
-  (.buffer ^NDBuffer item))
+  (.buffer ^NDBuffer tens))
 
 
 (defn tensor->dimensions
   "Get the dimensions object from a tensor."
-  [item]
-  (errors/when-not-error (instance? NDBuffer item)
+  [tens]
+  (errors/when-not-error (instance? NDBuffer tens)
     "Item is not a tensor")
-  (.dimensions ^NDBuffer item))
+  (.dimensions ^NDBuffer tens))
 
 
 (defn simple-dimensions?
   "Are the dimensions of this object simple meaning read in order with no
   breaks due to striding."
-  [item]
-  (dims/native? (tensor->dimensions item)))
+  [tens]
+  (dims/native? (tensor->dimensions tens)))
 
 
 (defn dims-suitable-for-desc?
     "Are the dimensions of this object suitable for use in a buffer description?
   breaks due to striding."
-  [item]
-  (dims/direct? (tensor->dimensions item)))
+  [tens]
+  (dims/direct? (tensor->dimensions tens)))
 
 
 (defn ->tensor
@@ -567,10 +567,10 @@
 (defn as-tensor
   "Attempts an in-place conversion of this object to a tech.v3.datatype.NDBuffer interface.
   For a guaranteed conversion, use ensure-tensor."
-  ^NDBuffer [data]
-  (if (instance? NDBuffer data)
-    data
-    (dtype-proto/as-tensor data)))
+  ^NDBuffer [tens]
+  (if (instance? NDBuffer tens)
+    tens
+    (dtype-proto/as-tensor tens)))
 
 
 (defn new-tensor
@@ -607,20 +607,20 @@
 (defn ensure-tensor
   "Create an implementation of tech.v3.datatype.NDBuffer from an
   object.  If possible, represent the data in-place."
-  ^NDBuffer [item]
-  (if (instance? NDBuffer item)
-    item
-    (if-let [item (dtype-proto/as-tensor item)]
-      item
+  ^NDBuffer [tens]
+  (if (instance? NDBuffer tens)
+    tens
+    (if-let [tens (dtype-proto/as-tensor tens)]
+      tens
       (cond
-        (dtype-base/as-concrete-buffer item)
-        (construct-tensor (dtype-base/as-concrete-buffer item)
-                          (dims/dimensions (dtype-base/shape item)))
-        (and (dtype-proto/convertible-to-reader? item)
-             (= 1 (count (dtype-base/shape item))))
-        (construct-tensor item (dims/dimensions (dtype-base/shape item)))
+        (dtype-base/as-concrete-buffer tens)
+        (construct-tensor (dtype-base/as-concrete-buffer tens)
+                          (dims/dimensions (dtype-base/shape tens)))
+        (and (dtype-proto/convertible-to-reader? tens)
+             (= 1 (count (dtype-base/shape tens))))
+        (construct-tensor tens (dims/dimensions (dtype-base/shape tens)))
         :else
-        (->tensor item)))))
+        (->tensor tens)))))
 
 
 ;;Defaults for tensor protocols
@@ -655,7 +655,7 @@
      "Generic mset on reader can only have 1 dimension")
     (dtype-base/set-value! t (first idx-seq) value))
   dtype-proto/PToTensor
-  (as-tensor [item] nil))
+  (as-tensor [tens] nil))
 
 
 (defn tensor-copy!
@@ -681,18 +681,18 @@
 
 (defn rows
   "Return the rows of the tensor in a randomly-addressable structure."
-  ^List [^NDBuffer src]
-  (errors/when-not-error (>= (.rank src) 2)
+  ^List [^NDBuffer tens]
+  (errors/when-not-error (>= (.rank tens) 2)
     "Tensor has too few dimensions")
-  (dtype-base/slice src 1))
+  (dtype-base/slice tens 1))
 
 
 (defn columns
   "Return the columns of the tensor in a randomly-addressable structure."
-  ^List [^NDBuffer src]
-  (errors/when-not-error (>= (.rank src) 2)
+  ^List [^NDBuffer tens]
+  (errors/when-not-error (>= (.rank tens) 2)
     "Tensor has too few dimensions")
-  (dtype-base/slice-right src (dec (.rank src))))
+  (dtype-base/slice-right tens (dec (.rank tens))))
 
 
 (defn clone
@@ -725,15 +725,15 @@
 
   **10.000 - Note that this function now takes an option map as opposed to a variable number of option
   arguments.**"
-  [item & {:keys [datatype base-storage]
+  [tens & {:keys [datatype base-storage]
            :or {base-storage :persistent-vector}}]
   ;;Get the data off the device
-  (let [item-shape (dtype-base/shape item)
-        item-ecount (dtype-base/ecount item)
-        column-len (long (last item-shape))
-        n-columns (quot item-ecount column-len)
-        datatype (or datatype (dtype-base/elemwise-datatype item))
-        data-array (dtype-proto/->reader item)
+  (let [tens-shape (dtype-base/shape tens)
+        tens-ecount (dtype-base/ecount tens)
+        column-len (long (last tens-shape))
+        n-columns (quot tens-ecount column-len)
+        datatype (or datatype (dtype-base/elemwise-datatype tens))
+        data-array (dtype-proto/->reader tens)
         base-data
         (->> (range n-columns)
              (map (fn [col-idx]
@@ -752,10 +752,10 @@
                              (vec)))))))
         partitionv (fn [& args]
                      (map vec (apply partition args)))
-        partition-shape (->> (rest item-shape)
+        partition-shape (->> (rest tens-shape)
                              drop-last
                              reverse)]
-    (if (> (count item-shape) 1)
+    (if (> (count tens-shape) 1)
       (->> partition-shape
            (reduce (fn [retval part-value]
                      (partitionv part-value retval))
@@ -1133,7 +1133,7 @@ user> (dtt/compute-tensor [2 2 2] (fn [& args] (vec args)) :object)
                    (dtype-base/elemwise-datatype per-pixel-op))))
 
 
-(defn- as-nd-buffer ^NDBuffer [item] item)
+(defn- as-nd-buffer ^NDBuffer [tens] tens)
 (defmacro ^:private tens-copy-nd
   [datatype ndims src dst]
   `(let [~'src (as-nd-buffer ~src)
@@ -1202,7 +1202,7 @@ user> (dtt/compute-tensor [2 2 2] (fn [& args] (vec args)) :object)
 
 (defn ensure-native
   "Ensure this tensor is native backed and packed.
-  Item is cloned into a native tensor with the same datatype
+  Tens is cloned into a native tensor with the same datatype
   and :resource-type :auto by default.
 
   Options are the same as clone with the exception of :resource-type.
@@ -1289,10 +1289,10 @@ user> (dt/shape (dtt/reduce-axis t dfn/sum 2))
 ```
 
   For the opposite - adding dimensions via repetition - see [[broadcast]]."
-  ([tensor reduce-fn axis res-dtype]
-   (let [rank (count (dtype-base/shape tensor))
+  ([tens reduce-fn axis res-dtype]
+   (let [rank (count (dtype-base/shape tens))
          dec-rank (dec rank)
-         res-dtype (or res-dtype (dtype-base/elemwise-datatype tensor))
+         res-dtype (or res-dtype (dtype-base/elemwise-datatype tens))
          axis (long axis)
          axis (if (>= axis 0)
                 axis
@@ -1301,28 +1301,28 @@ user> (dt/shape (dtt/reduce-axis t dfn/sum 2))
          ;;will use for transpose to move the reduction dimension to the
          ;;last or 'row' position.
          shape-idxes (remove #(= axis %) (range rank))
-         orig-shape (dtype-base/shape tensor)
-         ;;transpose the tensor so the reduction axis is the last one
-         tensor (if-not (= dec-rank axis)
-                  (transpose tensor (concat shape-idxes [axis]))
-                  tensor)
+         orig-shape (dtype-base/shape tens)
+         ;;transpose the tens so the reduction axis is the last one
+         tens (if-not (= dec-rank axis)
+                  (transpose tens (concat shape-idxes [axis]))
+                  tens)
          ;;slice to produce a sequence of rows
-         slices (slice tensor dec-rank)
+         slices (slice tens dec-rank)
          ;;Result shape is the original shape minus the reduction axis.
          result-shape (mapv orig-shape shape-idxes)]
      (-> (emap/emap reduce-fn res-dtype slices)
          ;;reshape to the result shape
          (reshape result-shape))))
-  ([tensor reduce-fn axis]
-   (reduce-axis tensor reduce-fn axis nil))
-  ([tensor reduce-fn]
-   (reduce-axis tensor reduce-fn -1 nil)))
+  ([tens reduce-fn axis]
+   (reduce-axis tens reduce-fn axis nil))
+  ([tens reduce-fn]
+   (reduce-axis tens reduce-fn -1 nil)))
 
 
 (defn map-axis
   "Map a function from vector->vector replacing the values along an axis.
 
-  * tensor - input tensor to use.
+  * tens - input tensor to use.
   * map-fn - maps from vector->vector.  Must return a vector of the same
     count as the input.
   * axis - Defaults to -1 meaning the last axis.  So the default would
@@ -1354,10 +1354,10 @@ user> (dtt/map-axis t center-1d -2)
  [ 1.333  1.273  1.231]
  [ 2.000  1.818  1.692]]
 ```"
-  ([tensor map-fn axis]
-   (let [rank (count (dtype-base/shape tensor))
+  ([tens map-fn axis]
+   (let [rank (count (dtype-base/shape tens))
          dec-rank (dec rank)
-         retval (dtype-proto/clone tensor)
+         retval (dtype-proto/clone tens)
          orig-axis (long axis)
          axis (if (>= orig-axis 0)
                 orig-axis
@@ -1365,22 +1365,22 @@ user> (dtt/map-axis t center-1d -2)
          _ (when (>= axis rank)
              (throw (RuntimeException. (str "Axis: " orig-axis " is >= tensor rank: " rank))))
          ;;transpose the tensor so the reduction axis is the last one
-         [tensor dest] (if-not (== dec-rank axis)
+         [tens dest] (if-not (== dec-rank axis)
                          (let [tshape (hamf/concatv (lznc/remove
                                                      (hamf-fn/long-predicate v (== axis v))
                                                      (range rank))
                                                     [axis])]
-                           [(transpose tensor tshape)
+                           [(transpose tens tshape)
                             (transpose retval tshape)])
-                         [tensor retval])
+                         [tens retval])
          ;;slice to produce a sequence of rows
-         src-slices (slice tensor dec-rank)
+         src-slices (slice tens dec-rank)
          dst-slices (slice dest dec-rank)]
      (dotimes [idx (count src-slices)]
        (.fillRange ^Buffer (dtype-proto/->buffer (dst-slices idx)) 0 (map-fn (src-slices idx))))
      retval))
-  ([tensor map-fn]
-   (map-axis tensor map-fn -1)))
+  ([tens map-fn]
+   (map-axis tens map-fn -1)))
 
 
 (comment
