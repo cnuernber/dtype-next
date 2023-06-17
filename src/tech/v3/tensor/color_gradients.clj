@@ -121,12 +121,12 @@ function returned: %s"
 
 
 
-  [src-tens gradient-name & [{:keys [data-min data-max
-                                     alpha?
-                                     check-invalid?
-                                     invert-gradient?
-                                     gradient-default-n]
-                              :or {gradient-default-n 200}}]]
+  [src-tens gradient-name & {:keys [data-min data-max
+                                    alpha?
+                                    check-invalid?
+                                    invert-gradient?
+                                    gradient-default-n]
+                             :or {gradient-default-n 200}}]
   (let [src-tens (dtt/ensure-tensor src-tens)
         img-shape (dtype/shape src-tens)
         {data-min :min
@@ -220,7 +220,7 @@ function returned: %s"
 (defn colorize->clj
   "Same as colorize but returns a ND sequence of [b g r] persistent vectors.
   For options, see documentation in colorize."
-  [src-tens gradient-name & [options]]
+  [src-tens gradient-name & {:as options}]
   (when (seq src-tens)
     (let [src-dims (dtype/shape src-tens)]
       (-> (colorize src-tens gradient-name options)

@@ -326,11 +326,11 @@
   "Draw a source image onto a destination image.  This can be used for scaling,
   cropping, or copying images."
   [^BufferedImage src-img ^BufferedImage dst-image
-   & [{:keys [src-x-offset src-y-offset
-              src-rect-width src-rect-height
-              dst-x-offset dst-y-offset
-              dst-rect-width dst-rect-height
-              interpolation-type]}]]
+   & {:keys [src-x-offset src-y-offset
+             src-rect-width src-rect-height
+             dst-x-offset dst-y-offset
+             dst-rect-width dst-rect-height
+             interpolation-type]}]
   (let [dst-x-offset (long (or dst-x-offset 0))
         dst-y-offset (long (or dst-y-offset 0))
         src-x-offset (long (or src-x-offset 0))
@@ -364,9 +364,9 @@
 (defn downsample-bilinear
   "Reduce an image size using bilinear filtering.  This is a buffered-image->buffered->image
   transformation."
-  ^BufferedImage [^BufferedImage src-img & [{:keys [dst-img-width
-                                                    dst-img-height
-                                                    dst-img-type]}]]
+  ^BufferedImage [^BufferedImage src-img & {:keys [dst-img-width
+                                                   dst-img-height
+                                                   dst-img-type]}]
   (let [src-img-width (.getWidth src-img)
         src-img-height (.getHeight src-img)
         dst-img-width (long (or dst-img-width

@@ -444,7 +444,7 @@
 
   Options:
   * `:range-mult` - the multiplier used."
-  [item & [{:keys [range-mult]}]]
+  [item & {:keys [range-mult]}]
   (let [[q1 q3] (percentiles [25 75] item)
         q1 (double q1)
         q3 (double q3)

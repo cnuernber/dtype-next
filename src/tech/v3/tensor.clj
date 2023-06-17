@@ -126,7 +126,7 @@ user> (dtt/compute-tensor [2 2 2] (fn [& args] (vec args)) :object)
 
 (defn construct-tensor
   "Construct an implementation of tech.v3.datatype.NDBuffer from a buffer and
-  a dimensions object.  See dimensions/dimensions."
+  a dimensions object.  See [[tech.v3.tensor.dimensions/dimensions]]."
   (^{:tag tech.v3.datatype.NDBuffer} [buffer dimensions & args]
   (apply tech.v3.tensor-api/construct-tensor buffer dimensions args)))
 

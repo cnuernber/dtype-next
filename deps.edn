@@ -71,7 +71,8 @@
                             tech.v3.libs.neanderthal]}}
   ;; Run with clj -T:build function-in-build
   :dev
-  {:extra-deps {criterium/criterium {:mvn/version "0.4.5"}
+  {:extra-deps {org.clojure/clojure {:mvn/version "1.11.1"}
+                criterium/criterium {:mvn/version "0.4.5"}
                 net.java.dev.jna/jna {:mvn/version "5.12.1"}
                 uncomplicate/neanderthal {:mvn/version "0.45.0"}
                 com.taoensso/nippy {:mvn/version "3.2.0"}
@@ -84,7 +85,8 @@
 
 
   :dev-mac-m1
-  {:extra-deps {criterium/criterium {:mvn/version "0.4.5"}
+  {:extra-deps {org.clojure/clojure {:mvn/version "1.11.1"}
+                criterium/criterium {:mvn/version "0.4.5"}
                 net.java.dev.jna/jna {:mvn/version "5.12.1"}
                 ;uncomplicate/neanderthal {:mvn/version "0.45.0"}
                 com.taoensso/nippy {:mvn/version "3.2.0"}

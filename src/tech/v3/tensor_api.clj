@@ -458,7 +458,7 @@
 
 (defn ^:no-doc construct-tensor
   "Construct an implementation of tech.v3.datatype.NDBuffer from a buffer and
-  a dimensions object.  See dimensions/dimensions."
+  a dimensions object.  See [[tech.v3.tensor.dimensions/dimensions]]."
   ^NDBuffer [buffer dimensions & [metadata]]
   (try
     (let [nd-desc  (dims/->global->local dimensions)]
@@ -545,8 +545,8 @@
     `:jvm-heap`.
   * `:resource-type` - One of `tech.v3.resource/track` `:track-type` options.  If allocating
      native tensors, `nil` corresponds to `:gc:`."
-  ^NDBuffer [data & [{:keys [datatype container-type]
-                      :as options}]]
+  ^NDBuffer [data & {:keys [datatype container-type]
+                     :as options}]
   (let [data-shape (dtype-base/shape data)
         datatype (if (dtype-base/array? data)
                    (dtype-base/nested-array-elemwise-datatype data)
@@ -587,7 +587,7 @@
   * `:resource-type` - One of `tech.v3.resource/track` `:track-type` options.  If allocating
      native tensors, `nil` corresponds to `:gc:`."
   ^NDBuffer [shape & {:keys [datatype container-type]
-            :as options}]
+                      :as options}]
   (let [datatype (or datatype :float64)
         container-type (or container-type :jvm-heap)
         n-elems (apply * 1 shape)]
@@ -709,9 +709,9 @@
      Defaults to `:jvm-heap`.
     * `:resource-type` - One of `tech.v3.resource/track` `:track-type` options.  If allocating
      native tensors, `nil` corresponds to `gc:`."
-  ^NDBuffer [tens & [{:keys [datatype]
-                      :or {datatype (dtype-base/elemwise-datatype tens)}
-                      :as options}]]
+  ^NDBuffer [tens & {:keys [datatype]
+                     :or {datatype (dtype-base/elemwise-datatype tens)}
+                     :as options}]
   (dtype-cmc/copy! tens (apply new-tensor (dtype-base/shape tens)
                                (->> (assoc options :datatype datatype)
                                     (seq)
@@ -725,8 +725,8 @@
 
   **10.000 - Note that this function now takes an option map as opposed to a variable number of option
   arguments.**"
-  [item & [{:keys [datatype base-storage]
-            :or {base-storage :persistent-vector}}]]
+  [item & {:keys [datatype base-storage]
+           :or {base-storage :persistent-vector}}]
   ;;Get the data off the device
   (let [item-shape (dtype-base/shape item)
         item-ecount (dtype-base/ecount item)
