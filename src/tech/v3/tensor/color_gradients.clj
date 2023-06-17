@@ -153,7 +153,7 @@ function returned: %s"
                             (dtype/indexed-buffer valid-indexes src-tens)
                             src-tens)]
             (merge
-             (dfn/descriptive-statistics [:min :max] {:nan-strategy :keep} src-reader)
+             (dfn/descriptive-statistics src-reader [:min :max] {:nan-strategy :keep})
              {:src-reader src-reader
               :valid-indexes valid-indexes})))
         n-pixels (if valid-indexes

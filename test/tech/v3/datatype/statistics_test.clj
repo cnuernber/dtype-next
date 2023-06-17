@@ -15,12 +15,12 @@
                    :skew :quartile-1 :quartile-3]]
     (is (dfn/equals
          [0.0 99.0 49.0 29.159 5.3027E-4 24.0 75.0]
-         (mapv (stats/descriptive-statistics stats-ary test-data)
+         (mapv (stats/descriptive-statistics test-data stats-ary)
                stats-ary))
         (with-out-str
           (pp/pprint
            (cdata/diff
-            (stats/descriptive-statistics stats-ary test-data)
+            (stats/descriptive-statistics test-data stats-ary)
             (zipmap stats-ary [0.0 99.0 49.0 29.159 5.3027E-4 24.0 75.0])))))
     (is (dfn/equals [850.252]
                     [(stats/variance test-data)]))))
@@ -38,22 +38,22 @@
     (let [percentiles [25 50 75]
           data [1 2 3 4 10]]
       (is (= [1.5 3.0 7.0]
-             (stats/percentiles percentiles data)))
+             (stats/percentiles data percentiles)))
       (is (= [1.5 3.0 7.0]
-             (stats/percentiles percentiles {:estimation-type :legacy} data)))
+             (stats/percentiles data percentiles {:estimation-type :legacy})))
       (is (= [2.0 3.0 4.0]
-             (stats/percentiles percentiles {:estimation-type :r1} data))))))
+             (stats/percentiles data percentiles {:estimation-type :r1}))))))
 
 
 (deftest nan-min-max
   (let [test-data (double-array (edn/read-string (slurp "test/data/double-data.edn")))
-        {dmin :min dmax :max :as data} (stats/descriptive-statistics [:min :max] test-data)]
+        {dmin :min dmax :max :as data} (stats/descriptive-statistics test-data [:min :max])]
     (is (not (Double/isNaN dmin)))
     (is (not (Double/isNaN dmax)))))
 
 
 (deftest really-do-mode
-  (is (= "hey" (-> (stats/descriptive-statistics [:mode] ["hey" "you" "guys" "hey" "hey"])
+  (is (= "hey" (-> (stats/descriptive-statistics ["hey" "you" "guys" "hey" "hey"] [:mode])
                    (:mode))))
-  (is (nil? (-> (stats/descriptive-statistics [:mode] nil)
+  (is (nil? (-> (stats/descriptive-statistics nil [:mode])
                 (:mode)))))

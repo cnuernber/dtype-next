@@ -664,24 +664,22 @@
                      (every? identity (dfn/eq expected
                                               (mapv data-map key-seq))))]
     (is (= {:min 1, :median 2, :max 4 :n-elems 3}
-           (->> (dfn/descriptive-statistics stats (list 1 2 ##NaN 4))
+           (->> (dfn/descriptive-statistics (list 1 2 ##NaN 4) stats)
                 (map (fn [[k v]]
                        [k (int v)]))
                 (into {}))))
     (is (dfn-map-eq [:min :median :max :n-elems] [##NaN ##NaN ##NaN 0]
-                    (dfn/descriptive-statistics stats (list ##NaN ##NaN ##NaN))))
+                    (dfn/descriptive-statistics (list ##NaN ##NaN ##NaN) stats)))
     (is (dfn-map-eq [:min :max :n-elems] [##NaN ##NaN 0]
                     (dfn/descriptive-statistics
-                     (disj stats :median)
-                     (list ##NaN ##NaN ##NaN))))
+                     (list ##NaN ##NaN ##NaN)
+                     (disj stats :median))))
     (is (dfn-map-eq [:mean :standard-deviation]
                     [##NaN 0.0]
-                    (dfn/descriptive-statistics #{:mean :standard-deviation}
-                                                  (list))))
+                    (dfn/descriptive-statistics (list) #{:mean :standard-deviation})))
     (is (dfn-map-eq [:mean :standard-deviation]
                     [##NaN 0.0]
-                    (dfn/descriptive-statistics #{:mean :standard-deviation}
-                                                nil)))))
+                    (dfn/descriptive-statistics nil #{:mean :standard-deviation})))))
 
 (deftest tricky-double-values
   (is (dfn/eq 0.0 -0.0))

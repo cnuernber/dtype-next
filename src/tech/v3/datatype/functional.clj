@@ -293,14 +293,14 @@
     [:keep :remove :exception]. The fastest option is :keep but this
     may result in your results having NaN's in them.  You can also pass
   in a double predicate to filter custom double values."
-  ([stats-names stats-data options x]
-  (tech.v3.datatype.statistics/descriptive-statistics stats-names stats-data options x))
-  ([stats-names options rdr]
-  (tech.v3.datatype.statistics/descriptive-statistics stats-names options rdr))
-  ([stats-names rdr]
-  (tech.v3.datatype.statistics/descriptive-statistics stats-names rdr))
-  ([rdr]
-  (tech.v3.datatype.statistics/descriptive-statistics rdr)))
+  ([x stats-names stats-data options]
+  (tech.v3.datatype.statistics/descriptive-statistics x stats-names stats-data options))
+  ([x stats-names options]
+  (tech.v3.datatype.statistics/descriptive-statistics x stats-names options))
+  ([x stats-names]
+  (tech.v3.datatype.statistics/descriptive-statistics x stats-names))
+  ([x]
+  (tech.v3.datatype.statistics/descriptive-statistics x)))
 
 
 (defn distance
@@ -451,8 +451,8 @@ user>
 
 
 (defn kendalls-correlation
-  (^{:tag double} [options x y]
-  (tech.v3.datatype.statistics/kendalls-correlation options x y))
+  (^{:tag double} [x y options]
+  (tech.v3.datatype.statistics/kendalls-correlation x y options))
   (^{:tag double} [x y]
   (tech.v3.datatype.statistics/kendalls-correlation x y)))
 
@@ -638,8 +638,8 @@ tech.v3.datatype.functional> (meta regressor)
 
 
 (defn pearsons-correlation
-  (^{:tag double} [options x y]
-  (tech.v3.datatype.statistics/pearsons-correlation options x y))
+  (^{:tag double} [x y options]
+  (tech.v3.datatype.statistics/pearsons-correlation x y options))
   (^{:tag double} [x y]
   (tech.v3.datatype.statistics/pearsons-correlation x y)))
 
@@ -650,10 +650,10 @@ tech.v3.datatype.functional> (meta regressor)
   here: https://commons.apache.org/proper/commons-math/javadocs/api-3.3/index.html.
 
   nan-strategy can be one of [:keep :remove :exception] and defaults to :exception."
-  (^{:tag tech.v3.datatype.Buffer} [percentages options x]
-  (tech.v3.datatype.statistics/percentiles percentages options x))
-  (^{:tag tech.v3.datatype.Buffer} [percentages x]
-  (tech.v3.datatype.statistics/percentiles percentages x)))
+  (^{:tag tech.v3.datatype.Buffer} [x percentages options]
+  (tech.v3.datatype.statistics/percentiles x percentages options))
+  (^{:tag tech.v3.datatype.Buffer} [x percentages]
+  (tech.v3.datatype.statistics/percentiles x percentages)))
 
 
 (defn pos?
@@ -703,8 +703,8 @@ tech.v3.datatype.functional> (meta regressor)
   "return [min, 25 50 75 max] of item"
   (^{:tag tech.v3.datatype.Buffer} [x]
   (tech.v3.datatype.statistics/quartiles x))
-  (^{:tag tech.v3.datatype.Buffer} [options x]
-  (tech.v3.datatype.statistics/quartiles options x)))
+  (^{:tag tech.v3.datatype.Buffer} [x options]
+  (tech.v3.datatype.statistics/quartiles x options)))
 
 
 (defn quot
@@ -801,8 +801,8 @@ user> (dfn/shift (range 10) -2)
 
 
 (defn spearmans-correlation
-  (^{:tag double} [options x y]
-  (tech.v3.datatype.statistics/spearmans-correlation options x y))
+  (^{:tag double} [x y options]
+  (tech.v3.datatype.statistics/spearmans-correlation x y options))
   (^{:tag double} [x y]
   (tech.v3.datatype.statistics/spearmans-correlation x y)))
 

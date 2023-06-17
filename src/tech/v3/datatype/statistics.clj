@@ -172,9 +172,9 @@
     [:keep :remove :exception]. The fastest option is :keep but this
     may result in your results having NaN's in them.  You can also pass
   in a double predicate to filter custom double values."
-  ([stats-names stats-data {:keys [nan-strategy]
-                            :or {nan-strategy :remove}
-                            :as options} x]
+  ([x stats-names stats-data {:keys [nan-strategy]
+                              :or {nan-strategy :remove}
+                              :as options}]
    (let [stats-set (hamf/immut-set stats-names)
          stats-data (or stats-data {})
          median? (stats-set :median)
@@ -261,13 +261,13 @@
                       stats-data)]
      (select-keys stats-data (-> (set/union stats-set percentile-set)
                                  (set/union (when mode? #{:mode}))))))
-  ([stats-names options rdr]
-   (descriptive-statistics stats-names nil options rdr))
-  ([stats-names rdr]
-   (descriptive-statistics stats-names nil nil rdr))
-  ([rdr]
-   (descriptive-statistics [:n-elems :min :mean :max :standard-deviation]
-                           nil nil rdr)))
+  ([x stats-names options]
+   (descriptive-statistics x stats-names nil options))
+  ([x stats-names]
+   (descriptive-statistics x stats-names nil nil))
+  ([x]
+   (descriptive-statistics x [:n-elems :min :mean :max :standard-deviation]
+                           nil nil)))
 
 
 (defmacro define-descriptive-stats
@@ -279,9 +279,8 @@
                      (if (:dependencies tower-node)
                        `(defn ~fn-symbol
                           (~(with-meta ['x 'options] {:tag 'double})
-                           (~tower-key (descriptive-statistics #{~tower-key}
-                                                               ~'options
-                                                               ~'x)))
+                           (~tower-key (descriptive-statistics ~'x #{~tower-key}
+                                                               ~'options)))
                           (~(with-meta ['x]
                               {:tag 'double})
                            (~fn-symbol ~'x nil)))
@@ -365,30 +364,30 @@
 
 
 (defn pearsons-correlation
-  (^double [options x y]
+  (^double [x y options]
    (-> (PearsonsCorrelation.)
        (.correlation (dtype-cmc/->double-array options x)
                      (dtype-cmc/->double-array options y))))
   (^double [x y]
-   (pearsons-correlation nil x y)))
+   (pearsons-correlation x y nil)))
 
 
 (defn spearmans-correlation
-  (^double [options x y]
+  (^double [x y options]
    (-> (SpearmansCorrelation.)
        (.correlation (dtype-cmc/->double-array options x)
                      (dtype-cmc/->double-array options y))))
   (^double [x y]
-   (spearmans-correlation nil x y)))
+   (spearmans-correlation x y nil)))
 
 
 (defn kendalls-correlation
-  (^double [options x y]
+  (^double [x y options]
    (-> (KendallsCorrelation.)
        (.correlation (dtype-cmc/->double-array options x)
                      (dtype-cmc/->double-array options y))))
   (^double [x y]
-   (kendalls-correlation nil x y)))
+   (kendalls-correlation x y nil)))
 
 
 (defn- options->percentile-estimation-strategy
@@ -413,7 +412,7 @@
   here: https://commons.apache.org/proper/commons-math/javadocs/api-3.3/index.html.
 
   nan-strategy can be one of [:keep :remove :exception] and defaults to :exception."
-  (^Buffer [percentages options x]
+  (^Buffer [x percentages options]
    (let [ary-buf (dtype-cmc/->array-buffer :float64 options x)
          p (doto (.withEstimationType
                   (Percentile.)
@@ -421,16 +420,16 @@
              (.setData ^doubles (.ary-data ary-buf) (.offset ary-buf)
                        (.n-elems ary-buf)))]
      (dtype-base/->reader (mapv #(.evaluate p (double %)) percentages))))
-  (^Buffer [percentages x]
-   (percentiles percentages nil x)))
+  (^Buffer [x percentages]
+   (percentiles x percentages nil)))
 
 
 (defn quartiles
   "return [min, 25 50 75 max] of item"
   (^Buffer [x]
-   (percentiles [0.001 25 50 75 100] x))
-  (^Buffer [options x]
-   (percentiles [0.001 25 50 75 100] options x)))
+   (percentiles x [0.001 25 50 75 100]))
+  (^Buffer [x options]
+   (percentiles x [0.001 25 50 75 100] options)))
 
 
 (defn quartile-outlier-fn
@@ -445,7 +444,7 @@
   Options:
   * `:range-mult` - the multiplier used."
   [x & {:keys [range-mult]}]
-  (let [[q1 q3] (percentiles [25 75] x)
+  (let [[q1 q3] (percentiles x [25 75])
         q1 (double q1)
         q3 (double q3)
         iqr (- q3 q1)
