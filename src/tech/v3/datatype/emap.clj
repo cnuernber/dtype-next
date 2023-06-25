@@ -144,11 +144,9 @@
                       x y nil)))
   ([map-fn res-dtype x y & args]
    (let [args (concat [x y] args)
-         res-dtype (or res-dtype
-                       (reduce casting/widest-datatype
-                               (map dtype-base/elemwise-datatype args)))
+         op-space (:operation-space (meta map-fn) :object)
+         res-dtype (or res-dtype op-space)
          input-types (set (map argtypes/arg-type args))
-         op-space (casting/simple-operation-space res-dtype)
          cast-fn (op-space->cast-fn op-space res-dtype)]
      (cond
        (= input-types #{:scalar})
