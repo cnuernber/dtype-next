@@ -267,7 +267,7 @@
                        #{:min :max :mean :median :standard-deviation
                          :quartile-1 :quartile-3}
                        #{:min :max :mean :median :quartile-1 :quartile-3})
-         stats-data (dfn/descriptive-statistics stats-set options numeric-data)]
+         stats-data (dfn/descriptive-statistics numeric-data stats-set options)]
      (->> stats-data
           (map (fn [[k v]]
                  [k
