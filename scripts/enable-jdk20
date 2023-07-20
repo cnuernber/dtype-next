@@ -1,0 +1,14 @@
+#!/bin/bash
+
+
+VERSION="20.0.2"
+
+if [ ! -e jdk-$VERSION ]; then
+   echo "Downloading JDK $VERSION"	
+    wget https://download.java.net/java/GA/jdk20.0.2/6e380f22cbe7469fa75fb448bd903d8e/9/GPL/openjdk-20.0.2_linux-x64_bin.tar.gz
+    tar -xvzf openjdk-${VERSION}_linux-x64_bin.tar.gz
+    rm openjdk-${VERSION}_linux-x64_bin.tar.gz
+fi
+
+export PATH=$(pwd)/jdk-$VERSION/bin:$PATH
+export JAVA_HOME=$(pwd)/jdk-$VERSION/
