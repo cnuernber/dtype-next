@@ -159,9 +159,10 @@
 (defn- vm-major-version
   ^long []
   (let [vs (System/getProperty "java.version")
-        periodIdx (.indexOf vs ".")
-        vs (.substring vs 0 periodIdx)]
-    (try (Integer/parseInt vs)
+        periodIdx (.indexOf vs ".")]
+    (try (Integer/parseInt (if (== periodIdx -1)
+                             vs
+                             (.substring vs 0 periodIdx)))
          (catch Exception e 0))))
 
 
