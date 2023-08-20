@@ -219,7 +219,7 @@
 
 (defn magnitude
   ^double [x]
-  (magnitude x))
+  (Math/sqrt (magnitude-squared x)))
 
 
 (defn normalize
