@@ -148,8 +148,7 @@
             (let [tname (str classname "$" (munge (name (second argtype))))]
               [[:aload arg-idx]
                [:checkcast java.util.Map]
-               [:invokestatic tname "fromMap" [java.util.Map Object]]
-               [:checkcast tname]])
+               [:invokestatic tname "fromMap" [java.util.Map tname]]])
             (case (ffi-size-t/lower-type argtype)
               :int8 [[:iload arg-idx]]
               :int16 [[:iload arg-idx]]
@@ -301,57 +300,52 @@
          ;;force errors right here
          (vec))))
 
-(defn- print-passthrough
-  [data]
-  (clojure.pprint/pprint data) data)
-
 
 (defn define-jna-library
   [classname fn-defs symbols _options]
   ;; First we define the inner class which contains the typesafe static methods
   (let [inner-name (symbol (str classname "$inner"))]
-    (print-passthrough
-     (hamf/concatv
-      (emit-by-value-structs classname fn-defs)
-      [{:name inner-name
-        :flags #{:public :static}
-        :methods (mapv (fn [[k v]]
-                         {:flags #{:public :static :native}
-                          :name k
-                          :desc (argtypes->insn-desc
-                                 classname
-                                 (:argtypes v)
-                                 (:rettype v)
-                                 :ptr-as-platform)})
-                       fn-defs)}
-       {:name classname
-        :flags #{:public}
-        :interfaces [IDeref Library]
-        :fields [{:name "libraryImpl"
-                  :type NativeLibrary
-                  :flags #{:public :final}}
-                 {:name "fnMap"
-                  :type Object
-                  :flags #{:public :final}}
-                 {:name "symbolTable"
-                  :type Object
-                  :flags #{:public :final}}]
-        :methods (vec (concat
-                       [{:name :init
-                         :desc [String :void]
-                         :emit (emit-library-constructor inner-name)}
-                        {:name "findSymbol"
-                         :desc [String tech.v3.datatype.ffi.Pointer]
-                         :emit (emit-find-symbol)}
-                        (ffi-base/emit-library-fn-map classname fn-defs)
-                        (ffi-base/emit-library-symbol-table classname symbols
-                                                            emit-constructor-find-symbol)
-                        {:name"deref"
-                         :desc [Object]
-                         :emit [[:aload 0]
-                                [:getfield :this "fnMap" Object]
-                                [:areturn]]}]
-                       (mapv (partial emit-wrapped-fn classname inner-name) fn-defs)))}]))))
+    (hamf/concatv
+     (emit-by-value-structs classname fn-defs)
+     [{:name inner-name
+       :flags #{:public :static}
+       :methods (mapv (fn [[k v]]
+                        {:flags #{:public :static :native}
+                         :name k
+                         :desc (argtypes->insn-desc
+                                classname
+                                (:argtypes v)
+                                (:rettype v)
+                                :ptr-as-platform)})
+                      fn-defs)}
+      {:name classname
+       :flags #{:public}
+       :interfaces [IDeref Library]
+       :fields [{:name "libraryImpl"
+                 :type NativeLibrary
+                 :flags #{:public :final}}
+                {:name "fnMap"
+                 :type Object
+                 :flags #{:public :final}}
+                {:name "symbolTable"
+                 :type Object
+                 :flags #{:public :final}}]
+       :methods (vec (concat
+                      [{:name :init
+                        :desc [String :void]
+                        :emit (emit-library-constructor inner-name)}
+                       {:name "findSymbol"
+                        :desc [String tech.v3.datatype.ffi.Pointer]
+                        :emit (emit-find-symbol)}
+                       (ffi-base/emit-library-fn-map classname fn-defs)
+                       (ffi-base/emit-library-symbol-table classname symbols
+                                                           emit-constructor-find-symbol)
+                       {:name"deref"
+                        :desc [Object]
+                        :emit [[:aload 0]
+                               [:getfield :this "fnMap" Object]
+                               [:areturn]]}]
+                      (mapv (partial emit-wrapped-fn classname inner-name) fn-defs)))}])))
 
 
 (defn define-library
