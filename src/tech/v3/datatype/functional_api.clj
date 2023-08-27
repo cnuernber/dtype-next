@@ -109,26 +109,26 @@
 
 
 (defn- round-scalar
-  ^long [^double arg]
-  (Math/round arg))
+  ^long [^double x]
+  (Math/round x))
 
 
 (defn round
   "Vectorized implementation of Math/round.  Operates in double space
   but returns a long or long reader."
-  ([arg options]
+  ([x options]
    (vectorized-dispatch-1
     round-scalar
-    (fn [_dtype arg] (dispatch/typed-map-1 round-scalar :int64 arg))
+    (fn [_dtype x] (dispatch/typed-map-1 round-scalar :int64 x))
     (fn [_op-dtype ^Buffer src-rdr]
       (reify LongReader
         (lsize [rdr] (.lsize src-rdr))
         (readLong [rdr idx]
           (Math/round (.readDouble src-rdr idx)))))
     (merge {:operation-space :float64} options)
-    arg))
-  ([arg]
-   (round arg nil)))
+    x))
+  ([x]
+   (round x nil)))
 
 ;;Implement only reductions that we know we will use.
 (defn reduce-+
