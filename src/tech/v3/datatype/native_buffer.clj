@@ -636,12 +636,13 @@
   (reduce [this rfn acc]
     (if (identical? :int8 datatype)
       (let [us (unsafe)
-            ne n-elems
-            addr address]
-        (loop [idx 0
+            addr address
+            ne (+ addr n-elems)
+            rfn (Transformables/toLongReductionFn rfn)]
+        (loop [idx addr
                acc acc]
           (if (and (< idx ne) (not (reduced? acc)))
-            (recur (unchecked-inc idx) (rfn acc (.getByte us (+ addr idx))))
+            (recur (unchecked-inc idx) (.invokePrim rfn acc (.getByte us idx)))
             (if (reduced? acc) @acc acc))))
       (.reduce (buffer!) rfn acc)))
   (reduce [this rfn] (.reduce (buffer!) rfn))

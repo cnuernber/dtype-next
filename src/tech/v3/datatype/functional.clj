@@ -751,10 +751,10 @@ tech.v3.datatype.functional> (meta regressor)
 (defn round
   "Vectorized implementation of Math/round.  Operates in double space
   but returns a long or long reader."
-  ([arg options]
-  (tech.v3.datatype.functional-api/round arg options))
-  ([arg]
-  (tech.v3.datatype.functional-api/round arg)))
+  ([x options]
+  (tech.v3.datatype.functional-api/round x options))
+  ([x]
+  (tech.v3.datatype.functional-api/round x)))
 
 
 (defn shift
