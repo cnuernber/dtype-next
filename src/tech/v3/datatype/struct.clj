@@ -689,4 +689,23 @@ user> *2
   (.get line-segment [:end 0])
   (def test-vec3 (new-struct :vec3-uint8))
 
+    (do
+    (require '[criterium.core :as crit])
+
+
+    (define-datatype! :vec3 [{:name :x :datatype :float32}
+                             {:name :y :datatype :float32}
+                             {:name :z :datatype :float32}])
+    (def test-vec3 (new-struct :vec3))
+
+    (println "accessor")
+    (crit/quick-bench (test-vec3 :x))
+    ;;47ns initial, after accessor upgrade 14ns
+
+    (println "reduction")
+    (crit/quick-bench (reduce (fn [acc v] (+ acc (val v)))
+                              0.0
+                              test-vec3))
+    ;;466ns initial, after accessor upgrade 60ns
+    )
   )
