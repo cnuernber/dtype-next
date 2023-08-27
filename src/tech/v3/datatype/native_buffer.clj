@@ -633,7 +633,17 @@
   (invoke [this idx value] (.invoke (buffer!) idx value))
   (fillRange [this idx v] (.fillRange (buffer!) idx v))
   (fillRange [this sidx eidx v] (.set-constant! this sidx (- eidx sidx) v))
-  (reduce [this rfn acc] (.reduce (buffer!) rfn acc))
+  (reduce [this rfn acc]
+    (if (identical? :int8 datatype)
+      (let [us (unsafe)
+            ne n-elems
+            addr address]
+        (loop [idx 0
+               acc acc]
+          (if (and (< idx ne) (not (reduced? acc)))
+            (recur (unchecked-inc idx) (rfn acc (.getByte us (+ addr idx))))
+            (if (reduced? acc) @acc acc))))
+      (.reduce (buffer!) rfn acc)))
   (reduce [this rfn] (.reduce (buffer!) rfn))
   (parallelReduction [this ifn rfn mfn options]
     (.parallelReduction (buffer!) ifn rfn mfn options))
@@ -684,8 +694,11 @@
   "Get the length, in bytes, of a native buffer."
   ^long [^NativeBuffer nb]
   (let [original-size (.n-elems nb)]
-    (* original-size (casting/numeric-byte-width
-                      (dtype-proto/elemwise-datatype nb)))))
+    (if (or (identical? (.datatype nb) :int8)
+            (identical? (.datatype nb) :uint8))
+      original-size
+      (* original-size (casting/numeric-byte-width
+                        (dtype-proto/elemwise-datatype nb))))))
 
 
 (defn set-native-datatype
