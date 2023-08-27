@@ -178,7 +178,7 @@
          [[:invokestatic inner-cls (name fn-name)
            (argtypes->insn-desc classname argtypes rettype :ptr-as-platform)]]
          (if (sequential? rettype)
-           [[:invokevirtual (str classname "$" (munge (name (second rettype)))) "toMap" [java.util.Map]]
+           [[:invokevirtual (str classname "$" (munge (name (second rettype)))) "toStruct" [Object]]
             [:areturn]]
            (ffi-base/exact-type-retval rettype
                                        (fn [_ptr-fn]
@@ -197,6 +197,12 @@
    [:getfield :this "libraryImpl" NativeLibrary]
    [:ldc (name symbol-name)]
    [:invokevirtual NativeLibrary "getGlobalVariableAddress" [String Pointer]]])
+
+
+(defn new-struct
+  [dtype]
+  (dt-struct/new-struct dtype {:container-type :native-heap
+                               :track-type :auto}))
 
 
 (defn emit-by-value-structs
@@ -276,12 +282,8 @@
                                                    [:areturn]])}
                                           {:name :toMap
                                            :flags #{:public}
-                                           :desc [java.util.Map]
+                                           :desc [java.util.Map java.util.Map]
                                            :emit (concat
-                                                  [[:new HashMap]
-                                                   [:dup]
-                                                   [:invokespecial HashMap :init [:void]]
-                                                   [:astore 1]]
                                                   (mapcat (fn [{:keys [name datatype offset n-elems]}]
                                                             (let [oname (clojure.core/name name)
                                                                   name (munge oname)]
@@ -291,10 +293,21 @@
                                                                [:aload 0]
                                                                [:getfield :this name datatype]
                                                                [:invokestatic RT "box" [datatype Number]]
-                                                               [:invokevirtual HashMap 'put [Object Object Object]]]))
+                                                               [:invokeinterface java.util.Map 'put [Object Object Object]]]))
                                                           layout)
                                                   [[:aload 1]
-                                                   [:areturn]])}]}]
+                                                   [:areturn]])}
+                                          {:name :toStruct
+                                           :flags #{:public}
+                                           :desc [Object]
+                                           :emit [[:aload 0]
+                                                  [:ldc (clojure.core/name dtype)]
+                                                  [:invokestatic Keyword 'intern [String Keyword]]
+                                                  [:invokestatic 'tech.v3.datatype.ffi.jna$new_struct 'invokeStatic
+                                                   [Object Object]]
+                                                  [:checkcast 'java.util.Map]
+                                                  [:invokevirtual :this 'toMap [java.util.Map java.util.Map]]
+                                                  [:areturn]]}]}]
                            (.put defined-structs dtype retval)
                            retval))))))
          ;;force errors right here
