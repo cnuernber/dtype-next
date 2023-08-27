@@ -41,9 +41,10 @@ user> *2
             [clj-commons.primitive-math :as pmath])
   (:import [tech.v3.datatype BinaryBuffer ObjectBuffer BooleanBuffer
             LongBuffer DoubleBuffer]
-           [ham_fisted Casts]
+           [ham_fisted Casts ITypedReduce]
            [java.util.concurrent ConcurrentHashMap]
-           [java.util RandomAccess List Map LinkedHashSet Collection]
+           [java.util RandomAccess List Map LinkedHashSet Collection
+            LinkedHashMap]
            [clojure.lang MapEntry IObj IFn ILookup]))
 
 
@@ -88,6 +89,9 @@ user> *2
   (.containsKey ^ConcurrentHashMap struct-datatypes datatype))
 
 
+(defrecord LayoutEntry [name datatype ^long offset ^long n-elems struct?])
+
+
 (defn- layout-datatypes
   [datatype-seq]
   (let [[datatype-seq widest-datatype current-offset]
@@ -106,9 +110,11 @@ user> *2
                          (when-not name
                            (throw (Exception.
                                    "Datatypes must all be named at this point.")))
-                         [(conj datatype-seq (assoc entry
-                                                    :offset current-offset
-                                                    :n-elems n-elems))
+                         [(conj datatype-seq (map->LayoutEntry
+                                              (assoc entry
+                                                     :offset current-offset
+                                                     :n-elems n-elems
+                                                     :struct? (struct-datatype? datatype))))
                           widest-datatype
                           (+ current-offset dtype-size)]))
                      [[] 1 0]))
@@ -184,6 +190,80 @@ user> *2
             [offset prop-datatype]))))))
 
 
+(defrecord ^:private Accessor [reader writer])
+
+(declare struct->buffer)
+(declare inplace-new-struct)
+
+(defn- create-accessors
+  [struct-def]
+  (let [accessors (LinkedHashMap.)
+        layout (get struct-def :data-layout)]
+    (reduce (fn [acc layout-entry]
+              (let [dtype (get layout-entry :datatype)
+                    offset (long (get layout-entry :offset))]
+                (.put accessors
+                      (get layout-entry :name)
+                      (if (struct-datatype? dtype)
+                        (let [sdef (get-struct-def dtype)
+                              offset (long (get layout-entry :offset))
+                              dsize (long (get sdef :datatype-size))]
+                          (Accessor. (fn [buffer bin-buffer]
+                                       (->> (dtype-proto/sub-buffer buffer offset dsize)
+                                            (inplace-new-struct dtype)))
+                                     (fn [buffer bin-buffer val]
+                                       (dtype-cmc/copy! (struct->buffer val)
+                                                        (dtype-proto/sub-buffer buffer offset dsize))
+                                       nil)))
+                        (let [host-dtype (casting/host-flatten dtype)
+                              unsigned? (casting/unsigned-integer-type? dtype)]
+                          (if unsigned?
+                            (case host-dtype
+                              :int8 (Accessor. (fn [buffer ^BinaryBuffer reader]
+                                                 (unchecked-short (Byte/toUnsignedInt (.readBinByte reader offset))))
+                                               (fn [buffer ^BinaryBuffer writer val]
+                                                 (.writeBinByte writer offset (unchecked-byte (Casts/longCast val)))))
+                              :int16 (Accessor. (fn [buffer ^BinaryBuffer reader]
+                                                  (Short/toUnsignedInt (.readBinShort reader offset)))
+                                                (fn [buffer ^BinaryBuffer writer val]
+                                                  (.writeBinShort writer offset (unchecked-short (Casts/longCast val)))))
+                              :int32 (Accessor. (fn [buffer ^BinaryBuffer reader]
+                                                  (Integer/toUnsignedLong (.readBinInt reader offset)))
+                                                (fn [buffer ^BinaryBuffer writer val]
+                                                  (.writeBinInt writer offset (unchecked-int (Casts/longCast val)))))
+                              :int64 (Accessor. (fn [buffer ^BinaryBuffer reader]
+                                                  (.readBinLong reader offset))
+                                                (fn [buffer ^BinaryBuffer writer val]
+                                                  (.writeBinLong writer offset (Casts/longCast val)))))
+                            (case host-dtype
+                              :int8 (Accessor. (fn [buffer ^BinaryBuffer reader]
+                                                 (.readBinByte reader offset))
+                                               (fn [buffer ^BinaryBuffer writer val]
+                                                 (.writeBinByte writer offset (byte (Casts/longCast val)))))
+                              :int16 (Accessor. (fn [buffer ^BinaryBuffer reader]
+                                                  (.readBinShort reader offset))
+                                                (fn [buffer ^BinaryBuffer writer val]
+                                                  (.writeBinShort writer offset (short (Casts/longCast val)))))
+                              :int32 (Accessor. (fn [buffer ^BinaryBuffer reader]
+                                                  (.readBinInt reader offset))
+                                                (fn [buffer ^BinaryBuffer writer val]
+                                                  (.writeBinInt writer offset (int (Casts/longCast val)))))
+                              :int64 (Accessor. (fn [buffer ^BinaryBuffer reader]
+                                                  (.readBinLong reader offset))
+                                                (fn [buffer ^BinaryBuffer writer val]
+                                                  (.writeBinLong writer offset (Casts/longCast val))))
+                              :float32 (Accessor. (fn [buffer ^BinaryBuffer reader]
+                                                    (.readBinFloat reader offset))
+                                                  (fn [buffer ^BinaryBuffer writer val]
+                                                    (.writeBinFloat writer offset (float (Casts/doubleCast val)))))
+                              :float64 (Accessor. (fn [buffer ^BinaryBuffer reader]
+                                                    (.readBinDouble reader offset))
+                                                  (fn [buffer ^BinaryBuffer writer val]
+                                                    (.writeBinDouble writer offset (Casts/doubleCast val)))))))))))
+            nil
+            layout)
+    (assoc struct-def :accessors accessors)))
+
 (defn define-datatype!
   "Define a new struct datatype.
 
@@ -206,7 +286,7 @@ user> *2
   [datatype-name datatype-seq]
   (let [new-datatype (-> (layout-datatypes datatype-seq)
                          (assoc :datatype-name datatype-name))]
-    (.put ^ConcurrentHashMap struct-datatypes datatype-name new-datatype)
+    (.put ^ConcurrentHashMap struct-datatypes datatype-name (create-accessors new-datatype))
     new-datatype))
 
 
@@ -231,7 +311,8 @@ user> *2
          buffer
          ^{:unsynchronized-mutable true
            :tag BinaryBuffer} cached-buffer
-         metadata]
+         metadata
+         accessors]
   dtype-proto/PDatatype
   (datatype [_m] (:datatype-name struct-def))
   dtype-proto/PECount
@@ -260,7 +341,7 @@ user> *2
   IObj
   (meta [_this] metadata)
   (withMeta [_this m]
-    (Struct. struct-def buffer cached-buffer m))
+    (Struct. struct-def buffer cached-buffer m accessors))
 
   ILookup
   (valAt [this k] (.get this k))
@@ -283,55 +364,34 @@ user> *2
       (LinkedHashSet. ^Collection map-entry-data)))
   (keySet [_m] (.keySet ^Map (:layout-map struct-def)))
   (get [_m k]
-    (when-let [[offset dtype :as _data-vec] (offset-of struct-def k)]
-      (if-let [struct-def (.get ^ConcurrentHashMap struct-datatypes dtype)]
-        (let [new-buffer (dtype-proto/sub-buffer
-                          buffer
-                          offset
-                          (:datatype-size struct-def))]
-          (inplace-new-struct dtype new-buffer
-                              {:endianness (dtype-proto/endianness buffer)}))
-        (let [host-dtype (casting/host-flatten dtype)
-              reader (ensure-binary-buffer!)
-              value
-              (case host-dtype
-                :int8 (.readBinByte reader offset)
-                :int16 (.readBinShort reader offset)
-                :int32 (.readBinInt reader offset)
-                :int64 (.readBinLong reader offset)
-                :float32 (.readBinFloat reader offset)
-                :float64 (.readBinDouble reader offset))]
-          (if (= host-dtype dtype)
-            value
-            (casting/unchecked-cast value dtype))))))
+    (when-let [^Accessor accessor (get accessors k)]
+      ((.reader accessor) buffer (ensure-binary-buffer!))))
   (getOrDefault [m k d]
     (or (.get m k) d))
   (put [m k v]
     (let [writer (ensure-binary-buffer!)]
       (when-not (.allowsBinaryWrite writer)
         (throw (Exception. "Item is immutable")))
-      (if-let [[offset dtype :as _data-vec] (offset-of struct-def k)]
-        (if-let [struct-def (.get ^ConcurrentHashMap struct-datatypes dtype)]
-          (let [_ (when-not (and (instance? Struct v)
-                                 (= dtype (dtype-proto/datatype v)))
+      (if-let [^Accessor accessor (get accessors k)]
+        ((.writer accessor) buffer writer v)
+        (throw (Exception. (format "Datatype %s does not contain field %s"
+                                   (dtype-proto/datatype m) k))))))
+  ITypedReduce
+  (reduce [this rfn acc]
+    (let [bin-buf (ensure-binary-buffer!)]
+      (reduce
+       (fn [acc e]
+         (rfn acc (MapEntry/create
+                   (key e)
+                   ((.reader ^Accessor (val e)) buffer bin-buf))))
+       acc
+       accessors))))
 
-                    (throw (Exception. (format "non-struct or datatype mismatch: %s %s"
-                                               dtype (dtype-proto/datatype v)))))]
-            (dtype-cmc/copy! (.buffer ^Struct v)
-                             (dtype-proto/sub-buffer buffer offset
-                                                     (:datatype-size struct-def)))
-            nil)
-          (let [v (casting/cast v dtype)
-                host-dtype (casting/host-flatten dtype)]
-            (case host-dtype
-              :int8 (.writeBinByte writer offset (pmath/byte v))
-              :int16 (.writeBinShort writer offset (pmath/short v))
-              :int32 (.writeBinInt writer offset (pmath/int v))
-              :int64 (.writeBinLong writer offset (pmath/long v))
-              :float32 (.writeBinFloat writer offset (pmath/float v))
-              :float64 (.writeBinDouble writer offset (pmath/double v)))))
-        (throw (Exception. (format "Datatype %s does not containt field %s"
-                                   (dtype-proto/datatype m) k)))))))
+
+(defn struct->buffer
+  [^Struct s]
+  (.buffer s))
+
 
 
 (defn inplace-new-struct
@@ -341,7 +401,7 @@ user> *2
   Returns a new Struct datatype."
   (^Struct [datatype backing-store _options]
    (let [struct-def (get-struct-def datatype)]
-     (Struct. struct-def backing-store nil {})))
+     (Struct. struct-def backing-store nil {} (get struct-def :accessors))))
   (^Struct [datatype backing-store]
    (inplace-new-struct datatype backing-store {})))
 
@@ -366,9 +426,24 @@ user> *2
                        :int8
                        options
                        (long (:datatype-size struct-def)))]
-     (Struct. struct-def backing-data nil options)))
+     (Struct. struct-def backing-data nil options (:accessors struct-def))))
   (^Struct [datatype]
    (new-struct datatype {})))
+
+
+(defn map->struct!
+  [data rv]
+  (reduce (fn [acc e]
+            (.put ^Map rv (key e) (val e)))
+          false
+          data)
+  rv)
+
+
+(defn map->struct
+  [dtype data track-type]
+  (map->struct! data (new-struct dtype {:container-type :native-heap
+                                        :resource-type track-type})))
 
 
 (declare inplace-new-array-of-structs)
@@ -612,5 +687,25 @@ user> *2
   (.put line-segment :end test-vec3)
   (.get line-segment [:end :x])
   (.get line-segment [:end 0])
+  (def test-vec3 (new-struct :vec3-uint8))
 
+    (do
+    (require '[criterium.core :as crit])
+
+
+    (define-datatype! :vec3 [{:name :x :datatype :float32}
+                             {:name :y :datatype :float32}
+                             {:name :z :datatype :float32}])
+    (def test-vec3 (new-struct :vec3))
+
+    (println "accessor")
+    (crit/quick-bench (test-vec3 :x))
+    ;;47ns initial, after accessor upgrade 14ns
+
+    (println "reduction")
+    (crit/quick-bench (reduce (fn [acc v] (+ acc (val v)))
+                              0.0
+                              test-vec3))
+    ;;466ns initial, after accessor upgrade 60ns
+    )
   )

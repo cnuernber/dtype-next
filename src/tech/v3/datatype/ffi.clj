@@ -20,6 +20,64 @@
   Note that unsigned types will work but the interface will have to be defined in
   terms of their signed analogues.
 
+
+  Arguments and return values can be specified as pass-by-value - **currently JNA only**.  This is the difference between
+  the c signatures:
+```c
+  //pass-by-reference
+  tdata* doit(adata* val);
+
+  //pass-by-value
+  tdata doti(adata val);
+```
+
+  In the return-by-value case the return value will be copied into a dtype struct of the correct datatype.
+  In order to use pass or return by value you need to first (before interface instantiation) define the datatype:
+
+```clojure
+(defonce data-chunk-def*
+  (delay
+    (dt-struct/define-datatype! :duckdb-data-chunk
+      [{:name :__dtck
+        :datatype @ptr-dtype*}])))
+
+(defonce appender-def*
+  (delay
+    (dt-struct/define-datatype! :duckdb-appender
+      [{:name :__appn
+        :datatype @ptr-dtype*}])))
+  @data-chunk-def*
+  @appender-def*
+
+
+  ;;Then when defining your functions in your library use `(by-value struct-data-type)` in either
+  ;;argtype or in rettype pathways.
+
+(dt-ffi/define-library!
+  'lib
+  {
+   ...
+   ;;DUCKDB_API duckdb_state duckdb_append_data_chunk(duckdb_appender appender, duckdb_data_chunk chunk);
+   :duckdb_append_data_chunk {:rettype :int32
+                               :argtypes [[appender (by-value :duckdb-appender)]
+                                          [data-chunk (by-value :duckdb-data-chunk)]]}
+
+  ;;DUCKDB_API duckdb_data_chunk duckdb_create_data_chunk(duckdb_logical_type *types, idx_t column_count);
+  :duckdb_create_data_chunk {:rettype (by-value :duckdb-data-chunk)
+                             :argtypes [[types :pointer]
+                                        [column-count :int64]]}
+  })
+```
+
+  Under the covers during pass-by-value all the syste needs is any valid java map of keyword property name
+  to value and it will copy it into the appropriate structure just before call time.
+
+  During return-by-value the data will be copied into a native-backed datatype struct with the :resource-type
+  set to :auto.
+
+  Datatype structs have accelerated .get and .reduce implementations so `(into {} data)` is a reasonable
+  pathway if you want to convert from a struct to a persistent maps.
+
 Example:
 
 ```clojure

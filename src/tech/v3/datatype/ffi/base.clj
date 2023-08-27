@@ -1,11 +1,14 @@
 (ns tech.v3.datatype.ffi.base
   (:require [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.ffi :as ffi]
-            [tech.v3.datatype.ffi.size-t :as ffi-size-t])
+            [tech.v3.datatype.ffi.size-t :as ffi-size-t]
+            [tech.v3.datatype.casting :as casting]
+            [ham-fisted.api :as hamf])
   (:import [clojure.lang IFn RT Keyword]
            [tech.v3.datatype ClojureHelper NumericConversions]
            [tech.v3.datatype.ffi Pointer]
-           [java.util HashMap]))
+           [java.util HashMap]
+           [ham_fisted Casts]))
 
 
 (defn unify-ptr-types
@@ -17,28 +20,30 @@
 
 (defn argtype->insn
   [platform-ptr-type ptr-disposition argtype]
-  (case (-> (ffi-size-t/lower-type argtype)
-            (unify-ptr-types))
-    :int8 :byte
-    :int16 :short
-    :int32 :int
-    :int64 :long
-    :float32 :float
-    :float64 :double
-    :pointer
-    (case ptr-disposition
-      :ptr-as-int (argtype->insn platform-ptr-type
-                                 :ptr-as-int (ffi-size-t/size-t-type))
-      :ptr-as-obj Object
-      :ptr-as-ptr tech.v3.datatype.ffi.Pointer
-      :ptr-as-platform platform-ptr-type)
-    :void :void
-    (do
-      (errors/when-not-errorf
-       (instance? Class argtype)
-       "Argument type %s is unrecognized"
-       argtype)
-      argtype)))
+  (if (sequential? argtype) ;;by-value mapping
+    Object
+    (case (-> (ffi-size-t/lower-type argtype)
+              (unify-ptr-types))
+      :int8 :byte
+      :int16 :short
+      :int32 :int
+      :int64 :long
+      :float32 :float
+      :float64 :double
+      :pointer
+      (case ptr-disposition
+        :ptr-as-int (argtype->insn platform-ptr-type
+                                   :ptr-as-int (ffi-size-t/size-t-type))
+        :ptr-as-obj Object
+        :ptr-as-ptr tech.v3.datatype.ffi.Pointer
+        :ptr-as-platform platform-ptr-type)
+      :void :void
+      (do
+        (errors/when-not-errorf
+         (instance? Class argtype)
+         "Argument type %s is unrecognized"
+         argtype)
+        argtype))))
 
 
 (defn make-ptr-cast
@@ -86,6 +91,25 @@
                [[] 1])
        (first)))
 
+
+(defn emit-obj->primitive-cast
+  [argtype]
+  (case (casting/datatype->host-type (ffi-size-t/lower-type argtype))
+    :int8 [[:invokestatic NumericConversions "numberCast" [Object Number]]
+           [:invokestatic RT "uncheckedByteCast" [Object :byte]]]
+    :int16 [[:invokestatic NumericConversions "numberCast" [Object Number]]
+            [:invokestatic RT "uncheckedShortCast" [Object :short]]]
+    :int32 [[:invokestatic NumericConversions "numberCast" [Object Number]]
+            [:invokestatic RT "uncheckedIntCast" [Object :int]]]
+    :int64 [[:invokestatic NumericConversions "numberCast" [Object Number]]
+            [:invokestatic RT "uncheckedLongCast" [Object :long]]]
+    :float32 [[:invokestatic NumericConversions "numberCast" [Object Number]]
+              [:invokestatic RT "uncheckedFloatCast" [Object :float]]]
+    :float64 [[:invokestatic NumericConversions "numberCast" [Object Number]]
+              [:invokestatic RT "uncheckedDoubleCast" [Object :double]]]
+    []))
+
+
 (defn emit-invoker-invoke
   [classname fn-name rettype argtypes]
   (concat
@@ -94,30 +118,12 @@
    (map-indexed
     (fn [idx argtype]
       (let [arg-idx (inc idx)]
-        (case (ffi-size-t/lower-type argtype)
-          :int8 [[:aload arg-idx]
-                 [:invokestatic NumericConversions "numberCast" [Object Number]]
-                 [:invokestatic RT "uncheckedByteCast" [Object :byte]]]
-          :int16 [[:aload arg-idx]
-                  [:invokestatic NumericConversions "numberCast" [Object Number]]
-                  [:invokestatic RT "uncheckedShortCast" [Object :short]]]
-          :int32 [[:aload arg-idx]
-                  [:invokestatic NumericConversions "numberCast" [Object Number]]
-                  [:invokestatic RT "uncheckedIntCast" [Object :int]]]
-          :int64 [[:aload arg-idx]
-                  [:invokestatic NumericConversions "numberCast" [Object Number]]
-                  [:invokestatic RT "uncheckedLongCast" [Object :long]]]
-          :float32 [[:aload arg-idx]
-                    [:invokestatic NumericConversions "numberCast" [Object Number]]
-                    [:invokestatic RT "uncheckedFloatCast" [Object :float]]]
-          :float64 [[:aload arg-idx]
-                    [:invokestatic NumericConversions "numberCast" [Object Number]]
-                    [:invokestatic RT "uncheckedDoubleCast" [Object :double]]]
-          [[:aload arg-idx]])))
+        (concat [[:aload arg-idx]]
+                (emit-obj->primitive-cast argtype))))
     argtypes)
    [[:invokevirtual classname fn-name
-     (concat (map (partial argtype->insn nil :ptr-as-obj) argtypes)
-             [(argtype->insn nil :ptr-as-ptr rettype)])]]
+     (hamf/concatv (mapv (partial argtype->insn nil :ptr-as-obj) argtypes)
+                   [(argtype->insn nil :ptr-as-ptr rettype)])]]
    (case (ffi-size-t/lower-type rettype)
      :int8 [[:invokestatic RT "box" [:byte Number]]]
      :int16 [[:invokestatic RT "box" [:short Number]]]

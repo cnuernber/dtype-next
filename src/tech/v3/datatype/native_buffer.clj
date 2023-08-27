@@ -767,6 +767,13 @@
    (.getLong (unsafe) (.address native-buffer))))
 
 
+(defn write-long
+  "Ad-hoc write an integer at a given offset from a native buffer.  This method is not endian-aware."
+  [^NativeBuffer native-buffer ^long offset ^long val]
+  (assert (>= (- (native-buffer-byte-len native-buffer) offset 8) 0))
+  (.putLong (unsafe) (+ (.address native-buffer) offset) val))
+
+
 (defn read-int
   "Ad-hoc read an integer at a given offset from a native buffer.  This method is not endian-aware."
   (^long [^NativeBuffer native-buffer ^long offset]
@@ -775,6 +782,12 @@
   (^long [^NativeBuffer native-buffer]
    (assert (>= (- (native-buffer-byte-len native-buffer) 4) 0))
    (.getInt (unsafe) (.address native-buffer))))
+
+(defn write-int
+  "Ad-hoc write an integer at a given offset from a native buffer.  This method is not endian-aware."
+  [^NativeBuffer native-buffer ^long offset ^long val]
+  (assert (>= (- (native-buffer-byte-len native-buffer) offset 4) 0))
+  (.putInt (unsafe) (+ (.address native-buffer) offset) (unchecked-int val)))
 
 
 (defn read-short

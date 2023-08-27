@@ -1,3 +1,10 @@
+## 10.003
+ * Pass and return by value are implemented for the JNA backend.  This is an initial
+   implementation but the API will not change in that arguments will be copied from
+   something expected to implement java.util.Map and return values will be instances
+   of java.util.Map.  Currently return values are datatype structs and the struct
+   implementation's get and reduce pathways have been optimized.
+ 
 ## 10.000-beta-50
  * MAJOR API CHANGES - last before 10.000 release!!
    * See [issue-82](https://github.com/cnuernber/dtype-next/issues/82).
