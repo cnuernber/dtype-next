@@ -69,7 +69,7 @@
   })
 ```
 
-  Under the covers during pass-by-value all the syste needs is any valid java map of keyword property name
+  Under the covers during pass-by-value all the system needs is any valid java map of keyword property name
   to value and it will copy it into the appropriate structure just before call time.
 
   During return-by-value the data will be copied into a native-backed datatype struct with the :resource-type
