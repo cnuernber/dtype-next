@@ -344,23 +344,23 @@
 
 (defn median
   (^double [x options]
-   (:median (descriptive-statistics [:median] options x)))
+   (:median (descriptive-statistics x [:median] options)))
   (^double [x]
-   (:median (descriptive-statistics [:median] x))))
+   (:median (descriptive-statistics x [:median]))))
 
 
 (defn quartile-1
   (^double[x options]
-   (:quartile-1 (descriptive-statistics [:quartile-1] options x)))
+   (:quartile-1 (descriptive-statistics x [:quartile-1] options)))
   (^double [x]
-   (:quartile-1 (descriptive-statistics [:quartile-1] x))))
+   (:quartile-1 (descriptive-statistics x [:quartile-1]))))
 
 
 (defn quartile-3
   (^double [x options]
-   (:quartile-3 (descriptive-statistics [:quartile-3] options x)))
+   (:quartile-3 (descriptive-statistics x [:quartile-3] options)))
   (^double [x]
-   (:quartile-3 (descriptive-statistics [:quartile-3] x))))
+   (:quartile-3 (descriptive-statistics x [:quartile-3]))))
 
 
 (defn pearsons-correlation
