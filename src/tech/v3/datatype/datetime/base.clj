@@ -136,6 +136,12 @@
         nanoseconds-in-millisecond))
 
 
+(defn local-time->microseconds
+  ^long [^LocalTime lt]
+  (quot (.toNanoOfDay lt)
+        constants/nanoseconds-in-microsecond))
+
+
 (defn seconds->local-time
   ^LocalTime [^long seconds]
   (LocalTime/ofSecondOfDay seconds))

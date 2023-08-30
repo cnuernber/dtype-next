@@ -1,3 +1,7 @@
+## 10.006
+ * fix to quartile-X, median.
+ * added local-time->microseconds for duckdb integration.
+ 
 ## 10.005
  * fix to round
  * small perf enhancement to native-buffer/reduce
