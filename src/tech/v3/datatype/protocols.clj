@@ -239,11 +239,10 @@ Only arraybuffers and native buffers need implement this pathway."))
   [item]
   (or item :little-endian))
 
-(defonce platform-endianness* (delay (if (= (ByteOrder/nativeOrder) ByteOrder/LITTLE_ENDIAN)
-                                       :little-endian
-                                       :big-endian)))
 
-(defn platform-endianness [] @platform-endianness*)
+(defn platform-endianness []
+  (if (identical? (ByteOrder/nativeOrder) ByteOrder/LITTLE_ENDIAN)
+    :little-endian :big-endian))
 
 
 (defprotocol PToBitmap
