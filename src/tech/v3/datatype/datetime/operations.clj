@@ -11,6 +11,7 @@
             [tech.v3.datatype.binary-op :as bin-op]
             [tech.v3.datatype.argops :as argops]
             [tech.v3.datatype.errors :as errors]
+            [ham-fisted.api :as hamf]
             [clojure.set :as set])
   (:import [tech.v3.datatype DoubleReader LongReader ObjectReader Buffer
             BinaryOperator
@@ -18,7 +19,7 @@
            [java.time.temporal ChronoUnit Temporal ChronoField
             WeekFields TemporalAmount TemporalField
             TemporalAccessor]
-           [java.util Locale Iterator]))
+           [java.util Locale Iterator Set]))
 
 
 (set! *warn-on-reflection* true)
@@ -28,10 +29,12 @@
 (def datetime-datatypes (set/union dt-packing/datatypes
                                    dt-base/datatypes))
 
+(def ^Set datetime-datatypes-java (hamf/java-hashset datetime-datatypes))
+
 
 (defn datetime-datatype?
   [datatype]
-  (boolean (datetime-datatypes datatype)))
+  (.contains datetime-datatypes-java datatype))
 
 
 (def millisecond-datatypes #{:duration :packed-duration})

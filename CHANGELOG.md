@@ -1,7 +1,14 @@
+## 10.008
+ * various optimizations running duckdb and reading very large datasets.
+
+## 10.006
+ * fix to quartile-X, median.
+ * added local-time->microseconds for duckdb integration.
+
 ## 10.005
  * fix to round
  * small perf enhancement to native-buffer/reduce
- 
+
 ## 10.004
  * Optimizations around a performance case using duckdb.
  * tech.resource now uses arraylists for stack tracking and reverses them just before release.
