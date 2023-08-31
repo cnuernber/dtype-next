@@ -180,17 +180,13 @@
 (defn numeric-byte-width
   ^long [dtype]
   (let [dtype (un-alias-datatype dtype)]
-    (long (cond
-            (int-types dtype)
-            (quot (int-width dtype) 8)
-            (float-types dtype)
-            (quot (float-width dtype) 8)
-            ;;char is a shitty uint16
-            (identical? dtype :char)
-            (quot (int-width :uint16) 8)
-            :else
-            (throw (ex-info (format "datatype is not numeric: %s" dtype)
-                            {:datatype dtype}))))))
+    (case dtype
+      (:int8 :uint8 :boolean) 1
+      (:int16 :uint16 :char) 2
+      (:int32 :uint32 :float32) 4
+      (:int64 :uint64 :float64) 8
+      (throw (ex-info (format "datatype is not numeric: %s" dtype)
+                      {:datatype dtype})))))
 
 
 (defn numeric-type?
