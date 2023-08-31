@@ -22,7 +22,8 @@
            [clojure.lang RT IObj Counted Indexed IFn
             IFn$LL IFn$LD IFn$LO IFn$LLO IFn$LDO IFn$LOO IFn$OLO
             IFn$LLL IFn$LLD IFn$LLO IFn$LLLO IFn$LLDO IFn$LLOO]
-           [ham_fisted Casts Transformables IMutList ChunkedList Reductions]))
+           [ham_fisted Casts Transformables IMutList ChunkedList Reductions
+            ArrayHelpers]))
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
@@ -691,15 +692,49 @@
     (dtype-proto/->native-buffer item)))
 
 
+(defn native-buffer->string
+  "Convert a :int8 native buffer to a java string."
+  ([^NativeBuffer nbuf ^long off ^long len]
+   (when-not (identical? (.elemwise-datatype nbuf) :int8)
+     (throw (RuntimeException. (str "Native buffer is not convertible to string - " (.datatype nbuf)))))
+   (if (== 0 len)
+     ""
+     (let [us (unsafe)
+           final-len (+ off len)
+           _ (when-not (<= final-len (.n-elems nbuf))
+               (throw (RuntimeException. (str "Requested end point: " final-len
+                                              " is past native buffer len" (.n-elems nbuf)))))
+           bdata (byte-array len)
+           addr (+ (.address nbuf) off)]
+       (loop [idx 0]
+         (when (< idx len)
+           (ArrayHelpers/aset bdata idx (.getByte us (+ addr idx)))
+           (recur (unchecked-inc idx))))
+       (String. bdata))))
+  ([^NativeBuffer nbuf]
+   (when-not (identical? (.elemwise-datatype nbuf) :int8)
+     (throw (RuntimeException. "Native buffer is not convertible to string.")))
+   (let [len (.n-elems nbuf)]
+     (if (== 0 len)
+       ""
+       (let [bdata (byte-array len)
+             addr (.address nbuf)
+             us (unsafe)]
+         (loop [idx 0]
+           (when (< idx len)
+             (ArrayHelpers/aset bdata idx (.getByte us (+ addr idx)))))
+         (String. bdata))))))
+
+
 (defn native-buffer-byte-len
   "Get the length, in bytes, of a native buffer."
   ^long [^NativeBuffer nb]
-  (let [original-size (.n-elems nb)]
-    (if (or (identical? (.datatype nb) :int8)
-            (identical? (.datatype nb) :uint8))
+  (let [original-size (.n-elems nb)
+        nbdt (.elemwise-datatype nb)]
+    (if (or (identical? nbdt :int8)
+            (identical? nbdt :uint8))
       original-size
-      (* original-size (casting/numeric-byte-width
-                        (dtype-proto/elemwise-datatype nb))))))
+      (* original-size (casting/numeric-byte-width nbdt)))))
 
 
 (defn set-native-datatype
@@ -885,13 +920,15 @@
   will be linked to the native buffer such that gc-obj will not be garbage
   collected before native buffer is garbage collected."
   (^NativeBuffer [address n-bytes datatype endianness gc-obj]
-   (errors/when-not-error
-    (or (not= 0 (long address))
-        (== 0 (long n-bytes)))
-    "Attempt to wrap 0 as an address for a native buffer")
-   (let [byte-width (casting/numeric-byte-width datatype)]
-     (NativeBuffer. address (quot (long n-bytes) byte-width)
-                    datatype endianness #{:gc} nil nil gc-obj)))
+   (let [address (long address)
+         n-bytes (long n-bytes)]
+     (errors/when-not-error
+      (or (not (== 0 address))
+          (== 0 n-bytes))
+      "Attempt to wrap 0 as an address for a native buffer")
+     (let [byte-width (casting/numeric-byte-width datatype)]
+       (NativeBuffer. address (quot n-bytes byte-width)
+                      datatype endianness #{:gc} nil nil gc-obj))))
   (^NativeBuffer [address n-bytes gc-obj]
    (wrap-address address n-bytes :int8 (dtype-proto/platform-endianness)
                  gc-obj)))
