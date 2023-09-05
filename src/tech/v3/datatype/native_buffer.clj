@@ -699,32 +699,16 @@
      (throw (RuntimeException. (str "Native buffer is not convertible to string - " (.datatype nbuf)))))
    (if (== 0 len)
      ""
-     (let [us (unsafe)
-           final-len (+ off len)
+     (let [final-len (+ off len)
            _ (when-not (<= final-len (.n-elems nbuf))
                (throw (RuntimeException. (str "Requested end point: " final-len
                                               " is past native buffer len" (.n-elems nbuf)))))
-           bdata (byte-array len)
            addr (+ (.address nbuf) off)]
-       (loop [idx 0]
-         (when (< idx len)
-           (ArrayHelpers/aset bdata idx (.getByte us (+ addr idx)))
-           (recur (unchecked-inc idx))))
-       (String. bdata))))
+       (UnsafeUtil/addrToString addr (unchecked-int len)))))
   ([^NativeBuffer nbuf]
    (when-not (identical? (.elemwise-datatype nbuf) :int8)
      (throw (RuntimeException. "Native buffer is not convertible to string.")))
-   (let [len (.n-elems nbuf)]
-     (if (== 0 len)
-       ""
-       (let [bdata (byte-array len)
-             addr (.address nbuf)
-             us (unsafe)]
-         (loop [idx 0]
-           (when (< idx len)
-             (ArrayHelpers/aset bdata idx (.getByte us (+ addr idx)))
-             (recur (unchecked-inc idx))))
-         (String. bdata))))))
+   (UnsafeUtil/addrToString (.address nbuf) (unchecked-int (.n-elems nbuf)))))
 
 
 (defn native-buffer-byte-len

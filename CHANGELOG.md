@@ -1,3 +1,6 @@
+## 10.009
+ * major fix in native-buffer->string pathway
+ 
 ## 10.008
  * various optimizations running duckdb and reading very large datasets.
 

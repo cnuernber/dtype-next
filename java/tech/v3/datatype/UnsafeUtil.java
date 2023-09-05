@@ -26,6 +26,16 @@ public class UnsafeUtil {
 
   public static Unsafe unsafe = getUnsafe();
 
+  public static String addrToString(final long addr, final int len) {
+    Unsafe us = getUnsafe();
+    if(addr == 0 || len == 0)
+      return "";
+    final byte[] buf = new byte[len];
+    for (int idx = 0; idx < len; ++idx)
+      buf[idx] = us.getByte(addr+idx);
+    return new String(buf);
+  }
+
   public static long addressField() {
     try {
       return getUnsafe().objectFieldOffset(Buffer.class.getDeclaredField("address"));
