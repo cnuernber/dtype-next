@@ -26,14 +26,25 @@ public class UnsafeUtil {
 
   public static Unsafe unsafe = getUnsafe();
 
+  public static byte[] copyBytesLoop(final long addr, byte[] dest, final int len) {
+    Unsafe us = getUnsafe();
+    for(int idx = 0; idx < len; ++idx)
+      dest[idx] = us.getByte(addr+idx);
+    return dest;
+  }
+
+  public static byte[] copyBytesMemcpy(final long addr, byte[] dest, final int len) {
+    Unsafe us = getUnsafe();
+    us.copyMemory(null,addr,dest, Unsafe.ARRAY_BYTE_BASE_OFFSET, len);
+    return dest;
+  }
+
   public static String addrToString(final long addr, final int len) {
     Unsafe us = getUnsafe();
     if(addr == 0 || len == 0)
       return "";
     final byte[] buf = new byte[len];
-    for (int idx = 0; idx < len; ++idx)
-      buf[idx] = us.getByte(addr+idx);
-    return new String(buf);
+    return new String(len < 128 ? copyBytesLoop(addr, buf, len) : copyBytesMemcpy(addr, buf, len));
   }
 
   public static long addressField() {

@@ -1071,3 +1071,26 @@
     item
     (when (dtype-proto/convertible-to-native-buffer? item)
       (dtype-proto/->native-buffer item))))
+
+
+(comment
+  (do
+    (require '[criterium.core :as crit])
+    (require '[tech.v3.datatype :as dt])
+
+    (def src-str (apply str (repeat 10 "asldkejfalsdkjfalksdjfalksjdflaksdjflkajdsfasdfasdfasdfasdfasdfsdfhglkjsdflbkjnvliausdhfoiuahwefasdfkjasldkfjalksdjfalksdjflakjsdflkajsdflkjasdlfkjasdlkfjasdlkjfalksdhflaksdjbfv,mzcnxb vkjablskfjhalwiuehflakjsdbv,kjzdsbxvlkjasdhflkasdjhf")))
+
+    (println (count src-str))
+
+    (for [i (range 1 11)]
+      (let [strlen (bit-shift-left 2 i)
+            data (.substring src-str 0 strlen)
+            dbuf (.getBytes data)
+            src-nbuf (dt/make-container :native-heap :int8  dbuf)
+            addr (.address src-nbuf)]
+        (println "for-loop" strlen)
+        (crit/quick-bench (UnsafeUtil/copyBytesLoop addr (byte-array strlen) strlen))
+        (println "memcpy" strlen)
+        (crit/quick-bench (UnsafeUtil/copyBytesMemcpy addr (byte-array strlen) strlen))))
+    )
+  )
