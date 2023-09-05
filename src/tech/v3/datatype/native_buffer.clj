@@ -722,7 +722,8 @@
              us (unsafe)]
          (loop [idx 0]
            (when (< idx len)
-             (ArrayHelpers/aset bdata idx (.getByte us (+ addr idx)))))
+             (ArrayHelpers/aset bdata idx (.getByte us (+ addr idx)))
+             (recur (unchecked-inc idx))))
          (String. bdata))))))
 
 
