@@ -691,7 +691,6 @@
   (when (dtype-proto/convertible-to-native-buffer? item)
     (dtype-proto/->native-buffer item)))
 
-
 (defn native-buffer->string
   "Convert a :int8 native buffer to a java string."
   ([^NativeBuffer nbuf ^long off ^long len]

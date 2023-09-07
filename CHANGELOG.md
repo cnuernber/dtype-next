@@ -1,3 +1,6 @@
+## 10.011
+ * Additional *as fast as possible* routines for copying byte data in UsafeUtil.
+
 ## 10.010
  * optimization for larger strings in native-buffer->string
 

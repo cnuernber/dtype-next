@@ -60,12 +60,16 @@
   datatypes, endianness, and ecounts  *must* match, this is not checked in this method.
   If in question, use [[high-perf-copy!]]."
   ([src-buf dst-buf src-dt ^long n-elems]
-   (let [[src src-off] (dtype-proto/memcpy-info src-buf)
-         [dst dst-off] (dtype-proto/memcpy-info dst-buf)]
-     (.copyMemory (unsafe)
-                  src (long src-off)
-                  dst (long dst-off)
-                  (* n-elems (casting/numeric-byte-width src-dt)))
+   (let [[src ^long src-off] (dtype-proto/memcpy-info src-buf)
+         [dst ^long dst-off] (dtype-proto/memcpy-info dst-buf)]
+     (if (and (nil? src) (nil? dst)
+              (or (identical? :int8 src-dt)
+                  (identical? :uint8 src-dt)))
+       (UnsafeUtil/copyBytes src-off dst-off n-elems)
+       (.copyMemory (unsafe)
+                    src (long src-off)
+                    dst (long dst-off)
+                    (* n-elems (casting/numeric-byte-width src-dt))))
      dst-buf))
   ([src-buf dst-buf]
    (unsafe-copy-memory src-buf dst-buf

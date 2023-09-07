@@ -26,6 +26,19 @@ public class UnsafeUtil {
 
   public static Unsafe unsafe = getUnsafe();
 
+  public static long copyBytes(final long src, final long dest, final long len) {
+    if(len == 0) return dest;
+    Unsafe us = getUnsafe();
+    if(len < 128) {
+      final int ilen = (int)len;
+      for(int idx = 0; idx < ilen; ++idx)
+	us.putByte(dest+idx, us.getByte(src+idx));
+    } else {
+      us.copyMemory(null, src, null, dest, len);
+    }
+    return dest;
+  }
+
   public static byte[] copyBytesLoop(final long addr, byte[] dest, final int len) {
     Unsafe us = getUnsafe();
     for(int idx = 0; idx < len; ++idx)
@@ -36,6 +49,18 @@ public class UnsafeUtil {
   public static byte[] copyBytesMemcpy(final long addr, byte[] dest, final int len) {
     Unsafe us = getUnsafe();
     us.copyMemory(null,addr,dest, Unsafe.ARRAY_BYTE_BASE_OFFSET, len);
+    return dest;
+  }
+
+  public static long copyBytes(byte[] src, final long dest, final int len) {
+    if(len == 0) return dest;
+    Unsafe us = getUnsafe();
+    if(len < 128) {
+      for(int idx = 0; idx < len; ++idx)
+	us.putByte(dest+idx, src[idx]);
+    } else {
+      us.copyMemory(src, Unsafe.ARRAY_BYTE_BASE_OFFSET, null, dest, len);
+    }
     return dest;
   }
 
