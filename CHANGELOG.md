@@ -1,3 +1,6 @@
+## 10.012
+ * hamf bugfix in pmap - return value correctly (and efficiently) implements seq and IReduceInit.
+ 
 ## 10.011
  * Additional *as fast as possible* routines for copying byte data in UsafeUtil.
 
