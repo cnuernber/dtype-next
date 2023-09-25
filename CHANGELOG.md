@@ -1,3 +1,5 @@
+## 10.013
+ * hamf-upgrade for faster reducer composition, mmin-idx and mmax-idx pathways.
 ## 10.012
  * hamf bugfix in pmap - return value correctly (and efficiently) implements seq and IReduceInit.
  
