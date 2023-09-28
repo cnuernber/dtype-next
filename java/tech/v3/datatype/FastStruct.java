@@ -187,7 +187,7 @@ public class FastStruct extends APersistentMap implements IObj, IReduceInit {
     for(Object obj: om.entrySet()) {
       final Map.Entry me = (Map.Entry)obj;
       final Map.Entry mm = entryAt(me.getKey());
-      if(!Util.equiv(me.getValue(), mm.getValue()))
+      if(mm == null || !Util.equiv(me.getValue(), mm.getValue()))
 	return false;
     }
     return true;
