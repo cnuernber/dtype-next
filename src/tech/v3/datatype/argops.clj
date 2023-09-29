@@ -586,7 +586,7 @@
                          (fn [l r] l)
                          m)
                         m)))
-         map-fn (or map-fn #(MapForward. (java.util.LinkedHashMap.) nil))]
+         map-fn (or map-fn hamf/linked-hashmap)]
      (->> (hamf/pgroups
            n-elems
            (fn [^long sidx ^long eidx]

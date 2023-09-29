@@ -852,6 +852,13 @@
               (vec)))))
 
 
+(deftest arggroup-map-equiv
+  (is (not (nil? (get (argops/arggroup
+                       (into [] cat [(range 6)
+                                     (shuffle (take 1000 (cycle (range 6))))]))
+                      (int 0))))))
+
+
 (comment
   (defn bench-sum
     []
