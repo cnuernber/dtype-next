@@ -4,9 +4,8 @@ import clojure.lang.Keyword;
 import java.util.function.DoubleConsumer;
 import ham_fisted.Sum;
 import ham_fisted.Reducible;
-import ham_fisted.MutArrayMap;
-import ham_fisted.BitmapTrieCommon;
 import clojure.lang.IDeref;
+import clojure.lang.PersistentArrayMap;
 
 
 public class DoubleConsumers
@@ -56,11 +55,11 @@ public class DoubleConsumers
     }
 
     public Object deref() {
-      return MutArrayMap.createKV(BitmapTrieCommon.defaultHashProvider,
-				  Sum.sumKwd, sum.computeFinalSum(),
-				  sum.nElemsKwd, sum.nElems,
-				  minKwd, getMin(),
-				  maxKwd, getMax()).persistent();
+      return new PersistentArrayMap(new Object[] {
+	  Sum.sumKwd, sum.computeFinalSum(),
+	  sum.nElemsKwd, sum.nElems,
+	  minKwd, getMin(),
+	  maxKwd, getMax() });
     }
   }
 
@@ -102,11 +101,11 @@ public class DoubleConsumers
       return retval;
     }
     public Object deref() {
-      return MutArrayMap.createKV(BitmapTrieCommon.defaultHashProvider,
-				  m2Kwd, m2,
-				  m3Kwd, m3,
-				  m4Kwd, m4,
-				  Sum.nElemsKwd, nElems).persistent();
+      return new PersistentArrayMap(new Object[] { 
+	  m2Kwd, m2,
+	  m3Kwd, m3,
+	  m4Kwd, m4,
+	  Sum.nElemsKwd, nElems });
     }
   }
 }

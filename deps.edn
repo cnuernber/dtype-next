@@ -7,7 +7,7 @@
         org.roaringbitmap/RoaringBitmap {:mvn/version "0.9.0"}
         com.github.wendykierp/JTransforms {:mvn/version "3.1"}
         techascent/tech.resource {:mvn/version "5.08"}
-        com.cnuernber/ham-fisted {:mvn/version "1.009"}
+        com.cnuernber/ham-fisted {:mvn/version "2.000"}
         org.clj-commons/primitive-math {:mvn/version "1.0.0"}}
  :aliases
  {:codox
@@ -18,7 +18,7 @@
    :exec-fn codox.main/-main
    :exec-args {:group-id "cnuernber"
                :artifact-id "dtype-next"
-               :version "10.015"
+               :version "10.100-SNAPSHOT"
                :name "DType Next"
                :description "High Performance Clojure Primitives"
                :metadata {:doc/format :markdown}

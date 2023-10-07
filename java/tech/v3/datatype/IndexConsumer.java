@@ -4,13 +4,12 @@ package tech.v3.datatype;
 import java.util.function.LongConsumer;
 import java.util.List;
 import ham_fisted.Reducible;
-import ham_fisted.MutArrayMap;
-import ham_fisted.BitmapTrieCommon;
 import ham_fisted.IMutList;
 import clojure.lang.IDeref;
 import clojure.lang.IFn;
 import clojure.lang.IObj;
 import clojure.lang.Keyword;
+import clojure.lang.PersistentArrayMap;
 
 
 public class IndexConsumer
@@ -45,12 +44,12 @@ public class IndexConsumer
   }
   public String toString() {
     if(list.isEmpty())
-      return MutArrayMap.createKV(BitmapTrieCommon.defaultHashProvider,
-				  Keyword.intern("firstVal"), firstVal,
-				  Keyword.intern("lastVal"), lastVal,
-				  Keyword.intern("increment"), increment,
-				  Keyword.intern("min"), minVal,
-				  Keyword.intern("max"), maxVal).toString();
+      return new PersistentArrayMap( new Object[] { 
+	  Keyword.intern("firstVal"), firstVal,
+	  Keyword.intern("lastVal"), lastVal,
+	  Keyword.intern("increment"), increment,
+	  Keyword.intern("min"), minVal,
+	  Keyword.intern("max"), maxVal } ).toString();
     else
       return list.toString();
   }
@@ -117,8 +116,8 @@ public class IndexConsumer
       retval = (IObj)list;
     else
       retval = (IObj)rangeFn.invoke(firstVal, lastVal + increment, increment);
-    return retval.withMeta(MutArrayMap.createKV(BitmapTrieCommon.defaultHashProvider,
-						Keyword.intern("min"), minVal,
-						Keyword.intern("max"), maxVal).persistent());
+    return retval.withMeta(new PersistentArrayMap( new Object[] { 
+	  Keyword.intern("min"), minVal,
+	  Keyword.intern("max"), maxVal}));
   }
 }

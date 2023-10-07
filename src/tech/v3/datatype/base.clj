@@ -1050,8 +1050,8 @@ user> (dtt/transpose tensor [1 2 0])
   (clone [item] (.clone item))
   java.util.concurrent.ConcurrentHashMap
   (clone [item] (java.util.concurrent.ConcurrentHashMap. item))
-  ham_fisted.MutHashTable
+  ham_fisted.UnsharedHashMap
   (clone [item] (.clone item))
-  ham_fisted.LongMutHashTable
+  ham_fisted.UnsharedLongHashMap
   (clone [item] (.clone item))
   )

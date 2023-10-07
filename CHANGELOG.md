@@ -1,3 +1,6 @@
+## 10.100
+ * Large hamf upgrade - update to hamf 2.0.
+
 ## 10.014
  * Fix serious issue with fastruct equiv pathway.
 
