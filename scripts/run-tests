@@ -1,5 +1,5 @@
 #!/bin/bash
 
 scripts/compile
-clj -A:dev -X:codegen
-clj -A:dev -M:test --dir test --dir neanderthal
+clojure -A:dev -X:codegen
+clojure -A:dev -M:test --dir test --dir neanderthal
