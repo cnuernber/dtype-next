@@ -28,9 +28,7 @@ jobs:
       with:
         cli: 1.11.1.1413
     - name: Run automated tests
-      run: |
-        scripts/get-data.sh
-        scripts/run-tests
+      run: scripts/run-tests
     - name: Cache dependencies
       uses: actions/cache@v3
       with:
