@@ -559,7 +559,7 @@
     ordered
   - `:key-fn` - defaults to identity.  In this case the reader's values are used as the
     keys."
-  (^Map [{:keys [storage-datatype unordered? skip-finalize? map-fn] :as options} rdr]
+  (^Map [{:keys [storage-datatype unordered? skip-finalize? map-fn operation-space] :as options} rdr]
    (when-not (dtype-base/reader? rdr)
      (errors/throwf "Input must be convertible to a reader"))
    ;;This function can be written fairly trivially with hamf/group-by-consumer but
@@ -575,7 +575,7 @@
          afn (hamf-fn/function k (init-fn))
          merge-bifn (hamf-fn/->bi-function (hamf-proto/->merge-fn idx-rdr))
          map-merge #(hamf/mut-map-union! merge-bifn %1 %2)
-         op-space (casting/simple-operation-space (dtype-base/elemwise-datatype rdr))
+         op-space (or operation-space (casting/simple-operation-space (dtype-base/elemwise-datatype rdr)))
          fin-fn (if skip-finalize?
                   identity
                   (fn [^Map m]
