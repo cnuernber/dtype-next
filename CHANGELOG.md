@@ -1,3 +1,6 @@
+## 10.103
+ * Important hamf fix in compose-reducers.
+ 
 ## 10.102
  * small hamf updates.
  
