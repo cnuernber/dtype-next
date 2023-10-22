@@ -1,9 +1,12 @@
+## 10.104
+ * hamf perf upgrades.
+
 ## 10.103
  * Important hamf fix in compose-reducers.
- 
+
 ## 10.102
  * small hamf updates.
- 
+
 ## 10.100
  * Large hamf upgrade - update to hamf 2.0.
 
