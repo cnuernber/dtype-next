@@ -638,7 +638,7 @@
               (recur (inc cur-idx))
               [cur-idx next-item])))
         end-idx (inc (long end-idx))]
-    (cons [first-item (range (long start-idx) end-idx)]
+    (cons [first-item (hamf/range (long start-idx) end-idx)]
           (when (.hasNext item-iterable)
             (lazy-seq (do-argpartition-by end-idx item-iterable next-item pred))))))
 
