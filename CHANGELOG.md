@@ -1,3 +1,6 @@
+## 10.107
+ * hamf (2.008) perf upgrades.
+
 ## 10.106
  * hamf (2.007) perf upgrades and additional functionality.
 
