@@ -1,3 +1,6 @@
+## 10.108
+ * hamf (2.009) typed nth operations.
+
 ## 10.107
  * hamf (2.008) perf upgrades.
 
