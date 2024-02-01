@@ -746,7 +746,7 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
     (if-let [data-buf (inner-buffer-sub-buffer buf offset len)]
       data-buf
       (if-let [data-io (->buffer buf)]
-        (.subBuffer data-io offset (+ offset len))
+        (.subBuffer data-io offset (+ (long offset) (long len)))
         (throw (Exception. (format
                             "Buffer %s does not implement the sub-buffer protocol"
                             (type buf)))))))

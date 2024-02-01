@@ -178,7 +178,7 @@
            (->array)))))
   ([datatype item]
    (->array datatype nil item))
-  (^ArrayBuffer [item]
+  ([item]
    (->array (packing/unpack-datatype (dtype-base/elemwise-datatype item))
             nil item)))
 

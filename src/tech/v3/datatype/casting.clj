@@ -376,8 +376,20 @@
       :object `~val)))
 
 
-(defonce ^:dynamic *cast-table* (atom {}))
-(defonce ^:dynamic *unchecked-cast-table* (atom {}))
+(defmacro ^:private checked-cast-table
+  []
+  `(into {} ~(mapv (fn [dtype]
+                     [dtype `#(datatype->cast-fn :unknown ~dtype %)])
+                   base-datatypes)))
+
+(defmacro ^:private unchecked-cast-table
+  []
+  `(into {} ~(mapv (fn [dtype]
+                     [dtype `#(datatype->unchecked-cast-fn :unknown ~dtype %)])
+                   base-datatypes)))
+
+(defonce ^:dynamic *cast-table* (atom (checked-cast-table)))
+(defonce ^:dynamic *unchecked-cast-table* (atom (unchecked-cast-table)))
 
 
 (defn add-cast-fn!
@@ -389,16 +401,6 @@
   [datatype cast-fn]
   (swap! *unchecked-cast-table* assoc datatype cast-fn))
 
-
-(defmacro add-all-cast-fns
-  []
-  `(do
-     ~@(for [dtype base-datatypes]
-         [`(add-cast-fn! ~dtype #(datatype->cast-fn :unknown ~dtype %))
-          `(add-unchecked-cast-fn! ~dtype #(datatype->unchecked-cast-fn
-                                            :unknown ~dtype %))])))
-
-(def casts (add-all-cast-fns))
 
 
 (defn all-datatypes

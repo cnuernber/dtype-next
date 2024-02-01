@@ -23,7 +23,7 @@
   (tech.v3.datatype.copy-make-container/->array datatype options item))
   ([datatype item]
   (tech.v3.datatype.copy-make-container/->array datatype item))
-  (^{:tag tech.v3.datatype.array_buffer.ArrayBuffer} [item]
+  ([item]
   (tech.v3.datatype.copy-make-container/->array item)))
 
 
