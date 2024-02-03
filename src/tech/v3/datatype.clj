@@ -394,6 +394,11 @@
   (tech.v3.datatype-api/ensure-serializeable item)))
 
 
+(defmacro export-symbols
+  ([lib & args]
+  `(tech.v3.datatype-api/export-symbols ~lib ~@args)))
+
+
 (defn get-datatype
   "Legacy method, returns elemwise-datatype"
   ([item]
@@ -510,14 +515,6 @@ user> (dtype/make-reader :float32 5 (* idx 2))
   (tech.v3.datatype.native-buffer/malloc n-bytes opts))
   (^{:tag tech.v3.datatype.native_buffer.NativeBuffer} [n-bytes]
   (tech.v3.datatype.native-buffer/malloc n-bytes)))
-
-
-(defn map-factory
-  "Create an IFn taking exactly n-keys arguments to rapidly create a map.
-  This moves the key-checking to the factory creation and simply creates a
-  new map as fast as possible when requrested"
-  ([key-seq]
-  (tech.v3.datatype-api/map-factory key-seq)))
 
 
 (defn prealloc-list

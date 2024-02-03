@@ -2,30 +2,17 @@
   "Base namespace for container creation and elementwise access of data"
   (:require [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.datatype.errors :as errors]
-            [tech.v3.datatype.array-buffer :as abuf]
-            [tech.v3.datatype.native-buffer :as nbuf]
-            [tech.v3.datatype.list]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.export-symbols]
             [tech.v3.datatype.clj-range]
-            [tech.v3.datatype.functional]
-            [tech.v3.datatype.copy-raw-to-item]
             [tech.v3.datatype.primitive]
+            [tech.v3.datatype.copy-raw-to-item]
             [tech.v3.datatype.monotonic-range :as dt-range]
             ;;import in clone for jvm maps
-            [tech.v3.datatype.export-symbols :refer [export-symbols] :as export-symbols]
             ;;Includes to let clj-kondo know to parse this file after parsing these
             ;;namespaces
-            [tech.v3.datatype.base]
-            [tech.v3.datatype.argtypes]
-            [tech.v3.datatype.emap]
-            [tech.v3.datatype.argops]
-            [tech.v3.datatype.io-indexed-buffer]
-            [tech.v3.datatype.const-reader]
-            [tech.v3.datatype.io-concat-buffer]
-            [tech.v3.datatype.list :as dt-list]
-            [tech.v3.datatype.copy-make-container]
-            [tech.v3.datatype.fastobjs :as fastobjs])
+            [tech.v3.datatype.list :as dt-list])
   (:import [tech.v3.datatype BooleanReader LongReader DoubleReader ObjectReader
             Buffer ArrayBufferData NativeBufferData]
            [tech.v3.datatype.native_buffer NativeBuffer]
@@ -34,6 +21,11 @@
            [clojure.lang IFn$LO IFn$LL IFn$LD]
            [org.roaringbitmap RoaringBitmap])
   (:refer-clojure :exclude [cast reverse]))
+
+(defmacro export-symbols
+  [lib & symbols]
+  (require '[tech.v3.datatype.export-symbols])
+  `(tech.v3.datatype.export-symbols/export-symbols ~lib ~@symbols))
 
 
 (export-symbols tech.v3.datatype.casting
@@ -422,16 +414,6 @@ user> (dt/make-list :float32 (range 10))
                 retval
                 (errors/throwf "Unable create create tensor for nd object type: %s"
                                (type item))))))
-
-
-(defn map-factory
-  "Create an IFn taking exactly n-keys arguments to rapidly create a map.
-  This moves the key-checking to the factory creation and simply creates a
-  new map as fast as possible when requrested"
-  [key-seq]
-  (if (empty? key-seq)
-    (constantly {})
-    (fastobjs/map-factory key-seq)))
 
 (comment
 

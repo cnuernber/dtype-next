@@ -379,7 +379,6 @@
 (def builtin-ops
   (->> [(make-double-unary-op :tech.numerics/floor (Math/floor x))
         (make-double-unary-op :tech.numerics/ceil (Math/ceil x))
-        (make-double-unary-op :tech.numerics/round (unchecked-double (Math/round (double x))))
         (make-double-unary-op :tech.numerics/rint (Math/rint x))
         (make-double-unary-op :tech.numerics/get-significand (unchecked-double (get-significand x)))
         (make-numeric-object-unary-op :tech.numerics/- (- x))

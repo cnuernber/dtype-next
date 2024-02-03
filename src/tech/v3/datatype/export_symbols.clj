@@ -1,13 +1,15 @@
 (ns tech.v3.datatype.export-symbols
   (:require [clojure.java.io :as io]
             [clojure.tools.logging :as log])
-  (:import [java.io Writer]))
+  (:import [java.io Writer]
+           [java.util.concurrent.locks ReentrantLock]))
+
+(def ^ReentrantLock load-lib-lock (ReentrantLock.))
 
 
 (defmacro export-symbols
   [src-ns & symbol-list]
   `(do
-     (#'clojure.core/load-lib nil '~src-ns)
      ~@(->> symbol-list
             (mapv
              (fn [sym-name]
@@ -39,7 +41,14 @@
                      (format "Cannot export macros as this breaks aot: %s"
                              sym-name)
                      {:symbol sym-name})))
-                 `(def ~(with-meta sym-name full-meta) ~(symbol (name src-ns) (name sym-name)))))))))
+                 `(def ~(with-meta sym-name full-meta)
+                    (do
+                      (.lock load-lib-lock)
+                      (try
+                        (#'clojure.core/load-lib nil '~src-ns)
+                        (finally
+                          (.unlock load-lib-lock)))
+                      ~(symbol (name src-ns) (name sym-name))))))))))
 
 (defn- write!
   ^Writer [^Writer writer data & datas]
