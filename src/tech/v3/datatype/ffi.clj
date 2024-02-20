@@ -408,7 +408,8 @@ Finally - on my favorite topic, efficiency, dtype-next has extremely fast copies
   * :jna - namespace `''tech.v3.datatype.ffi.jna/ffi-fns` - available if JNA version 5+ is in the classpath."
   [ffi-kwd]
   (case ffi-kwd
-    :jdk        (reset! ffi-impl* @(requiring-resolve 'tech.v3.datatype.ffi.mmodel-jdk19/ffi-fns))
+    :jdk-21     (reset! ffi-impl* @(requiring-resolve 'tech.v3.datatype.ffi.mmodel-jdk21/ffi-fns))
+    :jdk-19     (reset! ffi-impl* @(requiring-resolve 'tech.v3.datatype.ffi.mmodel-jdk19/ffi-fns))
     :jdk-pre-19 (reset! ffi-impl* @(requiring-resolve 'tech.v3.datatype.ffi.mmodel/ffi-fns))
     :jna        (reset! ffi-impl* @(requiring-resolve 'tech.v3.datatype.ffi.jna/ffi-fns))))
 
@@ -422,15 +423,19 @@ Finally - on my favorite topic, efficiency, dtype-next has extremely fast copies
       (catch Throwable e
         (log/debugf e "Failed to load JNA FFI implementation")
         (try
-          (set-ffi-impl! :jdk)
+          (set-ffi-impl! :jdk-21)
           (catch Throwable e
-            (log/debugf "Failed to load JDK 19 FFI implementation: %s" e)
+            (log/debugf "Failed to load JDK 21 FFI implementation: %s" e)
             (try
-              (set-ffi-impl! :jdk-pre-19)
+              (set-ffi-impl! :jdk-19)
               (catch Throwable e
-                (log/error e "Failed to find a suitable FFI implementation.
+                (log/debugf "Failed to load JDK 19 FFI implementation: %s" e)
+                (try
+                  (set-ffi-impl! :jdk-pre-19)
+                  (catch Throwable e
+                    (log/error e "Failed to find a suitable FFI implementation.
 Attempted :jdk, :jdk-pre-19, and :jna -- call set-ffi-impl! from the repl to see specific failure.)")
-                (reset! ffi-impl* :failed))))))))
+                    (reset! ffi-impl* :failed))))))))))
   @ffi-impl*)
 
 

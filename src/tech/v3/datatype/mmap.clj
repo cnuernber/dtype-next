@@ -37,27 +37,24 @@
              existing-fn
              (graal-native/if-defined-graal-native
               (errors/throwf "Automatic resolution of mmap pathways is disabled for graal native. Please use 'tech.3.datatype.mmap/set-mmap-impl!' prior to calling mmap-file.")
-              (let [jdk-19-fn
-                    (when (>= (jdk-major-version) 19)
-                      (try
-                        (requiring-resolve 'tech.v3.datatype.mmap.mmodel-jdk19/mmap-file)
-                        (catch Throwable _e
-                          (log/warn "Failed to activate JDK-19 mmodel pathway; attempting jdk-17."))))]
-                (if jdk-19-fn
-                  jdk-19-fn
-                  (let [jdk-17-fn
-                        (when (>= (jdk-major-version) 17)
-                          (try
-                            (requiring-resolve 'tech.v3.datatype.mmap.mmodel/mmap-file)
-                            (catch Throwable _e
-                              (log/warn "Failed to activate JDK-17 mmodel pathway; falling back to larray."))))]
-                    (if jdk-17-fn
-                      jdk-17-fn
-                      (try
-                        (requiring-resolve 'tech.v3.datatype.mmap.larray/mmap-file)
-                        (catch Throwable e
-                          (log/warnf "Mmap unavailble as larray failed to load: %s" e)
-                          :failed)))))))))))
+              (let [jdk-version (jdk-major-version)]
+                (try
+                  (requiring-resolve 'tech.v3.datatype.mmap.mmodel-jdk21/mmap-file)
+                  (catch Throwable _e
+                    (log/warn "Failed to activate JDK-21 mmodel pathway; attempting jdk-19.")
+                    (try
+                      (requiring-resolve 'tech.v3.datatype.mmap.mmodel-jdk19/mmap-file)
+                      (catch Throwable _e
+                        (log/warn "Failed to activate JDK-19 mmodel pathway; attempting jdk-17.")
+                        (try
+                          (requiring-resolve 'tech.v3.datatype.mmap.mmodel/mmap-file)
+                          (catch Throwable _e
+                            (log/warn "Failed to activate JDK-17 mmodel pathway; falling back to larray.")
+                            (try
+                              (requiring-resolve 'tech.v3.datatype.mmap.larray/mmap-file)
+                              (catch Throwable e
+                                (log/warnf "Mmap unavailble as larray failed to load: %s" e)
+                                :failed))))))))))))))
 
 
 (defn mmap-enabled?

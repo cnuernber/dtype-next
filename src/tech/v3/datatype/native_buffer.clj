@@ -29,10 +29,6 @@
 (set! *unchecked-math* :warn-on-boxed)
 
 
-(graal-native/when-not-defined-graal-native
- (require '[clojure.pprint :as pp]))
-
-
 (defn unsafe
   "Get access to an instance of sun.misc.Unsafe."
   ^Unsafe []

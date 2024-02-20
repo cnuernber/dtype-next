@@ -1,6 +1,7 @@
 (ns tech.v3.datatype.casting
   (:refer-clojure :exclude [cast])
   (:require [clojure.set :as c-set]
+            [ham-fisted.lazy-noncaching :as lznc]
             [clj-commons.primitive-math :as pmath]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.errors :as errors])
@@ -15,7 +16,9 @@
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
 
-(declare rebuild-valid-datatypes!)
+
+(defonce ^{:tag Set} valid-datatype-set (ConcurrentHashMap/newKeySet))
+(defn- add-valid-datatype [dtype] (.add valid-datatype-set dtype))
 
 (defonce aliased-datatypes (ConcurrentHashMap.))
 
@@ -24,7 +27,7 @@
   "Alias a new datatype to a base datatype.  Only useful for primitive datatypes"
   [new-dtype old-dtype]
   (.put ^Map aliased-datatypes new-dtype old-dtype)
-  (rebuild-valid-datatypes!))
+  (add-valid-datatype new-dtype))
 
 
 (defn un-alias-datatype
@@ -43,7 +46,7 @@
   ([datatype klass implement-protocols?]
    (.put datatype->class-map datatype klass)
    (.put class->datatype-map klass datatype)
-   (rebuild-valid-datatypes!)
+   (add-valid-datatype datatype)
    (when implement-protocols?
      (clojure.core/extend klass
        dtype-proto/PElemwiseDatatype
@@ -73,36 +76,25 @@
    :int32 :uint32
    :int64 :uint64})
 
-(def unsigned-signed (c-set/map-invert signed-unsigned))
+(defmacro cdef
+  "Eval the code at compile time and just output constant - saves initialization time."
+  [name code]
+  (let [v (eval code)]
+    `(def ~name ~v)))
 
-(def float-types #{:float32 :float64})
+(cdef unsigned-signed (c-set/map-invert signed-unsigned))
 
-(def int-types (set (concat (flatten (seq signed-unsigned)))))
+(cdef float-types #{:float32 :float64})
 
-(def signed-int-types (set (keys signed-unsigned)))
+(cdef int-types (set (concat (flatten (seq signed-unsigned)))))
 
-(def unsigned-int-types (set (vals signed-unsigned)))
+(cdef signed-int-types (set (keys signed-unsigned)))
 
-(def host-numeric-types (set (concat signed-int-types float-types)))
+(cdef unsigned-int-types (set (vals signed-unsigned)))
 
-(def numeric-types (set (concat host-numeric-types unsigned-int-types)))
+(cdef host-numeric-types (set (concat signed-int-types float-types)))
 
-
-(defonce valid-datatype-set (atom nil))
-
-(defn ->hash-set
-  [data]
-  (doto (HashSet.)
-    (.addAll data)))
-
-(defn rebuild-valid-datatypes!
-  []
-  (reset! valid-datatype-set
-          (->> (concat (keys datatype->class-map)
-                       (keys aliased-datatypes)
-                       numeric-types
-                       [:object :boolean :char])
-               (->hash-set))))
+(cdef numeric-types (set (concat host-numeric-types unsigned-int-types)))
 
 
 (defn base-host-datatype?
@@ -121,8 +113,24 @@
 
 (defn valid-datatype?
   [datatype]
-  (or (base-host-datatype? datatype)
-      (.contains ^Set @valid-datatype-set datatype)))
+  (case datatype
+    :int64 true
+    :float64 true
+    :int32 true
+    :int8 true
+    :int16 true
+    :uint8 true
+    :uint16 true
+    :uint32 true
+    :uint64 true
+    :char true
+    :float32 true
+    :boolean true
+    :object true
+    :string true
+    :keyword true
+    :uuid true
+    (.contains valid-datatype-set datatype)))
 
 
 (defn ensure-valid-datatype
@@ -131,7 +139,7 @@
     (throw (Exception. (format "Invalid datatype: %s" datatype)))))
 
 
-(def primitive-types (set (concat numeric-types [:boolean])))
+(cdef primitive-types (set (concat numeric-types [:boolean])))
 
 
 (defn- set->hash-set
@@ -141,16 +149,16 @@
     retval))
 
 
-(def base-host-datatypes (set (concat host-numeric-types
+(cdef base-host-datatypes (set (concat host-numeric-types
                                       [:object :boolean])))
 
 
-(def base-datatypes (set (concat host-numeric-types
+(cdef base-datatypes (set (concat host-numeric-types
                                  unsigned-int-types
                                  [:boolean :char :object])))
 
-(def ^{:tag HashSet} base-host-datatypes-hashset
-  (set->hash-set base-host-datatypes))
+(cdef ^{:tag HashSet} base-host-datatypes-hashset
+      (set->hash-set base-host-datatypes))
 
 
 (defn int-width
@@ -407,9 +415,9 @@
   []
   (keys @*cast-table*))
 
-(def all-host-datatypes
-  (set (concat host-numeric-types
-               [:boolean :object])))
+(cdef all-host-datatypes
+      (set (concat host-numeric-types
+                   [:boolean :object])))
 
 
 (alias-datatype! :double :float64)
@@ -573,9 +581,6 @@
 
 
 
-(def type-tree (atom {}))
-
-
 (defn- set-conj
   [container item]
   (if container
@@ -583,28 +588,22 @@
     #{item}))
 
 
-(defn add-type-pair
-  [child-type parent-type]
-  (swap! type-tree update child-type set-conj parent-type))
-
-
-(def default-type-pairs
-  [[:boolean :int8]
-   [:int8 :int16]
-   [:uint8 :int16]
-   [:int16 :int32]
-   [:uint16 :int32]
-   [:int32 :int64]
-   [:uint32 :int64]
-   [:int64 :float64]
-   [:uint64 :float64]
-   [:float32 :float64]
-   [:int16 :float32]
-   [:uint16 :float32]])
-
-
-(doseq [[child parent] default-type-pairs]
-  (add-type-pair child parent))
+(cdef type-tree
+      (reduce (fn [m [child-type parent-type]]
+                (update m child-type set-conj parent-type))
+              {}
+              [[:boolean :int8]
+               [:int8 :int16]
+               [:uint8 :int16]
+               [:int16 :int32]
+               [:uint16 :int32]
+               [:int32 :int64]
+               [:uint32 :int64]
+               [:int64 :float64]
+               [:uint64 :float64]
+               [:float32 :float64]
+               [:int16 :float32]
+               [:uint16 :float32]]))
 
 
 (def type-path->root
@@ -621,7 +620,7 @@
      ([datatype]
       (->>
        (conj
-        (type-path->root datatype [] @type-tree)
+        (type-path->root datatype [] type-tree)
         :object)
        (reverse)
        (distinct)

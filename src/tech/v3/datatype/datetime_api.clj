@@ -19,9 +19,7 @@ A general outline is:
      - datetime->milliseconds, milliseconds->datetime
      - plus-temporal-amount, minus-temporal-amount, long-temporal-amount
      - between"
-  (:require [tech.v3.datatype.datetime.constants]
-            [tech.v3.datatype.datetime.operations]
-            [tech.v3.datatype.export-symbols
+  (:require [tech.v3.datatype.export-symbols
              :refer [export-symbols] :as export-symbols]))
 
 
