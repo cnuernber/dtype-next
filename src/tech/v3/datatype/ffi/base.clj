@@ -255,8 +255,13 @@
                                        (emit-invokers classname fn-defs))
                                ;;side effects
                                (mapv (fn [cls]
-                                       (visit-write! cls)
-                                      ;;defined immediately for repl access
+                                       (try 
+                                         (visit-write! cls)
+                                         (catch Throwable e
+                                           (require '[clojure.pprint])
+                                           (clojure.pprint/pprint cls *err*)
+                                           (throw e)))                                       
+                                       ;;defined immediately for repl access
                                        (if instantiate?
                                          (insn-define! cls)
                                          (:name cls)))))]
@@ -288,31 +293,48 @@
   (->> (args->indexes-args argtypes)
        (mapcat
         (fn [[arg-idx argtype]]
-          (case (ffi-size-t/lower-type argtype)
-            :int8 [[:iload arg-idx]]
-            :int16 [[:iload arg-idx]]
-            :int32 [[:iload arg-idx]]
-            :int64 [[:lload arg-idx]]
-            :pointer (vec (concat [[:aload arg-idx]]
-                                  ptr-cast))
-            :pointer? (vec (concat [[:aload arg-idx]]
-                                   ptr?-cast))
-            :float32 [[:fload arg-idx]]
-            :float64 [[:dload arg-idx]])))))
+          (if (sequential? argtype)
+            (do
+              (when-not (= 'by-value (first argtype))
+                (throw (RuntimeException. (str "Unrecognized argument type: " (first argtype)))))
+              (vec (concat [[:aload arg-idx]]
+                           ptr-cast)))
+            (case (ffi-size-t/lower-type argtype)
+              :int8 [[:iload arg-idx]]
+              :int16 [[:iload arg-idx]]
+              :int32 [[:iload arg-idx]]
+              :int64 [[:lload arg-idx]]
+              :pointer (vec (concat [[:aload arg-idx]]
+                                    ptr-cast))
+              :pointer? (vec (concat [[:aload arg-idx]]
+                                     ptr?-cast))
+              :float32 [[:fload arg-idx]]
+              :float64 [[:dload arg-idx]]))))))
 
 
 (defn exact-type-retval
   [rettype ptr->ptr]
-  (case (ffi-size-t/lower-type rettype)
-     :int8 [[:ireturn]]
-     :int16 [[:ireturn]]
-     :int32 [[:ireturn]]
-     :int64 [[:lreturn]]
-     :float32 [[:freturn]]
-     :float64 [[:dreturn]]
-     :void [[:return]]
-     :pointer (ptr->ptr "ptr_value")
-     :pointer? (ptr->ptr "ptr_value_q")))
+  (if (sequential? rettype)
+    (do
+      (when-not (= 'by-value (first rettype))
+        (throw (RuntimeException. (str "Unrecognized argument type: " (first rettype)))))
+      (let [struct-type (second rettype)]
+        [[:ldc (name struct-type)]
+         [:invokestatic clojure.lang.Keyword "intern" [String Keyword]]
+         [:swap]
+         [:invokestatic 'tech.v3.datatype.ffi$ptr__GT_struct
+          'invokeStatic [Object Object Object]]
+         [:areturn]]))
+    (case (ffi-size-t/lower-type rettype)
+      :int8 [[:ireturn]]
+      :int16 [[:ireturn]]
+      :int32 [[:ireturn]]
+      :int64 [[:lreturn]]
+      :float32 [[:freturn]]
+      :float64 [[:dreturn]]
+      :void [[:return]]
+      :pointer (ptr->ptr "ptr_value")
+      :pointer? (ptr->ptr "ptr_value_q"))))
 
 
 (defn object->exact-type-retval

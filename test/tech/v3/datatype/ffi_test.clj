@@ -71,7 +71,7 @@
 
 (if (dt-ffi/jdk-ffi?)
   (deftest mmodel-ffi-test
-    (dt-ffi/set-ffi-impl! :jdk)
+    (dt-ffi/set-ffi-impl! :jdk-21)
     (generic-define-library))
   (log/warn "JDK-16 FFI pathway not tested."))
 

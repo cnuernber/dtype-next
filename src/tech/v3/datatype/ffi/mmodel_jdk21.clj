@@ -75,15 +75,20 @@
 
 (defn argtype->mem-layout-type
   [argtype]
-  (case (ffi-size-t/lower-type argtype)
-    :int8     ValueLayout/JAVA_BYTE
-    :int16    ValueLayout/JAVA_SHORT
-    :int32    ValueLayout/JAVA_INT
-    :int64    ValueLayout/JAVA_LONG
-    :float32  ValueLayout/JAVA_FLOAT
-    :float64  ValueLayout/JAVA_DOUBLE
-    :pointer? ValueLayout/ADDRESS
-    :pointer  ValueLayout/ADDRESS))
+  (if (sequential? argtype)
+    (do
+      (when-not (= 'by-value (first argtype))
+        (throw (RuntimeException. (str "Unrecognized argtype type: " (first argtype)))))
+      (let [sdef (dt-struct/)]))
+    (case (ffi-size-t/lower-type argtype)
+      :int8     ValueLayout/JAVA_BYTE
+      :int16    ValueLayout/JAVA_SHORT
+      :int32    ValueLayout/JAVA_INT
+      :int64    ValueLayout/JAVA_LONG
+      :float32  ValueLayout/JAVA_FLOAT
+      :float64  ValueLayout/JAVA_DOUBLE
+      :pointer? ValueLayout/ADDRESS
+      :pointer  ValueLayout/ADDRESS)))
 
 (defn sig->fdesc
   ^FunctionDescriptor [{:keys [rettype argtypes]}]
@@ -127,60 +132,73 @@
 
 (defn library-sym-method-handle
   ^MethodHandle [library symbol-name rettype argtypes]
-  (let [sym    (find-symbol library symbol-name)
-        sig    {:rettype  rettype
-                :argtypes argtypes}
-        fndesc (sig->fdesc sig)
-        ;methoddesc (sig->method-type sig)
-        linker (Linker/nativeLinker)]
-    (.downcallHandle linker sym #_methoddesc fndesc)))
+  (.downcallHandle (Linker/nativeLinker)
+                   (find-symbol library symbol-name)
+                   (sig->fdesc {:rettype  rettype
+                                :argtypes argtypes})
+                   (make-array Linker$Option 0)))
+
+(defn by-value-arg
+  [argname]
+  (list 'by-value (keyword argname)))
+
+(defn- push-arg
+  [arg]
+  (if (keyword? arg)
+    [[:ldc (name arg)]
+     [:invokestatic Keyword "intern" [String Keyword]]]
+    (let [[argtype argname] arg]
+      (when-not (= argtype 'by-value)
+        (throw (RuntimeException. (str "Invalid argument type: " argtype))))
+      [[:ldc (name argname)]
+       [:invokestatic 'tech.v3.datatype.ffi.mmodel_jdk21$by_value_arg
+        'invokeStatic [Object Object]]])))
 
 (defn emit-lib-constructor
   [fn-defs]
   (->>
-    (concat
-      [[:aload 0]
-        [:invokespecial :super :init [:void]]]
-      [[:aload 0]
-        [:aload 1]
-        [:invokestatic 'tech.v3.datatype.ffi.mmodel_jdk19$load_library
-          'invokeStatic [Object Object]]
-        [:checkcast SymbolLookup]
-        [:putfield :this "libraryImpl" SymbolLookup]]
-      ;;Load all the method handles.
-      (mapcat
-        (fn [[fn-name {:keys [rettype argtypes]}]]
-          (let [hdl-name (str (name fn-name) "_hdl")]
-            (concat
-              [[:aload 0]  ;;this-ptr
-                [:aload 1] ;;libname
-                [:ldc (name fn-name)]
-                [:ldc (name rettype)]
-                [:invokestatic Keyword "intern" [String Keyword]]
-                [:new ArrayList]
-                [:dup]
-                [:invokespecial ArrayList :init [:void]]
-                [:astore 2]]
-              (mapcat (fn [argtype]
-                        [[:aload 2]
-                          [:ldc (name argtype)]
-                          [:invokestatic Keyword "intern" [String Keyword]]
-                          [:invokevirtual ArrayList 'add [Object :boolean]]
-                          [:pop]])
-                argtypes)
-              [[:aload 2]
-                [:invokestatic 'tech.v3.datatype.ffi.mmodel_jdk19$library_sym_method_handle
-                  'invokeStatic
-                  [Object Object Object Object Object]]
-                [:checkcast MethodHandle]
-                [:putfield :this hdl-name MethodHandle]])))
-        fn-defs)
-      [[:aload 0]
-        [:dup]
-        [:invokevirtual :this "buildFnMap" [Object]]
-        [:putfield :this "fnMap" Object]
-        [:return]])
-    (vec)))
+   (concat
+    [[:aload 0]
+     [:invokespecial :super :init [:void]]]
+    [[:aload 0]
+     [:aload 1]
+     [:invokestatic 'tech.v3.datatype.ffi.mmodel_jdk21$load_library
+      'invokeStatic [Object Object]]
+     [:checkcast SymbolLookup]
+     [:putfield :this "libraryImpl" SymbolLookup]]
+    ;;Load all the method handles.
+    (mapcat
+     (fn [[fn-name {:keys [rettype argtypes]}]]
+       (let [hdl-name (str (name fn-name) "_hdl")]
+         (concat
+          [[:aload 0] ;;this-ptr
+           [:aload 1] ;;libname
+           [:ldc (name fn-name)]]
+          (push-arg rettype)
+          [[:new ArrayList]
+           [:dup]
+           [:invokespecial ArrayList :init [:void]]
+           [:astore 2]]
+          (mapcat (fn [argtype]
+                    (concat 
+                     [[:aload 2]]
+                     (push-arg argtype)
+                     [[:invokevirtual ArrayList 'add [Object :boolean]]
+                      [:pop]]))
+                  argtypes)
+          [[:aload 2]
+           [:invokestatic 'tech.v3.datatype.ffi.mmodel_jdk21$library_sym_method_handle
+            'invokeStatic
+            [Object Object Object Object Object]]
+           [:checkcast MethodHandle]
+           [:putfield :this hdl-name MethodHandle]])))
+     fn-defs)
+    [[:aload 0]
+     [:dup]
+     [:invokevirtual :this "buildFnMap" [Object]]
+     [:putfield :this "fnMap" Object]
+     [:return]])
+   (vec)))
 
 
 (defn emit-find-symbol
@@ -297,7 +315,7 @@
 (defn platform-ptr->ptr
   [arg-idx]
   [[:aload arg-idx]
-    [:invokeinterface MemorySegment "toRawLongValue" [:long]]
+    [:invokeinterface MemorySegment "address" [:long]]
     [:invokestatic Pointer "constructNonZero" [:long Pointer]]])
 
 (defn define-foreign-interface
@@ -323,9 +341,7 @@
       :method-handle (.findVirtual lookup
                                    iface-cls
                                    "invoke"
-                                   (sig->method-type
-                                     {:rettype  rettype
-                                      :argtypes argtypes}))
+                                   (sig->method-type sig))
       :fndesc        (sig->fdesc sig))))
 
 (defn foreign-interface-instance->c
