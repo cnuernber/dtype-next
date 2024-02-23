@@ -4,7 +4,10 @@
             [tech.v3.datatype.ffi.base :as ffi-base]
             [tech.v3.datatype.ffi.ptr-value :as ptr-value]
             [tech.v3.datatype.ffi.size-t :as ffi-size-t]
-            [tech.v3.datatype.ffi.libpath :as libpath])
+            [tech.v3.datatype.ffi.libpath :as libpath]
+            [tech.v3.datatype.struct :as dt-struct]
+            [tech.v3.datatype.casting :as casting]
+            [tech.v3.datatype.native-buffer :as nbuf])
   (:import [clojure.lang Keyword]
            [java.lang.foreign
              FunctionDescriptor Linker Linker$Option MemoryLayout Arena MemorySegment
@@ -18,7 +21,10 @@
 
 (defn ptr-value
   ^MemorySegment [item]
-  (MemorySegment/ofAddress (ptr-value/ptr-value item)))
+  (let [rv (MemorySegment/ofAddress (ptr-value/ptr-value item))]
+    (if-let [nbuf (dt/as-native-buffer item)]
+      (.reinterpret rv (nbuf/native-buffer-byte-len nbuf))
+      rv)))
 
 (defn ptr-value-q
   ^MemorySegment [item]
@@ -79,8 +85,29 @@
     (do
       (when-not (= 'by-value (first argtype))
         (throw (RuntimeException. (str "Unrecognized argtype type: " (first argtype)))))
-      (let [sdef (dt-struct/)]))
-    (case (ffi-size-t/lower-type argtype)
+      (->> (get (dt-struct/get-struct-def (second argtype)) :data-layout)
+           (reduce
+            (fn [[layout ^long jdk-offset] {:keys [datatype ^long offset ^long n-elems struct?]
+                                            member-name :name}]
+              (let [layout (if (= jdk-offset offset)
+                             layout
+                             (conj layout (MemoryLayout/paddingLayout (- offset jdk-offset))))
+                    jdk-offset (+ jdk-offset
+                                  (* n-elems
+                                     (if struct?
+                                       (get (dt-struct/get-struct-def datatype) :datatype-size)
+                                       (casting/numeric-byte-width datatype))))
+                    layout-entry (argtype->mem-layout-type datatype)]
+                [(conj layout (if (= n-elems 1)
+                                layout-entry
+                                (MemoryLayout/sequenceLayout n-elems layout-entry)))
+                 jdk-offset]))
+            [[] 0])
+           (first)
+           (into-array MemoryLayout)
+           (MemoryLayout/structLayout)))
+    (case (casting/datatype->host-datatype
+           (ffi-size-t/lower-type argtype))
       :int8     ValueLayout/JAVA_BYTE
       :int16    ValueLayout/JAVA_SHORT
       :int32    ValueLayout/JAVA_INT
@@ -228,76 +255,77 @@
   (ffi-base/ptr-return
     [[:invokeinterface MemorySegment "address" [:long]]]))
 
+(defn argtype->insn
+  [arg]
+  (if (sequential? arg)
+    MemorySegment
+    (ffi-base/argtype->insn MemorySegment :ptr-as-platform arg)))
+
 (defn emit-fn-def
   [hdl-name rettype argtypes]
   (->> (concat
-         [[:aload 0]
-           [:getfield :this hdl-name MethodHandle]]
-         (ffi-base/load-ffi-args ptr-cast ptr?-cast argtypes)
-         [[:invokevirtual MethodHandle "invokeExact"
-             (concat (map (partial ffi-base/argtype->insn
-                                   MemorySegment
-                                   :ptr-as-platform)
-                       argtypes)
-                     [(ffi-base/argtype->insn MemorySegment
-                                               :ptr-as-platform
-                                               rettype)])]]
-         (ffi-base/exact-type-retval
-           rettype
-           (fn [_ptr-type]
-             ptr-return)))
+        [[:aload 0]
+         [:getfield :this hdl-name MethodHandle]]
+        (ffi-base/load-ffi-args ptr-cast ptr?-cast argtypes)
+        [[:invokevirtual MethodHandle "invokeExact"
+          (concat (map argtype->insn argtypes)
+                  [(argtype->insn rettype)])]]
+        (ffi-base/exact-type-retval
+         rettype
+         (fn [_ptr-type]
+           ptr-return)))
        (vec)))
 
 (defn define-mmodel-library
   [classname fn-defs _symbols _options]
   [{:name       classname
-     :flags      #{:public}
-     :interfaces [Library]
-     :fields     (->> (concat
-                        [{:name  "fnMap"
-                           :type  Object
-                           :flags #{:public :final}}
-                          {:name  "libraryImpl"
-                           :type  SymbolLookup
-                           :flags #{:public :final}}]
-                        (map (fn [[fn-name _fn-args]]
-                               {:name  (str (name fn-name) "_hdl")
-                                :type  MethodHandle
-                                :flags #{:public :final}})
-                          fn-defs))
-                      (vec))
-     :methods
-     (->> (concat
-            [{:name  :init
-               :flags #{:public}
-               :desc  [String :void]
-               :emit  (emit-lib-constructor fn-defs)}
-              {:name  :findSymbol
-               :flags #{:public}
-               :desc  [String Pointer]
-               :emit  (emit-find-symbol)}
-              (ffi-base/emit-library-fn-map classname fn-defs)
-              {:name :deref
-               :desc [Object]
-               :emit [[:aload 0]
-                       [:getfield :this "fnMap" Object]
-                       [:areturn]]}]
-            (map
-              (fn [[fn-name fn-data]]
-                (let [hdl-name (str (name fn-name) "_hdl")
-                      {:keys [rettype argtypes]} fn-data]
-                  {:name  fn-name
-                   :flags #{:public}
-                   :desc  (concat (map (partial ffi-base/argtype->insn
-                                                MemorySegment
-                                                :ptr-as-obj)
+    :flags      #{:public}
+    :interfaces [Library]
+    :fields     (->> (concat
+                      [{:name  "fnMap"
+                        :type  Object
+                        :flags #{:public :final}}
+                       {:name  "libraryImpl"
+                        :type  SymbolLookup
+                        :flags #{:public :final}}]
+                      (map (fn [[fn-name _fn-args]]
+                             {:name  (str (name fn-name) "_hdl")
+                              :type  MethodHandle
+                              :flags #{:public :final}})
+                           fn-defs))
+                     (vec))
+    :methods
+    (->> (concat
+          [{:name  :init
+            :flags #{:public}
+            :desc  [Object :void]
+            :emit  (emit-lib-constructor fn-defs)}
+           {:name  :findSymbol
+            :flags #{:public}
+            :desc  [String Pointer]
+            :emit  (emit-find-symbol)}
+           (ffi-base/emit-library-fn-map classname fn-defs)
+           {:name :deref
+            :desc [Object]
+            :emit [[:aload 0]
+                   [:getfield :this "fnMap" Object]
+                   [:areturn]]}]
+          (map
+           (fn [[fn-name fn-data]]
+             (let [hdl-name (str (name fn-name) "_hdl")
+                   {:keys [rettype argtypes]} fn-data]
+               {:name  fn-name
+                :flags #{:public}
+                :desc  (concat (map (partial ffi-base/argtype->insn
+                                             MemorySegment
+                                             :ptr-as-obj)
                                     argtypes)
-                                  [(ffi-base/argtype->insn MemorySegment
-                                                            :ptr-as-ptr
-                                                            rettype)])
-                   :emit  (emit-fn-def hdl-name rettype argtypes)}))
-              fn-defs))
-          (vec))}])
+                               [(ffi-base/argtype->insn MemorySegment
+                                                        :ptr-as-ptr
+                                                        rettype)])
+                :emit  (emit-fn-def hdl-name rettype argtypes)}))
+           fn-defs))
+         (vec))}])
 
 (defn define-library
   [fn-defs symbols
