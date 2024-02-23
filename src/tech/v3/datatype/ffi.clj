@@ -221,9 +221,8 @@ Finally - on my favorite topic, efficiency, dtype-next has extremely fast copies
 (defn jdk-ffi?
   "Is the JDK foreign function interface available?"
   []
-  (try
-    (boolean (Class/forName "jdk.incubator.foreign.CLinker"))
-    (catch Throwable _e false)))
+  (boolean (or (try (Class/forName "java.lang.foreign.Linker") (catch Throwable e nil))
+               (try (Class/forName "jdk.incubator.foreign.CLinker") (catch Throwable _e nil)))))
 
 
 (defn jna-ffi?
@@ -655,7 +654,7 @@ clojure.lang.IFn that takes only the specific arguments.")
      library-instance
      "Library instance not found.  Has initialize! been called?")
     ;;derefencing a library instance returns a map of fn-kwd->fn
-    (if-let [retval (fn-kwd @library-instance)]
+    (if-let [retval (get @library-instance fn-kwd)]
       retval
       (errors/throwf "Library function %s not found" (symbol (name fn-kwd)))))
   (library-singleton-find-symbol [_this sym-name]
@@ -916,7 +915,7 @@ Example:
         src-ptr (->pointer ptr)
         nbuf (native-buffer/wrap-address (.address src-ptr)
                                          n-bytes
-                                         src-ptr)]
+                                         ptr)]
     (dt-struct/inplace-new-struct struct-type nbuf)))
 
 
@@ -979,7 +978,7 @@ Example:
     `(do
        (def ~lib-fns-var ~lib-fns)
        (def ~lib-sym-var ~lib-symbols)
-       (defonce ~lib-varname (library-singleton (var ~lib-fns-var) (var ~lib-sym-var) nil))
+       (defonce ~(with-meta lib-varname {:tag LibrarySingleton}) (library-singleton (var ~lib-fns-var) (var ~lib-sym-var) nil))
        (define-library-functions ~lib-fns-var
          #(library-singleton-find-fn ~lib-varname %)
          ~error-checker)
