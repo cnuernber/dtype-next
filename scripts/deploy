@@ -2,8 +2,9 @@
 
 set -e
 
-scripts/run-tests
+scripts/run-tests-m1
+rm -rf pom.xml
 clj -T:build jar
 cp target/classes/META-INF/maven/cnuernber/dtype-next/pom.xml .
-clj -A:dev -X:codox
+clj -A:dev-mac-m1 -X:codox
 clj -X:deploy

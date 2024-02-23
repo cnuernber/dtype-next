@@ -22,7 +22,7 @@
 (defn ptr-value
   ^MemorySegment [item]
   (let [rv (MemorySegment/ofAddress (ptr-value/ptr-value item))]
-    (if-let [nbuf (dt/as-native-buffer item)]
+    (if-let [nbuf (nbuf/as-native-buffer item)]
       (.reinterpret rv (nbuf/native-buffer-byte-len nbuf))
       rv)))
 

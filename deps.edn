@@ -18,7 +18,7 @@
    :exec-fn codox.main/-main
    :exec-args {:group-id "cnuernber"
                :artifact-id "dtype-next"
-               :version "10.109-SNAPSHOT"
+               :version "10.109"
                :name "DType Next"
                :description "High Performance Clojure Primitives"
                :metadata {:doc/format :markdown}
@@ -106,7 +106,7 @@
   {:extra-paths ["src" "dev"]
    :exec-fn tech.v3.datatype.codegen/-main}
   :build
-  {:deps {io.github.clojure/tools.build {:git/tag "v0.8.1" :git/sha "7d40500"}}
+  {:deps {io.github.clojure/tools.build {:git/tag "v0.9.6" :git/sha "8e78bcc"}}
    :ns-default build}
   :test
   {:extra-deps {com.cognitect/test-runner
