@@ -19,3 +19,14 @@
                     [(:x test-data)])))
   (let [test-data (dt-struct/new-struct :vec3 {:container-type :native-heap})]
     (is (not (nil? (dtype/->native-buffer test-data))))))
+
+
+(deftest ptr-size-t-types
+  (let [sdef (dt-struct/define-datatype! :ptr-types [{:name :a :datatype :pointer}
+                                                     {:name :b :datatype :size-t}
+                                                     {:name :c :datatype :offset-t}
+                                                     {:name :d :datatype :int64}])
+        data (dt-struct/new-struct :ptr-types)
+        sarray (dt-struct/new-array-of-structs :ptr-types 10)]
+    (is (= (vec (repeat 10 0))
+           (vec (dt-struct/array-of-structs->column sarray :a))))))

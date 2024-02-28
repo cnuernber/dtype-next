@@ -38,6 +38,7 @@ user> *2
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
+            [tech.v3.datatype.ffi.size-t :as size-t]
             [clj-commons.primitive-math :as pmath])
   (:import [tech.v3.datatype BinaryBuffer ObjectBuffer BooleanBuffer
             LongBuffer DoubleBuffer]
@@ -55,14 +56,25 @@ user> *2
 (defonce ^:private struct-datatypes (ConcurrentHashMap.))
 
 
+(def ^:private ptr-types #{:pointer :size-t :offset-t})
+
+(defn- ptr-type? [dt] (ptr-types dt))
+
+(defn datatype->host-type
+  "Structs allow size-t, offset-t, and pointer datatypes so this is an ovveride
+  you have to use when working with them."
+  [dt]
+  (if (ptr-type? dt)
+    (size-t/numeric-size-t-type dt)
+    (casting/datatype->host-type dt)))
+
 (defn datatype-size
   "Return the size, in bytes, of a datatype."
   ^long [datatype]
   (if-let [struct-dtype (.get ^ConcurrentHashMap struct-datatypes datatype)]
     (long (:datatype-size struct-dtype))
-    (-> (casting/datatype->host-type datatype)
+    (-> (datatype->host-type datatype)
         (casting/numeric-byte-width))))
-
 
 (defn datatype-width
   "Return the width or the of a datatype.  The width dictates what address
@@ -70,7 +82,7 @@ user> *2
   ^long [datatype]
   (if-let [struct-dtype (.get ^ConcurrentHashMap struct-datatypes datatype)]
     (long (:datatype-width struct-dtype))
-    (-> (casting/datatype->host-type datatype)
+    (-> (datatype->host-type datatype)
         (casting/numeric-byte-width))))
 
 
@@ -195,6 +207,14 @@ user> *2
 (declare struct->buffer)
 (declare inplace-new-struct)
 
+
+(defn- host-flatten
+  [dt]
+  (if (ptr-type? dt)
+    (size-t/numeric-size-t-type dt)
+    (casting/host-flatten dt)))
+
+
 (defn- create-accessors
   [struct-def]
   (let [accessors (LinkedHashMap.)
@@ -215,7 +235,7 @@ user> *2
                                        (dtype-cmc/copy! (struct->buffer val)
                                                         (dtype-proto/sub-buffer buffer offset dsize))
                                        nil)))
-                        (let [host-dtype (casting/host-flatten dtype)
+                        (let [host-dtype (host-flatten dtype)
                               unsigned? (casting/unsigned-integer-type? dtype)]
                           (if unsigned?
                             (case host-dtype
@@ -573,7 +593,7 @@ user> *2
         n-structs (.n-elems ary-of-structs)
         offset (long offset)
         buffer (dtype-base/->binary-buffer (.buffer ary-of-structs))]
-    (case (casting/simple-operation-space datatype)
+    (case (casting/simple-operation-space (datatype->host-type datatype))
       :boolean (reify
                  BooleanBuffer
                  (lsize [this] n-structs)
@@ -588,7 +608,10 @@ user> *2
                  (endianness [_m] (dtype-proto/endianness buffer)))
       ;;Reading data involves unchecked casts.  Writing involves checked-casts
       :int64
-      (let [[read-fn write-fn]
+      (let [datatype (if (ptr-type? datatype)
+                       (size-t/numeric-size-t-type datatype)
+                       datatype)
+            [read-fn write-fn]
             (case datatype
               :int8 [#(.readBinByte buffer (unchecked-long %))
                      #(.writeBinByte buffer (unchecked-long %1) (byte %2))]
@@ -708,4 +731,9 @@ user> *2
                               test-vec3))
     ;;466ns initial, after accessor upgrade 60ns
     )
+
+    (define-datatype! :ptr-types [{:name :a :datatype :pointer}
+                                  {:name :b :datatype :size-t}
+                                  {:name :c :datatype :offset-t}
+                                  {:name :d :datatype :int64}])
   )

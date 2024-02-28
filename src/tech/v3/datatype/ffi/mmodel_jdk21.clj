@@ -79,6 +79,13 @@
   ^"[Ljava.lang.foreign.MemoryLayout;" [& args]
   (into-array MemoryLayout args))
 
+(defn- lower-type-ptr-passthrough
+  [dt]
+  (case dt
+    :pointer dt
+    :pointer? dt
+    (dt-struct/datatype->host-type dt)))
+
 (defn argtype->mem-layout-type
   [argtype]
   (if (sequential? argtype)
@@ -96,7 +103,7 @@
                                   (* n-elems
                                      (if struct?
                                        (get (dt-struct/get-struct-def datatype) :datatype-size)
-                                       (casting/numeric-byte-width datatype))))
+                                       (dt-struct/datatype-size datatype))))
                     layout-entry (argtype->mem-layout-type datatype)]
                 [(conj layout (if (= n-elems 1)
                                 layout-entry
@@ -106,8 +113,7 @@
            (first)
            (into-array MemoryLayout)
            (MemoryLayout/structLayout)))
-    (case (casting/datatype->host-datatype
-           (ffi-size-t/lower-type argtype))
+    (case (lower-type-ptr-passthrough argtype)
       :int8     ValueLayout/JAVA_BYTE
       :int16    ValueLayout/JAVA_SHORT
       :int32    ValueLayout/JAVA_INT

@@ -22,15 +22,14 @@
   [platform-ptr-type ptr-disposition argtype]
   (if (sequential? argtype) ;;by-value mapping
     Object
-    (case (-> (ffi-size-t/lower-type argtype)
-              (unify-ptr-types))
+    (case (ffi-size-t/lower-type argtype)
       :int8 :byte
       :int16 :short
       :int32 :int
       :int64 :long
       :float32 :float
       :float64 :double
-      :pointer
+      (:pointer :pointer?)
       (case ptr-disposition
         :ptr-as-int (argtype->insn platform-ptr-type
                                    :ptr-as-int (ffi-size-t/size-t-type))
@@ -255,11 +254,11 @@
                                        (emit-invokers classname fn-defs))
                                ;;side effects
                                (mapv (fn [cls]
-                                       (try 
+                                       (try
+                                         ;; (require '[clojure.pprint])
+                                         ;; (clojure.pprint/pprint cls)
                                          (visit-write! cls)
                                          (catch Throwable e
-                                           (require '[clojure.pprint])
-                                           (clojure.pprint/pprint cls *err*)
                                            (throw e)))                                       
                                        ;;defined immediately for repl access
                                        (if instantiate?

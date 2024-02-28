@@ -579,7 +579,7 @@ user>
   "Make an object convertible to a pointer that points to  single value of type
   `dtype`."
   (^NativeBuffer [dtype prim-init-value options]
-   (let [dtype (ffi-size-t/lower-ptr-type dtype)
+   (let [dtype (ffi-size-t/numeric-size-t-type dtype)
          ^NativeBuffer nbuf (-> (native-buffer/malloc
                                  (casting/numeric-byte-width dtype)
                                  options)

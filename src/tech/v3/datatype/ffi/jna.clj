@@ -227,7 +227,7 @@
                                layout (->> (sdef :data-layout)
                                            (mapv #(update % :datatype (fn [dt]
                                                                         (argtype->insn classname :ptr-as-int
-                                                                                       (casting/datatype->host-type dt))))))
+                                                                                       (dt-struct/datatype->host-type dt))))))
                                retval
                                {:name sname
                                 :flags #{:public :static}
