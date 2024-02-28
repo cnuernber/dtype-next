@@ -429,3 +429,27 @@
                               1 :byte-gray
                               3 :byte-bgr
                               4 :byte-abgr))))
+
+
+(defn tensor->image
+  "Convert a tensor directly to a buffered image.  The values will be interpreted as unsigned
+  bytes in the range of 0-255. 
+
+  Options:
+  * `:img-type` - Force a particular type of image type - see keys of [[image-types]]."
+  (^BufferedImage [t options]
+   (let [t (dtt/ensure-tensor t)
+         dims (dtype-proto/shape t)
+         [y x c] (case (count dims)
+                   2 [(first dims) (second dims) 1]
+                   3 dims
+                   (throw (RuntimeException. "Unrecognized tensor shape for image conversion - " dims)))
+         img-type (or (get options :img-type)
+                      (case (long c)
+                        1 :byte-gray
+                        3 :byte-bgr
+                        4 :byte-abgr))
+         dst (new-image y x img-type)]
+     (dtype-cmc/copy! t (as-ubyte-tensor dst))
+     dst))
+  (^BufferedImage [t] (tensor->image t nil)))
