@@ -1,3 +1,6 @@
+## 10.111
+ * [issue-68](https://github.com/cnuernber/dtype-next/issues/68) - structs can be defined with :pointer, :size-t, :offset-t datatypes.  These types will differ on 32-bit and 64-bit systems.
+   
 ## 10.110
  * jdk-21 support including pass-by-value ffi.  tmducken bindings can now work with jdk-21.
  * Faster hamf compose-reducers pathway especially when there are a lot of reducers.
