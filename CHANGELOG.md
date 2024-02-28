@@ -1,3 +1,7 @@
+## 10.110
+ * jdk-21 support including pass-by-value ffi.  tmducken bindings can now work with jdk-21.
+ * Faster hamf compose-reducers pathway especially when there are a lot of reducers.
+ 
 ## 10.108
  * hamf (2.009) typed nth operations.
 
