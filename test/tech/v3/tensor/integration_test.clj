@@ -289,3 +289,12 @@
     (is (= [0 10] (dtype/shape (dtt/select a 2 :lla))))
     (is (= [0] (dtype/shape (dtt/select a 2 :all 4))))
     (is (= [2 0 3] (dtype/shape (dtt/select a (range 2 4) :all (range 6 9)))))))
+
+
+(deftest issue-94
+  (let [n-neurons 10
+        weights (dtt/clone (dtt/compute-tensor [n-neurons n-neurons] (fn [_ _] (< (double (rand)) 0.1)) :boolean))
+        activations (dtt/->tensor (range n-neurons))
+        ww (dtt/select weights (range n-neurons))
+        answer (dtt/reduce-axis (dtt/select weights (dtt/->tensor (range n-neurons))) dfn/sum 0 :float32)]
+    (is (not (nil? (.toString ^Object answer))))))

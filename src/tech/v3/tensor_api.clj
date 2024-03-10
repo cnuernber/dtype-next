@@ -146,7 +146,6 @@
           (apply dims/select (.dimensions t) select-args)
           buffer (or (.buffer t) (.bufferIO t))
           buf-offset (long buf-offset)
-          ;; _ (println "buflen" buf-len)
           new-buffer (if (and buf-len (== 0 (long buf-len)))
                        buffer
                        (if-not (and (== buf-offset 0)
@@ -215,10 +214,14 @@
           (reify ObjectReader
             (lsize [rdr] n-offsets)
             (readObject [rdr idx]
-              (construct-tensor (dtype-base/sub-buffer
-                                 tens-buf
-                                 (.readLong offsets idx)
-                                 buf-ecount)
+              (construct-tensor (if buf-ecount
+                                  (dtype-base/sub-buffer
+                                   tens-buf
+                                   (.readLong offsets idx)
+                                   buf-ecount)
+                                  (dtype-base/sub-buffer
+                                   tens-buf
+                                   (.readLong offsets idx)))
                                 dimensions)))))))
   (mget [t idx-seq]
     (.ndReadObjectIter t idx-seq))
