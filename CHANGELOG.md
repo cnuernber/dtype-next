@@ -1,3 +1,6 @@
+## 10.112
+ * [issue-94](https://github.com/cnuernber/dtype-next/issues/68) - Tensor slice would fail after a tensor select of a specific shape.
+ 
 ## 10.111
  * [issue-68](https://github.com/cnuernber/dtype-next/issues/68) - structs can be defined with :pointer, :size-t, :offset-t datatypes.  These types will differ on 32-bit and 64-bit systems.
    
