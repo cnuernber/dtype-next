@@ -845,9 +845,10 @@
 
 (deftest arggroup-order
   (is (= [:a :b :c :d :e :f]
-         (->> (argops/arggroup
-               (into [] cat [[:a :b :c :d :e :f]
-                             (shuffle (take 1000 (cycle [:a :b :c :d :e :f])))]))
+         (->> (into [] cat [[:a :b :c :d :e :f]
+                            (shuffle (take 1000 (cycle [:a :b :c :d :e :f])))])
+              argops/arggroup
+
               (keys)
               (vec)))))
 
@@ -857,6 +858,13 @@
                        (into [] cat [(range 6)
                                      (shuffle (take 1000 (cycle (range 6))))]))
                       (int 0))))))
+
+
+(deftest double-long-comparison
+  (is (dfn/> 4.0 2))
+  (is (dfn/> 4 2.0))
+  (is (dfn/> 4 (float 2.0)))
+  (is (= [false false true true] (dfn/> [1.0 2.0 3.0 4.0] 2))))
 
 
 (comment

@@ -177,28 +177,16 @@
 
    :tech.numerics/> (make-numeric-binary-predicate
                      :> (pmath/> x y)
-                     (let [comp-val (long (if (instance? Comparable x)
-                                            (.compareTo ^Comparable x y)
-                                            (compare x y)))]
-                       (pmath/> comp-val 0)))
+                     (clojure.core/> x y))
    :tech.numerics/>= (make-numeric-binary-predicate
                       :>= (pmath/>= x y)
-                      (let [comp-val (long (if (instance? Comparable x)
-                                             (.compareTo ^Comparable x y)
-                                             (compare x y)))]
-                        (pmath/>= comp-val 0)))
+                      (clojure.core/>= x y))
    :tech.numerics/< (make-numeric-binary-predicate
                      :< (pmath/< x y)
-                     (let [comp-val (long (if (instance? Comparable x)
-                                            (.compareTo ^Comparable x y)
-                                            (compare x y)))]
-                       (pmath/< comp-val 0)))
+                     (clojure.core/< x y))
    :tech.numerics/<= (make-numeric-binary-predicate
                       :<= (pmath/<= x y)
-                      (let [comp-val (long (if (instance? Comparable x)
-                                             (.compareTo ^Comparable x y)
-                                             (compare x y)))]
-                        (pmath/<= comp-val 0)))
+                      (clojure.core/<= x y))
    :tech.numerics/bit-test (reify
                              BinaryPredicate
                              (binaryLong [this lhs rhs]

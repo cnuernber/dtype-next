@@ -1,5 +1,9 @@
+## 10.113
+ * [issue-97](https://github.com/cnuernber/dtype-next/issues/97) - sorted output for tech.v3.datatype.casting/all-datatypes.
+ * [issue-99](https://github.com/cnuernber/dtype-next/issues/99) - Unexpected behaviour when comparing certain numeric types.
+ 
 ## 10.112
- * [issue-94](https://github.com/cnuernber/dtype-next/issues/68) - Tensor slice would fail after a tensor select of a specific shape.
+ * [issue-94](https://github.com/cnuernber/dtype-next/issues/94) - Tensor slice would fail after a tensor select of a specific shape.
  
 ## 10.111
  * [issue-68](https://github.com/cnuernber/dtype-next/issues/68) - structs can be defined with :pointer, :size-t, :offset-t datatypes.  These types will differ on 32-bit and 64-bit systems.
