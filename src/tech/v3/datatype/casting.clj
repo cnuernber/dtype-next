@@ -4,7 +4,8 @@
             [ham-fisted.lazy-noncaching :as lznc]
             [clj-commons.primitive-math :as pmath]
             [tech.v3.datatype.protocols :as dtype-proto]
-            [tech.v3.datatype.errors :as errors])
+            [tech.v3.datatype.errors :as errors]
+            [ham-fisted.api :as hamf])
   (:import [java.util Map Set HashSet Collection]
            [java.util.concurrent ConcurrentHashMap]
            [clojure.lang RT Keyword]
@@ -412,8 +413,10 @@
 
 
 (defn all-datatypes
+  "Return all registered datatypes including aliased datatypes."
   []
-  (keys @*cast-table*))
+  (hamf/sort (hamf/mut-set (lznc/concat (keys @*cast-table*) valid-datatype-set))))
+
 
 (cdef all-host-datatypes
       (set (concat host-numeric-types
