@@ -715,11 +715,31 @@ tech.v3.datatype.functional> (meta regressor)
 
 
 (defn reduce-*
+  "Invokes a reduce operation with the operand * to multiply items together.
+
+  Examples:
+
+  ```clojure
+  user> (dfn/reduce-* [1 2 3 4])
+  24
+  user> (dfn/reduce-* [-1 1.1 4])
+  -4.4
+  ```"
   ([x]
   (tech.v3.datatype.functional-api/reduce-* x)))
 
 
 (defn reduce-+
+  "Invokes a reduce operation with the operand + to add items together.
+
+  Examples:
+
+  ```clojure
+  user> (dfn/reduce-+ [1 2 3 4])
+  10
+  user> (dfn/reduce-+ [-1 1.1 4])
+  4.1
+  ```"
   ([x]
   (tech.v3.datatype.functional-api/reduce-+ x)))
 

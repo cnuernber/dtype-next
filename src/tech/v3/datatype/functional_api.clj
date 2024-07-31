@@ -132,6 +132,16 @@
 
 ;;Implement only reductions that we know we will use.
 (defn reduce-+
+  "Invokes a reduce operation with the operand + to add items together.
+
+  Examples:
+
+  ```clojure
+  user> (dfn/reduce-+ [1 2 3 4])
+  10
+  user> (dfn/reduce-+ [-1 1.1 4])
+  4.1
+  ```"
   [x]
   ;;There is a fast path specifically for summations
   (dtype-reductions/commutative-binary-reduce
@@ -139,6 +149,16 @@
 
 
 (defn reduce-*
+  "Invokes a reduce operation with the operand * to multiply items together.
+
+  Examples:
+
+  ```clojure
+  user> (dfn/reduce-* [1 2 3 4])
+  24
+  user> (dfn/reduce-* [-1 1.1 4])
+  -4.4
+  ```"
   [x]
   (dtype-reductions/commutative-binary-reduce
    (:tech.numerics/* binary-op/builtin-ops) x))
