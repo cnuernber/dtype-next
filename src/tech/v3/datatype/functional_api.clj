@@ -165,12 +165,32 @@
 
 
 (defn reduce-max
+  "Invokes a reduce operation with the operand max find the maximum item of a list.
+
+  Examples:
+
+  ```clojure
+  user> (dfn/reduce-max [1 2 3 4])
+  4
+  user> (dfn/reduce-max [10 -10 20 100 -1])
+  100
+  ```"
   [x]
   (dtype-reductions/commutative-binary-reduce
    (:tech.numerics/max binary-op/builtin-ops) x))
 
 
 (defn reduce-min
+  "Invokes a reduce operation with the operand min find the minimum item of a list.
+
+  Examples:
+
+  ```clojure
+  user> (dfn/reduce-min [1 2 3 4])
+  1
+  user> (dfn/reduce-min [10 -10 20 100 -1])
+  -10
+  ```"
   [x]
   (dtype-reductions/commutative-binary-reduce
    (:tech.numerics/min binary-op/builtin-ops) x))

@@ -745,11 +745,31 @@ tech.v3.datatype.functional> (meta regressor)
 
 
 (defn reduce-max
+  "Invokes a reduce operation with the operand max find the maximum item of a list.
+
+  Examples:
+
+  ```clojure
+  user> (dfn/reduce-max [1 2 3 4])
+  4
+  user> (dfn/reduce-max [10 -10 20 100 -1])
+  100
+  ```"
   ([x]
   (tech.v3.datatype.functional-api/reduce-max x)))
 
 
 (defn reduce-min
+  "Invokes a reduce operation with the operand min find the minimum item of a list.
+
+  Examples:
+
+  ```clojure
+  user> (dfn/reduce-min [1 2 3 4])
+  1
+  user> (dfn/reduce-min [10 -10 20 100 -1])
+  -10
+  ```"
   ([x]
   (tech.v3.datatype.functional-api/reduce-min x)))
 
