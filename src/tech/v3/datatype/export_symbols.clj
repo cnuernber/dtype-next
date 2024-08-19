@@ -82,6 +82,12 @@
     (.replace docstr "\"" "\\\"")))
 
 
+(defn- clj-kondo-keys [macro-meta]
+  (->> macro-meta
+       keys
+       (filter (fn [k] (= (namespace k) "clj-kondo")))))
+
+
 (defn write-api!
   "Used to write an easily-discoverable public api.  This simply looks at ns-publics and
   creates stubs that call through to their defined functions and macros.
@@ -145,6 +151,13 @@
                 (write! writer "\"")
                 (write! writer (escape-doc-quote (:doc data)))
                 (writeln! writer "\""))
+              (let [keys (clj-kondo-keys data)]
+                (when-not (and (empty? keys) (not macro?))
+                  (indent! writer 2)
+                  (write! writer "{")
+                  (doseq [key keys]
+                    (write! writer (format "%s %s " key (if (vector? (key data)) (key data) (str "'" (key data))))))
+                  (writeln! writer "}")))
               (doseq [arglist (:arglists data)]
                 ;;Preprocess the arglist to remove map destructuring and turn anything after
                 ;;the '&' into a generic 'args' argument.
