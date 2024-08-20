@@ -159,7 +159,7 @@
                 (when (and (seq meta-str) macro?)
                   (indent! writer 2)
                   (write! writer (format "{%s}" meta-str))
-                 (writeln! writer "")))
+                  (writeln! writer "")))
               (doseq [arglist (:arglists data)]
                 ;;Preprocess the arglist to remove map destructuring and turn anything after
                 ;;the '&' into a generic 'args' argument.
