@@ -1,7 +1,8 @@
 (ns tech.v3.datatype.export-symbols
   (:require [clojure.java.io :as io]
+            [clojure.string :as str]
             [clojure.tools.logging :as log])
-  (:import [java.io Writer]
+  (:import [java.io Writer] 
            [java.util.concurrent.locks ReentrantLock]))
 
 (def ^ReentrantLock load-lib-lock (ReentrantLock.))
@@ -84,8 +85,7 @@
 
 (defn- clj-kondo-keys [macro-meta]
   (->> macro-meta
-       keys
-       (filter (fn [k] (= (namespace k) "clj-kondo")))))
+       (filter (fn [kv] (= (namespace (key kv)) "clj-kondo")))))
 
 
 (defn write-api!
@@ -151,13 +151,15 @@
                 (write! writer "\"")
                 (write! writer (escape-doc-quote (:doc data)))
                 (writeln! writer "\""))
-              (let [keys (clj-kondo-keys data)]
-                (when (and (seq keys) macro?)
+              (let [meta-str (->> (clj-kondo-keys data)
+                                  (map (fn [[k v]]
+                                         (format "%s %s" k (if (vector? v) v (str "'" v)))))
+                                  (interpose " ")
+                                  str/join)]
+                (when (and (seq meta-str) macro?)
                   (indent! writer 2)
-                  (write! writer "{")
-                  (doseq [key keys]
-                    (write! writer (format "%s %s " key (if (vector? (key data)) (key data) (str "'" (key data))))))
-                  (writeln! writer "}")))
+                  (write! writer (format "{%s}" meta-str))
+                 (writeln! writer "")))
               (doseq [arglist (:arglists data)]
                 ;;Preprocess the arglist to remove map destructuring and turn anything after
                 ;;the '&' into a generic 'args' argument.
