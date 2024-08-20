@@ -152,7 +152,7 @@
                 (write! writer (escape-doc-quote (:doc data)))
                 (writeln! writer "\""))
               (let [keys (clj-kondo-keys data)]
-                (when-not (and (empty? keys) (not macro?))
+                (when (and (seq keys) macro?)
                   (indent! writer 2)
                   (write! writer "{")
                   (doseq [key keys]
