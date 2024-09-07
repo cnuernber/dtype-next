@@ -166,6 +166,7 @@
     item
     "nil value passed into ->array")
    (let [item (apply-nan-strat datatype nan-strategy item)
+         ^ArrayBuffer
          abuf (dtype-base/as-array-buffer item)]
      (if (and abuf (identical? (.-dtype abuf) (casting/datatype->host-datatype datatype)))
        (if (and (== (.-offset abuf) 0)
