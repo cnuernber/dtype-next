@@ -720,15 +720,24 @@
 (defn set-native-datatype
   "Set the datatype of a native buffer.  n-elems will be recalculated."
   ^NativeBuffer [item datatype]
-  (let [nb (as-native-buffer item)
-        original-size (.n-elems nb)
-        n-bytes (* original-size (casting/numeric-byte-width
-                                  (dtype-proto/elemwise-datatype item)))
-        new-byte-width (casting/numeric-byte-width
-                        (casting/un-alias-datatype datatype))]
-    (NativeBuffer. (.address nb) (quot n-bytes new-byte-width)
-                   datatype (.endianness nb)
-                   (.resource-type nb) (meta nb) nil item)))
+  (if (= datatype (dtype-proto/elemwise-datatype item))
+    item
+    (let [nb (as-native-buffer item)
+          original-size (.n-elems nb)
+          n-bytes (* original-size (casting/numeric-byte-width
+                                    (dtype-proto/elemwise-datatype item)))
+          new-byte-width (casting/numeric-byte-width
+                          (casting/un-alias-datatype datatype))]
+      (NativeBuffer. (.address nb) (quot n-bytes new-byte-width)
+                     datatype (.endianness nb)
+                     (.resource-type nb) (meta nb) nil item))))
+
+
+(defn set-gc-obj
+  ^NativeBuffer [^NativeBuffer nb gc-obj]
+  (NativeBuffer. (.address nb) (.n-elems nb)
+                 (.elemwise-datatype nb) (.endianness nb)
+                 (.resource-type nb) (meta nb) nil gc-obj))
 
 
 (defn set-parent
