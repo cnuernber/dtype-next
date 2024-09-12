@@ -17,7 +17,12 @@ jobs:
            ~/.deps.clj
         key: cljdeps-${{ hashFiles('deps.edn') }}
     - name: Additional dependencies
-      run: DEBIAN_FRONTEND=noninteractive sudo -E apt-get install -y libopenblas-dev intel-mkl lz4
+      run: |
+        DEBIAN_FRONTEND=noninteractive sudo -E apt-get install -y libopenblas-dev intel-mkl lz4
+        wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+        sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+        sudo apt update
+        sudo apt install intel-oneapi-mkl
     - name: Java setup
       uses: actions/setup-java@v3
       with:
