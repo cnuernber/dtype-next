@@ -1,4 +1,4 @@
-(ns tech.v3.neanderthal
+(ns tech.v3.libs.neanderthal
   (:require [uncomplicate.neanderthal.native :as n-native]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.tensor :as dtt]

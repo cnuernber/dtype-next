@@ -1,3 +1,6 @@
+## 10.114
+ * [issue-100](https://github.com/cnuernber/dtype-next/issues/100) - Support latest neanderthal.
+ 
 ## 10.113
  * [issue-97](https://github.com/cnuernber/dtype-next/issues/97) - sorted output for tech.v3.datatype.casting/all-datatypes.
  * [issue-99](https://github.com/cnuernber/dtype-next/issues/99) - Unexpected behaviour when comparing certain numeric types.
