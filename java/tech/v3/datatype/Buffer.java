@@ -140,7 +140,7 @@ public interface Buffer extends DatatypeBase, IMutList<Object>
   default long getLong(int idx) { return readLong(idx); }
   default double getDouble(int idx) { return readDouble(idx); }
   default void setLong(int idx, long v) { writeLong(idx, v); }
-  default void setDouble(int idx, double v) { writeDouble(idx, v); } 
+  default void setDouble(int idx, double v) { writeDouble(idx, v); }
   default Iterator<Object> iterator() { return new BufferIter(this); }
   //Ensure reductions happen in the appropriate space.
   default Object reduce(IFn f) {
@@ -171,7 +171,7 @@ public interface Buffer extends DatatypeBase, IMutList<Object>
       for(long idx = 0; idx < ee && !RT.isReduced(init); ++idx)
 	init = rfn.invoke(init, readObject(idx));
     }
-    return init;
+    return Reductions.unreduce(init);
   }
 
   default Object kvreduce(IFn f, Object init) {
@@ -279,7 +279,7 @@ public interface Buffer extends DatatypeBase, IMutList<Object>
       }
       return retval;
     }
-    
+
     @SuppressWarnings("unchecked")
     public void forEachRemaining(Consumer c) {
       final long ee = eidx;
