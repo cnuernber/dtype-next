@@ -201,7 +201,7 @@ dimensions.
 
 * [select](https://cnuernber.github.io/dtype-next/tech.v3.tensor.html#var-select) - select a subrect of data.  Dimension-indexes can be specified via the
   keyword `:all`, a clojure range, or a convertible-to-long-reader object.  This can be
-  used to crap an image or to do reorderings such as imagespace bga->rgb conversions.
+  used to crop an image or to do reorderings such as imagespace bga->rgb conversions.
 * [transpose](https://cnuernber.github.io/dtype-next/tech.v3.tensor.html#var-transpose) - Generic in-place transpose dimensions to implement operations of the
   type `i,j,k` -> `k,j,i` for all orderings of `i,j,k`.  This can be used, for instance, to convert
   between channels-first planar representation of an image (2d planes of r,g,b,a) to a
