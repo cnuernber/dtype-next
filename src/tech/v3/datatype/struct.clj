@@ -461,9 +461,11 @@ user> *2
 
 
 (defn map->struct
-  [dtype data track-type]
-  (map->struct! data (new-struct dtype {:container-type :native-heap
-                                        :resource-type track-type})))
+  ([dtype data]
+   (map->struct dtype data :gc))
+  ([dtype data track-type]
+   (map->struct! data (new-struct dtype {:container-type :native-heap
+                                         :resource-type track-type}))))
 
 
 (declare inplace-new-array-of-structs)
