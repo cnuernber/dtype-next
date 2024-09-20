@@ -7,6 +7,9 @@
                     8
                     4))
 
+(def ^{:dynamic true
+       :tag 'long}
+  ptr-t-size size-t-size)
 
 (defmacro with-size-t-size
   [new-size & body]
