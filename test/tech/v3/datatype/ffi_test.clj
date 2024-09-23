@@ -7,7 +7,8 @@
             [tech.v3.datatype.native-buffer :as native-buffer]
             [tech.v3.datatype.nio-buffer]
             [clojure.test :refer [deftest is]]
-            [clojure.tools.logging :as log])
+            [clojure.tools.logging :as log]
+            [clojure.data.json :as json])
   (:import [tech.v3.datatype.ffi Pointer]))
 
 
@@ -68,12 +69,51 @@
   (dt-ffi/set-ffi-impl! :jna)
   (generic-define-library))
 
+(defn nested-byvalue
+  []
+  (let [anon1 (dt-struct/define-datatype! :anon1 [{:name :a :datatype :int32}
+                                                  {:name :b :datatype :float64}])
+        anon2 (dt-struct/define-datatype! :anon2 [{:name :c :datatype :float64}
+                                                  {:name :d :datatype :int32}])
+        bv-type (dt-struct/define-datatype! :by-value [{:name :abcd :datatype :int32}
+                                                       {:name :first-struct :datatype :anon1}
+                                                       {:name :second-struct :datatype :anon2}])
+        bv (dt-struct/new-struct :by-value {:container-type :native-heap})
+        ^java.util.Map a1 (get bv :first-struct)
+        ^java.util.Map a2 (get bv :second-struct)
+        _ (do 
+            (.put bv :abcd 10)
+            (.put a1 :a 5)
+            (.put a1 :b 4.0)
+            (.put a2 :c 3.0)
+            (.put a2 :d 9))
+        bv-lib-def (dt-ffi/define-library
+                     ;;function definitions
+                     {:byvalue_nested {:rettype :pointer
+                                       :argtypes [[bv '(by-value :by-value)]]}}
+                     nil nil)
+        lib (dt-ffi/instantiate-library bv-lib-def (str (System/getProperty "user.dir")
+                                                        "/test/cpp/libffi_test.so"))
+        lib-fns @lib
+        test-fn (get lib-fns :byvalue_nested)
+        answer (test-fn bv)]
+    (is (= {"abcd" 10, "a" 5, "b" 4.0, "c" 3.0, "d" 9}
+           (json/read-str answer)))))
+
+(comment
+  (nested-byvalue)
+  )
+
+(deftest jna-byvalue-test
+  (dt-ffi/set-ffi-impl! :jna)
+  (nested-byvalue))
+
 
 (if (dt-ffi/jdk-ffi?)
   (deftest mmodel-ffi-test
     (dt-ffi/set-ffi-impl! :jdk-21)
     (generic-define-library))
-  (log/warn "JDK-16 FFI pathway not tested."))
+  (log/warn "JDK-21 FFI pathway not tested."))
 
 
 (deftest library-instance-test

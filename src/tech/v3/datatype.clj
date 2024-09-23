@@ -503,7 +503,7 @@ user> (dtype/make-reader :float32 5 (* idx 2))
 
   Options:
 
-  * `:resource-type` - defaults to `:gc` - maps to `:track-type` in `tech.v3.resource`
+  * `:resource-type` - defaults to `:gc` - maps to `:track-type` in `tech.v3.resource/track`
      but can also be set to nil in which case the data is not tracked this library will
      not clean it up.
   * `:uninitialized?` - do not initialize to zero.  Use for perf in very very rare cases.

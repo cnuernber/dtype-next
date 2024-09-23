@@ -205,113 +205,145 @@
                                :track-type :auto}))
 
 
+(defn define-by-value-struct!
+  [classname ^Map defined-structs dtype]
+  (when-not (.containsKey defined-structs dtype)
+    (let [sname (str classname "$" (munge (name dtype)))
+          full-sname sname
+          sdef (dt-struct/get-struct-def dtype)
+          layout (->> (sdef :data-layout)
+                      (mapv #(update % :datatype
+                                     (fn [dt]
+                                       (if (dt-struct/struct-datatype? dt)
+                                         (define-by-value-struct! classname defined-structs dt)
+                                         (argtype->insn classname :ptr-as-int
+                                                        (dt-struct/datatype->host-type dt)))))))
+          by-value-symbol #(symbol (str classname "$" (munge (name %))))]
+      (.put defined-structs dtype
+            {:name sname
+             :flags #{:public :static}
+             :super Structure
+             :interfaces [Structure$ByValue]
+             :fields (mapv (fn [{:keys [name datatype offset n-elems]}]
+                             (when-not (== 1 (long n-elems))
+                               (throw (RuntimeException. "Array properties not supported")))
+                             {:name (munge (clojure.core/name name))
+                              :type (if (dt-struct/struct-datatype? datatype)
+                                      (by-value-symbol datatype)
+                                      datatype)
+                              :flags #{:public}})
+                           layout)
+             :methods [{:name "getFieldOrder"
+                        :flags [:protected]
+                        :desc [java.util.List]
+                        :emit (concat
+                               [[:ldc (count layout)]
+                                [:anewarray String]
+                                [:astore 1]]
+                               (->> layout
+                                    (map-indexed (fn [idx {:keys [name]}]
+                                                   (let [name (munge (clojure.core/name name))]
+                                                     [[:aload 1]
+                                                      [:ldc (int idx)]
+                                                      [:ldc name]
+                                                      [:aastore]])))
+                                    (apply concat))
+                               [[:aload 1]
+                                [:invokestatic java.util.Arrays 'asList [(type (object-array [])) java.util.List]]
+                                [:areturn]])}
+                       {:name :fromMap
+                        :flags #{:public :static}
+                        :desc [java.util.Map sname]
+                        :emit (hamf/concatv
+                               [[:new full-sname]
+                                [:dup]
+                                [:invokespecial full-sname :init [:void]]
+                                [:astore 1]]
+                               (mapcat (fn [{:keys [name datatype offset n-elems]}]
+                                         (let [oname (clojure.core/name name)
+                                               name (munge oname)]
+                                           (concat
+                                            [[:aload 1]
+                                             [:aload 0]
+                                             [:ldc oname]
+                                             [:invokestatic Keyword 'intern [String Keyword]]
+                                             [:invokeinterface java.util.Map 'get [Object Object]]]
+                                            ;;TODO nil check here - cannot pass byvalue a nil inner struct
+                                            (if (dt-struct/struct-datatype? datatype)
+                                              (let [bv-sym (by-value-symbol datatype)]
+                                                [[:checkcast java.util.Map]
+                                                 [:invokestatic bv-sym 'fromMap [java.util.Map bv-sym]]
+                                                 [:putfield full-sname name bv-sym]])
+                                              (concat 
+                                               (ffi-base/emit-obj->primitive-cast datatype)
+                                               [[:putfield full-sname name datatype]])))))
+                                       layout)
+                               [[:aload 1]
+                                [:areturn]])}
+                       {:name :toMap
+                        :flags #{:public}
+                        :desc [java.util.Map java.util.Map]
+                        :emit (hamf/concatv
+                               (mapcat (fn [{:keys [name datatype offset n-elems]}]
+                                         (let [oname (clojure.core/name name)
+                                               name (munge oname)]
+                                           (if (dt-struct/struct-datatype? datatype)
+                                             (let [bv-sym (by-value-symbol datatype)]
+                                               ;;In this case the passed in map should already have an entry for
+                                               ;;the struct definition so we have to call 'toMap on our field
+                                               ;;with the existing map in the outer map.
+                                               [[:aload 0]
+                                                [:getfield :this name bv-sym]
+                                                [:aload 1]
+                                                [:ldc oname]
+                                                [:invokestatic Keyword 'intern [String Keyword]]
+                                                [:invokeinterface java.util.Map 'get [Object Object]]
+                                                [:checkcast java.util.Map]
+                                                [:invokevirtual bv-sym 'toMap [java.util.Map java.util.Map]]
+                                                [:pop]])                                          
+                                             [[:aload 1]
+                                              [:ldc oname]
+                                              [:invokestatic Keyword 'intern [String Keyword]]
+                                              [:aload 0]
+                                              [:getfield :this name datatype]
+                                              [:invokestatic RT "box" [datatype Number]]
+                                              [:invokeinterface java.util.Map 'put [Object Object Object]]])))
+                                       layout)
+                               [[:aload 1]
+                                [:areturn]])}
+                       {:name :toStruct
+                        :flags #{:public}
+                        :desc [Object]
+                        :emit [[:aload 0]
+                               [:ldc (clojure.core/name dtype)]
+                               [:invokestatic Keyword 'intern [String Keyword]]
+                               [:invokestatic 'tech.v3.datatype.ffi.jna$new_struct 'invokeStatic
+                                [Object Object]]
+                               [:checkcast 'java.util.Map]
+                               [:invokevirtual :this 'toMap [java.util.Map java.util.Map]]
+                               [:areturn]]}]})))
+  dtype)
+
+
 (defn emit-by-value-structs
   [classname fn-defs]
-  (let [defined-structs (hamf/java-hashmap)]
-    (->> (vals fn-defs)
-         (mapcat
-          (fn [{:keys [rettype argtypes]}]
-            (->> (concat [rettype] argtypes)
-                 ;;by-value is indicated by a sequential container with two elements
-                 (filter #(and (sequential? %)
-                               (not (.get defined-structs (second %)))))
-                 (mapv (fn [argtype]
-                         (when-not (== 2 (count argtype))
-                           (throw (RuntimeException. (str "Unrecognized argument type: " argtype))))
-                         (when-not (= (first argtype) 'by-value)
-                           (throw (RuntimeException. (str "Only 'by-value argument modifier allowed: " argtype))))
-                         (let [dtype (second argtype)
-                               sname (str classname "$" (munge (name dtype)))
-                               full-sname sname
-                               sdef (dt-struct/get-struct-def dtype)
-                               layout (->> (sdef :data-layout)
-                                           (mapv #(update % :datatype (fn [dt]
-                                                                        (argtype->insn classname :ptr-as-int
-                                                                                       (dt-struct/datatype->host-type dt))))))
-                               retval
-                               {:name sname
-                                :flags #{:public :static}
-                                :super Structure
-                                :interfaces [Structure$ByValue]
-                                :fields (mapv (fn [{:keys [name datatype offset n-elems]}]
-                                                (when-not (== 1 (long n-elems))
-                                                  (throw (RuntimeException. "Array properties not supported")))
-                                                {:name (munge (clojure.core/name name))
-                                                 :type datatype
-                                                 :flags #{:public}})
-                                              layout)
-                                :methods [{:name "getFieldOrder"
-                                           :flags [:protected]
-                                           :desc [java.util.List]
-                                           :emit (concat
-                                                  [[:ldc (count layout)]
-                                                   [:anewarray String]
-                                                   [:astore 1]]
-                                                  (->> layout
-                                                       (map-indexed (fn [idx {:keys [name]}]
-                                                                      (let [name (munge (clojure.core/name name))]
-                                                                        [[:aload 1]
-                                                                         [:ldc (int idx)]
-                                                                         [:ldc name]
-                                                                         [:aastore]])))
-                                                       (apply concat))
-                                                  [[:aload 1]
-                                                   [:invokestatic java.util.Arrays 'asList [(type (object-array [])) java.util.List]]
-                                                   [:areturn]])}
-                                          {:name :fromMap
-                                           :flags #{:public :static}
-                                           :desc [java.util.Map sname]
-                                           :emit (concat
-                                                  [[:new full-sname]
-                                                   [:dup]
-                                                   [:invokespecial full-sname :init [:void]]
-                                                   [:astore 1]]
-                                                  (mapcat (fn [{:keys [name datatype offset n-elems]}]
-                                                            (let [oname (clojure.core/name name)
-                                                                  name (munge oname)]
-                                                              (concat
-                                                               [[:aload 1]
-                                                                [:aload 0]
-                                                                [:ldc oname]
-                                                                [:invokestatic Keyword 'intern [String Keyword]]
-                                                                [:invokeinterface java.util.Map 'get [Object Object]]]
-                                                               (ffi-base/emit-obj->primitive-cast datatype)
-                                                               [[:putfield full-sname name datatype]])))
-                                                          layout)
-                                                  [[:aload 1]
-                                                   [:areturn]])}
-                                          {:name :toMap
-                                           :flags #{:public}
-                                           :desc [java.util.Map java.util.Map]
-                                           :emit (concat
-                                                  (mapcat (fn [{:keys [name datatype offset n-elems]}]
-                                                            (let [oname (clojure.core/name name)
-                                                                  name (munge oname)]
-                                                              [[:aload 1]
-                                                               [:ldc oname]
-                                                               [:invokestatic Keyword 'intern [String Keyword]]
-                                                               [:aload 0]
-                                                               [:getfield :this name datatype]
-                                                               [:invokestatic RT "box" [datatype Number]]
-                                                               [:invokeinterface java.util.Map 'put [Object Object Object]]]))
-                                                          layout)
-                                                  [[:aload 1]
-                                                   [:areturn]])}
-                                          {:name :toStruct
-                                           :flags #{:public}
-                                           :desc [Object]
-                                           :emit [[:aload 0]
-                                                  [:ldc (clojure.core/name dtype)]
-                                                  [:invokestatic Keyword 'intern [String Keyword]]
-                                                  [:invokestatic 'tech.v3.datatype.ffi.jna$new_struct 'invokeStatic
-                                                   [Object Object]]
-                                                  [:checkcast 'java.util.Map]
-                                                  [:invokevirtual :this 'toMap [java.util.Map java.util.Map]]
-                                                  [:areturn]]}]}]
-                           (.put defined-structs dtype retval)
-                           retval))))))
-         ;;force errors right here
-         (vec))))
+  (let [defined-structs (hamf/java-linked-hashmap)]
+    (reduce
+     (fn [acc {:keys [rettype argtypes]}]
+       (reduce (fn [acc argtype]
+                 (when (sequential? argtype)
+                   (when-not (== 2 (count argtype))
+                     (throw (RuntimeException. (str "Unrecognized argument type: " argtype))))
+                   (when-not (= (first argtype) 'by-value)
+                     (throw (RuntimeException. (str "Only 'by-value argument modifier allowed: " argtype))))
+                   (define-by-value-struct! classname defined-structs (second argtype))))
+               nil
+               (concat [rettype] argtypes)))
+     nil
+     (vals fn-defs))
+    #_(println "by-value structs:\n" (with-out-str
+                                       (clojure.pprint/pprint (vec (.values defined-structs)))))
+    (.values defined-structs)))
 
 
 (defn define-jna-library
