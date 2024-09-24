@@ -108,6 +108,8 @@
   (nested-byvalue))
 
 
+;;Good luck running this test from the repl - it is jdk-21's shared library loading
+;;is very classloader sensitive
 (if (dt-ffi/jdk-ffi?)
   (deftest jdk-byvalue-test
     (dt-ffi/set-ffi-impl! :jdk-21)

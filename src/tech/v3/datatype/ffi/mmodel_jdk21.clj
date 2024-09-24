@@ -103,7 +103,7 @@
                                                 member-name :name}]
                   (let [layout (if (= jdk-offset offset)
                                  layout
-                                 (do (println member-name " - adding padding -- offset" offset " -- jdk-offset --" jdk-offset)
+                                 (do #_(println member-name " - adding padding -- offset" offset " -- jdk-offset --" jdk-offset)
                                      (conj layout (MemoryLayout/paddingLayout (- offset jdk-offset)))))
                         jdk-offset (+ offset
                                       (* n-elems
