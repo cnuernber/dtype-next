@@ -10,4 +10,5 @@ typedef struct {
   } second_struct;
 } ByValue;
 
-extern const char* byvalue_nested(ByValue bv);
+//test both passing and returning by value
+extern ByValue byvalue_nested(ByValue bv);

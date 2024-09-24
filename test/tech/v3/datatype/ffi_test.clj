@@ -7,8 +7,7 @@
             [tech.v3.datatype.native-buffer :as native-buffer]
             [tech.v3.datatype.nio-buffer]
             [clojure.test :refer [deftest is]]
-            [clojure.tools.logging :as log]
-            [clojure.data.json :as json])
+            [clojure.tools.logging :as log])
   (:import [tech.v3.datatype.ffi Pointer]))
 
 
@@ -89,16 +88,19 @@
             (.put a2 :d 9))
         bv-lib-def (dt-ffi/define-library
                      ;;function definitions
-                     {:byvalue_nested {:rettype :pointer
+                     {:byvalue_nested {:rettype '(by-value :by-value)
                                        :argtypes [[bv '(by-value :by-value)]]}}
                      nil nil)
         lib (dt-ffi/instantiate-library bv-lib-def (str (System/getProperty "user.dir")
                                                         "/test/cpp/libffi_test.so"))
         lib-fns @lib
         test-fn (get lib-fns :byvalue_nested)
-        answer (test-fn bv)]
-    (is (= {"abcd" 10, "a" 5, "b" 4.0, "c" 3.0, "d" 9}
-           (json/read-str answer)))))
+        bbv (test-fn bv)]
+    (is (and (= (bv :abcd) (bbv :abcd))
+             (= (get-in bv [:first_struct :a])
+                (get-in bbv [:first_struct :b]))
+             (= (get-in bv [:second_struct :d])
+                (get-in bbv [:second_struct :d]))))))
 
 (comment
   (nested-byvalue)
@@ -110,9 +112,9 @@
 
 
 (if (dt-ffi/jdk-ffi?)
-  (deftest mmodel-ffi-test
+  (deftest jdk-byvalue-test
     (dt-ffi/set-ffi-impl! :jdk-21)
-    (generic-define-library))
+    (nested-byvalue))
   (log/warn "JDK-21 FFI pathway not tested."))
 
 
