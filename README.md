@@ -4,8 +4,7 @@ Next generation high performance Clojure toolkit.
 
 
 [![Clojars Project](https://clojars.org/cnuernber/dtype-next/latest-version.svg)](https://clojars.org/cnuernber/dtype-next)
-
-[![Build Status](https://travis-ci.com/cnuernber/dtype-next.svg?branch=master)](https://travis-ci.com/cnuernber/dtype-next)
+![Build Status](https://github.com/cnuernber/dtype-next/actions/workflows/test.yml/badge.svg)
 
 Checkout The:
 
