@@ -381,91 +381,114 @@ user> *2
      ~'cached-buffer))
 
 
+(declare struct->clj)
+
+(defn- structv->clj
+  [v]
+  (cond
+    (instance? java.util.Map v)
+    (struct->clj v)
+    (instance? java.util.List v)
+    (mapv structv->clj v)
+    :else
+    v))
+
+(defn struct->clj
+  "Copy a struct into native clojure datastructures"
+  [s]
+  (-> (reduce #(assoc! %1 (key %2) (-> (val %2) structv->clj))
+              (transient {})
+              s)
+      (persistent!)))
+
+
 (deftype ^{:doc "Struct instance.  Derives most-notably from `java.util.Map` and
  `clojure.lang.ILookup`.  Metadata (meta, with-meta, vary-meta) is supported.
   Imporant member variables are:
 
  * `.struct-def - The struct definition of this instance.
  * `.buffer - The underlying backing store of this instance."}
- Struct [struct-def
-         buffer
-         ^{:unsynchronized-mutable true
-           :tag BinaryBuffer} cached-buffer
-         metadata
-         accessors]
-  dtype-proto/PDatatype
-  (datatype [_m] (:datatype-name struct-def))
-  dtype-proto/PECount
-  (ecount [_m] (dtype-proto/ecount buffer))
-  dtype-proto/PEndianness
-  (endianness [_m] (dtype-proto/endianness buffer))
-  dtype-proto/PClone
-  (clone [_m]
-    (let [new-buffer (dtype-proto/clone buffer)]
-      (inplace-new-struct (:datatype-name struct-def) new-buffer
-                          {:endianness
-                           (dtype-proto/endianness buffer)})))
+    Struct [struct-def
+            buffer
+            ^{:unsynchronized-mutable true
+              :tag BinaryBuffer} cached-buffer
+            metadata
+            accessors]
+    dtype-proto/PDatatype
+    (datatype [_m] (:datatype-name struct-def))
+    dtype-proto/PECount
+    (ecount [_m] (dtype-proto/ecount buffer))
+    dtype-proto/PEndianness
+    (endianness [_m] (dtype-proto/endianness buffer))
+    dtype-proto/PClone
+    (clone [_m]
+      (let [new-buffer (dtype-proto/clone buffer)]
+        (inplace-new-struct (:datatype-name struct-def) new-buffer
+                            {:endianness
+                             (dtype-proto/endianness buffer)})))
 
-  dtype-proto/PToNativeBuffer
-  (convertible-to-native-buffer? [_this]
-    (dtype-proto/convertible-to-native-buffer? buffer))
-  (->native-buffer [_this]
-    (dtype-proto/->native-buffer buffer))
+    dtype-proto/PToNativeBuffer
+    (convertible-to-native-buffer? [_this]
+      (dtype-proto/convertible-to-native-buffer? buffer))
+    (->native-buffer [_this]
+      (dtype-proto/->native-buffer buffer))
 
-  dtype-proto/PToArrayBuffer
-  (convertible-to-array-buffer? [_this]
-    (dtype-proto/convertible-to-array-buffer? buffer))
-  (->array-buffer [_this]
-    (dtype-proto/->array-buffer buffer))
+    dtype-proto/PToArrayBuffer
+    (convertible-to-array-buffer? [_this]
+      (dtype-proto/convertible-to-array-buffer? buffer))
+    (->array-buffer [_this]
+      (dtype-proto/->array-buffer buffer))
 
-  IObj
-  (meta [_this] metadata)
-  (withMeta [_this m]
-    (Struct. struct-def buffer cached-buffer m accessors))
+    IObj
+    (meta [_this] metadata)
+    (withMeta [_this m]
+      (Struct. struct-def buffer cached-buffer m accessors))
 
-  ILookup
-  (valAt [this k] (.get this k))
-  (valAt [this k not-found] (.getOrDefault this k not-found))
+    ILookup
+    (valAt [this k] (.get this k))
+    (valAt [this k not-found] (.getOrDefault this k not-found))
 
-  IFn
-  (invoke [this k] (.get this k))
-  (applyTo [this args]
-    (errors/when-not-errorf
-     (= 1 (count args))
-     "only 1 arg is acceptable; %d provided" (count args))
-    (.get this (first args)))
+    IFn
+    (invoke [this k] (.get this k))
+    (applyTo [this args]
+      (errors/when-not-errorf
+       (= 1 (count args))
+       "only 1 arg is acceptable; %d provided" (count args))
+      (.get this (first args)))
 
-  Map
-  (size [_m] (count (:data-layout struct-def)))
-  (containsKey [_m k] (.containsKey ^Map (:layout-map struct-def) k))
-  (entrySet [m]
-    (let [map-entry-data (map (comp #(MapEntry. % (.get m %)) :name)
-                              (:data-layout struct-def))]
-      (LinkedHashSet. ^Collection map-entry-data)))
-  (keySet [_m] (.keySet ^Map (:layout-map struct-def)))
-  (get [_m k]
-    (when-let [^Accessor accessor (get accessors k)]
-      ((.reader accessor) buffer (ensure-binary-buffer!))))
-  (getOrDefault [m k d]
-    (or (.get m k) d))
-  (put [m k v]
-    (let [writer (ensure-binary-buffer!)]
-      (when-not (.allowsBinaryWrite writer)
-        (throw (Exception. "Item is immutable")))
-      (if-let [^Accessor accessor (get accessors k)]
-        ((.writer accessor) buffer writer v)
-        (throw (Exception. (format "Datatype %s does not contain field %s"
-                                   (dtype-proto/datatype m) k))))))
-  ITypedReduce
-  (reduce [this rfn acc]
-    (let [bin-buf (ensure-binary-buffer!)]
-      (reduce
-       (fn [acc e]
-         (rfn acc (MapEntry/create
-                   (key e)
-                   ((.reader ^Accessor (val e)) buffer bin-buf))))
-       acc
-       accessors))))
+    Map
+    (size [_m] (count (:data-layout struct-def)))
+    (containsKey [_m k] (.containsKey ^Map (:layout-map struct-def) k))
+    (entrySet [m]
+      (let [map-entry-data (map (comp #(MapEntry. % (.get m %)) :name)
+                                (:data-layout struct-def))]
+        (LinkedHashSet. ^Collection map-entry-data)))
+    (keySet [_m] (.keySet ^Map (:layout-map struct-def)))
+    (get [_m k]
+      (when-let [^Accessor accessor (get accessors k)]
+        ((.reader accessor) buffer (ensure-binary-buffer!))))
+    (getOrDefault [m k d]
+      (or (.get m k) d))
+    (put [m k v]
+      (let [writer (ensure-binary-buffer!)]
+        (when-not (.allowsBinaryWrite writer)
+          (throw (Exception. "Item is immutable")))
+        (if-let [^Accessor accessor (get accessors k)]
+          ((.writer accessor) buffer writer v)
+          (throw (Exception. (format "Datatype %s does not contain field %s"
+                                     (dtype-proto/datatype m) k))))))
+    ITypedReduce
+    (reduce [this rfn acc]
+      (let [bin-buf (ensure-binary-buffer!)]
+        (reduce
+         (fn [acc e]
+           (rfn acc (MapEntry/create
+                     (key e)
+                     ((.reader ^Accessor (val e)) buffer bin-buf))))
+         acc
+         accessors)))
+    Object
+    (toString [this] (str (struct->clj this))))
 
 
 (defn struct->buffer

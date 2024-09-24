@@ -68,12 +68,53 @@
   (dt-ffi/set-ffi-impl! :jna)
   (generic-define-library))
 
+(defn nested-byvalue
+  []
+  (let [anon1 (dt-struct/define-datatype! :anon1 [{:name :a :datatype :int32}
+                                                  {:name :b :datatype :float64}])
+        anon2 (dt-struct/define-datatype! :anon2 [{:name :c :datatype :float64}
+                                                  {:name :d :datatype :int32}])
+        bv-type (dt-struct/define-datatype! :by-value [{:name :abcd :datatype :int32}
+                                                       {:name :first-struct :datatype :anon1}
+                                                       {:name :second-struct :datatype :anon2}])
+        bv (dt-struct/new-struct :by-value {:container-type :native-heap})
+        ^java.util.Map a1 (get bv :first-struct)
+        ^java.util.Map a2 (get bv :second-struct)
+        _ (do 
+            (.put bv :abcd 10)
+            (.put a1 :a 5)
+            (.put a1 :b 4.0)
+            (.put a2 :c 3.0)
+            (.put a2 :d 9))
+        bv-lib-def (dt-ffi/define-library
+                     ;;function definitions
+                     {:byvalue_nested {:rettype '(by-value :by-value)
+                                       :argtypes [[bv '(by-value :by-value)]]}}
+                     nil nil)
+        lib (dt-ffi/instantiate-library bv-lib-def (str (System/getProperty "user.dir")
+                                                        "/test/cpp/libffi_test.so"))
+        lib-fns @lib
+        test-fn (get lib-fns :byvalue_nested)
+        bbv (test-fn bv)]
+    (is (and (= (dt-struct/struct->clj bv)
+                (dt-struct/struct->clj bbv))))))
 
+(comment
+  (nested-byvalue)
+  )
+
+(deftest jna-byvalue-test
+  (dt-ffi/set-ffi-impl! :jna)
+  (nested-byvalue))
+
+
+;;Good luck running this test from the repl - it is jdk-21's shared library loading
+;;is very classloader sensitive
 (if (dt-ffi/jdk-ffi?)
-  (deftest mmodel-ffi-test
+  (deftest jdk-byvalue-test
     (dt-ffi/set-ffi-impl! :jdk-21)
-    (generic-define-library))
-  (log/warn "JDK-16 FFI pathway not tested."))
+    (nested-byvalue))
+  (log/warn "JDK-21 FFI pathway not tested."))
 
 
 (deftest library-instance-test

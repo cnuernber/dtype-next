@@ -1,5 +1,8 @@
 #!/bin/bash
 
 scripts/compile
+pushd ./test/cpp
+gcc -shared -fPIC -rdynamic -o libffi_test.so ffi_test_lib.c
+popd
 clojure -A:dev -X:codegen
 clojure -A:dev -M:test --dir test --dir neanderthal
