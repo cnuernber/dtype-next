@@ -96,11 +96,8 @@
         lib-fns @lib
         test-fn (get lib-fns :byvalue_nested)
         bbv (test-fn bv)]
-    (is (and (= (bv :abcd) (bbv :abcd))
-             (= (get-in bv [:first_struct :a])
-                (get-in bbv [:first_struct :b]))
-             (= (get-in bv [:second_struct :d])
-                (get-in bbv [:second_struct :d]))))))
+    (is (and (= (dt-struct/struct->clj bv)
+                (dt-struct/struct->clj bbv))))))
 
 (comment
   (nested-byvalue)

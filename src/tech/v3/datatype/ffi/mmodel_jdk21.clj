@@ -11,7 +11,7 @@
   (:import [clojure.lang Keyword]
            [java.lang.foreign
              FunctionDescriptor Linker Linker$Option MemoryLayout Arena MemorySegment
-             SymbolLookup ValueLayout]
+             SymbolLookup ValueLayout SegmentAllocator]
            [java.lang.invoke MethodHandle MethodHandles MethodType]
            [java.nio.file Path Paths]
            [java.util ArrayList]
@@ -88,31 +88,41 @@
 
 (defn argtype->mem-layout-type
   [argtype]
-  (if (sequential? argtype)
+  (cond
+    (sequential? argtype)
     (do
       (when-not (= 'by-value (first argtype))
         (throw (RuntimeException. (str "Unrecognized argtype type: " (first argtype)))))
-      (->> (get (dt-struct/get-struct-def (second argtype)) :data-layout)
-           (reduce
-            (fn [[layout ^long jdk-offset] {:keys [datatype ^long offset ^long n-elems struct?]
-                                            member-name :name}]
-              (let [layout (if (= jdk-offset offset)
-                             layout
-                             (conj layout (MemoryLayout/paddingLayout (- offset jdk-offset))))
-                    jdk-offset (+ jdk-offset
-                                  (* n-elems
-                                     (if struct?
-                                       (get (dt-struct/get-struct-def datatype) :datatype-size)
-                                       (dt-struct/datatype-size datatype))))
-                    layout-entry (argtype->mem-layout-type datatype)]
-                [(conj layout (if (= n-elems 1)
-                                layout-entry
-                                (MemoryLayout/sequenceLayout n-elems layout-entry)))
-                 jdk-offset]))
-            [[] 0])
-           (first)
+      (argtype->mem-layout-type (second argtype)))
+    (dt-struct/struct-datatype? argtype)    
+    (let [struct-def (dt-struct/get-struct-def argtype)
+          [layout ^long jdk-offset]
+          (->> (get struct-def :data-layout)
+               (reduce
+                (fn [[layout ^long jdk-offset] {:keys [datatype ^long offset ^long n-elems struct?]
+                                                member-name :name}]
+                  (let [layout (if (= jdk-offset offset)
+                                 layout
+                                 (do (println member-name " - adding padding -- offset" offset " -- jdk-offset --" jdk-offset)
+                                     (conj layout (MemoryLayout/paddingLayout (- offset jdk-offset)))))
+                        jdk-offset (+ offset
+                                      (* n-elems
+                                         (if struct?
+                                           (get (dt-struct/get-struct-def datatype) :datatype-size)
+                                           (dt-struct/datatype-size datatype))))
+                        layout-entry (argtype->mem-layout-type datatype)]
+                    [(conj layout (if (= n-elems 1)
+                                    layout-entry
+                                    (MemoryLayout/sequenceLayout n-elems layout-entry)))
+                     jdk-offset]))
+                [[] 0]))]
+      (->> (let [diff (- (long (struct-def :datatype-size)) jdk-offset)]
+             (if (> diff 0)
+               (conj layout (MemoryLayout/paddingLayout diff))
+               layout))
            (into-array MemoryLayout)
            (MemoryLayout/structLayout)))
+    :else
     (case (lower-type-ptr-passthrough argtype)
       :int8     ValueLayout/JAVA_BYTE
       :int16    ValueLayout/JAVA_SHORT
@@ -155,13 +165,6 @@
         "argtype (%s) must be instance of class"
         argtype)
       argtype)))
-
-(defn sig->method-type
-  ^MethodType [{:keys [rettype argtypes]}]
-  (let [^"[Ljava.lang.Class;" cls-ary (->> argtypes
-                                           (map argtype->cls)
-                                           (into-array Class))]
-    (MethodType/methodType (argtype->cls rettype) cls-ary)))
 
 (defn library-sym-method-handle
   ^MethodHandle [library symbol-name rettype argtypes]
@@ -261,6 +264,21 @@
   (ffi-base/ptr-return
     [[:invokeinterface MemorySegment "address" [:long]]]))
 
+(def ^SegmentAllocator default-segment-allocator
+  (reify SegmentAllocator
+    (^MemorySegment allocate [this ^long byte-size ^long alignment]
+     (.allocate (Arena/ofAuto) byte-size alignment))))
+
+(defn active-allocator
+  [] default-segment-allocator)
+
+(defn segment-to-struct
+  [segment stype]
+  (let [addr (.address ^MemorySegment segment)
+        struct-def (dt-struct/get-struct-def stype)
+        nbuf (nbuf/wrap-address addr (long (get struct-def :datatype-size)) segment)]
+    (dt-struct/inplace-new-struct stype nbuf)))
+
 (defn argtype->insn
   [arg]
   (if (sequential? arg)
@@ -269,18 +287,28 @@
 
 (defn emit-fn-def
   [hdl-name rettype argtypes]
-  (->> (concat
-        [[:aload 0]
-         [:getfield :this hdl-name MethodHandle]]
-        (ffi-base/load-ffi-args ptr-cast ptr?-cast argtypes)
-        [[:invokevirtual MethodHandle "invokeExact"
-          (concat (map argtype->insn argtypes)
-                  [(argtype->insn rettype)])]]
-        (ffi-base/exact-type-retval
-         rettype
-         (fn [_ptr-type]
-           ptr-return)))
-       (vec)))
+  (let [byval-ret? (sequential? rettype)
+        byval-type (second rettype)]
+    (->> (concat
+          [[:aload 0]
+           [:getfield :this hdl-name MethodHandle]]
+          (when byval-ret?
+            [[:invokestatic 'tech.v3.datatype.ffi.mmodel_jdk21$active_allocator
+              'invokeStatic [Object]]
+             [:checkcast SegmentAllocator]])
+          (ffi-base/load-ffi-args ptr-cast ptr?-cast argtypes)
+          [[:invokevirtual MethodHandle "invokeExact"
+            (concat
+             (if byval-ret?
+               [SegmentAllocator]
+               nil)
+             (map argtype->insn argtypes)
+             [(argtype->insn rettype)])]]
+          (ffi-base/exact-type-retval
+           rettype
+           (fn [_ptr-type]
+             ptr-return)))
+         (vec))))
 
 (defn define-mmodel-library
   [classname fn-defs _symbols _options]
@@ -322,13 +350,16 @@
                    {:keys [rettype argtypes]} fn-data]
                {:name  fn-name
                 :flags #{:public}
-                :desc  (concat (map (partial ffi-base/argtype->insn
-                                             MemorySegment
-                                             :ptr-as-obj)
-                                    argtypes)
-                               [(ffi-base/argtype->insn MemorySegment
-                                                        :ptr-as-ptr
-                                                        rettype)])
+                :desc  (concat
+                        (map (partial ffi-base/argtype->insn
+                                      MemorySegment
+                                      :ptr-as-obj)
+                             argtypes)
+                        (if (sequential? rettype)
+                          [Object]
+                          [(ffi-base/argtype->insn MemorySegment
+                                                   :ptr-as-ptr
+                                                   rettype)]))
                 :emit  (emit-fn-def hdl-name rettype argtypes)}))
            fn-defs))
          (vec))}])
@@ -352,31 +383,39 @@
     [:invokeinterface MemorySegment "address" [:long]]
     [:invokestatic Pointer "constructNonZero" [:long Pointer]]])
 
+
+(defn sig->method-type
+  ^MethodType [{:keys [rettype argtypes]}]
+  (let [^"[Ljava.lang.Class;" cls-ary (->> argtypes
+                                           (map argtype->cls)
+                                           (into-array Class))]
+    (MethodType/methodType (argtype->cls rettype) cls-ary)))
+
 (defn define-foreign-interface
   [rettype argtypes options]
   (let [classname (or (:classname options)
                       (symbol (str "tech.v3.datatype.ffi.mmodel.ffi_"
                                    (name (gensym)))))
         retval    (ffi-base/define-foreign-interface classname
-                                                     rettype
-                                                     argtypes
-                                                     {:src-ns-str "tech.v3.datatype.ffi.mmodel"
-                                                      :platform-ptr->ptr platform-ptr->ptr
-                                                      :ptr->platform-ptr
-                                                      (partial ffi-base/ptr->platform-ptr
-                                                               "tech.v3.datatype.ffi.mmodel"
-                                                               MemorySegment)
-                                                      :ptrtype MemorySegment})
+                    rettype
+                    argtypes
+                    {:src-ns-str "tech.v3.datatype.ffi.mmodel"
+                     :platform-ptr->ptr platform-ptr->ptr
+                     :ptr->platform-ptr
+                     (partial ffi-base/ptr->platform-ptr
+                              "tech.v3.datatype.ffi.mmodel"
+                              MemorySegment)
+                     :ptrtype MemorySegment})
         iface-cls (:foreign-iface-class retval)
         lookup    (MethodHandles/lookup)
         sig       {:rettype  rettype
                    :argtypes argtypes}]
     (assoc retval
-      :method-handle (.findVirtual lookup
-                                   iface-cls
-                                   "invoke"
-                                   (sig->method-type sig))
-      :fndesc        (sig->fdesc sig))))
+           :method-handle (.findVirtual lookup
+                                        iface-cls
+                                        "invoke"
+                                        (sig->method-type sig))
+           :fndesc        (sig->fdesc sig))))
 
 (defn foreign-interface-instance->c
   [iface-def inst]
