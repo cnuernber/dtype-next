@@ -9,6 +9,9 @@
         techascent/tech.resource {:mvn/version "5.08"}
         com.cnuernber/ham-fisted {:mvn/version "2.017"}
         org.clj-commons/primitive-math {:mvn/version "1.0.0"}}
+ :deps/prep-lib {:alias :build
+                 :fn compile
+                 :ensure "target/classes"}
  :aliases
  {:codox
   {:extra-deps {codox-theme-rdash/codox-theme-rdash {:mvn/version "0.1.2"}
