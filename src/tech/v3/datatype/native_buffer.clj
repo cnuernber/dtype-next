@@ -706,6 +706,20 @@
    (UnsafeUtil/addrToString (.address nbuf) (unchecked-int (.n-elems nbuf)))))
 
 
+(defn native-buffer->byte-array
+  ^bytes [^NativeBuffer nbuf ^long soff ^long eoff]
+  (let [ne (.n-elems nbuf)
+        desired-ne (- eoff soff)
+        _ (when-not (>= ne (- desired-ne))
+            (throw (Exception. (str "Native access out of range - n-elems - " ne " - requested - " desired-ne))))
+        bbuf (byte-array (- eoff soff))]
+    (.copyMemory (unsafe)
+                 nil (.-address nbuf)
+                 bbuf Unsafe/ARRAY_BYTE_BASE_OFFSET
+                 (- eoff soff))
+    bbuf))
+
+
 (defn native-buffer-byte-len
   "Get the length, in bytes, of a native buffer."
   ^long [^NativeBuffer nb]

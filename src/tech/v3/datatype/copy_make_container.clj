@@ -183,10 +183,12 @@
    (->array (packing/unpack-datatype (dtype-base/elemwise-datatype item))
             nil item)))
 
+(defonce byte-array-cls (Class/forName "[B"))
+
 (defn ->byte-array
   "Efficiently convert nearly anything into a byte array."
   ^bytes [data]
-  (if (instance? (Class/forName "[B") data)
+  (if (instance? byte-array-cls data)
     data
     (->array :int8 nil data)))
 
