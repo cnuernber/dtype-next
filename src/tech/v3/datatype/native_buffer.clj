@@ -934,7 +934,10 @@
                       datatype endianness #{:gc} nil nil gc-obj))))
   (^NativeBuffer [address n-bytes gc-obj]
    (wrap-address address n-bytes :int8 (dtype-proto/platform-endianness)
-                 gc-obj)))
+                 gc-obj))
+  (^NativeBuffer [address n-bytes]
+   (wrap-address address n-bytes :int8 (dtype-proto/platform-endianness)
+                 nil)))
 
 
 (defmacro ^:private check-bounds
