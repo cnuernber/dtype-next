@@ -73,4 +73,6 @@
   (as-tensor [item]
     (when (dtype-proto/convertible-to-nd-buffer-desc? item)
       (-> (dtype-proto/->nd-buffer-descriptor item)
-          (dtt/nd-buffer-descriptor->tensor)))))
+          (dtt/nd-buffer-descriptor->tensor))))
+  dtype-proto/PECount
+  (ecount [item] (:dim (n-core/info item))))
