@@ -489,9 +489,7 @@ user> (dtt/transpose tensor [1 2 0])
   [:b :b :b]]]
 ```"
   (^{:tag tech.v3.datatype.NDBuffer} [tens reorder-indexes]
-  (tech.v3.datatype.base/transpose tens reorder-indexes))
-  (^{:tag tech.v3.datatype.NDBuffer} [tens]
-  (tech.v3.datatype.base/transpose tens (reverse (range (count (tech.v3.datatype.base/shape tens)))))))
+  (tech.v3.datatype.base/transpose tens reorder-indexes)))
 
 
 (defmacro typed-compute-tensor

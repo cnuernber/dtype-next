@@ -130,6 +130,7 @@
       :int64    ValueLayout/JAVA_LONG
       :float32  ValueLayout/JAVA_FLOAT
       :float64  ValueLayout/JAVA_DOUBLE
+      :string   ValueLayout/ADDRESS
       :pointer? ValueLayout/ADDRESS
       :pointer  ValueLayout/ADDRESS)))
 
@@ -288,7 +289,7 @@
 (defn emit-fn-def
   [hdl-name rettype argtypes]
   (let [byval-ret? (sequential? rettype)
-        byval-type (second rettype)]
+        byval-type (when byval-ret? (second rettype))]
     (->> (concat
           [[:aload 0]
            [:getfield :this hdl-name MethodHandle]]
