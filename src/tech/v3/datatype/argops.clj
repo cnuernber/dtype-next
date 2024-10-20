@@ -553,7 +553,7 @@
 
   - `:storage-datatype` - `:int32`, `:int64, or `:bitmap`, defaults to whatever will fit
     based on the element count of the reader.
-  - `:unordered?` - defaults to true, if true uses a slower algorithm that guarantees
+  - `:unordered?` - defaults to false, if true uses a slower algorithm that guarantees
     the resulting index lists will be ordered.  In the case where storage is
     bitmap, unordered reductions are used as the bitmap forces the end results to be
     ordered

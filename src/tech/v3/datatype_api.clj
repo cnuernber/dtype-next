@@ -132,31 +132,10 @@
 
 
 (defn ^:no-doc make-reader-fn
-  [datatype advertised-datatype n-elems read-fn]
+  [_datatype advertised-datatype n-elems read-fn]
   (let [n-elems (long n-elems)]
     (cond
-      (identical? :boolean datatype)
-      (reify BooleanReader
-        (elemwiseDatatype [rdr] advertised-datatype)
-        (lsize [rdr] n-elems)
-        (readObject [rdr idx]
-          (errors/check-idx idx n-elems)
-          (Casts/booleanCast (.invokePrim ^IFn$LO read-fn idx)))
-        (subBuffer [rdr sidx eidx]
-          (ChunkedList/sublistCheck sidx eidx n-elems)
-          (make-reader-fn datatype advertised-datatype (- eidx sidx)
-                          (reify IFnDef$LO
-                            (invokePrim [this idx]
-                              (.invokePrim ^IFn$LO read-fn (+ sidx idx))))))
-        (reduce [rdr rfn init]
-          (loop [idx 0
-                 acc init]
-            (if (and (< idx n-elems) (not (reduced? acc)))
-              (recur (unchecked-inc idx) (rfn acc
-                                              (Casts/booleanCast
-                                               (.invokePrim ^IFn$LO read-fn idx))))
-              (Reductions/unreduce acc)))))
-      (casting/integer-type? datatype)
+      (instance? IFn$LL read-fn)
       (reify LongReader
         (elemwiseDatatype [rdr] advertised-datatype)
         (lsize [rdr#] n-elems)
@@ -171,7 +150,7 @@
                               (.invokePrim ^IFn$LL read-fn (+ sidx idx))))))
         (reduce [rdr rfn init]
           (Reductions/longSamplerReduction rfn init read-fn n-elems)))
-      (casting/float-type? datatype)
+      (instance? IFn$LD read-fn)
       (reify DoubleReader
         (elemwiseDatatype [rdr] advertised-datatype)
         (lsize [rdr#] n-elems)
@@ -187,20 +166,22 @@
         (reduce [rdr rfn acc]
           (Reductions/doubleSamplerReduction rfn acc read-fn n-elems)))
       :else
-      (reify ObjectReader
-        (elemwiseDatatype [rdr] advertised-datatype)
-        (lsize [rdr] n-elems)
-        (readObject [rdr idx]
-          (errors/check-idx idx n-elems)
-          (.invokePrim ^IFn$LO read-fn idx))
-        (subBuffer [rdr sidx eidx]
-          (ChunkedList/sublistCheck sidx eidx n-elems)
-          (make-reader-fn datatype advertised-datatype (- eidx sidx)
-                          (reify IFnDef$LO
-                            (invokePrim [this idx]
-                              (.invokePrim ^IFn$LO read-fn (+ sidx idx))))))
-        (reduce [rdr rfn acc]
-          (Reductions/samplerReduction rfn acc read-fn n-elems))))))
+      (do
+        (assert (instance? IFn$LO read-fn))
+        (reify ObjectReader
+          (elemwiseDatatype [rdr] advertised-datatype)
+          (lsize [rdr] n-elems)
+          (readObject [rdr idx]
+            (errors/check-idx idx n-elems)
+            (.invokePrim ^IFn$LO read-fn idx))
+          (subBuffer [rdr sidx eidx]
+            (ChunkedList/sublistCheck sidx eidx n-elems)
+            (make-reader-fn advertised-datatype (- eidx sidx)
+                            (reify IFnDef$LO
+                              (invokePrim [this idx]
+                                (.invokePrim ^IFn$LO read-fn (+ sidx idx))))))
+          (reduce [rdr rfn acc]
+            (Reductions/samplerReduction rfn acc read-fn n-elems)))))))
 
 
 (defmacro make-reader
@@ -232,7 +213,7 @@ user> (dtype/make-reader :float32 5 (* idx 2))
       (casting/ensure-valid-datatype ~reader-datatype)
       (make-reader-fn
        ~reader-datatype ~advertised-datatype ~n-elems
-       ~(cond
+       ~(cond          
           (casting/integer-type? reader-datatype)
           `(reify IFnDef$LL
              (invokePrim [this# ~'idx] (Casts/longCast ~read-op)))
@@ -265,10 +246,9 @@ user> (dtype/make-reader :float32 5 (* idx 2))
        (constantly (clojure.core/reverse item))
        (fn [res-dt ^Buffer rdr]
          (case (casting/simple-operation-space res-dt)
-           :int64 (make-reader res-dt rc (.readLong rdr (- drc idx)))
-           :float64 (make-reader res-dt rc (.readDouble rdr (- drc idx)))
-           :boolean (make-reader res-dt rc (.readBoolean rdr (- drc idx)))
-           (make-reader res-dt rc (.readObject rdr (- drc idx)))))
+           :int64 (make-reader :int64 rc (.readLong rdr (- drc idx)))
+           :float64 (make-reader :float64 rc (.readDouble rdr (- drc idx)))
+           (make-reader :object rc (.readObject rdr (- drc idx)))))
        item))))
 
 
