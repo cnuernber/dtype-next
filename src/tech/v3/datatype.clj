@@ -494,8 +494,8 @@ user> (dtype/make-reader :float32 5 (* idx 2))
 
 
 (defn make-reader-fn
-  ([datatype advertised-datatype n-elems read-fn]
-  (tech.v3.datatype-api/make-reader-fn datatype advertised-datatype n-elems read-fn)))
+  ([_datatype advertised-datatype n-elems read-fn]
+  (tech.v3.datatype-api/make-reader-fn _datatype advertised-datatype n-elems read-fn)))
 
 
 (defn malloc
