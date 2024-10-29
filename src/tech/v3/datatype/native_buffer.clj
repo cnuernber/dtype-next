@@ -878,21 +878,26 @@
 
 (defn malloc
   "Malloc memory.  If a desired buffer type is needed follow up with set-native-datatype.
+  
+  * n-bytes - the number of bytes to malloc
+  * opts - Either a keyword datatype or an options map.
 
   Options:
 
   * `:resource-type` - defaults to `:gc` - maps to `:track-type` in `tech.v3.resource/track`
      but can also be set to nil in which case the data is not tracked this library will
      not clean it up.
+  * `:datatype` - Datatype - defaults to :int8.  Datatype byte width must evenly divide n-bytes.
   * `:uninitialized?` - do not initialize to zero.  Use for perf in very very rare cases.
   * `:endianness` - Either `:little-endian` or `:big-endian` - defaults to platform.
   * `:log-level` - one of `#{:debug :trace :info :warn :error :fatal}` or nil if no logging
      is desired.  When enabled allocations and frees will be logged in the same manner as
      `tech.jna`."
   (^NativeBuffer [^long n-bytes {:keys [resource-type uninitialized?
-                                        endianness log-level]
+                                        endianness log-level
+                                        datatype]
                                  :or {resource-type :auto}
-                                 :as opts}]
+                                 :as dtype-or-opts}]
    (let [endianness (-> (or endianness (dtype-proto/platform-endianness))
                         (validate-endianness))
          retval (NativeBuffer. (.allocateMemory (unsafe) n-bytes)
@@ -900,7 +905,14 @@
                                :int8
                                endianness
                                resource-type nil nil nil)
-         addr (.address retval)]
+         addr (.address retval)
+         dtype (or datatype
+                   (when (keyword? dtype-or-opts) dtype-or-opts))]
+     (when dtype
+       (when-not (== 0 (rem (long n-bytes) (casting/numeric-byte-width dtype)))
+         (throw (RuntimeException. (str "n-bytes (" n-bytes ") is not commensurate with "
+                                        dtype " width ("
+                                        (casting/numeric-byte-width dtype) ")")))))
      (when log-level
        (log/logf log-level "Malloc - 0x%016X - %016d bytes" (.address retval) n-bytes))
      (when-not uninitialized?
@@ -913,7 +925,9 @@
                                                           addr n-bytes))
                                               (free addr))
                                :track-type resource-type}))
-     retval))
+     (if dtype
+       (set-native-datatype retval dtype)
+       retval)))
   (^NativeBuffer [^long n-bytes]
    (malloc n-bytes {})))
 

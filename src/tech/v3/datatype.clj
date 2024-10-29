@@ -514,7 +514,9 @@ user> (dtype/make-reader :float32 5 (* idx 2))
   (^{:tag tech.v3.datatype.native_buffer.NativeBuffer} [n-bytes opts]
   (tech.v3.datatype.native-buffer/malloc n-bytes opts))
   (^{:tag tech.v3.datatype.native_buffer.NativeBuffer} [n-bytes]
-  (tech.v3.datatype.native-buffer/malloc n-bytes)))
+  (tech.v3.datatype.native-buffer/malloc n-bytes))
+  (^{:tag tech.v3.datatype.native_buffer.NativeBuffer} [n-bytes dtype opts]
+  (tech.v3.datatype.native-buffer/malloc n-bytes dtype opts)))
 
 
 (defn prealloc-list
