@@ -385,7 +385,15 @@ Finally - on my favorite topic, efficiency, dtype-next has extremely fast copies
   (convertible-to-pointer? [item] true)
   ;;Keep a reference to the native buffer so that it doesn't get GC'd while
   ;;this pointer is in scope.
-  (->pointer [item] (Pointer. (.address item) {:src-buffer item})))
+  (->pointer [item] (Pointer. (.address item) {:src-buffer item}))
+  Long
+  (convertible-to-pointer? [item] true)
+  (->pointer [item] (Pointer. (long item) nil)))
+
+
+(defn pointer->address
+  ^long [^Pointer p]
+  (.-address p))
 
 
 (defn instantiate-class
