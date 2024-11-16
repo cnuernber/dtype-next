@@ -1,3 +1,6 @@
+## 10.122
+ * kept packed-instant (microseconds) as default
+ 
 ## 10.121
  * added packed-milli-instant packed datatype.
  
