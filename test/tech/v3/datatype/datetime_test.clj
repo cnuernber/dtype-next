@@ -3,7 +3,8 @@
             [tech.v3.datatype.datetime :as dtype-dt]
             [tech.v3.datatype.datetime.operations :as dtype-dt-ops]
             [tech.v3.datatype :as dtype]
-            [tech.v3.datatype.functional :as dfn])
+            [tech.v3.datatype.functional :as dfn]
+            [tech.v3.datatype.packing :as packing])
   (:import [java.time ZoneId]))
 
 
