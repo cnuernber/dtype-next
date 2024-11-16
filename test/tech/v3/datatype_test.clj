@@ -12,6 +12,7 @@
             [tech.v3.datatype.gradient :as dt-grad]
             [tech.v3.datatype.wavelet]
             [tech.v3.datatype.datetime]
+            [tech.v3.datatype.io-indexed-buffer :as idxbuf]
             [ham-fisted.lazy-noncaching :as lznc]
             [ham-fisted.api :as hamf]
             [ham-fisted.protocols :as hamf-proto]
@@ -865,6 +866,12 @@
   (is (dfn/> 4 2.0))
   (is (dfn/> 4 (float 2.0)))
   (is (= [false false true true] (dfn/> [1.0 2.0 3.0 4.0] 2))))
+
+
+(deftest indexed-sub-buffer
+  (let [data (vec (range 10))
+        idxbuf (idxbuf/indexed-buffer [2 4 6 8] data)]
+    (is (= [6 8] (dtype/sub-buffer idxbuf 2 2)))))
 
 
 (comment

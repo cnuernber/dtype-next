@@ -500,23 +500,25 @@ user> (dtype/make-reader :float32 5 (* idx 2))
 
 (defn malloc
   "Malloc memory.  If a desired buffer type is needed follow up with set-native-datatype.
+  
+  * n-bytes - the number of bytes to malloc
+  * opts - Either a keyword datatype or an options map.
 
   Options:
 
   * `:resource-type` - defaults to `:gc` - maps to `:track-type` in `tech.v3.resource/track`
      but can also be set to nil in which case the data is not tracked this library will
      not clean it up.
+  * `:datatype` - Datatype - defaults to :int8.  Datatype byte width must evenly divide n-bytes.
   * `:uninitialized?` - do not initialize to zero.  Use for perf in very very rare cases.
   * `:endianness` - Either `:little-endian` or `:big-endian` - defaults to platform.
   * `:log-level` - one of `#{:debug :trace :info :warn :error :fatal}` or nil if no logging
      is desired.  When enabled allocations and frees will be logged in the same manner as
      `tech.jna`."
-  (^{:tag tech.v3.datatype.native_buffer.NativeBuffer} [n-bytes opts]
-  (tech.v3.datatype.native-buffer/malloc n-bytes opts))
+  (^{:tag tech.v3.datatype.native_buffer.NativeBuffer} [n-bytes dtype-or-opts]
+  (tech.v3.datatype.native-buffer/malloc n-bytes dtype-or-opts))
   (^{:tag tech.v3.datatype.native_buffer.NativeBuffer} [n-bytes]
-  (tech.v3.datatype.native-buffer/malloc n-bytes))
-  (^{:tag tech.v3.datatype.native_buffer.NativeBuffer} [n-bytes dtype opts]
-  (tech.v3.datatype.native-buffer/malloc n-bytes dtype opts)))
+  (tech.v3.datatype.native-buffer/malloc n-bytes)))
 
 
 (defn prealloc-list

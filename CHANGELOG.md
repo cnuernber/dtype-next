@@ -1,3 +1,6 @@
+## 10.120
+ * Fixed sub-buffer of indexed buffers throwing exception.
+ 
 ## 10.114
  * [issue-100](https://github.com/cnuernber/dtype-next/issues/100) - Support latest neanderthal.
  

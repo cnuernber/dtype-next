@@ -176,7 +176,7 @@
             (.invokePrim ^IFn$LO read-fn idx))
           (subBuffer [rdr sidx eidx]
             (ChunkedList/sublistCheck sidx eidx n-elems)
-            (make-reader-fn advertised-datatype (- eidx sidx)
+            (make-reader-fn datatype advertised-datatype (- eidx sidx)
                             (reify IFnDef$LO
                               (invokePrim [this idx]
                                 (.invokePrim ^IFn$LO read-fn (+ sidx idx))))))
