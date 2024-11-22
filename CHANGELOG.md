@@ -1,11 +1,14 @@
+## 10.124
+ * ham-f upgrade to 2.019 - hamf's pmap operator really does work with different executor services.
+ 
 ## 10.123
- * ham-f upgrade to 2.018."
+ * ham-f upgrade to 2.018
  
 ## 10.122
  * kept packed-instant (microseconds) as default
  
 ## 10.121
- * added packed-milli-instant packed datatype.
+ * added packed-milli-instant packed datatype
  
 ## 10.120
  * Fixed sub-buffer of indexed buffers throwing exception.
