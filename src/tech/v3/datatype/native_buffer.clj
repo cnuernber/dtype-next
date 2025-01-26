@@ -588,7 +588,7 @@
   dtype-proto/PClone
   (clone [this]
     ;;Native buffers clone to the jvm heap.  This an assumption built into many parts
-    ;;of the system.
+    ;;of the system.    
     (dtype-proto/make-container :jvm-heap datatype nil this))
   dtype-proto/PToBuffer
   (convertible-to-buffer? [_this] true)
@@ -1106,6 +1106,27 @@
     item
     (when (dtype-proto/convertible-to-native-buffer? item)
       (dtype-proto/->native-buffer item))))
+
+
+(defn ->jvm-array
+  "Returns a java array from a native buffer"
+  [^NativeBuffer nbuf ^long off ^long n-elems]
+  (let [[src ^long src-off] (tech.v3.datatype.protocols/memcpy-info nbuf)
+        src-off (+ src-off off)
+        src-dt (.-datatype nbuf)
+        dst-buf   (case src-dt
+                    :int8 (hamf/byte-array n-elems)
+                    :int16 (hamf/short-array n-elems)
+                    :int32 (hamf/int-array n-elems)
+                    :int64 (hamf/long-array n-elems)
+                    :float32 (hamf/float-array n-elems)
+                    :float64 (hamf/double-array n-elems))
+        [dst ^long dst-off] (tech.v3.datatype.protocols/memcpy-info dst-buf)]
+    (.copyMemory (tech.v3.datatype.copy/unsafe)
+                 src (long src-off)
+                 dst (long dst-off)
+                 (* n-elems (casting/numeric-byte-width src-dt)))
+    dst-buf))
 
 
 (comment
