@@ -1,3 +1,6 @@
+## 10.125
+ * Optimized ->jvm-array pathway for native buffers.
+ 
 ## 10.124
  * ham-f upgrade to 2.019 - hamf's pmap operator really does work with different executor services.
  
