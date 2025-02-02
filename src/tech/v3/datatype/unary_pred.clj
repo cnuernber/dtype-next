@@ -29,7 +29,11 @@
 (set! *unchecked-math* :warn-on-boxed)
 
 
-(declare keyword-predicate)
+(defn keyword-predicate
+  ^UnaryPredicates$ObjectUnaryPredicate [kwd]
+  (reify UnaryPredicates$ObjectUnaryPredicate
+    (unaryObject [this arg]
+      (identical? kwd arg))))
 
 
 (defn ifn->unary-predicate
