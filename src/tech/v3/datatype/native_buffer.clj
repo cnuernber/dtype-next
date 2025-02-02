@@ -714,7 +714,7 @@
             (throw (Exception. (str "Native access out of range - n-elems - " ne " - requested - " desired-ne))))
         bbuf (byte-array (- eoff soff))]
     (.copyMemory (unsafe)
-                 nil (.-address nbuf)
+                 nil (+ (.-address nbuf) soff)
                  bbuf Unsafe/ARRAY_BYTE_BASE_OFFSET
                  (- eoff soff))
     bbuf))

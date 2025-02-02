@@ -1,3 +1,6 @@
+## 10.128
+ * Fixed error in native-buffer->byte-array
+ 
 ## 10.127
  * Implement efficient keyword unary preducate.
 
