@@ -21,7 +21,7 @@
    :exec-fn codox.main/-main
    :exec-args {:group-id "cnuernber"
                :artifact-id "dtype-next"
-               :version "10.128"
+               :version "10.129"
                :name "DType Next"
                :description "High Performance Clojure Primitives"
                :metadata {:doc/format :markdown}

@@ -1,3 +1,6 @@
+## 10.129
+ * Fix issue where a emapped data would reduce as a different datatype than declared in emap call.
+ 
 ## 10.128
  * Fixed error in native-buffer->byte-array
  

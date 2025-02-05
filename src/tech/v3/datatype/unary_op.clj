@@ -231,7 +231,7 @@
                             (fn [acc v]
                               (.invokePrim ^IFn$OLO rfn acc (.unaryObjLong unary-op v)))
                             (fn [acc v]
-                              (rfn acc (.unaryObject unary-op v)))))]
+                              (rfn acc (.unaryObjLong unary-op v)))))]
            (reify
              LongReader
              (elemwiseDatatype [rdr] res-dtype)
@@ -250,7 +250,7 @@
                             (fn [acc v]
                               (.invokePrim ^IFn$ODO rfn acc (.unaryObjDouble unary-op v)))
                             (fn [acc v]
-                              (rfn acc (.unaryObject unary-op v)))))]
+                              (rfn acc (.unaryObjDouble unary-op v)))))]
            (reify
              DoubleReader
              (elemwiseDatatype [rdr] res-dtype)
