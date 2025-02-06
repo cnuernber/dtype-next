@@ -1,3 +1,6 @@
+## 10.131
+ * hamf upgrade for additional api fns.
+ 
 ## 10.129
  * Fix issue where a emapped data would reduce as a different datatype than declared in emap call.
  
