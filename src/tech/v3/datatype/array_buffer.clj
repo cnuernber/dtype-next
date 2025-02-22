@@ -515,6 +515,7 @@
                          ~'n-elems ~'m))
      (meta [this#] ~'m)
      (withMeta [this# newm#] (with-meta (.subList this# 0 ~'n-elems) newm#))
+     (clear [this#] (set! ~'n-elems 0))
      (size [this#] (unchecked-int ~'n-elems))
      (getLong [this# idx#] (~host->long (aget ~'data (ArrayLists/checkIndex idx# ~'n-elems))))
      (setLong [this# idx# v#] (ArrayHelpers/aset ~'data
