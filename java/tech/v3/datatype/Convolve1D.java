@@ -134,7 +134,7 @@ public final class Convolve1D {
 
     double[] conv_data = edging.apply(data, nWin, mode);
     double[] retval = new double[nResult];
-    parallelizer.apply( new Long(nResult), new BiFunction<Long,Long,Object> () {
+    parallelizer.apply(Long.valueOf(nResult), new BiFunction<Long,Long,Object> () {
 	public Object apply(Long sidx, Long glen) {
 	  int start_idx = RT.intCast(sidx);
 	  int group_len = RT.intCast(glen);

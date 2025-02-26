@@ -17,7 +17,7 @@
             ArrayLists$FloatArraySubList ArrayLists$CharArraySubList
             ArrayLists$DoubleArraySubList ArrayLists$DoubleArrayList
             ArrayLists$BooleanArraySubList ArrayLists$ILongArrayList
-            ArraySection Transformables
+            ArraySection Transformables ArrayLists$ILongArrayList
             LongMutList Casts IMutList ImmutList ArrayImmutList MutList
             MutList$SubMutList ChunkedList TypedList]
            [ham_fisted.alists ByteArrayList ShortArrayList CharArrayList
@@ -436,6 +436,9 @@
        (ChunkedList/sublistCheck ssidx# seidx# ~'n-elems)
        (~(symbol (str list-name ".")) ~'data (+ ~'sidx ssidx#) (- seidx# ssidx#) ~'m))
      ArrayLists$ArrayOwner
+     (move [this# sidx# eidx# count#]
+       (ArrayLists/checkIndexRange ~'n-elems (long eidx#) (+ (long eidx#) count#))
+       (System/arraycopy ~'data sidx# ~'data eidx# count#))
      (fill [this# ssidx# seidx# v#]
        (ArrayLists/checkIndexRange ~'n-elems (long ssidx#) (long seidx#))
        (Arrays/fill ~'data (+ ~'sidx ssidx#) (+ ~'sidx seidx#) (~object->host v#)))
@@ -505,17 +508,17 @@
      (hashCode [this#] (.hasheq this#))
      (equals [this# other#] (.equiv this# other#))
      (toString [this#] (Transformables/sequenceToString this#))
-     IGrowableList
+     ArrayLists$ILongArrayList
      (ensureCapacity [this# newlen#]
        (when (> newlen# (alength ~'data))
          (set! ~'data (.copyOf this# (ArrayLists/newArrayLen newlen#))))
        ~'data)
-     LongMutList
      (cloneList [this#] (~(symbol (str (name lname) ".")) (.copyOf this# ~'n-elems)
                          ~'n-elems ~'m))
      (meta [this#] ~'m)
      (withMeta [this# newm#] (with-meta (.subList this# 0 ~'n-elems) newm#))
      (clear [this#] (set! ~'n-elems 0))
+     (setSize [this# sz#] (set! ~'n-elems (unchecked-long sz#)))
      (size [this#] (unchecked-int ~'n-elems))
      (getLong [this# idx#] (~host->long (aget ~'data (ArrayLists/checkIndex idx# ~'n-elems))))
      (setLong [this# idx# v#] (ArrayHelpers/aset ~'data
@@ -531,17 +534,6 @@
              ~(with-meta 'b {:tag ary-tag}) (.ensureCapacity this# newlen#)]
          (ArrayHelpers/aset ~'b curlen# (~long->host v#))
          (set! ~'n-elems newlen#)))
-     (add [this# idx# obj#]
-       (ArrayLists/checkIndex idx# ~'n-elems)
-       (if (== idx# ~'n-elems)
-         (.add this# obj#)
-         (let [bval# (~object->host obj#)
-               curlen# ~'n-elems
-               newlen# (unchecked-inc curlen#)
-               ~(with-meta 'd {:tag ary-tag}) (.ensureCapacity this# newlen#)]
-           (System/arraycopy ~'d idx# ~'d (unchecked-inc idx#) (- curlen# idx#))
-           (ArrayHelpers/aset ~'d idx# (~object->host bval#))
-           (set! ~'n-elems newlen#))))
      (addAllReducible [this# c#]
        (let [sz# (.size this#)]
          (if (instance? RandomAccess c#)
@@ -561,7 +553,9 @@
        (ArrayLists/checkIndexRange ~'n-elems sidx# eidx#)
        (System/arraycopy ~'data sidx# ~'data eidx# (- ~'n-elems eidx#))
        (set! ~'n-elems (- ~'n-elems (- eidx# sidx#))))
-     ArrayLists$ArrayOwner
+     (move [this# sidx# eidx# count#]
+       (ArrayLists/checkIndexRange ~'n-elems (long eidx#) (+ (long eidx#) count#))
+       (System/arraycopy ~'data sidx# ~'data eidx# count#))
      (fill [this# sidx# eidx# v#]
        (ArrayLists/checkIndexRange ~'n-elems (long sidx#) (long eidx#))
        (Arrays/fill ~'data sidx# eidx# (~object->host v#)))
@@ -733,10 +727,7 @@
                    :else
                    8)
          c (array-sub-list dtype n-elems)
-         ptr (if (number? data)
-               0
-               (dtype-proto/ecount c))
-         retval (as-growable-list c ptr)]
+         retval (as-growable-list c 0)]
      (when-not (number? data)
        (.addAllReducible ^IMutList retval data))
      retval)))

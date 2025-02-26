@@ -54,6 +54,10 @@ public class UByteSubBuffer implements LongBuffer, ArrayLists.ArrayOwner {
     }
     return init;
   }
+  public void move(int sidx, int eidx, int count) {
+    ChunkedList.checkIndexRange(0, size(), eidx, eidx + count);
+    System.arraycopy(data, sidx, data, eidx, count);
+  }
   public Object copyOf(int len) {
     return Arrays.copyOfRange(data, sidx, sidx+len);
   }

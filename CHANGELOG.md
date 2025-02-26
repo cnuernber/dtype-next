@@ -1,3 +1,6 @@
+## 10.132
+ * Support for add-constant! in growable lists.
+ 
 ## 10.131
  * Upgrade hamf and add clear for growable lists
  
