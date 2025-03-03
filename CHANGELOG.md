@@ -1,3 +1,9 @@
+## 10.134
+* hamf bugfix for update-values.
+
+## 10.133
+ * hamf bugfix for add-constant!
+ 
 ## 10.132
  * Support for add-constant! in growable lists.
  
