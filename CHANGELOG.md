@@ -1,3 +1,7 @@
+## 10.135
+ * faster hamf array creation.
+ * faster buffer creation for arrays
+ 
 ## 10.134
 * hamf bugfix for update-values.
 
