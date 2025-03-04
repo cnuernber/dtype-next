@@ -773,7 +773,7 @@
   (let [ary-cls (typecast/datatype->array-cls dtype)
         array-dtype (keyword (str (name dtype) "-array"))
         ary->buffer (fn [ary]
-                      (MutListBuffer. (hamf/->random-access ary) true
+                      (MutListBuffer. (ArrayLists/toList ary) true
                                       (dtype-proto/elemwise-datatype ary)))]
     (extend ary-cls
       dtype-proto/PElemwiseDatatype
