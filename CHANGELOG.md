@@ -1,3 +1,6 @@
+## 10.136
+ * Fixes for issues 128 and 127 - arggroup-by failed when used with tensors. 
+ 
 ## 10.135
  * faster hamf array creation.
  * faster buffer creation for arrays
