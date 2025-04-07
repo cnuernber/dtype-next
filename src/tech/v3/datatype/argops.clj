@@ -619,14 +619,22 @@
   "Group by elemens in the reader returning a map of value->list of indexes. Indexes
   may not be ordered.  :storage-datatype may be specific in the options to set
   the datatype of the indexes else the system will decide based on reader length.
-  See arggroup for Options."
+  See [[arggroup]] for Options.
+
+  Example:
+
+  ```clojure
+user> (argops/arggroup-by #(mod % 7) (range 20))
+{0 [0 7 14], 1 [1 8 15], 2 [2 9 16], 3 [3 10 17], 4 [4 11 18], 5 [5 12 19], 6 [6 13]}
+  ```"
   (^Map [partition-fn options rdr]
    (arggroup options (if partition-fn
-                       (emap/emap partition-fn nil rdr)
+                       (if (identical? (argtypes/arg-type rdr) :tensor)                         
+                         (lznc/map partition-fn rdr)
+                         (emap/emap partition-fn nil rdr))
                        rdr)))
   (^Map [partition-fn rdr]
    (arggroup-by partition-fn nil rdr)))
-
 
 (defn- do-argpartition-by
   [^long start-idx ^Iterator item-iterable first-item ^BinaryPredicate pred]

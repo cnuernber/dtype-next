@@ -298,3 +298,14 @@
         ww (dtt/select weights (range n-neurons))
         answer (dtt/reduce-axis (dtt/select weights (dtt/->tensor (range n-neurons))) dfn/sum 0 :float32)]
     (is (not (nil? (.toString ^Object answer))))))
+
+
+(deftest tensor-arggroup-by
+  (let [X (dtt/->tensor (partition 2 '(0 0 0 1 1 0 1 1)))
+        centroids (dtt/->tensor (partition 2 '(0.1 0.1 0.9 0.9)))
+        nearest (fn [x centroids]
+                  (-> centroids
+                      (dtt/reduce-axis (partial dfn/distance x) 1)
+                      argops/argmin))]
+    (is (= {0 [0 1 2] 1 [3]}
+           (argops/arggroup-by #(nearest % centroids) X)))))
