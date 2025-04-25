@@ -53,6 +53,7 @@
          nbuf (nbuf-mmodel/memory-segment->native-buffer mseg options)]
      (when resource-type
        (resource/track nbuf {:track-type resource-type
-                             :dispose-fn #(.close rscope)}))
+                             :dispose-fn #(do (.close rscope)
+                                              (.close channel))}))
      nbuf))
   (^NativeBuffer [fpath] (mmap-file fpath {})))

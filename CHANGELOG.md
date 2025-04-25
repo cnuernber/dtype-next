@@ -1,5 +1,7 @@
 ## 10.136
  * Fixes for issues 128 and 127 - arggroup-by failed when used with tensors. 
+ * Fixes bug in mmap where the filechannel wasn't closed when context was released for mmap pathways.
+ * Upgrade [ham-fisted](https://github.com/cnuernber/ham-fisted/blob/master/CHANGELOG.md#2029).
  
 ## 10.135
  * faster hamf array creation.
