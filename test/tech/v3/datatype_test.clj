@@ -853,13 +853,11 @@
               (keys)
               (vec)))))
 
-
 (deftest arggroup-map-equiv
   (is (not (nil? (get (argops/arggroup
                        (into [] cat [(range 6)
                                      (shuffle (take 1000 (cycle (range 6))))]))
                       (int 0))))))
-
 
 (deftest double-long-comparison
   (is (dfn/> 4.0 2))
@@ -867,12 +865,18 @@
   (is (dfn/> 4 (float 2.0)))
   (is (= [false false true true] (dfn/> [1.0 2.0 3.0 4.0] 2))))
 
-
 (deftest indexed-sub-buffer
   (let [data (vec (range 10))
         idxbuf (idxbuf/indexed-buffer [2 4 6 8] data)]
     (is (= [6 8] (dtype/sub-buffer idxbuf 2 2)))))
 
+(deftest clear-packed-list
+  (let [l (dtype/make-list :packed-instant 0)
+        _ (do (.add l (java.time.Instant/now))
+              (.clear l)
+              (is (== 0 (count l))))]
+    (.add l (java.time.Instant/now))
+    (is (== 1 (count l)))))
 
 (comment
   (defn bench-sum

@@ -1,3 +1,7 @@
+## 10.137
+ * Perf fix for tech.v3.resource/closeable!
+ * packed lists are clearable lists
+ 
 ## 10.136
  * Fixes for issues 128 and 127 - arggroup-by failed when used with tensors. 
  * Fixes bug in mmap where the filechannel wasn't closed when context was released for mmap pathways.

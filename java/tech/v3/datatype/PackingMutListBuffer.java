@@ -42,6 +42,7 @@ public class PackingMutListBuffer implements Buffer {
   public Object elemwiseDatatype () { return elemwiseDatatype; }
   public long lsize() { return data.size(); }
   public int size() { return data.size(); }
+  public void clear() { data.clear(); }
   public IMutList<Object> subList(int sidx, int eidx) {
     return new PackingMutListBuffer(this, (IMutList)data.subList(sidx, eidx));
   }
