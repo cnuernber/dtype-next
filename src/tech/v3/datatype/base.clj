@@ -775,7 +775,7 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
   dtype-proto/PClone
   (clone [buf]
     (if (.isArray (.getClass buf))
-      (Arrays/copyOf buf (alength ^objects buf))
+      (Arrays/copyOf ^objects buf (alength ^objects buf))
       (if-let [buf-data (as-concrete-buffer buf)]
         ;;highest performance
         (dtype-proto/clone buf-data)
