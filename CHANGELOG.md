@@ -1,3 +1,6 @@
+## 10.138 
+ * Clone works on any array type - was stack overflow with certain object arrays.
+ 
 ## 10.137
  * Perf fix for tech.v3.resource/closeable!
  * packed lists are clearable lists

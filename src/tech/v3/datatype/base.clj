@@ -12,7 +12,7 @@
            [clojure.lang IPersistentCollection APersistentMap APersistentVector
             APersistentSet IPersistentMap]
            [java.util RandomAccess List Spliterator$OfDouble Spliterator$OfLong
-            Spliterator$OfInt]
+            Spliterator$OfInt Arrays]
            [java.util.stream Stream DoubleStream LongStream IntStream]
            [ham_fisted Reductions Casts]))
 
@@ -666,6 +666,13 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
 (def ^:private obj-ary-cls (Class/forName "[Ljava.lang.Object;"))
 
 
+
+(extend-type (Class/forName "[Ljava.lang.Object;")
+  dtype-proto/PECount
+  (ecount [item] (alength item))
+  dtype-proto/PClone
+  (clone [item] (Arrays/copyOf item (alength item))))
+
 ;;Datatype library Object defaults.  Here lie dragons.
 (extend-type Object
   dtype-proto/PElemwiseDatatype
@@ -767,15 +774,17 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
   ;;find a clone method and this of course breaks graal native.
   dtype-proto/PClone
   (clone [buf]
-    (if-let [buf-data (as-concrete-buffer buf)]
-      ;;highest performance
-      (dtype-proto/clone buf-data)
-      (if-let [rdr (->reader buf)]
-        (dtype-proto/clone rdr)
-        (throw
-         (Exception.
-          (format "Buffer is not cloneable: %s"
-                  (type buf)))))))
+    (if (.isArray (.getClass buf))
+      (Arrays/copyOf buf (alength ^objects buf))
+      (if-let [buf-data (as-concrete-buffer buf)]
+        ;;highest performance
+        (dtype-proto/clone buf-data)
+        (if-let [rdr (->reader buf)]
+          (dtype-proto/clone rdr)
+          (throw
+           (Exception.
+            (format "Buffer is not cloneable: %s"
+                    (type buf))))))))
   dtype-proto/PToNativeBuffer
   (convertible-to-native-buffer? [buf] false)
   dtype-proto/PRangeConvertible

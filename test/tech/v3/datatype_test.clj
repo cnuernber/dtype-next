@@ -878,6 +878,12 @@
     (.add l (java.time.Instant/now))
     (is (== 1 (count l)))))
 
+(deftest clone-keyword-data
+  (let [ll (dtype/make-list :keyword)
+        _ (.add ll :one)]
+    (is (= [:one]
+           (vec (dtype/clone ll))))))
+
 (comment
   (defn bench-sum
     []
