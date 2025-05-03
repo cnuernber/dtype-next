@@ -1,3 +1,6 @@
+## 10.139
+ * Reflection warnings in base.clj
+ 
 ## 10.138 
  * Clone works on any array type - was stack overflow with certain object arrays.
  

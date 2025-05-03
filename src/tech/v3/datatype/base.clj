@@ -669,9 +669,9 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
 
 (extend-type (Class/forName "[Ljava.lang.Object;")
   dtype-proto/PECount
-  (ecount [item] (alength item))
+  (ecount [item] (alength ^objects item))
   dtype-proto/PClone
-  (clone [item] (Arrays/copyOf item (alength item))))
+  (clone [item] (Arrays/copyOf ^objects item (alength ^objects item))))
 
 ;;Datatype library Object defaults.  Here lie dragons.
 (extend-type Object
