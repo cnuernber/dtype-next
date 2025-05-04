@@ -882,7 +882,9 @@
   (let [ll (dtype/make-list :keyword)
         _ (.add ll :one)]
     (is (= [:one]
-           (vec (dtype/clone ll))))))
+           (vec (dtype/clone ll))))
+    (is (= [[1 2] [3 4] [5 5 5]]
+           (vec (dtype/clone (tech.v3.datatype/->array-buffer :persistent-vector [[1 2] [3 4] [5 5 5]])))))))
 
 (comment
   (defn bench-sum
