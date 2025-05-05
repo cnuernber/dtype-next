@@ -1,3 +1,6 @@
+## 10.141
+ * arraybuffer clone incorrect if arraybuffer's offset was not 0
+ 
 ## 10.140
  * Reflection warnings in base.clj
  

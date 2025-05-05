@@ -213,7 +213,7 @@
   (convertible-to-array-buffer? [buf] true)
   (->array-buffer [buf] buf)
   dtype-proto/PClone
-  (clone [buf] (ArrayBuffer. (dtype-proto/clone ary-data) 0 n-elems dtype nil nil))
+  (clone [buf] (ArrayBuffer. (.copyOf buf n-elems) 0 n-elems dtype nil nil))
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [buf] dtype)
   dtype-proto/PElemwiseReaderCast
