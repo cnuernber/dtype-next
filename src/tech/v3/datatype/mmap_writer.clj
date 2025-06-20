@@ -1,4 +1,4 @@
-3.(ns tech.v3.datatype.mmap-writer
+(ns tech.v3.datatype.mmap-writer
   "Provides the ability to efficiently write binary data to a file with an
   automatic conversion to a native-buffer using mmap.
 
