@@ -1,87 +1,90 @@
+## 10.143
+ * hamf bugfix
+
 ## 10.141
  * arraybuffer clone incorrect if arraybuffer's offset was not 0
- 
+
 ## 10.140
  * Reflection warnings in base.clj
- 
-## 10.138 
+
+## 10.138
  * Clone works on any array type - was stack overflow with certain object arrays.
- 
+
 ## 10.137
  * Perf fix for tech.v3.resource/closeable!
  * packed lists are clearable lists
- 
+
 ## 10.136
- * Fixes for issues 128 and 127 - arggroup-by failed when used with tensors. 
+ * Fixes for issues 128 and 127 - arggroup-by failed when used with tensors.
  * Fixes bug in mmap where the filechannel wasn't closed when context was released for mmap pathways.
  * Upgrade [ham-fisted](https://github.com/cnuernber/ham-fisted/blob/master/CHANGELOG.md#2029).
- 
+
 ## 10.135
  * faster hamf array creation.
  * faster buffer creation for arrays
- 
+
 ## 10.134
 * hamf bugfix for update-values.
 
 ## 10.133
  * hamf bugfix for add-constant!
- 
+
 ## 10.132
  * Support for add-constant! in growable lists.
- 
+
 ## 10.131
  * Upgrade hamf and add clear for growable lists
- 
+
 ## 10.130
  * hamf upgrade for additional api fns.
- 
+
 ## 10.129
  * Fix issue where a emapped data would reduce as a different datatype than declared in emap call.
- 
+
 ## 10.128
  * Fixed error in native-buffer->byte-array
- 
+
 ## 10.127
  * Implement efficient keyword unary preducate.
 
 ## 10.126
  * hamf upgrade to 2.020
- 
+
 ## 10.125
  * Optimized ->jvm-array pathway for native buffers.
- 
+
 ## 10.124
  * ham-f upgrade to 2.019 - hamf's pmap operator really does work with different executor services.
- 
+
 ## 10.123
  * ham-f upgrade to 2.018
- 
+
 ## 10.122
  * kept packed-instant (microseconds) as default
- 
+
 ## 10.121
  * added packed-milli-instant packed datatype
- 
+
 ## 10.120
  * Fixed sub-buffer of indexed buffers throwing exception.
- 
+
 ## 10.114
  * [issue-100](https://github.com/cnuernber/dtype-next/issues/100) - Support latest neanderthal.
- 
+
 ## 10.113
  * [issue-97](https://github.com/cnuernber/dtype-next/issues/97) - sorted output for tech.v3.datatype.casting/all-datatypes.
  * [issue-99](https://github.com/cnuernber/dtype-next/issues/99) - Unexpected behaviour when comparing certain numeric types.
- 
+
 ## 10.112
  * [issue-94](https://github.com/cnuernber/dtype-next/issues/94) - Tensor slice would fail after a tensor select of a specific shape.
- 
+
 ## 10.111
  * [issue-68](https://github.com/cnuernber/dtype-next/issues/68) - structs can be defined with :pointer, :size-t, :offset-t datatypes.  These types will differ on 32-bit and 64-bit systems.
-   
+
 ## 10.110
  * jdk-21 support including pass-by-value ffi.  tmducken bindings can now work with jdk-21.
  * Faster hamf compose-reducers pathway especially when there are a lot of reducers.
- 
+
 ## 10.108
  * hamf (2.009) typed nth operations.
 
