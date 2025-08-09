@@ -82,7 +82,7 @@ tech.v3.datatype.rolling> (window-ranges->window-reader
           ;;conversion of src-data back into array/native buffer
           (if (and (>= win-start 0)
                    (<= win-end n-src))
-            (dtype-base/sub-buffer src-data win-start win-n-elems)
+            (.subBuffer src-data win-start win-end)
             (case (casting/simple-operation-space src-unpack-dtype)
               :int64 (reify LongReader
                        (elemwiseDatatype [rdr] src-unpack-dtype)

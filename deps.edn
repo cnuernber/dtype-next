@@ -99,7 +99,9 @@
                 com.clojure-goes-fast/clj-memory-meter {:mvn/version "0.1.0"}
                 com.cnuernber/benchmark {:mvn/version "1.000-beta-2"}
                 techascent/tech.viz {:mvn/version "6.00-beta-16-2"}
+                com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.6.2"}
                 org.clojure/test.check {:mvn/version "1.1.1"}}
+   :jvm-opts ["-Djdk.attach.allowAttachSelf"]
    :extra-paths ["test"]}
 
   :jdk-17
