@@ -1,3 +1,7 @@
+## 10.144
+ * hamf upgrade - fast sorted merge iterators, some utility helpers around long sum and such, faster sort
+   operator.
+ 
 ## 10.143
  * hamf bugfix
 
