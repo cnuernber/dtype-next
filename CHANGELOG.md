@@ -1,3 +1,6 @@
+## 10.145
+ * hamf upgrade - better persistent vectors.
+ 
 ## 10.144
  * hamf upgrade - fast sorted merge iterators, some utility helpers around long sum and such, faster sort
    operator.
