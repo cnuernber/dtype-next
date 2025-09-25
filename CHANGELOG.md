@@ -1,3 +1,6 @@
+## 10.146
+ * big bugfix to new hamf vec sublist for very large lists.
+ 
 ## 10.145
  * hamf upgrade - better persistent vectors.
  
