@@ -2,6 +2,7 @@
   "Ranges that *are* readers.  And that support some level of algebraic operations
   between pairs of them."
   (:require [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.hamf-proto :as hamf-proto]
             [tech.v3.datatype.casting :as casting]
             ;;Complete clojure range support
             [tech.v3.datatype.clj-range :as clj-range]
@@ -195,7 +196,7 @@
 (defn make-range
   ([start end increment datatype]
    (when-not (= datatype :int64)
-     (throw (Exception. "Only long ranges supported for now")))
+     (throw (RuntimeException. (str "Only :int64 ranges supported for now - " datatype))))
    (let [start (long start)
          end (long end)
          increment (long increment)]
@@ -203,7 +204,7 @@
        (throw (Exception. "Infinite range detected - zero increment")))
      (Ranges$LongRange. start end increment {})))
   ([start end increment]
-   (make-range start end increment (dtype-proto/elemwise-datatype start)))
+   (make-range start end increment (hamf-proto/elemwise-datatype start)))
   ([start end]
    (make-range start end 1))
   ([end]

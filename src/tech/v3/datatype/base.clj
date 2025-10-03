@@ -1,5 +1,6 @@
 (ns tech.v3.datatype.base
   (:require [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.hamf-proto :as hamf-proto]
             [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.errors :as errors]
@@ -31,7 +32,7 @@
     (instance? Integer item) :int32
     (instance? Long item) :int64
     :else
-    (dtype-proto/elemwise-datatype item)))
+    (hamf-proto/elemwise-datatype item)))
 
 
 (defn operational-elemwise-datatype
@@ -67,7 +68,7 @@
     (instance? Integer item) :int32
     (instance? Long item) :int64
     :else
-    (dtype-proto/datatype item)))
+    (hamf-proto/datatype item)))
 
 
 (defn elemwise-cast
@@ -84,9 +85,7 @@
 (defn ecount
   "Return the long number of elements in the object."
   ^long [item]
-  (if-not item
-    0
-    (Casts/longCast (dtype-proto/ecount item))))
+  (hamf-proto/ecount item))
 
 
 (defn shape

@@ -1,11 +1,14 @@
 (ns tech.v3.datatype.array-buffer
   (:require [tech.v3.datatype.protocols :as dtype-proto]
+            ;;faster protocols for perf-sensitive ops
+            [tech.v3.datatype.hamf-proto :as hamf-proto]
             [tech.v3.datatype.typecast :as typecast]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.pprint :as dtype-pp]
             [tech.v3.datatype.copy :as dt-copy]
             [ham-fisted.api :as hamf]
+            [ham-fisted.defprotocol :as hamf-defproto]
             [ham-fisted.reduce :as hamf-rf]
             [ham-fisted.iterator :as iterator])
   (:import [clojure.lang IObj Counted Indexed IFn IPersistentMap IReduceInit]
@@ -19,12 +22,12 @@
             ArrayLists$BooleanArraySubList ArrayLists$ILongArrayList
             ArraySection Transformables ArrayLists$ILongArrayList
             LongMutList Casts IMutList ImmutList ArrayImmutList MutList
-            MutList$SubMutList ChunkedList TypedList]
+            MutList$SubMutList ChunkedList TypedList TreeList MutTreeList TreeListBase$SubList]
            [ham_fisted.alists ByteArrayList ShortArrayList CharArrayList
             BooleanArrayList FloatArrayList]
            [tech.v3.datatype MutListBuffer PackingMutListBuffer UByteSubBuffer]
            [tech.v3.datatype Buffer ArrayHelpers BufferCollection BinaryBuffer
-            ByteConversions NumericConversions]
+            ByteConversions NumericConversions ElemwiseDatatype ECount]
            [java.util Arrays RandomAccess List]
            [java.lang.reflect Array]
            [java.nio ByteBuffer ByteOrder]
@@ -55,9 +58,9 @@
 
 (defn- array-base-offset
   (^long [ary]
-   (array-base-offset-dt (dtype-proto/elemwise-datatype ary)))
+   (array-base-offset-dt (hamf-proto/elemwise-datatype ary)))
   (^long [ary ^long offset]
-   (let [adt (dtype-proto/elemwise-datatype ary)]
+   (let [adt (hamf-proto/elemwise-datatype ary)]
      (+ (array-base-offset-dt adt)
         (* offset (casting/numeric-byte-width adt))))))
 
@@ -121,7 +124,7 @@
 
 (defn- ml-to-buffer
   ^Buffer [^IMutList item]
-  (let [item-dt (dtype-proto/elemwise-datatype item)]
+  (let [item-dt (hamf-proto/elemwise-datatype item)]
     (if-let [[pack-fn unpack-fn] (packing/packing-pair item-dt)]
       (PackingMutListBuffer. item true item-dt pack-fn unpack-fn)
       (MutListBuffer. item true item-dt))))
@@ -130,29 +133,28 @@
 (defn- extend-ml-type!
   [ml-type dtype allows-write]
   ;;ml-type had better extend IMutList
-  (let [dtype-fn (if (keyword? dtype)
-                   (constantly dtype)
-                   dtype)]
-    (extend ml-type
-      dtype-proto/PElemwiseDatatype
-      {:elemwise-datatype dtype-fn}
-      dtype-proto/PElemwiseReaderCast
-      {:elemwise-reader-cast ml-reader-cast}
-      dtype-proto/PSubBuffer
-      {:sub-buffer ml-sub-buf}
-      dtype-proto/PSetConstant
-      {:set-constant! ml-set-constant!}
-      dtype-proto/PClone
-      {:clone ml-clone}
-      dtype-proto/PToBuffer
-      {:convertible-to-buffer? (constantly true)
-       :->buffer ml-to-buffer}
-      dtype-proto/PToReader
-      {:convertible-to-reader? (constantly true)
-       :->reader ml-to-buffer}
-      dtype-proto/PToWriter
-      {:convertible-to-writer? (constantly allows-write)
-       :->writer ml-to-buffer})))
+  (hamf-defproto/extend ml-type
+    hamf-proto/PElemwiseDatatype {:elemwise-datatype dtype})
+  (extend ml-type
+    dtype-proto/PElemwiseDatatype
+    {:elemwise-datatype (if (fn? dtype) dtype (constantly dtype))}
+    dtype-proto/PElemwiseReaderCast
+    {:elemwise-reader-cast ml-reader-cast}
+    dtype-proto/PSubBuffer
+    {:sub-buffer ml-sub-buf}
+    dtype-proto/PSetConstant
+    {:set-constant! ml-set-constant!}
+    dtype-proto/PClone
+    {:clone ml-clone}
+    dtype-proto/PToBuffer
+    {:convertible-to-buffer? (constantly true)
+     :->buffer ml-to-buffer}
+    dtype-proto/PToReader
+    {:convertible-to-reader? (constantly true)
+     :->reader ml-to-buffer}
+    dtype-proto/PToWriter
+    {:convertible-to-writer? (constantly allows-write)
+     :->writer ml-to-buffer}))
 
 
 
@@ -160,6 +162,9 @@
 ;;and overall reduce compile times.
 (extend-ml-type! MutList :object true)
 (extend-ml-type! MutList$SubMutList :object true)
+(extend-ml-type! TreeList :object false)
+(extend-ml-type! TreeListBase$SubList :object false)
+(extend-ml-type! MutTreeList :object true)
 (extend-ml-type! ImmutList :object false)
 (extend-ml-type! ArrayImmutList :object false)
 
@@ -214,12 +219,10 @@
   (->array-buffer [buf] buf)
   dtype-proto/PClone
   (clone [buf] (ArrayBuffer. (.copyOf buf n-elems) 0 n-elems dtype nil nil))
-  dtype-proto/PElemwiseDatatype
-  (elemwise-datatype [buf] dtype)
+  ElemwiseDatatype
+  (elemwiseDatatype [buf] dtype)
   dtype-proto/PElemwiseReaderCast
   (elemwise-reader-cast [this new-dtype] (dtype-proto/->buffer this))
-  dtype-proto/PECount
-  (ecount [item] n-elems)
   dtype-proto/PToBuffer
   (convertible-to-buffer? [item] true)
   (->buffer [item]
@@ -299,7 +302,7 @@
         sidx (.-sidx section)
         eidx (.-eidx section)]
     (ArrayBuffer. (.-array section) sidx (- eidx sidx)
-                  (dtype-proto/elemwise-datatype owner)
+                  (hamf-proto/elemwise-datatype owner)
                   nil nil)))
 
 (defn array-buffer-convertible-copy-raw-data
@@ -464,6 +467,9 @@
                                     (+ (.-sidx this) (.-n-elems this))
                                     (meta this))))
 
+(hamf-defproto/extend-type UByteSubBuffer
+  hamf-proto/PElemwiseDatatype
+  (elemwise-datatype [this] :uint8))
 ;;UByte buffers get special treatment because they are used so often as image
 ;;backing data.
 (extend-type UByteSubBuffer
@@ -478,19 +484,19 @@
                         host->long-uint16
                         long->host-uint16
                         object->host-uint16)
-(bind-array-list UShortArraySubList (constantly :uint16))
+(bind-array-list UShortArraySubList :uint16)
 
 (make-unsigned-sub-list UIntArraySubList ints
                         host->long-uint32
                         long->host-uint32
                         object->host-uint32)
-(bind-array-list UIntArraySubList (constantly :uint32))
+(bind-array-list UIntArraySubList :uint32)
 
 (make-unsigned-sub-list ULongArraySubList longs
                         host->long-uint64
                         long->host-uint64
                         object->host-uint64)
-(bind-array-list ULongArraySubList (constantly :uint64))
+(bind-array-list ULongArraySubList :uint64)
 
 
 (definterface IGrowableList
@@ -647,7 +653,7 @@
          (.addAllReducible ^IMutList alist data)
          (hamf/subvec alist 0)))))
   (^IMutList [dtype data sidx eidx m]
-   (let [data-dt (dtype-proto/elemwise-datatype data)
+   (let [data-dt (hamf-proto/elemwise-datatype data)
          sidx (long sidx)
          eidx (long eidx)]
      (ensure-datatypes data-dt dtype)
@@ -689,7 +695,7 @@
       (throw (RuntimeException. "Only non-sub-buffer containers can become growable lists.")))
     (when-not (<= ptr (.-n-elems abuf))
       (throw (RuntimeException. "ptr out of range of buffer size")))
-    (let [dtype (dtype-proto/elemwise-datatype abuf)
+    (let [dtype (hamf-proto/elemwise-datatype abuf)
           host-dt (if (packing/packed-datatype? dtype)
                     (casting/datatype->host-datatype dtype)
                     dtype)]
@@ -723,7 +729,7 @@
                    (number? data)
                    (long data)
                    rdr?
-                   (dtype-proto/ecount data)
+                   (hamf-proto/ecount data)
                    :else
                    8)
          c (array-sub-list dtype n-elems)
@@ -736,9 +742,9 @@
 
 (defn array-buffer
   ([java-ary]
-   (array-buffer java-ary (dtype-proto/elemwise-datatype java-ary)))
+   (array-buffer java-ary (hamf-proto/elemwise-datatype java-ary)))
   ([java-ary buf-dtype]
-   (let [ary-dtype (dtype-proto/elemwise-datatype java-ary)]
+   (let [ary-dtype (hamf-proto/elemwise-datatype java-ary)]
      (ArrayBuffer. (ensure-array java-ary) 0 (Array/getLength java-ary)
                    (ensure-datatypes ary-dtype buf-dtype) nil nil))))
 
@@ -774,15 +780,17 @@
         array-dtype (keyword (str (name dtype) "-array"))
         ary->buffer (fn [ary]
                       (MutListBuffer. (ArrayLists/toList ary) true
-                                      (dtype-proto/elemwise-datatype ary)))]
+                                      (hamf-proto/elemwise-datatype ary)))]
+    (hamf-defproto/extend ary-cls
+      hamf-proto/PElemwiseDatatype
+      {:elemwise-datatype dtype}
+      hamf-proto/PDatatype
+      {:datatype array-dtype}
+      hamf-proto/PECount
+      {:ecount len-fn})
     (extend ary-cls
       dtype-proto/PElemwiseDatatype
-      {:elemwise-datatype (if (identical? dtype :object)
-                            (fn [^objects ary]
-                              (-> (.getClass ary)
-                                  (.getComponentType)
-                                  (casting/object-class->datatype)))
-                            (constantly dtype))}
+      {:elemwise-datatype (constantly dtype)}
       dtype-proto/PElemwiseReaderCast
       {:elemwise-reader-cast ml-reader-cast}
       dtype-proto/PDatatype
@@ -798,7 +806,7 @@
        :->array-buffer (fn [ary]
                          (ArrayBuffer. ary 0
                                        (len-fn ary)
-                                       (dtype-proto/elemwise-datatype ary)
+                                       (hamf-proto/elemwise-datatype ary)
                                        nil nil))}
       dtype-proto/PSubBuffer
       {:sub-buffer (fn [ary ^long off ^long len]
@@ -825,7 +833,8 @@
         array-types
         (map
          (fn [ary-type]
-           `(implement-array! ~ary-type #(alength (typecast/datatype->array ~ary-type %))
+           `(implement-array! ~ary-type (fn ~(with-meta ['ary] {:tag 'long})
+                                          (alength (typecast/datatype->array ~ary-type ~'ary)))
                               #(Arrays/copyOf (typecast/datatype->array ~ary-type %)
                                               (alength (typecast/datatype->array ~ary-type %)))))))))
 
@@ -900,7 +909,7 @@
   (convertible-to-array-buffer? [buf] (instance? obj-ary-cls buf))
   (->array-buffer [buf]
     (when (instance? obj-ary-cls buf)
-      (ArrayBuffer. buf 0 (alength ^objects buf) (dtype-proto/elemwise-datatype buf)
+      (ArrayBuffer. buf 0 (alength ^objects buf) (hamf-proto/elemwise-datatype buf)
                     nil nil))))
 
 (defn- wrap-bytes-le

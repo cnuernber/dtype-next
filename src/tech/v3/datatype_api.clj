@@ -4,6 +4,8 @@
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.protocols :as dtype-proto]
+            ;;Some protocols are 
+            [tech.v3.datatype.hamf-proto :as hamf-proto]
             [tech.v3.datatype.export-symbols]
             [tech.v3.datatype.clj-range]
             [tech.v3.datatype.primitive]
@@ -42,12 +44,14 @@
                 arg-type
                 reader-like?)
 
+(export-symbols tech.v3.datatype.hamf-proto
+                ecount
+                datatype
+                elemwise-datatype)
+
 
 (export-symbols tech.v3.datatype.base
-                elemwise-datatype
-                datatype
                 elemwise-cast
-                ecount
                 shape
                 as-buffer
                 ->buffer

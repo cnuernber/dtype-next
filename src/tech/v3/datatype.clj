@@ -10,6 +10,7 @@
             [tech.v3.datatype.copy-make-container]
             [tech.v3.datatype.dispatch]
             [tech.v3.datatype.emap]
+            [tech.v3.datatype.hamf-proto]
             [tech.v3.datatype.io-concat-buffer]
             [tech.v3.datatype.io-indexed-buffer]
             [tech.v3.datatype.native-buffer])
@@ -316,23 +317,13 @@
 
 
 (defn datatype
-  "Return this object's actual datatype.
-  **This is not the same as the DEPRECATED get-datatype.  That function maps
-  to `elemwise-datatype`.**
-  This maps to the parameterization of the object, so for instance a list of ints
-  might be:
-```clojure
-  {:container-type :list :elemwise-datatype :int32}
-```
-  Defaults to this object's elemwise-datatype."
-  ([item]
-  (tech.v3.datatype.base/datatype item)))
+  (^{:tag nil} [item]
+  (tech.v3.datatype.hamf-proto/datatype item)))
 
 
 (defn ecount
-  "Return the long number of elements in the object."
   (^{:tag long} [item]
-  (tech.v3.datatype.base/ecount item)))
+  (tech.v3.datatype.hamf-proto/ecount item)))
 
 
 (defn elemwise-cast
@@ -344,10 +335,8 @@
 
 
 (defn elemwise-datatype
-  "Return the datatype one would expect when iterating through a container
-  of this type.  For scalars, return your elemental datatype."
-  ([item]
-  (tech.v3.datatype.base/elemwise-datatype item)))
+  (^{:tag nil} [item]
+  (tech.v3.datatype.hamf-proto/elemwise-datatype item)))
 
 
 (defn emap

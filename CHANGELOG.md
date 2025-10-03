@@ -1,3 +1,6 @@
+## 10.147
+ * major memory use upgrade to transient tree vectors sublist.
+ 
 ## 10.146
  * big bugfix to new hamf vec sublist for very large lists.
  

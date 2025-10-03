@@ -3,6 +3,7 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.hamf-proto :as hamf-proto]
             [tech.v3.datatype.reductions :as reductions]
             [ham-fisted.api :as hamf]
             [clj-commons.primitive-math :as pmath])
