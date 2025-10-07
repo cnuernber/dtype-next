@@ -3,6 +3,7 @@
   to a long integer address of memory."
   (:require [tech.v3.resource :as resource]
             [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.hamf-proto :as hamf-proto]
             [tech.v3.datatype.copy :as copy]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.packing :as packing]
@@ -245,7 +246,7 @@
   (->native-buffer [this] buffer)
   dtype-proto/PEndianness
   (endianness [item] (dtype-proto/endianness buffer))
-  dtype-proto/PDatatype
+  hamf-proto/PDatatype
   (datatype [rdr] (dtype-proto/datatype buffer))
   dtype-proto/PElemwiseReaderCast
   (elemwise-reader-cast [item new-dtype] item)
@@ -320,7 +321,7 @@
   (->native-buffer [this] buffer)
   dtype-proto/PEndianness
   (endianness [item] (dtype-proto/endianness buffer))
-  dtype-proto/PDatatype
+  hamf-proto/PDatatype
   (datatype [rdr] (dtype-proto/datatype buffer))
   dtype-proto/PElemwiseReaderCast
   (elemwise-reader-cast [item new-dtype] item)
@@ -358,7 +359,7 @@
     (errors/check-idx idx n-elems)
     (.invokePrim set-fn address idx (+ val (.invokePrim get-fn address idx))))
   (fillRange [rdr sidx v]
-    (ChunkedList/checkIndexRange 0 n-elems sidx (+ sidx (long (dtype-proto/ecount v))))
+    (ChunkedList/checkIndexRange 0 n-elems sidx (+ sidx (hamf-proto/ecount v)))
     (let [addr address]
       (reduce (hamf-rf/indexed-long-accum
                acc idx v (.invokePrim set-fn addr (+ idx sidx) v))
@@ -389,7 +390,7 @@
   (->native-buffer [this] buffer)
   dtype-proto/PEndianness
   (endianness [item] (dtype-proto/endianness buffer))
-  dtype-proto/PDatatype
+  hamf-proto/PDatatype
   (datatype [rdr] (dtype-proto/datatype buffer))
   dtype-proto/PElemwiseReaderCast
   (elemwise-reader-cast [item new-dtype] item)
@@ -428,8 +429,7 @@
     (.invokePrim set-fn address idx (+ val (.invokePrim get-fn address idx))))
   (fillRange [this sidx eidx v] (dtype-proto/set-constant! buffer sidx (- eidx sidx) v))
   (fillRange [rdr sidx v]
-    (ChunkedList/checkIndexRange 0 n-elems sidx (+ sidx (Casts/longCast
-                                                         (dtype-proto/ecount v))))
+    (ChunkedList/checkIndexRange 0 n-elems sidx (+ sidx (hamf-proto/ecount v)))
     (let [addr address]
       (reduce (hamf-rf/indexed-double-accum
                acc idx v (.invokePrim set-fn addr (+ idx sidx) v))
@@ -458,7 +458,7 @@
   (->native-buffer [this] buffer)
   dtype-proto/PEndianness
   (endianness [item] (dtype-proto/endianness buffer))
-  dtype-proto/PDatatype
+  hamf-proto/PDatatype
   (datatype [rdr] (dtype-proto/datatype buffer))
   dtype-proto/PElemwiseReaderCast
   (elemwise-reader-cast [item new-dtype] item)
@@ -540,7 +540,7 @@
   (->native-buffer [this] this)
   dtype-proto/PEndianness
   (endianness [_item] endianness)
-  dtype-proto/PElemwiseDatatype
+  hamf-proto/PElemwiseDatatype
   (elemwise-datatype [_this] datatype)
   dtype-proto/PElemwiseReaderCast
   (elemwise-reader-cast [item _new-dtype]
@@ -734,12 +734,12 @@
 (defn set-native-datatype
   "Set the datatype of a native buffer.  n-elems will be recalculated."
   ^NativeBuffer [item datatype]
-  (if (= datatype (dtype-proto/elemwise-datatype item))
+  (if (= datatype (hamf-proto/elemwise-datatype item))
     item
     (let [nb (as-native-buffer item)
           original-size (.n-elems nb)
           n-bytes (* original-size (casting/numeric-byte-width
-                                    (dtype-proto/elemwise-datatype item)))
+                                    (hamf-proto/elemwise-datatype item)))
           new-byte-width (casting/numeric-byte-width
                           (casting/un-alias-datatype datatype))]
       (NativeBuffer. (.address nb) (quot n-bytes new-byte-width)
@@ -1015,7 +1015,7 @@
    "Endianness conversion is unsupported for binary buffers")
   (let [n-bytes (* (.n-elems nbuf)
                    (casting/numeric-byte-width
-                    (dtype-proto/elemwise-datatype nbuf)))]
+                    (hamf-proto/elemwise-datatype nbuf)))]
     (NativeBinaryBuffer. nbuf (.address nbuf) n-bytes {})))
 
 
@@ -1053,16 +1053,16 @@
   ([input outbuf]
    (let [inb (when (dtype-proto/convertible-to-native-buffer? input)
                (dtype-proto/->native-buffer input))
-         ec (long (dtype-proto/ecount outbuf))]
-     (if (and (identical? (dtype-proto/elemwise-datatype input)
-                          (dtype-proto/elemwise-datatype outbuf))
-              (>= (long (dtype-proto/ecount input)) ec)
+         ec (hamf-proto/ecount outbuf)]
+     (if (and (identical? (hamf-proto/elemwise-datatype input)
+                          (hamf-proto/elemwise-datatype outbuf))
+              (>= (hamf-proto/ecount input) ec)
               inb)
        inb
        (do
          (if (dtype-proto/convertible-to-reader? input)
            (hamf/pgroups
-            (dtype-proto/ecount outbuf)
+            (hamf-proto/ecount outbuf)
             (fn [^long sidx ^long eidx]
               (if (and (== sidx 0) (== eidx ec))
                 (.fillRange ^IMutList outbuf sidx input)
@@ -1078,8 +1078,8 @@
   ([input]
    (if-let [inb (as-native-buffer input)]
      inb
-     (copy/copy! input (alloc-uninitialized (dtype-proto/elemwise-datatype input)
-                                            (Casts/longCast (dtype-proto/ecount input)))))))
+     (copy/copy! input (alloc-uninitialized (hamf-proto/elemwise-datatype input)
+                                            (hamf-proto/ecount input))))))
 
 
 (defn clone-native

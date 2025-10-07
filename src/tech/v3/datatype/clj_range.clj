@@ -1,6 +1,8 @@
 (ns tech.v3.datatype.clj-range
   "Datatype bindings for clojure ranges."
   (:require [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.hamf-proto :as hamf-proto]
+            [ham-fisted.defprotocol :as hamf-defproto]
             [tech.v3.datatype.typecast :as typecast]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.errors :as errors])
@@ -16,12 +18,15 @@
 (def ^Field lr-step-field (doto (.getDeclaredField ^Class LongRange "step")
                             (.setAccessible true)))
 
-
-(extend-type LongRange
-  dtype-proto/PElemwiseDatatype
+(hamf-defproto/extend-type LongRange
+  hamf-proto/PElemwiseDatatype
   (elemwise-datatype [rng] :int64)
-  dtype-proto/PECount
+  hamf-proto/PECount
   (ecount [rng] (.count rng))
+  )
+
+
+(extend-type LongRange    
   dtype-proto/PClone
   (clone [rng] rng)
   dtype-proto/PToBuffer
@@ -69,15 +74,17 @@
                                      (-> (* step# idx#)
                                          (+ start#)))))))
 
-
-(extend-type Range
-  dtype-proto/PElemwiseDatatype
-  (elemwise-datatype [rng] (dtype-proto/elemwise-datatype
+(hamf-defproto/extend-type Range
+  hamf-proto/PElemwiseDatatype
+  (elemwise-datatype [rng] (hamf-proto/elemwise-datatype
                             (if (> (.count rng) 1)
                               (second rng)
                               (first rng))))
-  dtype-proto/PECount
-  (ecount [rng] (.count rng))
+  hamf-proto/PECount
+  (ecount [rng] (.count rng)))
+
+
+(extend-type Range
   dtype-proto/PClone
   (clone [rng] rng)
   dtype-proto/PToBuffer
@@ -100,9 +107,9 @@
   (convertible-to-reader? [rng] (contains?
                                  #{:int8 :int16 :int32 :int64
                                    :float32 :float64}
-                                 (dtype-proto/elemwise-datatype rng)))
+                                 (hamf-proto/elemwise-datatype rng)))
   (->reader [rng]
-    (let [dtype  (dtype-proto/elemwise-datatype rng)]
+    (let [dtype  (hamf-proto/elemwise-datatype rng)]
       (if (casting/integer-type? dtype)
         (let [start (casting/datatype->cast-fn :unknown :int64 (first rng))
               step (casting/datatype->cast-fn :unknown :int64

@@ -30,12 +30,6 @@ generic addition designed to enable safer naive uses of dataset columns
 with missing values."))
 
 
-(extend-type Object
-  POperationalElemwiseDatatype
-  (operational-elemwise-datatype [item]
-    (elemwise-datatype item)))
-
-
 (defprotocol PElemwiseCast
   (elemwise-cast [item new-dtype]))
 

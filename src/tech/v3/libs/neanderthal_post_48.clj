@@ -3,6 +3,8 @@
   must require this to enable ->reader and as-tensor functionality for neanderthal
   datatypes."
   (:require [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.hamf-proto :as hamf-proto]
+            [ham-fisted.defprotocol :as hamf-defproto]
             [tech.v3.datatype.native-buffer :as nb]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.tensor :as dtt]
@@ -25,13 +27,16 @@
   (def a2 (nean/submatrix a 1 2))
   )
 
-
-(extend-type NativeBlock
-  dtype-proto/PElemwiseDatatype
+(hamf-defproto/extend-type NativeBlock
+  hamf-proto/PElemwiseDatatype
   (elemwise-datatype [b] (condp = (:entry-type (n-core/info b))
                            Double/TYPE :float64
                            Float/TYPE :float32
                            Integer/TYPE :int32))
+  hamf-proto/PECount
+  (ecount [item] (long (:dim (n-core/info item)))))
+
+(extend-type NativeBlock
   dtype-proto/PToNativeBuffer
   (convertible-to-native-buffer? [a]
     (let [info (n-core/info a)
@@ -48,7 +53,7 @@
   (convertible-to-nd-buffer-desc? [item] (dtype-proto/convertible-to-native-buffer? item))
   (->nd-buffer-descriptor [item]
     (let [item-info (n-core/info item)
-          item-dtype (dtype-proto/elemwise-datatype item)
+          item-dtype (hamf-proto/elemwise-datatype item)
           item-shape (dtype-proto/shape item)
           nb (-> (dtype-proto/->native-buffer item)
                  (nb/set-gc-obj item))
@@ -73,6 +78,4 @@
   (as-tensor [item]
     (when (dtype-proto/convertible-to-nd-buffer-desc? item)
       (-> (dtype-proto/->nd-buffer-descriptor item)
-          (dtt/nd-buffer-descriptor->tensor))))
-  dtype-proto/PECount
-  (ecount [item] (:dim (n-core/info item))))
+          (dtt/nd-buffer-descriptor->tensor)))))

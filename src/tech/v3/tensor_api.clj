@@ -24,6 +24,7 @@
             [tech.v3.datatype.io-indexed-buffer :as indexed-buffer]
             [tech.v3.datatype.const-reader :refer [const-reader]]
             [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.hamf-proto :as hamf-proto]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.pprint :as dtype-pp]
             [tech.v3.datatype.argops :as argops]
@@ -81,7 +82,7 @@
   (clone [t]
     (tensor-copy! t
                   (construct-tensor
-                   (dtype-cmc/make-container (dtype-proto/elemwise-datatype t)
+                   (dtype-cmc/make-container (hamf-proto/elemwise-datatype t)
                                              (dtype-base/ecount t))
                    (dims/dimensions (dtype-proto/shape t))
                    (meta t))))
@@ -241,7 +242,7 @@
   (ecount [t] (.lsize t))
   NDBuffer
   (lsize [_t] (.lsize index-system))
-  (elemwiseDatatype [_t] (dtype-proto/elemwise-datatype buffer))
+  (elemwiseDatatype [_t] (hamf-proto/elemwise-datatype buffer))
   (buffer [_t] buffer)
   (bufferIO [t]
     (if (dims/native? dimensions)
@@ -358,7 +359,7 @@
   dtype-proto/PECount
   (ecount [t] (.lsize t))
   NDBuffer
-  (elemwiseDatatype [_t] (dtype-proto/elemwise-datatype buffer))
+  (elemwiseDatatype [_t] (hamf-proto/elemwise-datatype buffer))
   (buffer [_t] buffer)
   (bufferIO [t]
     (if (dims/native? dimensions)

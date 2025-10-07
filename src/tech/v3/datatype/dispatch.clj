@@ -1,6 +1,7 @@
 (ns tech.v3.datatype.dispatch
   (:require [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.hamf-proto :as hamf-proto]
             [tech.v3.datatype.argtypes :refer [arg-type]]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.const-reader :refer [const-reader]])
@@ -39,7 +40,7 @@
 
 (defn- checked-elemwise-reader-cast
   [item new-dtype]
-  (if (= new-dtype (dtype-proto/elemwise-datatype item))
+  (if (= new-dtype (hamf-proto/elemwise-datatype item))
     (dtype-proto/->reader item)
     (dtype-proto/elemwise-reader-cast item new-dtype)))
 
@@ -145,17 +146,17 @@
                  ;;a constant.
                  (long (cond
                          (and arg1-reader? arg2-reader?)
-                         (let [arg1-ne (dtype-proto/ecount arg1)
-                               arg2-ne (dtype-proto/ecount arg2)]
+                         (let [arg1-ne (hamf-proto/ecount arg1)
+                               arg2-ne (hamf-proto/ecount arg2)]
                            (when-not (== arg1-ne arg2-ne)
                              (throw (Exception.
                                      (format "lhs (%d), rhs (%d) n-elems mismatch"
                                              arg1-ne arg2-ne))))
                            arg1-ne)
                          arg1-reader?
-                         (dtype-proto/ecount arg1)
+                         (hamf-proto/ecount arg1)
                          :else
-                         (dtype-proto/ecount arg2)))
+                         (hamf-proto/ecount arg2)))
                  arg1-shape (when arg1-reader? (dtype-proto/shape arg1))
                  arg2-shape (when arg2-reader? (dtype-proto/shape arg2))
                  arg1 (scalar->reader arg1 n-elems)

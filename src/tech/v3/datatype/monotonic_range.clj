@@ -48,7 +48,7 @@
   dtype-proto/PRange
   (range-select [lhs rhs]
     (let [r-start (long (dtype-proto/range-start rhs))
-          r-n-elems (long (dtype-proto/ecount rhs))
+          r-n-elems (long (hamf-proto/ecount rhs))
           r-inc (long (dtype-proto/range-increment rhs))
           start (.-start lhs)
           increment (.-step lhs)
@@ -122,7 +122,7 @@
   dtype-proto/PRange
   (range-select [lhs rhs]
     (let [r-start (long (dtype-proto/range-start rhs))
-          r-n-elems (long (dtype-proto/ecount rhs))
+          r-n-elems (long (hamf-proto/ecount rhs))
           r-inc (long (dtype-proto/range-increment rhs))
           start (.-start lhs)
           increment (.-step lhs)
@@ -224,11 +224,11 @@
 (extend-type Range
   dtype-proto/PRangeConvertible
   (convertible-to-range? [item] (casting/integer-type?
-                                 (dtype-proto/elemwise-datatype item)))
+                                 (hamf-proto/elemwise-datatype item)))
   (->range [rng options]
-    (when-not (casting/integer-type? (dtype-proto/elemwise-datatype rng))
+    (when-not (casting/integer-type? (hamf-proto/elemwise-datatype rng))
       (throw (Exception. (format "Item is not convertible to range: %s<%s>"
-                                 (type rng) (dtype-proto/elemwise-datatype rng)))))
+                                 (type rng) (hamf-proto/elemwise-datatype rng)))))
     (let [start (long (first rng))
           step (long  (.get ^Field clj-range/r-step-field rng))
           n-elems (.count rng)]

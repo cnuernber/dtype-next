@@ -3,6 +3,7 @@
   like LocalDate's and store them in int32 storage which dramatically decreases their
   size."
   (:require [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.hamf-proto :as hamf-proto]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.dispatch :as dispatch]
             [tech.v3.datatype.errors :as errors])
@@ -84,7 +85,7 @@
                (unpack-fn (.readObject item idx)))))))
      nil
      item)
-    (if (= (dtype-proto/elemwise-datatype item)
+    (if (= (hamf-proto/elemwise-datatype item)
            (dtype-proto/operational-elemwise-datatype item))
       item
       (dtype-proto/elemwise-reader-cast item
@@ -114,7 +115,7 @@
                (.readObject item idx)))
            (errors/throwf "Packed primitive datatypes must be integers"))))
      item)
-    (if (= (dtype-proto/elemwise-datatype item)
+    (if (= (hamf-proto/elemwise-datatype item)
            (dtype-proto/operational-elemwise-datatype item))
       item
       (dtype-proto/elemwise-reader-cast item

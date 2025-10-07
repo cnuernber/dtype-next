@@ -3,6 +3,8 @@
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.hamf-proto :as hamf-proto]
+            [ham-fisted.defprotocol :as hamf-defproto]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.array-buffer :as array-buffer]
             [tech.v3.tensor :as dtt]
@@ -98,16 +100,18 @@
 (defprotocol PDataBufferAccess
   (data-buffer-banks [item]))
 
-
-(extend-type DataBuffer
-  dtype-proto/PElemwiseDatatype
+(hamf-defproto/extend-type DataBuffer
+  hamf-proto/PElemwiseDatatype
   (elemwise-datatype [item]
     (get data-buffer-type-enum->type-map (.getDataType item)))
 
-  dtype-proto/PECount
+  hamf-proto/PECount
   (ecount [item]
     (long (* (.getSize item)
-             (.getNumBanks item))))
+             (.getNumBanks item)))))
+
+
+(extend-type DataBuffer
 
   dtype-proto/PShape
   (shape [item]
@@ -156,15 +160,17 @@
   ^DataBuffer [^BufferedImage img]
   (.. img getRaster getDataBuffer))
 
+(hamf-defproto/extend-type BufferedImage
+  hamf-proto/PElemwiseDatatype
+  (elemwise-datatype [item]
+    (hamf-proto/elemwise-datatype (buffered-image->data-buffer item)))
+  hamf-proto/PECount
+  (ecount [item]
+    (hamf-proto/ecount
+     (buffered-image->data-buffer item))))
+
 
 (extend-type BufferedImage
-  dtype-proto/PElemwiseDatatype
-  (elemwise-datatype [item]
-    (dtype-proto/elemwise-datatype (buffered-image->data-buffer item)))
-  dtype-proto/PECount
-  (ecount [item]
-    (dtype-proto/ecount
-     (buffered-image->data-buffer item)))
   dtype-proto/PShape
   (shape [item]
     (let [height (.getHeight item)

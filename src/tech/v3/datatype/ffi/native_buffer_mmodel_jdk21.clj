@@ -1,5 +1,6 @@
 (ns tech.v3.datatype.ffi.native-buffer-mmodel-jdk21
   (:require [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.hamf-proto :as hamf-proto]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.native-buffer :as native-buffer]
             [tech.v3.datatype.casting :as casting])
@@ -38,8 +39,8 @@
    "Item type (%s) is not convertible to native buffer"
    (type item))
   (let [^NativeBuffer nbuf (dtype-proto/->native-buffer item)
-        n-bytes (* (dtype-proto/ecount nbuf)
+        n-bytes (* (hamf-proto/ecount nbuf)
                    (casting/numeric-byte-width
-                    (dtype-proto/elemwise-datatype nbuf)))]
+                    (hamf-proto/elemwise-datatype nbuf)))]
     (-> (MemorySegment/ofAddress (.-address nbuf))
         (.reinterpret n-bytes))))

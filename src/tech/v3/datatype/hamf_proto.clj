@@ -1,7 +1,7 @@
 (ns tech.v3.datatype.hamf-proto
   "Uses hamf's defprotocol system for particularly performance sensitive operations."
   (:require [ham-fisted.defprotocol :refer [defprotocol extend extend-type extend-protocol]]
-            [tech.v3.datatype.protocols :as core-proto])
+            [tech.v3.datatype.protocols :as dtype-proto])
   (:import [tech.v3.datatype ElemwiseDatatype ECount Buffer BinaryBuffer ObjectReader]
            [clojure.lang Counted Keyword]
            [ham_fisted IMutList]
@@ -19,6 +19,11 @@
   ElemwiseDatatype
   (elemwise-datatype [item] (.elemwiseDatatype item)))
 
+(clojure.core/extend-type Object
+  dtype-proto/POperationalElemwiseDatatype
+  (operational-elemwise-datatype [item]
+    (elemwise-datatype item)))
+
 (defprotocol PECount
   (^long ecount [item]))
 
@@ -31,9 +36,9 @@
   PDatatype {:datatype :object})
 
 (extend Object
-  PECount {:ecount (fn ^long [v] (long (core-proto/ecount v)))}
-  PElemwiseDatatype {:elemwise-datatype #(core-proto/elemwise-datatype %)}
-  PDatatype {:datatype #(core-proto/datatype %)})
+  PECount {:ecount (fn ^long [v] (long (dtype-proto/ecount v)))}
+  PElemwiseDatatype {:elemwise-datatype #(dtype-proto/elemwise-datatype %)}
+  PDatatype {:datatype #(dtype-proto/datatype %)})
 
 (extend String
   PDatatype {:datatype :string}

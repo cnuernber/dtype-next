@@ -2,6 +2,7 @@
   (:require [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.hamf-proto :as hamf-proto]
             [ham-fisted.api :as hamf]
             [ham-fisted.reduce :as hamf-rf])
   (:import [tech.v3.datatype Buffer]
@@ -21,7 +22,7 @@
                             (dtype-proto/range-increment)))))
      (let [r (dtype-proto/->range indexes nil)
            s (long (dtype-proto/range-start r))
-           ne (long (dtype-proto/ecount indexes))]
+           ne (long (hamf-proto/ecount indexes))]
        (dtype-proto/sub-buffer item s ne))
      (let [indexes (dtype-base/->reader indexes)
            item (dtype-base/->buffer item)

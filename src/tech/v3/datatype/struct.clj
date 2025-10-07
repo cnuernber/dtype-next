@@ -36,6 +36,8 @@ user> *2
   (:require [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.hamf-proto :as hamf-proto]
+            [ham-fisted.defprotocol :as hamf-defproto]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.ffi.size-t :as size-t]
@@ -414,10 +416,10 @@ user> *2
               :tag BinaryBuffer} cached-buffer
             metadata
             accessors]
-    dtype-proto/PDatatype
+    hamf-proto/PDatatype
     (datatype [_m] (:datatype-name struct-def))
-    dtype-proto/PECount
-    (ecount [_m] (dtype-proto/ecount buffer))
+    hamf-proto/PECount
+    (ecount [_m] (hamf-proto/ecount buffer))
     dtype-proto/PEndianness
     (endianness [_m] (dtype-proto/endianness buffer))
     dtype-proto/PClone

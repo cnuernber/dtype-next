@@ -5,6 +5,7 @@
   against the data.  So it is imporant to classify distinct types of indexing
   operations."
   (:require [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.hamf-proto :as hamf-proto]
             [tech.v3.datatype.bitmap :as bitmap]
             [tech.v3.datatype.monotonic-range :as dtype-range]
             [tech.v3.datatype.base :as dtype-base]
@@ -56,7 +57,7 @@
     (let [item-rng (dtype-proto/->range item {})]
       (if (and (== 0 (long (dtype-proto/range-start item-rng)))
                (== 1 (long (dtype-proto/range-increment item-rng))))
-        (dtype-proto/ecount item)
+        (hamf-proto/ecount item)
         item))
     item))
 
@@ -240,7 +241,7 @@
          (let [^Buffer select-arg (if (= select-arg :lla)
                                     (dtype-range/reverse-range n-elems)
                                     (dimension->reader select-arg))
-               n-select-arg (long (dtype-proto/ecount select-arg))]
+               n-select-arg (hamf-proto/ecount select-arg)]
            (if (dtype-proto/convertible-to-range? select-arg)
              (let [select-arg (dtype-proto/->range select-arg {})]
                (if (dtype-proto/convertible-to-range? dim)

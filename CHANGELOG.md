@@ -1,3 +1,7 @@
+## 11.000
+ * major performance upgrade - moved to hamf protocols as they both support primitives and 
+   perform much better in multithreaded contexts.
+ 
 ## 10.147
  * major memory use upgrade to transient tree vectors sublist.
  

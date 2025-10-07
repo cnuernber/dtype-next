@@ -1,6 +1,7 @@
 (ns tech.v3.datatype.io-concat-buffer
   (:require [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.hamf-proto :as hamf-proto]
             [tech.v3.datatype.errors :as errors]
             [clj-commons.primitive-math :as pmath])
   (:import [java.util List]
@@ -90,7 +91,7 @@
 
 (defn- same-len-concat-buffer
   ^Buffer [datatype buffers]
-  (let [counts (mapv dtype-proto/ecount buffers)
+  (let [counts (mapv hamf-proto/ecount buffers)
         ^List buffers (mapv dtype-proto/->buffer buffers)
         _ (assert (apply = counts))
         n-elems (long (apply + counts))
@@ -140,7 +141,7 @@
 
 (defn- generalized-concat-buffers
   ^Buffer [datatype buffers]
-  (let [counts (mapv dtype-proto/ecount buffers)
+  (let [counts (mapv hamf-proto/ecount buffers)
         ^List buffers (mapv dtype-proto/->buffer buffers)
         n-elems (long (apply + counts))
         n-buffers (.size buffers)
@@ -173,7 +174,7 @@
        0 nil
        1 (first buffers)
        2 (dual-concat-buffer datatype (first buffers) (second buffers))
-       (let [buf-lens (map dtype-proto/ecount buffers)]
+       (let [buf-lens (map hamf-proto/ecount buffers)]
          (if (apply = buf-lens)
            (same-len-concat-buffer datatype buffers)
            (generalized-concat-buffers datatype buffers))))))
@@ -181,5 +182,5 @@
    (if (empty? buffers)
      nil
      (let [datatype (reduce casting/widest-datatype
-                            (map dtype-proto/elemwise-datatype buffers))]
+                            (map hamf-proto/elemwise-datatype buffers))]
        (concat-buffers datatype buffers)))))

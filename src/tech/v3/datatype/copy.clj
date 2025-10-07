@@ -3,6 +3,7 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.hamf-proto :as hamf-proto]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.packing :as packing]
             [ham-fisted.api :as hamf]
@@ -73,7 +74,7 @@
      dst-buf))
   ([src-buf dst-buf]
    (unsafe-copy-memory src-buf dst-buf
-                       (dtype-proto/elemwise-datatype src-buf)
+                       (hamf-proto/elemwise-datatype src-buf)
                        (dtype-base/ecount src-buf))))
 
 
@@ -120,7 +121,7 @@
   ([src dst]
    (if (dtype-proto/convertible-to-reader? src)
      (high-perf-copy! src dst)
-     (let [op-space (casting/simple-operation-space (dtype-proto/elemwise-datatype dst))
+     (let [op-space (casting/simple-operation-space (hamf-proto/elemwise-datatype dst))
            ^Buffer dst-buf (dtype-base/->writer dst)
            rfn (case op-space
                  :int64 (hamf-rf/indexed-long-accum

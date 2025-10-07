@@ -2,6 +2,8 @@
   (:require [tech.v3.datatype.array-buffer :as array-buffer]
             [tech.v3.datatype.native-buffer :as native-buffer]
             [tech.v3.datatype.protocols :as dtype-proto]
+            [ham-fisted.defprotocol :as hamf-defproto]
+            [tech.v3.datatype.hamf-proto :as hamf-proto]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.errors :as errors]
@@ -65,13 +67,14 @@
   []
   (doseq [dtype nio-datatypes]
     (let [buf-type (datatype->nio-buf-type dtype)]
+      (hamf-defproto/extend buf-type
+        hamf-proto/PECount
+        {:ecount (fn ^long [^Buffer b] (.remaining b))}
+        hamf-proto/PElemwiseDatatype
+        {:elemwise-datatype dtype})
       (extend buf-type
-        dtype-proto/PElemwiseDatatype
-        {:elemwise-datatype (constantly dtype)}
         dtype-proto/PElemwiseReaderCast
         {:elemwise-reader-cast buf->buffer}
-        dtype-proto/PECount
-        {:ecount #(.remaining ^Buffer %)}
         dtype-proto/PToArrayBuffer
         {:convertible-to-array-buffer? #(not (.isDirect ^Buffer %))
          :->array-buffer (fn [^Buffer buf]
@@ -86,9 +89,9 @@
          (fn [^Buffer buf]
            (native-buffer/wrap-address
             (buffer-address buf)
-            (* (dtype-proto/ecount buf)
-               (casting/numeric-byte-width (dtype-proto/elemwise-datatype buf)))
-            (dtype-proto/elemwise-datatype buf)
+            (* (hamf-proto/ecount buf)
+               (casting/numeric-byte-width (hamf-proto/elemwise-datatype buf)))
+            (hamf-proto/elemwise-datatype buf)
             (dtype-proto/endianness buf)
             buf))}
         dtype-proto/PToBuffer
@@ -134,7 +137,7 @@ falling back to jdk16 memory model.")
 
 (defn native-buf->nio-buf
   (^java.nio.Buffer [^NativeBuffer buffer options]
-   (let [dtype (dtype-proto/elemwise-datatype buffer)
+   (let [dtype (hamf-proto/elemwise-datatype buffer)
          byte-width (casting/numeric-byte-width dtype)
          n-bytes (* (.n-elems buffer) byte-width)
          ^ByteBuffer byte-buf (@buffer-constructor* buffer (.address buffer) n-bytes

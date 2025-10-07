@@ -77,7 +77,7 @@
   new-dtype as it's elemwise-datatype."
   [item new-dtype]
   (when-not (nil? item)
-    (if-not (= new-dtype (dtype-proto/elemwise-datatype new-dtype))
+    (if-not (= new-dtype (hamf-proto/elemwise-datatype new-dtype))
       (dtype-proto/elemwise-cast item new-dtype)
       item)))
 
@@ -133,7 +133,7 @@
    (casting/ensure-valid-datatype read-datatype)
    (cond
      (nil? item) item
-     (= read-datatype (dtype-proto/elemwise-datatype item))
+     (= read-datatype (hamf-proto/elemwise-datatype item))
      (as-reader item)
      :else
      (dtype-proto/elemwise-reader-cast item read-datatype))))
@@ -175,7 +175,7 @@
      (reader? item)
      (->reader item)
      :else
-     (let [item-dtype (dtype-proto/elemwise-datatype item)]
+     (let [item-dtype (hamf-proto/elemwise-datatype item)]
        (reify
          Iterable
          (iterator [it]
@@ -677,10 +677,10 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
   dtype-proto/PElemwiseDatatype
   (elemwise-datatype [item] :object)
   dtype-proto/PDatatype
-  (datatype [item] (dtype-proto/elemwise-datatype item))
+  (datatype [item] (hamf-proto/elemwise-datatype item))
   dtype-proto/PElemwiseCast
   (elemwise-cast [item new-dtype]
-    (let [src-dtype (dtype-proto/elemwise-datatype item)]
+    (let [src-dtype (hamf-proto/elemwise-datatype item)]
       (cond
         (= new-dtype (packing/pack-datatype src-dtype))
         (packing/pack item)
@@ -812,7 +812,7 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
                         (shape first-elem))))
             vec))
       :else
-      [(dtype-proto/ecount item)])))
+      [(hamf-proto/ecount item)])))
 
 
 (extend-type IPersistentCollection

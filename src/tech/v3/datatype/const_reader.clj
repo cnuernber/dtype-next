@@ -1,5 +1,6 @@
 (ns tech.v3.datatype.const-reader
   (:require [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.hamf-proto :as hamf-proto]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.monotonic-range :as monotonic-range]
             [ham-fisted.api :as hamf])
@@ -20,7 +21,7 @@
 (defn const-reader
   "Create a new reader that only returns the item for the provided indexes."
   (^Buffer [item n-elems]
-   (let [item-dtype (if item (dtype-proto/elemwise-datatype item) :object)
+   (let [item-dtype (if item (hamf-proto/elemwise-datatype item) :object)
          n-elems (long n-elems)]
      (cond
        (identical? :boolean item-dtype)

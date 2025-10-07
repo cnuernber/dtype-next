@@ -3,6 +3,7 @@
   must require this to enable ->reader and as-tensor functionality for neanderthal
   datatypes."
   (:require [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.hamf-proto :as hamf-proto]
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.copy-make-container :as dt-cmc]
             [tech.v3.datatype.casting :as casting]
@@ -45,7 +46,7 @@
   (convertible-to-nd-buffer-desc? [item] true)
   (->nd-buffer-descriptor [item]
     (let [item-info (.info item)
-          item-dtype (dtype-proto/elemwise-datatype item)
+          item-dtype (hamf-proto/elemwise-datatype item)
           item-shape (dtype-proto/shape item)]
       (when-not (or (== 1 (count item-shape)) (get-in item-info [:storage :gapless]))
         (throw (Exception. "Only dense neanderthal matrixes supported")))

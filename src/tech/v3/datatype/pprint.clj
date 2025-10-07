@@ -1,5 +1,6 @@
 (ns tech.v3.datatype.pprint
   (:require [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.hamf-proto :as hamf-proto]
             [tech.v3.datatype.packing :as packing]))
 
 
@@ -37,11 +38,11 @@
 
 (defn buffer->string
   (^String [buffer typename]
-   (let [n-items (dtype-proto/ecount buffer)
+   (let [n-items (hamf-proto/ecount buffer)
          simple-print? (:simple-print? (meta buffer))
          reader-data (-> (dtype-proto/sub-buffer buffer 0 (min 20 n-items))
                          (print-reader-data))
-         datatype (dtype-proto/elemwise-datatype buffer)]
+         datatype (hamf-proto/elemwise-datatype buffer)]
      (if simple-print?
        (format (if (> n-items 20)
                  "[%s...]"
