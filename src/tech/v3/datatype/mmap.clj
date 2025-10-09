@@ -39,9 +39,9 @@
               (errors/throwf "Automatic resolution of mmap pathways is disabled for graal native. Please use 'tech.3.datatype.mmap/set-mmap-impl!' prior to calling mmap-file.")
               (let [jdk-version (jdk-major-version)]
                 (try
-                  (requiring-resolve 'tech.v3.datatype.mmap.mmodel-jdk21/mmap-file)
+                  (requiring-resolve 'tech.v3.datatype.mmap.mmodel-jdk/mmap-file)
                   (catch Throwable _e
-                    (log/warn "Failed to activate JDK-21 mmodel pathway; attempting jdk-19.")
+                    (log/warn "Failed to activate JDK (21+) mmodel pathway; attempting jdk-19.")
                     (try
                       (requiring-resolve 'tech.v3.datatype.mmap.mmodel-jdk19/mmap-file)
                       (catch Throwable _e

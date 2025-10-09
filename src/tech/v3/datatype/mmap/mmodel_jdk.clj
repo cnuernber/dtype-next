@@ -1,6 +1,6 @@
-(ns tech.v3.datatype.mmap.mmodel-jdk21
-  "Mmap based on the MemorySegment jdk21 memory model pathway"
-  (:require [tech.v3.datatype.ffi.native-buffer-mmodel-jdk21 :as nbuf-mmodel]
+(ns tech.v3.datatype.mmap.mmodel-jdk
+  "Mmap based on the MemorySegment JDK FFM API - finalized in JDK 22 (JEP 454), available in LTS starting with JDK 25."
+  (:require [tech.v3.datatype.ffi.native-buffer-mmodel-jdk :as nbuf-mmodel]
             [tech.v3.resource :as resource])
   (:import [java.lang.foreign MemorySegment Arena]
            [java.nio.channels FileChannel$MapMode FileChannel]
