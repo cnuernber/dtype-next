@@ -1,4 +1,5 @@
-(ns tech.v3.datatype.ffi.mmodel-jdk21
+(ns tech.v3.datatype.ffi.mmodel-jdk
+  "JDK FFM API implementation - finalized in JDK 22 (JEP 454), available in LTS starting with JDK 25."
   (:require [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.ffi :as ffi]
             [tech.v3.datatype.ffi.base :as ffi-base]
@@ -188,7 +189,7 @@
       (when-not (= argtype 'by-value)
         (throw (RuntimeException. (str "Invalid argument type: " argtype))))
       [[:ldc (name argname)]
-       [:invokestatic 'tech.v3.datatype.ffi.mmodel_jdk21$by_value_arg
+       [:invokestatic 'tech.v3.datatype.ffi.mmodel_jdk$by_value_arg
         'invokeStatic [Object Object]]])))
 
 (defn emit-lib-constructor
@@ -199,7 +200,7 @@
      [:invokespecial :super :init [:void]]]
     [[:aload 0]
      [:aload 1]
-     [:invokestatic 'tech.v3.datatype.ffi.mmodel_jdk21$load_library
+     [:invokestatic 'tech.v3.datatype.ffi.mmodel_jdk$load_library
       'invokeStatic [Object Object]]
      [:checkcast SymbolLookup]
      [:putfield :this "libraryImpl" SymbolLookup]]
@@ -224,7 +225,7 @@
                       [:pop]]))
                   argtypes)
           [[:aload 2]
-           [:invokestatic 'tech.v3.datatype.ffi.mmodel_jdk21$library_sym_method_handle
+           [:invokestatic 'tech.v3.datatype.ffi.mmodel_jdk$library_sym_method_handle
             'invokeStatic
             [Object Object Object Object Object]]
            [:checkcast MethodHandle]
@@ -243,7 +244,7 @@
   [[:aload 0]
     [:getfield :this "libraryImpl" SymbolLookup]
     [:aload 1]
-    [:invokestatic 'tech.v3.datatype.ffi.mmodel_jdk21$find_symbol
+    [:invokestatic 'tech.v3.datatype.ffi.mmodel_jdk$find_symbol
       'invokeStatic [Object Object Object]]
     [:checkcast MemorySegment]
     [:invokeinterface MemorySegment 'address [:long]]
@@ -252,12 +253,12 @@
 
 
 (def ptr-cast
-  [[:invokestatic 'tech.v3.datatype.ffi.mmodel_jdk21$ptr_value
+  [[:invokestatic 'tech.v3.datatype.ffi.mmodel_jdk$ptr_value
       'invokeStatic [Object Object]]
     [:checkcast MemorySegment]])
 
 (def ptr?-cast
-  [[:invokestatic 'tech.v3.datatype.ffi.mmodel_jdk21$ptr_value_q
+  [[:invokestatic 'tech.v3.datatype.ffi.mmodel_jdk$ptr_value_q
       'invokeStatic [Object Object]]
     [:checkcast MemorySegment]])
 
@@ -294,7 +295,7 @@
           [[:aload 0]
            [:getfield :this hdl-name MethodHandle]]
           (when byval-ret?
-            [[:invokestatic 'tech.v3.datatype.ffi.mmodel_jdk21$active_allocator
+            [[:invokestatic 'tech.v3.datatype.ffi.mmodel_jdk$active_allocator
               'invokeStatic [Object]]
              [:checkcast SegmentAllocator]])
           (ffi-base/load-ffi-args ptr-cast ptr?-cast argtypes)

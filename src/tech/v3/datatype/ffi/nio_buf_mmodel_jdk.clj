@@ -1,4 +1,5 @@
-(ns tech.v3.datatype.ffi.nio-buf-mmodel-jdk21
+(ns tech.v3.datatype.ffi.nio-buf-mmodel-jdk
+  "JDK FFM API NIO ByteBuffer support - finalized in JDK 22 (JEP 454), available in LTS starting with JDK 25."
   (:require [tech.v3.datatype.protocols :as dtype-proto])
   (:import [java.lang.foreign MemorySegment]
            [java.nio ByteBuffer ByteOrder]))

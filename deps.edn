@@ -109,6 +109,8 @@
               "--enable-native-access=ALL-UNNAMED"]}
   :jdk-19
   {:jvm-opts ["--enable-native-access=ALL-UNNAMED"]}
+  :jdk-25
+  {:jvm-opts ["--enable-native-access=ALL-UNNAMED"]}
   :codegen
   {:extra-paths ["src" "dev"]
    :exec-fn tech.v3.datatype.codegen/-main}

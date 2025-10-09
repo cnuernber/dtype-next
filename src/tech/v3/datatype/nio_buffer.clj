@@ -114,7 +114,7 @@
                (resource/chain-resources retval nbuf)))
            (do
              (try
-               (requiring-resolve 'tech.v3.datatype.ffi.nio-buf-mmodel-jdk21/direct-buffer-constructor)
+               (requiring-resolve 'tech.v3.datatype.ffi.nio-buf-mmodel-jdk/direct-buffer-constructor)
                (catch Exception e
                  (log/info "Unable to find direct buffer constructor -
 falling back to jdk19 memory model.")
@@ -126,9 +126,12 @@ falling back to jdk16 memory model.")
                      (try
                        (requiring-resolve 'tech.v3.datatype.ffi.nio-buf-mmodel/direct-buffer-constructor)
                        (catch Exception e
-                         (throw (RuntimeException. "Unable to load direct buffer constructor.  If you are using JDK-17, set your runtime :jvm-opts as follows:
-:jvm-opts [\"--add-modules\" \"jdk.incubator.foreign,jdk.incubator.vector\"
-                         \"--enable-native-access=ALL-UNNAMED\"]}"
+                         (throw (RuntimeException. "Unable to load direct buffer constructor.
+For JDK 17-21, set your runtime :jvm-opts as follows:
+  :jvm-opts [\"--add-modules\" \"jdk.incubator.foreign,jdk.incubator.vector\"
+             \"--enable-native-access=ALL-UNNAMED\"]
+For JDK 22+, only this is needed:
+  :jvm-opts [\"--enable-native-access=ALL-UNNAMED\"]"
                                                    e))))))))))))
 
 

@@ -1,4 +1,5 @@
-(ns tech.v3.datatype.ffi.native-buffer-mmodel-jdk21
+(ns tech.v3.datatype.ffi.native-buffer-mmodel-jdk
+  "JDK FFM API MemorySegment support - finalized in JDK 22 (JEP 454), available in LTS starting with JDK 25."
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.native-buffer :as native-buffer]
