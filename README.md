@@ -1,7 +1,9 @@
 # dtype-next
 
-Next generation high performance Clojure toolkit.
+## Summary
 
+`dtype-next` provides a unified pathway for dealing with contiguous containers
+of primitive datatypes such as ints and floats on the JVM.
 
 [![Clojars Project](https://clojars.org/cnuernber/dtype-next/latest-version.svg)](https://clojars.org/cnuernber/dtype-next)
 ![Build Status](https://github.com/cnuernber/dtype-next/actions/workflows/test.yml/badge.svg)
@@ -13,24 +15,25 @@ Checkout The:
 * Java API [Documentation](https://cnuernber.github.io/dtype-next/javadoc/index.html) and [Sample](https://github.com/cnuernber/dtype-next/blob/master/java_test/java/jtest/Main.java).
 * [Clojure Cheatsheet](https://cnuernber.github.io/dtype-next/cheatsheet.html).
 
-
-## New Functionality
- * [Efficient 1d convolutions, correlations, gaussian correlations](https://cnuernber.github.io/dtype-next/tech.v3.datatype.convolve.html)
- * [Numeric gradient, elemwise difference](https://cnuernber.github.io/dtype-next/tech.v3.datatype.gradient.html)
- * [Variable rolling windows](https://cnuernber.github.io/dtype-next/tech.v3.datatype.rolling.html#var-variable-rolling-window-indexes)
-
 ## Description
 
-`dtype-next` provides a unified pathway for dealing with contiguous containers of primitive datatypes such as
-ints and floats.  In addition it defines the basis for `array` programming as found in APL or numpy and
-a deep Java interface hierarchy with default methods to allow implementing new `array`s painless.  This
+On the contiguous containers substrate, additional capabilities are built:
+
+ - `tech.v3.datatype.functional`: elementwise operations across scalars and arrays
+ - `tech.v3.datatype.statistics`: summary statistics
+ - `tech.v3.datatype.argops`: algorithms that operate in index space
+ - `java.time` support: packing `java.time` objects into primitives and elementwise operations on collections of them
+ - `tech.v3.tensor`: generic ND support with operations such as select and slice
+ - `tech.v3.libs.buffered-image`: binding `java.awt` images to tensors
+ - ffi: JDK-version independent C ABI bindings
+ - native buffers: "off-heap" container storage
+ - `tech.v3.datatype.convolve`: efficient CPU convolutions
+
+
+This library also defines the basis for `array` programming as found in APL or numpy and
+a deep Java interface hierarchy with default methods that makes implementing new `array`s painless.  This
 interface hierarchy integrates with Java Streams, Spliterators, and various members of the java.util.function
 package.  In addition it extends these concepts to native-heap based containers.
-
-
-There are namespaces to allow elementwise operations across scalars and arrays, highly optimized reductions
-across index spaces, and algorithms that operate in index space for use when multiple buffers share
-an index space.
 
 
 This library forms the numeric basis that underlies the ['tech.ml.dataset'](https://github.com/techascent/tech.ml.dataset)
@@ -42,7 +45,6 @@ and [neanderthal](https://github.com/uncomplicate/neanderthal).
 
 Additional targets of this library:
 
-
 *  Small runtime footprint.  This is harder than it looks but the main thing is that
    the system needs to produce the right answers with as little type specific code as
    necessary.
@@ -53,6 +55,10 @@ Additional targets of this library:
    project.clj for required flags.
 *  [Blogpost](https://techascent.com/blog/next-gen-native.html), [example](examples/clj-ffi) and [involved example](https://github.com/cnuernber/avclj) of using the FFI architecture across JNA, JDK-16 and GraalNative.
 
+## New Functionality
+ * [Efficient 1d convolutions, correlations, gaussian correlations](https://cnuernber.github.io/dtype-next/tech.v3.datatype.convolve.html)
+ * [Numeric gradient, elemwise difference](https://cnuernber.github.io/dtype-next/tech.v3.datatype.gradient.html)
+ * [Variable rolling windows](https://cnuernber.github.io/dtype-next/tech.v3.datatype.rolling.html#var-variable-rolling-window-indexes)
 
 ## Native Test
 
