@@ -17,13 +17,15 @@
             [ham-fisted.function :as hamf-fn]
             [ham-fisted.lazy-noncaching :as lznc]
             [ham-fisted.protocols :as hamf-proto]
-            [ham-fisted.set :as set])
+            [ham-fisted.set :as set]
+            [ham-fisted.defprotocol :refer [extend extend-type extend-protocol]])
   (:import [org.roaringbitmap RoaringBitmap IntConsumer]
            [tech.v3.datatype SimpleLongSet LongReader LongBitmapIter Buffer]
            [tech.v3.datatype.array_buffer ArrayBuffer]
            [ham_fisted Transformables]
            [clojure.lang LongRange IFn$OLO IFn$ODO IDeref]
-           [java.lang.reflect Field]))
+           [java.lang.reflect Field])
+  (:refer-clojure :exclude [extend extend-type extend-protocol]))
 
 
 (set! *warn-on-reflection* true)
@@ -138,7 +140,7 @@
   dtype-proto/PToBitmap
   (convertible-to-bitmap? [item] true)
   (as-roaring-bitmap [item] item)
-  hamf-proto/PAdd
+    hamf-proto/PAdd
   (add-fn [lhs] (hamf-rf/long-accumulator
                  acc v (.add ^RoaringBitmap acc (unchecked-int v)) acc))
   hamf-proto/SetOps
@@ -166,6 +168,9 @@
   (max-set-value [lhs] (Integer/toUnsignedLong (.last lhs)))
   hamf-proto/Reduction
   (reducible? [this] true)
+)
+
+(clojure.core/extend-type RoaringBitmap
   cl-proto/CollReduce
   (coll-reduce
     ([this rfn acc] (bitmap-reduce this rfn acc))

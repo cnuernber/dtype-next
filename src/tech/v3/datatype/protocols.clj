@@ -1,12 +1,14 @@
 (ns tech.v3.datatype.protocols
-  (:require [ham-fisted.set :as set])
+  (:require [ham-fisted.set :as set]
+            [ham-fisted.defprotocol :refer [defprotocol extend extend-type extend-protocol]])
   (:import [tech.v3.datatype ElemwiseDatatype ECount Buffer BinaryBuffer
             ObjectReader]
            [clojure.lang Counted]
            [java.util List Map Set]
            [java.nio ByteOrder
             ByteBuffer ShortBuffer IntBuffer LongBuffer
-            FloatBuffer DoubleBuffer CharBuffer]))
+            FloatBuffer DoubleBuffer CharBuffer])
+  (:refer-clojure :exclude [defprotocol extend extend-type extend-protocol]))
 
 
 (set! *warn-on-reflection* true)
@@ -110,7 +112,7 @@ with missing values."))
 
 (defprotocol PSubBuffer
   "Interface to create sub-buffers out of larger contiguous buffers."
-  (sub-buffer [buffer offset length]
+  (sub-buffer [buffer ^long offset ^long length]
     "Create a sub buffer that shares the backing store with the main buffer."))
 
 
@@ -148,8 +150,10 @@ Note that this makes no mention of indianness; buffers are in the format of the 
   PToBuffer
   (convertible-to-buffer? [item] true)
   (->buffer [item] EMPTY-READER)
+  PToReader
   (convertible-to-reader? [item] true)
   (->reader [item] EMPTY-READER)
+  PToWriter
   (convertible-to-writer? [item] false))
 
 (defprotocol PToBinaryBuffer
@@ -286,10 +290,10 @@ Only arraybuffers and native buffers need implement this pathway."))
   (convertible-to-buffer? [buf] true)
   (->buffer [buf] buf)
   PToReader
-  (convertible-to-buffer? [buf] (.allowsRead buf))
+  (convertible-to-reader? [buf] (.allowsRead buf))
   (->reader [buf] buf)
   PToWriter
-  (convertible-to-buffer? [buf] (.allowsWrite buf))
+  (convertible-to-writer? [buf] (.allowsWrite buf))
   (->writer [buf] buf)
   PSubBuffer
   (sub-buffer [buf offset len]

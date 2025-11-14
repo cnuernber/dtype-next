@@ -3,11 +3,13 @@
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.typecast :as typecast]
             [tech.v3.datatype.casting :as casting]
-            [tech.v3.datatype.errors :as errors])
+            [tech.v3.datatype.errors :as errors]
+            [ham-fisted.defprotocol :refer [extend extend-type extend-protocol]])
   (:import [clojure.lang LongRange Range]
            [tech.v3.datatype LongReader DoubleReader]
            [ham_fisted Ranges$LongRange Ranges$DoubleRange]
-           [java.lang.reflect Field]))
+           [java.lang.reflect Field])
+  (:refer-clojure :exclude [extend extend-type extend-protocol]))
 
 
 (set! *warn-on-reflection* true)

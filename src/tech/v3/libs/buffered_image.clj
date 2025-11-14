@@ -7,6 +7,7 @@
             [tech.v3.datatype.array-buffer :as array-buffer]
             [tech.v3.tensor :as dtt]
             [tech.v3.tensor.dimensions :as dims]
+            [ham-fisted.defprotocol :refer [extend extend-type extend-protocol defprotocol]]
             [clojure.java.io :as io]
             [clojure.set :as c-set])
   (:import [java.awt.image BufferedImage
@@ -17,7 +18,7 @@
            [java.io InputStream]
            [tech.v3.datatype LongBuffer]
            [javax.imageio ImageIO])
-  (:refer-clojure :exclude [load]))
+  (:refer-clojure :exclude [load extend extend-type extend-protocol defprotocol]))
 
 (set! *warn-on-reflection* true)
 

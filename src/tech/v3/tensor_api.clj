@@ -40,13 +40,15 @@
             [clojure.tools.logging :as log]
             [ham-fisted.api :as hamf]
             [ham-fisted.lazy-noncaching :as lznc]
-            [ham-fisted.function :as hamf-fn])
+            [ham-fisted.function :as hamf-fn]
+            [ham-fisted.defprotocol :refer [extend extend-type extend-protocol]])
   (:import [clojure.lang IObj IFn$OLO IFn$ODO IFn
             IFn$LOO IFn$LLOO IFn$LLLOO]
            [tech.v3.datatype LongNDReader Buffer NDBuffer
             ObjectReader LongReader NDReduce]
            [java.util List]
-           [ham_fisted ChunkedList]))
+           [ham_fisted ChunkedList])
+  (:refer-clojure :exclude [extend extend-type extend-protocol]))
 
 
 (set! *warn-on-reflection* true)

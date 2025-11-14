@@ -5,7 +5,8 @@
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.parallel.for :as parallel-for]
-            [tech.v3.datatype.argtypes :as argtypes])
+            [tech.v3.datatype.argtypes :as argtypes]
+            [ham-fisted.defprotocol :refer [extend extend-type extend-protocol]])
   (:import [tech.v3.datatype Buffer BinaryBuffer
             ObjectBuffer ElemwiseDatatype ObjectReader NDBuffer
             LongReader DoubleReader]
@@ -14,7 +15,8 @@
            [java.util RandomAccess List Spliterator$OfDouble Spliterator$OfLong
             Spliterator$OfInt Arrays]
            [java.util.stream Stream DoubleStream LongStream IntStream]
-           [ham_fisted Reductions Casts]))
+           [ham_fisted Reductions Casts])
+  (:refer-clojure :exclude [extend extend-type extend-protocol]))
 
 
 (set! *warn-on-reflection* true)
@@ -673,6 +675,22 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
   dtype-proto/PClone
   (clone [item] (Arrays/copyOf ^objects item (alength ^objects item))))
 
+
+(defn copy-raw-seq->item!
+  [raw-data-seq ary-target target-offset options]
+  (let [writer (->writer ary-target)
+        rfn (fn [[ary-target target-offset] new-raw-data]
+              ;;Fastpath for sequences of numbers.  Avoids more protocol pathways.
+              (if (= :scalar (argtypes/arg-type new-raw-data))
+                (do
+                  (.set writer target-offset new-raw-data)
+                  [ary-target (inc target-offset)])
+                ;;slow path if we didn't recognize the thing.
+                (dtype-proto/copy-raw->item! new-raw-data ary-target
+                                             target-offset options)))
+        init [ary-target target-offset]]
+    (reduce rfn init raw-data-seq)))
+
 ;;Datatype library Object defaults.  Here lie dragons.
 (extend-type Object
   dtype-proto/PElemwiseDatatype
@@ -735,7 +753,7 @@ tech.v3.tensor.integration-test> (dtype/set-value! (dtype/clone test-tens) [:all
     (if-let [buf-data (as-concrete-buffer buf)]
       (dtype-proto/->buffer buf-data)
       (errors/throwf "Buffer type %s is not convertible to buffer"
-                     (type buf))))
+        (type buf))))
   dtype-proto/PToReader
   (convertible-to-reader? [buf]
     (dtype-proto/convertible-to-buffer? buf))

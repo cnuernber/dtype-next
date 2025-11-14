@@ -2,9 +2,11 @@
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.native-buffer :as native-buffer]
-            [tech.v3.datatype.casting :as casting])
+            [tech.v3.datatype.casting :as casting]
+            [ham-fisted.defprotocol :refer [extend-type]])
   (:import [java.lang.foreign MemorySegment MemoryAddress MemorySession]
-           [tech.v3.datatype.native_buffer NativeBuffer]))
+           [tech.v3.datatype.native_buffer NativeBuffer])
+  (:refer-clojure :exclude [extend-type]))
 
 
 (set! *warn-on-reflection* true)

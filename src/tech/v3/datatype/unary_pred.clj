@@ -12,7 +12,8 @@
             [ham-fisted.reduce :as hamf-rf]
             [ham-fisted.protocols :as hamf-proto]
             [ham-fisted.lazy-noncaching :as lznc]
-            [ham-fisted.function :as hamf-fn])
+            [ham-fisted.function :as hamf-fn]
+            [ham-fisted.defprotocol :refer [extend extend-type extend-protocol]])
   (:import [tech.v3.datatype UnaryPredicate Buffer
             UnaryPredicates$DoubleUnaryPredicate
             UnaryPredicates$LongUnaryPredicate
@@ -22,7 +23,8 @@
            [ham_fisted Casts Ranges$LongRange IMutList Reducible]
            [java.util List]
            [java.util.function DoublePredicate Predicate LongConsumer]
-           [clojure.lang IFn IDeref]))
+           [clojure.lang IFn IDeref])
+  (:refer-clojure :exclude [extend extend-type extend-protocol]))
 
 
 (set! *warn-on-reflection* true)

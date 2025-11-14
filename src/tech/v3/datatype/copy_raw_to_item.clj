@@ -5,27 +5,11 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.argtypes :as argtypes]
             [tech.v3.datatype.copy :as dtype-cp]
-            [tech.v3.parallel.for :as pfor])
-  (:import [ham_fisted Reductions]))
+            [tech.v3.parallel.for :as pfor]
+            [ham-fisted.defprotocol :refer [extend extend-type extend-protocol]])
+  (:import [ham_fisted Reductions])
+  (:refer-clojure :exclude [extend extend-type extend-protocol]))
 
-
-
-(defn copy-raw-seq->item!
-  [raw-data-seq ary-target target-offset options]
-  (let [writer (dtype-base/->writer ary-target)
-        rfn (fn [[ary-target target-offset] new-raw-data]
-                               ;;Fastpath for sequences of numbers.  Avoids more protocol pathways.
-                               (if (= :scalar (argtypes/arg-type new-raw-data))
-                                 (do
-                                   (.set writer target-offset new-raw-data)
-                                   [ary-target (inc target-offset)])
-                                 ;;slow path if we didn't recognize the thing.
-                                 (dtype-proto/copy-raw->item! new-raw-data ary-target
-                                               target-offset options)))
-        init [ary-target target-offset]]
-    (if (instance? Iterable raw-data-seq)
-      (Reductions/iterReduce raw-data-seq init rfn)
-      (reduce rfn init raw-data-seq))))
 
 
 (defn raw-dtype-copy!
@@ -62,14 +46,14 @@
                 n-sub-elems (long (last dshape))
                 n-sub-arrays (.lsize ary-rdr)]
             (pfor/parallel-for
-             ary-idx
-             n-sub-arrays
-             (dtype-cp/high-perf-copy!
-              (ary-rdr ary-idx)
-              (dtype-proto/sub-buffer ary-target (+ target-offset
-                                                    (* n-sub-elems ary-idx))
-                                      n-sub-elems)
-              n-sub-elems))
+                ary-idx
+                n-sub-arrays
+                (dtype-cp/high-perf-copy!
+                 (ary-rdr ary-idx)
+                 (dtype-proto/sub-buffer ary-target (+ target-offset
+                                                       (* n-sub-elems ary-idx))
+                                         n-sub-elems)
+                 n-sub-elems))
             [ary-target (+ target-offset (* n-sub-elems n-sub-arrays))])))
       (dtype-proto/convertible-to-reader? raw-data)
       (let [src-reader (dtype-base/->reader raw-data)]
@@ -78,10 +62,10 @@
                 (and (not= 0 (dtype-base/ecount src-reader))
                      (= :scalar (argtypes/arg-type (src-reader 0)))))
           (raw-dtype-copy! src-reader ary-target target-offset options)
-          (copy-raw-seq->item! (seq raw-data) ary-target target-offset options)))
+          (dtype-base/copy-raw-seq->item! (seq raw-data) ary-target target-offset options)))
       (instance? java.lang.Iterable raw-data)
-      (copy-raw-seq->item! raw-data ary-target
-                           target-offset options)
+      (dtype-base/copy-raw-seq->item! raw-data ary-target
+                                      target-offset options)
 
       :else
       (do

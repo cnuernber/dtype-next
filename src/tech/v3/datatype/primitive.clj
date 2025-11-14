@@ -1,7 +1,9 @@
 (ns tech.v3.datatype.primitive
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.casting :as casting]
-            [tech.v3.datatype.const-reader :refer [const-reader]]))
+            [tech.v3.datatype.const-reader :refer [const-reader]]
+            [ham-fisted.defprotocol :refer [extend extend-type extend-protocol]])
+  (:refer-clojure :exclude [extend extend-type extend-protocol]))
 
 
 
@@ -10,14 +12,14 @@
   `(do
      (.put casting/class->datatype-map ~cls ~datatype)
      (.put casting/class->datatype-map ~prim-cls ~datatype)
-     (clojure.core/extend
+     (extend
           ~cls
         dtype-proto/PDatatype
         {:datatype (fn [item#] ~datatype)}
         dtype-proto/PElemwiseDatatype
         {:elemwise-datatype (fn [item#] ~datatype)}
         dtype-proto/PECount
-        {:ecount (fn [item#] 1)}
+        {:ecount (fn ^long [item#] 1)}
         dtype-proto/PConstantTimeMinMax
         {:has-constant-time-min-max? (constantly true)
          :constant-time-min identity

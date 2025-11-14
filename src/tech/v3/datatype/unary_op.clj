@@ -6,14 +6,16 @@
             [tech.v3.datatype.double-ops :refer [get-significand]]
             [ham-fisted.api :as hamf]
             [ham-fisted.function :as hamf-fn]
-            [ham-fisted.reduce :as hamf-rf])
+            [ham-fisted.reduce :as hamf-rf]
+            [ham-fisted.defprotocol :refer [extend extend-type extend-protocol]])
   (:import [tech.v3.datatype LongReader DoubleReader ObjectReader
             UnaryOperator Buffer
             UnaryOperators$DoubleUnaryOperator
             UnaryOperators$LongUnaryOperator]
            [clojure.lang IFn IFn$LL IFn$DD IFn$OLO IFn$ODO IFn$OL IFn$OD IFn$DL IFn$LD]
            [java.util.function DoubleUnaryOperator LongUnaryOperator]
-           [ham_fisted Casts Reductions IFnDef$OLO IFnDef$ODO]))
+           [ham_fisted Casts Reductions IFnDef$OLO IFnDef$ODO])
+  (:refer-clojure :exclude [extend extend-type extend-protocol]))
 
 
 (set! *warn-on-reflection* true)

@@ -12,7 +12,8 @@
             [ham-fisted.reduce :as hamf-rf]
             [ham-fisted.mut-map :as hamf-map]
             [ham-fisted.lazy-noncaching :as lznc]
-            [ham-fisted.set :as set])
+            [ham-fisted.set :as set]
+            [ham-fisted.defprotocol :refer [extend extend-type extend-protocol]])
   (:import [tech.v3.datatype UnaryOperator
             Buffer
             DoubleConsumers$MinMaxSum
@@ -24,7 +25,7 @@
            [org.apache.commons.math3.stat.correlation
             KendallsCorrelation PearsonsCorrelation SpearmansCorrelation]
            [java.util Arrays])
-    (:refer-clojure :exclude [min max]))
+    (:refer-clojure :exclude [min max extend extend-type extend-protocol]))
 
 
 (set! *warn-on-reflection* true)

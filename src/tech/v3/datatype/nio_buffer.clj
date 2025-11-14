@@ -6,12 +6,14 @@
             [tech.v3.datatype.base :as dtype-base]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.resource :as resource]
+            [ham-fisted.defprotocol :refer [extend extend-type extend-protocol]]
             [clojure.tools.logging :as log])
   (:import [java.nio Buffer ByteBuffer ShortBuffer IntBuffer LongBuffer
             FloatBuffer DoubleBuffer ByteOrder]
            [tech.v3.datatype UnsafeUtil]
            [tech.v3.datatype.native_buffer NativeBuffer]
-           [tech.v3.datatype.array_buffer ArrayBuffer]))
+           [tech.v3.datatype.array_buffer ArrayBuffer])
+  (:refer-clojure :exclude [extend extend-type extend-protocol]))
 
 
 (defn datatype->nio-buf-type
@@ -71,7 +73,7 @@
         dtype-proto/PElemwiseReaderCast
         {:elemwise-reader-cast buf->buffer}
         dtype-proto/PECount
-        {:ecount #(.remaining ^Buffer %)}
+        {:ecount (fn ^long [buf] (.remaining ^Buffer buf))}
         dtype-proto/PToArrayBuffer
         {:convertible-to-array-buffer? #(not (.isDirect ^Buffer %))
          :->array-buffer (fn [^Buffer buf]

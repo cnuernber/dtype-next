@@ -6,12 +6,14 @@
             ;;Complete clojure range support
             [tech.v3.datatype.clj-range :as clj-range]
             [tech.v3.datatype.errors :as errors]
-            [ham-fisted.api :as hamf])
+            [ham-fisted.api :as hamf]
+            [ham-fisted.defprotocol :refer [extend extend-type extend-protocol]])
   (:import [tech.v3.datatype LongReader DoubleReader]
            [clojure.lang LongRange IObj IPersistentMap Range MapEntry]
            [java.lang.reflect Field]
            [java.util Map]
-           [ham_fisted Ranges Ranges$LongRange Ranges$DoubleRange]))
+           [ham_fisted Ranges Ranges$LongRange Ranges$DoubleRange])
+  (:refer-clojure :exclude [extend extend-type extend-protocol]))
 
 
 (set! *warn-on-reflection* true)

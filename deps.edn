@@ -7,7 +7,7 @@
         org.roaringbitmap/RoaringBitmap {:mvn/version "0.9.0"}
         com.github.wendykierp/JTransforms {:mvn/version "3.1"}
         techascent/tech.resource {:mvn/version "5.09"}
-        com.cnuernber/ham-fisted {:mvn/version "2.035"}
+        com.cnuernber/ham-fisted {:mvn/version "2.040-SNAPSHOT"}
         org.clj-commons/primitive-math {:mvn/version "1.0.0"}}
  :deps/prep-lib {:alias :build
                  :fn compile

@@ -5,9 +5,11 @@
             [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.pprint :as dtype-pp]
             [tech.v3.datatype.copy :as dt-copy]
+            [tech.v3.datatype.base :as dt-base]
             [ham-fisted.api :as hamf]
             [ham-fisted.reduce :as hamf-rf]
-            [ham-fisted.iterator :as iterator])
+            [ham-fisted.iterator :as iterator]
+            [ham-fisted.defprotocol :refer [extend extend-type extend-protocol]])
   (:import [clojure.lang IObj Counted Indexed IFn IPersistentMap IReduceInit]
            [ham_fisted ArrayLists ArrayLists$ArrayOwner ArrayLists$ILongArrayList
             ArrayLists$ObjectArraySubList ArrayLists$ObjectArrayList
@@ -28,7 +30,8 @@
            [java.util Arrays RandomAccess List]
            [java.lang.reflect Array]
            [java.nio ByteBuffer ByteOrder]
-           [sun.misc Unsafe]))
+           [sun.misc Unsafe])
+  (:refer-clojure :exclude [extend extend-type extend-protocol]))
 
 
 (set! *warn-on-reflection* true)
@@ -71,6 +74,7 @@
     (dtype-proto/convertible-to-array-buffer? (.-data item)))
   (->array-buffer [item]
     (dtype-proto/->array-buffer (.-data item)))
+  dtype-proto/PToBinaryBuffer
   (convertible-to-binary-buffer? [item]
     (dtype-proto/convertible-to-binary-buffer? (.-data item)))
   (->binary-buffer [item]
@@ -767,6 +771,9 @@
 
 (defn- as-object ^Object [item] item)
 
+(defn- obj-array-copy-raw->item!
+  [raw-data ary-target ^long target-offset options]  
+  (dt-base/copy-raw-seq->item! raw-data ary-target target-offset options))
 
 (defn- implement-array!
   [dtype len-fn clone-fn]
@@ -806,7 +813,9 @@
       dtype-proto/PMemcpyInfo
       {:memcpy-info (fn [ary] [ary (array-base-offset-dt dtype)])}
       dtype-proto/PCopyRawData
-      {:copy-raw->item! array-buffer-convertible-copy-raw-data}
+      {:copy-raw->item! (if (identical? dtype :object)
+                          dt-base/copy-raw-seq->item!
+                          array-buffer-convertible-copy-raw-data)}
       dtype-proto/PToBuffer
       {:convertible-to-buffer? (constantly true)
        :->buffer ary->buffer}
@@ -825,7 +834,7 @@
         array-types
         (map
          (fn [ary-type]
-           `(implement-array! ~ary-type #(alength (typecast/datatype->array ~ary-type %))
+           `(implement-array! ~ary-type (fn ^long [ary#] (alength (typecast/datatype->array ~ary-type ary#)))
                               #(Arrays/copyOf (typecast/datatype->array ~ary-type %)
                                               (alength (typecast/datatype->array ~ary-type %)))))))))
 

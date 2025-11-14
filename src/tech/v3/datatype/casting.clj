@@ -5,14 +5,16 @@
             [clj-commons.primitive-math :as pmath]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.errors :as errors]
-            [ham-fisted.api :as hamf])
+            [ham-fisted.api :as hamf]
+            [ham-fisted.defprotocol :refer [extend]])
   (:import [java.util Map Set HashSet Collection]
            [java.util.concurrent ConcurrentHashMap]
            [clojure.lang RT Keyword]
            [tech.v3.datatype HasheqWrap]
            [ham_fisted Casts]
            [java.math BigDecimal]
-           [java.util UUID]))
+           [java.util UUID])
+  (:refer-clojure :exclude [extend]))
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
@@ -49,7 +51,7 @@
    (.put class->datatype-map klass datatype)
    (add-valid-datatype datatype)
    (when implement-protocols?
-     (clojure.core/extend klass
+     (extend klass
        dtype-proto/PElemwiseDatatype
        {:elemwise-datatype (constantly datatype)}
        dtype-proto/PDatatype
