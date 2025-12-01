@@ -156,6 +156,10 @@
   ^DataBuffer [^BufferedImage img]
   (.. img getRaster getDataBuffer))
 
+(defn img->guess-at-channel-n
+  [img]
+  ;; If this throws, we may need to know more about the input image
+  (.getNumBands (.getRaster img)))
 
 (extend-type BufferedImage
   dtype-proto/PElemwiseDatatype
@@ -174,6 +178,7 @@
         :byte-abgr [height width 4]
         :byte-abgr-pre [height width 4]
         :byte-gray [height width 1]
+        :custom [height width (img->guess-at-channel-n item)]
         [height width 1])))
   dtype-proto/PClone
   (clone [item]
@@ -433,7 +438,7 @@
 
 (defn tensor->image
   "Convert a tensor directly to a buffered image.  The values will be interpreted as unsigned
-  bytes in the range of 0-255. 
+  bytes in the range of 0-255.
 
   Options:
   * `:img-type` - Force a particular type of image type - see keys of [[image-types]]."
