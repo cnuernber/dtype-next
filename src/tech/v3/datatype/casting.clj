@@ -1,20 +1,20 @@
 (ns tech.v3.datatype.casting
-  (:refer-clojure :exclude [cast])
   (:require [clojure.set :as c-set]
             [ham-fisted.lazy-noncaching :as lznc]
             [clj-commons.primitive-math :as pmath]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.errors :as errors]
             [ham-fisted.api :as hamf]
-            [ham-fisted.defprotocol :refer [extend]])
+            [ham-fisted.defprotocol :refer [extend]]
+            [ham-fisted.language :refer [cond]])
   (:import [java.util Map Set HashSet Collection]
            [java.util.concurrent ConcurrentHashMap]
            [clojure.lang RT Keyword]
-           [tech.v3.datatype HasheqWrap]
+           [tech.v3.datatype KeywordSets]
            [ham_fisted Casts]
            [java.math BigDecimal]
            [java.util UUID])
-  (:refer-clojure :exclude [extend]))
+  (:refer-clojure :exclude [extend cast cond]))
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
@@ -35,7 +35,10 @@
 
 (defn un-alias-datatype
   [dtype]
-  (.getOrDefault ^Map aliased-datatypes dtype dtype))
+  (if (or (identical? dtype :int64)
+          (identical? dtype :float64))
+    dtype
+    (.getOrDefault ^Map aliased-datatypes dtype dtype)))
 
 
 ;;Only object datatypes are represented in these maps
@@ -100,40 +103,15 @@
 (cdef numeric-types (set (concat host-numeric-types unsigned-int-types)))
 
 
-(defn base-host-datatype?
+(defmacro base-host-datatype?
   [dtype]
-  (case dtype
-    :int32 true
-    :int16 true
-    :float32 true
-    :float64 true
-    :int64 true
-    :int8 true
-    :boolean true
-    :object true
-    false))
+  `(KeywordSets/isBaseType ~dtype))
 
 
 (defn valid-datatype?
   [datatype]
-  (case datatype
-    :int64 true
-    :float64 true
-    :int32 true
-    :int8 true
-    :int16 true
-    :uint8 true
-    :uint16 true
-    :uint32 true
-    :uint64 true
-    :char true
-    :float32 true
-    :boolean true
-    :object true
-    :string true
-    :keyword true
-    :uuid true
-    (.contains valid-datatype-set datatype)))
+  (or (KeywordSets/isKnownType datatype)
+      (.contains valid-datatype-set datatype)))
 
 
 (defn ensure-valid-datatype
@@ -199,6 +177,16 @@
       (throw (ex-info (format "datatype is not numeric: %s" dtype)
                       {:datatype dtype})))))
 
+(defmacro unaliased-integer-type? [dtype] `(KeywordSets/isIntegerType ~dtype))
+(defmacro unaliased-float-type? [dtype] `(KeywordSets/isFloatType ~dtype))
+
+(defn unaliased-numeric-type?
+  [dtype]
+  (if (or (identical? dtype :int64)
+          (identical? dtype :float64))
+    true
+    (or (unaliased-integer-type? dtype) (unaliased-float-type? dtype))))
+
 
 (defn numeric-type?
   [dtype]
@@ -207,47 +195,24 @@
      (or (int-types dtype)
          (float-types dtype)))))
 
-(defn- unaliased-float-type?
-  [dtype]
-  (if (or (identical? dtype :float64)
-          (identical? dtype :float32))
-    true
-    false))
-
 (defn float-type?
   [dtype]
   (unaliased-float-type? (un-alias-datatype dtype)))
-
-
-(defn- unaliased-integer-type?
-  [dtype]
-  (case dtype
-    :int64 true
-    :int32 true
-    :uint8 true
-    :int16 true
-    :uint64 true
-    :uint16 true
-    :int8 true
-    :uint32 true
-    false))
-
 
 (defn integer-type?
   [dtype]
   (unaliased-integer-type? (un-alias-datatype dtype)))
 
-
 (defn signed-integer-type?
   [dtype]
   (let [dtype (un-alias-datatype dtype)]
-    (boolean (contains? signed-unsigned dtype))))
+    (KeywordSets/isSignedIntegerType dtype)))
 
 
 (defn unsigned-integer-type?
   [dtype]
   (let [dtype (un-alias-datatype dtype)]
-    (boolean (contains? unsigned-signed dtype))))
+    (KeywordSets/isUnsignedIntegerType dtype)))
 
 
 (defn integer-datatype->float-datatype
@@ -655,13 +620,14 @@
            (nil? rhs-dtype))
      :object
      (let [lhs-dtype (un-alias-datatype lhs-dtype)
-           rhs-dtype (un-alias-datatype rhs-dtype)]
+           rhs-dtype (un-alias-datatype rhs-dtype)
+           la (unaliased-integer-type? lhs-dtype)
+           ra (unaliased-integer-type? rhs-dtype)]
        (cond
-         (and (unaliased-integer-type? lhs-dtype)
-              (unaliased-integer-type? rhs-dtype))
+         (and la ra)
          :int64
-         (and (or (unaliased-integer-type? lhs-dtype) (unaliased-float-type? lhs-dtype))
-              (or (unaliased-integer-type? rhs-dtype) (unaliased-float-type? rhs-dtype)))
+         (and (or la (unaliased-float-type? lhs-dtype))
+              (or ra (unaliased-float-type? rhs-dtype)))
          :float64
          :else
          :object))))

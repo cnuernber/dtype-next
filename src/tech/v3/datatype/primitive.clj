@@ -2,8 +2,9 @@
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.const-reader :refer [const-reader]]
-            [ham-fisted.defprotocol :refer [extend extend-type extend-protocol]])
-  (:refer-clojure :exclude [extend extend-type extend-protocol]))
+            [ham-fisted.defprotocol :refer [extend extend-type extend-protocol]]
+            [ham-fisted.language :refer [constantly]])
+  (:refer-clojure :exclude [extend extend-type extend-protocol constantly]))
 
 
 
@@ -15,9 +16,11 @@
      (extend
           ~cls
         dtype-proto/PDatatype
-        {:datatype (fn [item#] ~datatype)}
+        {:datatype (constantly ~datatype)}
         dtype-proto/PElemwiseDatatype
-        {:elemwise-datatype (fn [item#] ~datatype)}
+        {:elemwise-datatype (constantly ~datatype)}
+        dtype-proto/POperationalElemwiseDatatype
+        {:operational-elemwise-datatype (constantly ~datatype)}
         dtype-proto/PECount
         {:ecount (fn ^long [item#] 1)}
         dtype-proto/PConstantTimeMinMax

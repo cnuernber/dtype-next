@@ -154,7 +154,29 @@ Note that this makes no mention of indianness; buffers are in the format of the 
   (convertible-to-reader? [item] true)
   (->reader [item] EMPTY-READER)
   PToWriter
-  (convertible-to-writer? [item] false))
+  (convertible-to-writer? [item] false)
+  (->writer [item] EMPTY-READER)
+  PToArrayBuffer
+  (convertible-to-array-buffer? [item] false)
+  PToNativeBuffer
+  (convertible-to-native-buffer? [item] false))
+
+(extend-type Object
+  PToBuffer
+  (convertible-to-buffer? [item] false)
+  (->buffer [item] EMPTY-READER)
+  PToReader
+  (convertible-to-reader? [item] false)
+  (->reader [item] EMPTY-READER)
+  PToWriter
+  (convertible-to-writer? [item] false)
+  (->writer [item] EMPTY-READER)
+  PToArrayBuffer
+  (convertible-to-array-buffer? [item] false)
+  PToNativeBuffer
+  (convertible-to-native-buffer? [item] false)
+  PToNDBufferDesc
+  (convertible-to-nd-buffer-desc? [item] false))
 
 (defprotocol PToBinaryBuffer
   (convertible-to-binary-buffer? [buf])
@@ -278,10 +300,15 @@ Only arraybuffers and native buffers need implement this pathway."))
   (mget [t idx-seq])
   (mset! [t idx-seq value]))
 
-
 (defprotocol PApplyUnary
-  (apply-unary-op [item res-dtype un-op]))
+  (apply-unary-op [item un-op op-dtype res-dtype]))
 
+(defprotocol PInputDatatype
+  (input-datatype [this]))
+
+(extend-protocol PInputDatatype
+    nil (input-datatype [this] nil)
+    Object (input-datatype [this] nil))
 
 (extend-type Buffer
   PClone

@@ -6,7 +6,8 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.parallel.for :as parallel-for]
             [tech.v3.datatype.argtypes :as argtypes]
-            [ham-fisted.defprotocol :refer [extend extend-type extend-protocol]])
+            [ham-fisted.defprotocol :refer [extend extend-type extend-protocol]]
+            [ham-fisted.language :refer [cond]])
   (:import [tech.v3.datatype Buffer BinaryBuffer
             ObjectBuffer ElemwiseDatatype ObjectReader NDBuffer
             LongReader DoubleReader]
@@ -16,7 +17,7 @@
             Spliterator$OfInt Arrays]
            [java.util.stream Stream DoubleStream LongStream IntStream]
            [ham_fisted Reductions Casts])
-  (:refer-clojure :exclude [extend extend-type extend-protocol]))
+  (:refer-clojure :exclude [extend extend-type extend-protocol cond]))
 
 
 (set! *warn-on-reflection* true)
@@ -133,13 +134,14 @@
      (when (dtype-proto/convertible-to-reader? item)
        (dtype-proto/->reader item))))
   (^Buffer [item read-datatype]
-   (casting/ensure-valid-datatype read-datatype)
    (cond
      (nil? item) item
-     (= read-datatype (dtype-proto/elemwise-datatype item))
+     (identical? read-datatype (dtype-proto/elemwise-datatype item))
      (as-reader item)
      :else
-     (dtype-proto/elemwise-reader-cast item read-datatype))))
+     (do
+       (casting/ensure-valid-datatype read-datatype)
+       (dtype-proto/elemwise-reader-cast item read-datatype)))))
 
 (defn ->reader
   "If this object has a read-only or read-write conversion to a buffer

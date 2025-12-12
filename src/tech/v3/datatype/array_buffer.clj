@@ -9,6 +9,7 @@
             [ham-fisted.api :as hamf]
             [ham-fisted.reduce :as hamf-rf]
             [ham-fisted.iterator :as iterator]
+            [ham-fisted.language :refer [constantly]]
             [ham-fisted.defprotocol :refer [extend extend-type extend-protocol]])
   (:import [clojure.lang IObj Counted Indexed IFn IPersistentMap IReduceInit]
            [ham_fisted ArrayLists ArrayLists$ArrayOwner ArrayLists$ILongArrayList
@@ -31,7 +32,7 @@
            [java.lang.reflect Array]
            [java.nio ByteBuffer ByteOrder]
            [sun.misc Unsafe])
-  (:refer-clojure :exclude [extend extend-type extend-protocol]))
+  (:refer-clojure :exclude [extend extend-type extend-protocol constantly]))
 
 
 (set! *warn-on-reflection* true)
@@ -779,9 +780,11 @@
   [dtype len-fn clone-fn]
   (let [ary-cls (typecast/datatype->array-cls dtype)
         array-dtype (keyword (str (name dtype) "-array"))
-        ary->buffer (fn [ary]
-                      (MutListBuffer. (ArrayLists/toList ary) true
-                                      (dtype-proto/elemwise-datatype ary)))]
+        ary->buffer (fn
+                      ([ary]
+                       (MutListBuffer. (ArrayLists/toList ary) true dtype))
+                      ([ary _]
+                       (MutListBuffer. (ArrayLists/toList ary) true dtype)))]
     (extend ary-cls
       dtype-proto/PElemwiseDatatype
       {:elemwise-datatype (if (identical? dtype :object)
@@ -790,8 +793,10 @@
                                   (.getComponentType)
                                   (casting/object-class->datatype)))
                             (constantly dtype))}
+      dtype-proto/POperationalElemwiseDatatype
+      {:operational-elemwise-datatype (constantly dtype)}
       dtype-proto/PElemwiseReaderCast
-      {:elemwise-reader-cast ml-reader-cast}
+      {:elemwise-reader-cast ary->buffer}
       dtype-proto/PDatatype
       {:datatype (constantly array-dtype)}
       dtype-proto/PECount

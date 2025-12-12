@@ -7,7 +7,7 @@
         org.roaringbitmap/RoaringBitmap {:mvn/version "0.9.0"}
         com.github.wendykierp/JTransforms {:mvn/version "3.1"}
         techascent/tech.resource {:mvn/version "5.09"}
-        com.cnuernber/ham-fisted {:mvn/version "3.000"}
+        com.cnuernber/ham-fisted {:mvn/version "3.001-SNAPSHOT"}
         org.clj-commons/primitive-math {:mvn/version "1.0.0"}}
  :deps/prep-lib {:alias :build
                  :fn compile
@@ -100,7 +100,8 @@
                 com.cnuernber/benchmark {:mvn/version "1.000-beta-2"}
                 techascent/tech.viz {:mvn/version "6.00-beta-16-2"}
                 com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.6.2"}
-                org.clojure/test.check {:mvn/version "1.1.1"}}
+                org.clojure/test.check {:mvn/version "1.1.1"}
+                com.clojure-goes-fast/clj-java-decompiler {:mvn/version "0.3.6"}}
    :jvm-opts ["-Djdk.attach.allowAttachSelf"]
    :extra-paths ["test"]}
 

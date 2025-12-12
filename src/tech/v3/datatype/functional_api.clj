@@ -14,6 +14,7 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.unary-op :as unary-op]
             [tech.v3.datatype.binary-op :as binary-op]
+            [tech.v3.datatype.op-dispatch :refer [dispatch-unary-op] :as op-dispatch]
             [tech.v3.datatype.unary-pred :as unary-pred]
             [tech.v3.datatype.binary-pred :as binary-pred]
             [tech.v3.datatype.array-buffer :as array-buffer]
@@ -35,9 +36,8 @@
             [clj-commons.primitive-math :as pmath]
             [clojure.tools.logging :as log]
             [clojure.set :as set])
-  (:import [tech.v3.datatype BinaryOperator Buffer
-            LongReader DoubleReader ObjectReader
-            BinaryOperator ArrayHelpers]
+  (:import [tech.v3.datatype BinaryOperator UnaryOperator Buffer
+            LongReader DoubleReader ObjectReader ArrayHelpers]
            [org.roaringbitmap RoaringBitmap]
            [ham_fisted IMutList]
            [java.util List]
@@ -57,28 +57,46 @@
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
 
+(defn- all-arithmetic-ops
+  [ns-sym]
+  (->> (ns-publics ns-sym)
+       (map (fn [[op-name op-var]]
+              (let [op (deref op-var)]
+                (when (clojure.core/or (instance? UnaryOperator op)
+                                       (instance? BinaryOperator op))                  
+                  [op-name op]))))
+       (filter clojure.core/identity)
+       (into {})))
+
 
 (defmacro ^:private implement-arithmetic-operations
   []
-  (let [binary-ops (set (keys binary-op/builtin-ops))
-        unary-ops (set (keys unary-op/builtin-ops))
-        dual-ops (set/intersection binary-ops unary-ops)
-        unary-ops (set/difference unary-ops dual-ops)]
+  (let [binary-ops (all-arithmetic-ops 'tech.v3.datatype.binary-op)
+        unary-ops (all-arithmetic-ops 'tech.v3.datatype.unary-op)
+        binop-names (set (keys binary-ops))
+        unop-names (set (keys unary-ops))
+        dual-ops (set/intersection binop-names unop-names)
+        unary-ops (set/difference unop-names binop-names)]
     `(do
        ~@(->>
           unary-ops
           (map
            (fn [opname]
-             (let [op (unary-op/builtin-ops opname)
-                   op-meta (meta op)
-                   op-sym (vary-meta (symbol (name opname))
-                                     merge op-meta)]
-               `(defn ~(with-meta op-sym
-                         {:unary-operator opname})
-                  ([~'x ~'options]
-                   (unary-dispatch (unary-op/builtin-ops ~opname) ~'x ~'options))
-                  ([~'x]
-                   (~op-sym ~'x  nil)))))))
+             (let [op-sym (symbol "tech.v3.datatype.unary-op" (name opname))
+                   op (unary-ops opname)
+                   input-dtype (tech.v3.datatype.protocols/input-datatype op)
+                   output-dtype (ham-fisted.protocols/returned-datatype op)]
+               `(defn ~(with-meta opname
+                         {:unary-operator op-sym})
+                  ~@(if (clojure.core/and input-dtype output-dtype)
+                      `[([~'x ~'options]
+                         (dispatch-unary-op ~op-sym ~'x))
+                        ([~'x]
+                         (dispatch-unary-op ~op-sym ~'x))]
+                      `[([~'x ~'options]
+                         (dispatch-unary-op ~op-sym ~'input-dtype ~'output-dtype ~'x))
+                        ([~'x]
+                         (dispatch-unary-op ~op-sym ~'input-dtype ~'output-dtype ~'x))]))))))
        ~@(->>
           binary-ops
           (map

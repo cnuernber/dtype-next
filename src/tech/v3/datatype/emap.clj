@@ -3,6 +3,7 @@
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.copy-make-container :as copy-cmc]
             [tech.v3.datatype.dispatch :as dispatch]
+            [tech.v3.datatype.op-dispatch :as op-dispatch]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.argtypes :as argtypes]
             [tech.v3.datatype.base :as dtype-base]
@@ -11,54 +12,17 @@
             [tech.v3.datatype.binary-op :as binary-op]
             [tech.v3.datatype.dispatch :refer [vectorized-dispatch-1
                                                vectorized-dispatch-2]
-             :as dispatch])
+             :as dispatch]
+            [tech.v3.datatype.const-reader :refer [const-reader]]
+            [ham-fisted.protocols :as hamf-proto]
+            [ham-fisted.lazy-noncaching :as lznc]
+            [ham-fisted.language :refer [cond]]
+            [ham-fisted.api :as hamf]
+            [ham-fisted.print :refer [implement-tostring-print]])
   (:import [java.util List]
-           [tech.v3.datatype BooleanReader LongReader DoubleReader ObjectReader]
-           [ham_fisted Casts]))
-
-
-(defn- merge1
-  [lhs rhs]
-  (cond
-    (empty? lhs) rhs
-    (empty? rhs) lhs
-    :else
-    (into lhs rhs)))
-
-
-(defn unary-dispatch
-  [op x options]
-  (vectorized-dispatch-1
-   op
-   ;;the default iterable application is fine.
-   nil
-   #(dtype-proto/apply-unary-op %2 %1 op)
-   (merge1 (meta op) options)
-   x))
-
-
-(defn binary-dispatch
-  [op x y options]
-  (let [xt (argtypes/arg-type x)
-        yt (argtypes/arg-type y)]
-    (cond
-      (clojure.core/and (identical? :scalar xt)
-                        (identical? :scalar yt))
-      (op x y)
-      (identical? :scalar xt)
-      (unary-dispatch (binary-op/unary-op-l op x (dtype-proto/operational-elemwise-datatype y))
-                      y options)
-      (identical? :scalar yt)
-      (unary-dispatch (binary-op/unary-op-r op y (dtype-proto/operational-elemwise-datatype x))
-                      x options)
-      :else
-      (vectorized-dispatch-2
-       op
-       #(binary-op/iterable op %1 %2 %3)
-       #(binary-op/reader op %1 %2 %3)
-       (meta op)
-       x y))))
-
+           [tech.v3.datatype BooleanReader LongReader DoubleReader ObjectReader Buffer]
+           [ham_fisted Casts])
+  (:refer-clojure :exclude [cond]))
 
 
 (defmacro ^:private cast-or-missing
@@ -66,38 +30,6 @@
   `(if-let [retval# ~expr]
      (~cast-fn retval#)
      ~missing-val))
-
-
-(defn- emap-reader
-  [map-fn res-dtype cast-fn args]
-  (let [n-elems (long (dtype-base/ecount (first args)))
-        ^List args (mapv #(copy-cmc/ensure-reader % n-elems) args)
-        argcount (.size args)]
-    (case argcount
-      1 (unary-op/reader map-fn res-dtype (args 0))
-      2 (binary-op/reader map-fn res-dtype (args 0) (args 1))
-      (case (casting/simple-operation-space res-dtype)
-        :int64
-        (reify LongReader
-          (elemwiseDatatype [rdr] res-dtype)
-          (lsize [rdr] n-elems)
-          (readLong [rdr idx]
-            (cast-or-missing (apply map-fn (map #(% idx) args))
-                             Casts/longCast
-                             Long/MIN_VALUE)))
-        :float64
-        (reify DoubleReader
-          (elemwiseDatatype [rdr] res-dtype)
-          (lsize [rdr] n-elems)
-          (readDouble [rdr idx]
-            (cast-or-missing (apply map-fn (map #(% idx) args))
-                             Casts/doubleCast
-                             Double/NaN)))
-        (reify ObjectReader
-          (elemwiseDatatype [rdr] res-dtype)
-          (lsize [rdr] n-elems)
-          (readObject [rdr idx]
-            (cast-fn (apply map-fn (map #(% idx) args)))))))))
 
 
 (defn- op-space->cast-fn
@@ -108,6 +40,116 @@
     :float64 #(if % (Casts/doubleCast %) Double/NaN)
     (get @casting/*cast-table* res-dtype identity)))
 
+(declare emap-reader)
+
+(deftype LReader [^clojure.lang.IFn$LL read-fn ^long n-elems reader-dtype map-fn cast-fn readers]
+  dtype-proto/POperationalElemwiseDatatype (operational-elemwise-datatype [this] reader-dtype)
+  LongReader
+  (elemwiseDatatype [this] reader-dtype)
+  (lsize [this] n-elems)
+  (readLong [this idx] (.invokePrim read-fn idx))
+  (subBuffer [this sidx eidx]
+    (emap-reader map-fn reader-dtype cast-fn readers (hamf/repeat (count readers) :reader))))
+
+(defn- long-reader
+  [read-fn n-elems reader-dtype map-fn cast-fn readers]
+  (LReader. read-fn n-elems reader-dtype map-fn cast-fn readers))
+
+(deftype DReader [^clojure.lang.IFn$LD read-fn ^long n-elems reader-dtype map-fn cast-fn readers]
+  dtype-proto/POperationalElemwiseDatatype (operational-elemwise-datatype [this] reader-dtype)
+  DoubleReader
+  (elemwiseDatatype [this] reader-dtype)
+  (lsize [this] n-elems)
+  (readDouble [this idx] (.invokePrim read-fn idx))
+  (subBuffer [this sidx eidx]
+    (emap-reader map-fn reader-dtype cast-fn readers (hamf/repeat (count readers) :reader))))
+
+(defn- double-reader
+  [read-fn n-elems reader-dtype map-fn cast-fn readers]
+  (DReader. read-fn n-elems reader-dtype map-fn cast-fn readers))
+
+(deftype OReader [^clojure.lang.IFn$LO read-fn ^long n-elems reader-dtype map-fn cast-fn readers]
+  dtype-proto/POperationalElemwiseDatatype (operational-elemwise-datatype [this] reader-dtype)
+  ObjectReader
+  (elemwiseDatatype [this] reader-dtype)
+  (lsize [this] n-elems)
+  (readObject [this idx] (.invokePrim read-fn idx))
+  (subBuffer [this sidx eidx]
+    (emap-reader map-fn reader-dtype cast-fn readers (hamf/repeat (count readers) :reader))))
+
+(defn- object-reader
+  [read-fn n-elems reader-dtype map-fn cast-fn readers]
+  (OReader. read-fn n-elems reader-dtype map-fn cast-fn readers))
+
+(defmacro ^:private read-buffers
+  [n-buffers]
+  `(~'map-fn ~@(->> (range n-buffers)
+                    (map (fn [buf-idx]
+                           `(.readObject ~(with-meta (symbol (str (char (+ (int \a) buf-idx))))
+                                            {:tag 'Buffer})
+                                         ~'idx))))))
+
+(defn- emap-reader
+  [map-fn output-space cast-fn args arg-types]
+  (let [readers (mapv (fn [arg arg-type]
+                        (if-not (identical? arg-type :scalar)
+                          (dtype-base/->reader arg output-space)
+                          arg))
+                      args arg-types)
+        n-elems (long (reduce #(min ^long %1 ^long %2)
+                              Long/MAX_VALUE
+                              (lznc/map (fn ^long [arg]
+                                          (if (instance? Buffer arg)
+                                            (.lsize ^Buffer arg)
+                                            Long/MAX_VALUE)) readers)))
+        readers (mapv (fn [arg arg-type]
+                        (if (identical? :scalar arg-type)
+                          (const-reader (cast-fn arg) n-elems)
+                          arg))
+                      readers arg-types)
+        n-readers (count readers)
+        reader-fn
+        (case n-readers
+          3 (let [[a b c] readers]
+              (cond
+                (identical? output-space :int64)
+                (fn ^long [^long idx] (Casts/longCast (read-buffers 3)))
+                (identical? output-space :float64)
+                (fn ^double [^long idx] (Casts/doubleCast (read-buffers 3)))
+                :else
+                (fn [^long idx]  (read-buffers 3))))          
+          4 (let [[a b c d] readers]
+              (cond
+                (identical? output-space :int64)
+                (fn ^long [^long idx] (Casts/longCast (read-buffers 4)))
+                (identical? output-space :float64)
+                (fn ^double [^long idx] (Casts/doubleCast (read-buffers 4)))
+                :else
+                (fn [^long idx]  (read-buffers 4))))
+          (let [^clojure.lang.IFn$LO apply-map-fn
+                (fn [^long idx]
+                  (apply map-fn (lznc/map #(.readObject ^Buffer % idx) readers)))]
+            (cond
+              (identical? output-space :int64)
+              (fn ^long [^long idx] (Casts/longCast (.invokePrim apply-map-fn idx)))
+              (identical? output-space :float64)
+              (fn ^double [^long idx] (Casts/doubleCast (.invokePrim apply-map-fn idx)))
+              :else
+              (fn [^long idx]  (.invokePrim apply-map-fn idx)))))]
+    (cond
+      (instance? clojure.lang.IFn$LL reader-fn)
+      (long-reader reader-fn n-elems :int64 map-fn cast-fn readers)
+      (instance? clojure.lang.IFn$LD reader-fn)
+      (double-reader reader-fn n-elems :float64 map-fn cast-fn readers)
+      :else
+      (object-reader reader-fn n-elems output-space map-fn cast-fn readers))))
+
+(defn primitive-return-type
+  [f]
+  (let [rv (hamf-proto/returned-datatype f)]
+    (if (or (identical? rv :int64) (identical? rv :float64))
+      rv
+      nil)))
 
 (defn emap
   "Elemwise map:
@@ -121,50 +163,44 @@
   map-fn, unless it is typed, is assumed to keep data in the same numeric space
   as the input."
   ([map-fn res-dtype x]
-   (let [map-fn (unary-op/->operator map-fn)
-         op-meta (meta map-fn)
-         x-dtype (dtype-base/elemwise-datatype x)
-         res-dtype (or res-dtype (get op-meta :result-space) x-dtype)
-         op-space (casting/simple-operation-space (get op-meta :operation-space :object)
-                                                  x-dtype)
-         cast-fn (op-space->cast-fn op-space res-dtype)]
-     (unary-dispatch (with-meta map-fn {:result-space res-dtype
-                                        :operation-space op-space})
-                     x nil)))
+   (let [op (unary-op/->unary-operator map-fn)
+         x-dt (casting/simple-operation-space (dtype-base/operational-elemwise-datatype x))
+         output-space (or res-dtype (primitive-return-type op) x-dt)
+         input-space (or (dtype-proto/input-datatype op) res-dtype)]
+     (op-dispatch/dispatch-unary-op op input-space output-space x)))
   ([map-fn res-dtype x y]
-   (let [map-fn (binary-op/->operator map-fn)
-         op-space (or (:operation-space (meta map-fn))
-                      (casting/widest-datatype
-                       (packing/unpack-datatype (dtype-base/elemwise-datatype x))
-                       (packing/unpack-datatype (dtype-base/elemwise-datatype y))))
-         res-dtype (or res-dtype op-space)]
-     (binary-dispatch (with-meta map-fn
-                        {:operation-space op-space
-                         :result-space res-dtype})
-                      x y nil)))
+   (let [op (binary-op/->binary-operator map-fn)]
+     (if (nil? res-dtype)
+       (op-dispatch/dispatch-binary-op op x y)
+       (let [x-dt (casting/simple-operation-space (dtype-base/operational-elemwise-datatype x)
+                                                  (dtype-base/operational-elemwise-datatype y))
+             output-space (or res-dtype (primitive-return-type op) x-dt)
+             input-space (or (dtype-proto/input-datatype op) res-dtype)]
+         (op-dispatch/dispatch-binary-op op input-space output-space x y)))))
   ([map-fn res-dtype x y & args]
-   (let [args (concat [x y] args)
-         op-space (:operation-space (meta map-fn) :object)
-         res-dtype (or res-dtype op-space)
-         input-types (set (map argtypes/arg-type args))
-         cast-fn (op-space->cast-fn op-space res-dtype)]
+   (let [args (hamf/concatv [x y] args)
+         input-space (->> args
+                          (lznc/map dtype-base/operational-elemwise-datatype)
+                          (reduce casting/simple-operation-space))
+         output-space (or res-dtype (primitive-return-type map-fn) input-space)
+         arg-input-types (mapv argtypes/arg-type args)
+         input-types (set arg-input-types)
+         cast-fn (op-space->cast-fn input-space output-space)]
      (cond
        (= input-types #{:scalar})
        (cast-fn (apply map-fn args))
        (input-types :iterable)
-       (apply dispatch/typed-map (fn [& args]
-                                   (cast-fn (apply map-fn args)))
-              res-dtype args)
+       (op-dispatch/typed-map-n map-fn output-space res-dtype args arg-input-types)
        :else
        (let [shapes (->> args
-                         (map
+                         (lznc/map
                           #(when (dispatch/reader-like? (argtypes/arg-type %))
                              (dtype-base/shape %)))
-                         (remove nil?))]
+                         (lznc/remove nil?))]
          (errors/when-not-errorf
           (apply = shapes)
           "emap - shapes don't match: %s"
           (vec shapes))
-         (cond-> (emap-reader map-fn res-dtype cast-fn args)
+         (cond-> (emap-reader map-fn output-space res-dtype cast-fn args arg-input-types)
            (input-types :tensor)
            (dtype-base/reshape (first shapes))))))))

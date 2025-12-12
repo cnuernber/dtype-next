@@ -55,21 +55,19 @@
   information."
   ([scalar-fn iterable-fn reader-fn options arg1]
    (let [arg1-type (arg-type arg1)]
-     (if (= arg1-type :scalar)
+     (if (identical? arg1-type :scalar)
        (scalar-fn arg1)
        (let [src-dtype (dtype-proto/operational-elemwise-datatype arg1)
              op-space (if-let [orig-op (get options :operation-space)]
                         (casting/widest-datatype orig-op src-dtype)
                         src-dtype)
-             res-dtype (if (:result-space options)
-                         (:result-space options)
-                         op-space)]
-         (if (= arg1-type :iterable)
+             res-dtype (get options :result-space op-space)]
+         (if (identical? arg1-type :iterable)
            (if iterable-fn
              (iterable-fn res-dtype arg1)
              (typed-map-1 scalar-fn res-dtype arg1))
            (cond-> (reader-fn res-dtype (checked-elemwise-reader-cast arg1 op-space))
-             (= arg1-type :tensor)
+             (identical? arg1-type :tensor)
              (dtype-proto/reshape (dtype-proto/shape arg1))))))))
   ([scalar-fn iterable-fn reader-fn arg1]
    (vectorized-dispatch-1 scalar-fn iterable-fn reader-fn nil arg1))

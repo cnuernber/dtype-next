@@ -7,13 +7,14 @@
             [tech.v3.datatype.errors :as errors]
             [tech.v3.resource :as resource]
             [ham-fisted.defprotocol :refer [extend extend-type extend-protocol]]
+            [ham-fisted.language :refer [constantly]]
             [clojure.tools.logging :as log])
   (:import [java.nio Buffer ByteBuffer ShortBuffer IntBuffer LongBuffer
             FloatBuffer DoubleBuffer ByteOrder]
            [tech.v3.datatype UnsafeUtil]
            [tech.v3.datatype.native_buffer NativeBuffer]
            [tech.v3.datatype.array_buffer ArrayBuffer])
-  (:refer-clojure :exclude [extend extend-type extend-protocol]))
+  (:refer-clojure :exclude [extend extend-type extend-protocol constantly]))
 
 
 (defn datatype->nio-buf-type
