@@ -45,48 +45,46 @@
 
 (defmacro make-float-double-binary-op
   ([opname scalar-op identity-value]
-   `(-> (reify
-          dtype-proto/POperator
-          (op-name [item#] ~opname)
-          BinaryOperators$DoubleBinaryOperator
-          (binaryDouble [this# ~'x ~'y] ~scalar-op)
-          (initialDoubleReductionValue [this] (double ~identity-value)))
-        (vary-meta assoc :operation-space :float32)))
+   `(reify
+      dtype-proto/POperator
+      (op-name [item#] ~opname)
+      BinaryOperators$DoubleBinaryOperator
+      (binaryDouble [this# ~'x ~'y] ~scalar-op)
+      (initialDoubleReductionValue [this] (double ~identity-value))))
   ([opname scalar-op]
    `(make-float-double-binary-op ~opname ~scalar-op 1.0)))
 
 
 (defmacro make-int-long-binary-op
   [opname scalar-op]
-  `(-> (reify
-         dtype-proto/POperator
-         (op-name [item#] ~opname)
-         BinaryOperators$LongBinaryOperator
-         (binaryLong [this# ~'x ~'y] ~scalar-op))
-       (vary-meta assoc :operation-space :int32)))
+  `(reify
+     dtype-proto/POperator
+     (op-name [item#] ~opname)
+     BinaryOperators$LongBinaryOperator
+     (binaryLong [this# ~'x ~'y] ~scalar-op)))
 
-(def + (make-numeric-object-binary-op :tech.numerics/+ (pmath/+ x y) (+ x y) 0))
-(def - (make-numeric-object-binary-op :tech.numerics/- (pmath/- x y) (- x y) 0))
-(def / (make-numeric-object-binary-op :tech.numerics// (pmath// x y) (/ x y) 1))
-(def * (make-numeric-object-binary-op :tech.numerics/* (pmath/* x y) (* x y) 1))
-(def rem (make-numeric-object-binary-op :tech.numerics/rem (rem x y) (rem x y) 1))
-(def quot (make-numeric-object-binary-op :tech.numerics/quot (quot x y) (quot x y) 1))
+(def + (make-numeric-object-binary-op :tech.numerics/+ (pmath/+ x y) (clojure.core/+ x y) 0))
+(def - (make-numeric-object-binary-op :tech.numerics/- (pmath/- x y) (clojure.core/- x y) 0))
+(def / (make-numeric-object-binary-op :tech.numerics// (pmath// x y) (clojure.core// x y) 1))
+(def * (make-numeric-object-binary-op :tech.numerics/* (pmath/* x y) (clojure.core/* x y) 1))
+(def rem (make-numeric-object-binary-op :tech.numerics/rem (clojure.core/rem x y) (clojure.core/rem x y) 1))
+(def quot (make-numeric-object-binary-op :tech.numerics/quot (clojure.core/quot x y) (clojure.core/quot x y) 1))
 (def pow (make-float-double-binary-op :tech.numerics/pow (Math/pow x y) 1))
 (def max (make-numeric-object-binary-op :tech.numerics/max (if (pmath/> x y) x y) (if (> x y) x y)
                                         (- Double/MAX_VALUE)))
 (def min (make-numeric-object-binary-op :tech.numerics/min (if (pmath/> x y) y x) (if (> x y) y x)
                                         Double/MAX_VALUE))
 (def bit-and (make-int-long-binary-op :tech.numerics/bit-and (pmath/bit-and x y)))
-(def bit-and-not (make-int-long-binary-op :tech.numerics/bit-and-not (bit-and-not x y)))
+(def bit-and-not (make-int-long-binary-op :tech.numerics/bit-and-not (clojure.core/bit-and-not x y)))
 (def bit-or (make-int-long-binary-op :tech.numerics/bit-or (pmath/bit-or x y)))
 (def bit-xor (make-int-long-binary-op :tech.numerics/bit-xor (pmath/bit-xor x y)))
-(def bit-clear (make-int-long-binary-op :tech.numerics/bit-clear (bit-clear x y)))
-(def bit-flip (make-int-long-binary-op :tech.numerics/bit-flip (bit-flip x y)))
-(def bit-set (make-int-long-binary-op :tech.numerics/bit-set (bit-set x y)))
+(def bit-clear (make-int-long-binary-op :tech.numerics/bit-clear (clojure.core/bit-clear x y)))
+(def bit-flip (make-int-long-binary-op :tech.numerics/bit-flip (clojure.core/bit-flip x y)))
+(def bit-set (make-int-long-binary-op :tech.numerics/bit-set (clojure.core/bit-set x y)))
 (def bit-shift-left (make-int-long-binary-op :tech.numerics/bit-shift-left (pmath/bit-shift-left x y)))
 (def bit-shift-right (make-int-long-binary-op :tech.numerics/bit-shift-right (pmath/bit-shift-right x y)))
 (def unsigned-bit-shift-right (make-int-long-binary-op :tech.numerics/unsigned-bit-shift-right
-                                                       (unsigned-bit-shift-right x y)))
+                                                       (clojure.core/unsigned-bit-shift-right x y)))
 (def atan2 (make-float-double-binary-op :tech.numerics/atan2 (Math/atan2 x y)))
 (def hypot (make-float-double-binary-op :tech.numerics/hypot (Math/hypot x y)))
 (def ieee-remainder (make-float-double-binary-op :tech.numerics/ieee-remainder (Math/IEEEremainder x y)))

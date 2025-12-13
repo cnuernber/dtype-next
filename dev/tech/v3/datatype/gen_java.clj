@@ -70,8 +70,8 @@ import clojure.lang.IHashEq;
    {"isBaseType" [:int8 :int16 :char :int32 :int64 :float32 :float64 :boolean :object]
     "isBaseNumericType" [:int8 :int16 :int32 :int64 :float32 :float64]
     "isPrimitiveType" [:int8 :int16 :int32 :int64 :float32 :float64 :boolean]
-    "isKnownType" [:int8 :int16 :char :int32 :int64 :float32 :float64 :boolean :object
-                   :string :keyword :uuid]    
+    "isKnownType" [:int8 :uint8 :int16 :uint16 :int32 :uint32 :int64 :uint64 :char
+                   :float32 :float64 :boolean :object :string :keyword :uuid]
     "isIntegerType" [:int8 :uint8 :int16 :uint16 :int32 :uint32 :int64 :uint64]
     "isUnsignedIntegerType" [:uint8 :uint16 :uint32 :uint64]
     "isSignedIntegerType" [:int8 :int16 :int32 :int64]

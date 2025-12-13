@@ -8,6 +8,7 @@
             [tech.v3.datatype.binary-op :as binary-op]
             [tech.v3.datatype.unary-pred :as unary-pred]
             [tech.v3.datatype.binary-pred :as binary-pred]
+            [tech.v3.datatype.op-dispatch :as op-dispatch]
             [tech.v3.datatype.emap :as emap]
             [tech.v3.datatype.copy-make-container :as dtype-cmc]
             [tech.v3.datatype.reductions :as reductions]
@@ -18,7 +19,8 @@
             [ham-fisted.reduce :as hamf-rf]
             [ham-fisted.function :as hamf-fn]
             [ham-fisted.protocols :as hamf-proto]
-            [ham-fisted.lazy-noncaching :as lznc])
+            [ham-fisted.lazy-noncaching :as lznc]
+            [ham-fisted.iterator :as hamf-iter])
   (:import [it.unimi.dsi.fastutil.ints IntArrays IntComparator]
            [it.unimi.dsi.fastutil.longs LongArrays LongComparator]
            [it.unimi.dsi.fastutil.doubles DoubleComparator]
@@ -74,16 +76,13 @@
   "Convert a thing to a unary operator. Thing can be a keyword or
   an implementation of IFn or an implementation of a UnaryOperator."
   ^UnaryOperator [op]
-  (find-unary-operator op unary-op/builtin-ops
-                       "unary operator" identity))
+  (unary-op/->unary-operator op))
 
 
 (defn ->binary-operator
   "Convert a thing to a binary operator.  Thing can be a keyword or
   an implementation of IFn or an implementation of a BinaryOperator."
-  ^BinaryOperator [op]
-  (find-binary-operator op binary-op/builtin-ops
-                        "binary operator" binary-op/->operator))
+  ^BinaryOperator [op] (binary-op/->binary-operator op))
 
 
 (defn ->unary-predicate
@@ -670,9 +669,8 @@ user> (argops/arggroup-by #(mod % 7) (range 20))
   interchangeably as they both result in a sequence of [partition-key idx-reader].
   This design is lazy."
   (^Iterable [unary-op partition-pred item-iterable]
-   (let [iterator (->> (dtype-base/->iterable item-iterable)
-                       (unary-op/iterable (->unary-operator unary-op))
-                       (.iterator))]
+   (let [iterator (-> (op-dispatch/apply-op unary-op item-iterable)
+                      (hamf-iter/->iterator))]
      (when (.hasNext iterator)
        (do-argpartition-by 0 iterator (.next iterator)
                            (->binary-predicate partition-pred)))))

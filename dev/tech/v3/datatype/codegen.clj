@@ -15,7 +15,7 @@
                              '[+ - / *
                                <= < >= >
                                identity
-                               min max
+                               min max long double
                                bit-xor bit-and bit-and-not bit-not bit-set bit-test
                                bit-or bit-flip bit-clear
                                bit-shift-left bit-shift-right unsigned-bit-shift-right

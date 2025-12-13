@@ -127,9 +127,9 @@
             (dims/native? (.dimensions t)))))
   (->native-buffer [t] (dtype-proto/->native-buffer (.buffer t)))
   dtype-proto/PApplyUnary
-  (apply-unary-op [t res-dtype un-op]
+  (apply-unary-op [t un-op input-dtype output-dtype]
     (construct-tensor
-     (dtype-proto/apply-unary-op (or (.buffer t) (.bufferIO t)) res-dtype un-op)
+     (dtype-proto/apply-unary-op (or (.buffer t) (.bufferIO t)) un-op input-dtype output-dtype)
      (.dimensions t)
      (meta t)))
   dtype-proto/PTensor

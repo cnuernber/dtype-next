@@ -14,7 +14,8 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.unary-op :as unary-op]
             [tech.v3.datatype.binary-op :as binary-op]
-            [tech.v3.datatype.op-dispatch :refer [dispatch-unary-op] :as op-dispatch]
+            [tech.v3.datatype.op-dispatch :refer [dispatch-unary-op
+                                                  dispatch-binary-op] :as op-dispatch]
             [tech.v3.datatype.unary-pred :as unary-pred]
             [tech.v3.datatype.binary-pred :as binary-pred]
             [tech.v3.datatype.array-buffer :as array-buffer]
@@ -23,7 +24,7 @@
             [tech.v3.datatype.dispatch :refer [vectorized-dispatch-1
                                                vectorized-dispatch-2]
              :as dispatch]
-            [tech.v3.datatype.emap :refer [unary-dispatch binary-dispatch]]
+            [tech.v3.datatype.emap :as emap]
             ;;optimized operations
             [tech.v3.datatype.functional.opt :as fn-opt]
             [tech.v3.datatype.rolling]
@@ -31,6 +32,7 @@
             [tech.v3.datatype.list :as dtype-list]
             [tech.v3.datatype.graal-native :as graal-native]
             [ham-fisted.api :as hamf]
+            [ham-fisted.lazy-noncaching :as lznc]
             [ham-fisted.function :as hamf-fn]
             [ham-fisted.reduce :as hamf-rf]
             [clj-commons.primitive-math :as pmath]
@@ -39,7 +41,7 @@
   (:import [tech.v3.datatype BinaryOperator UnaryOperator Buffer
             LongReader DoubleReader ObjectReader ArrayHelpers]
            [org.roaringbitmap RoaringBitmap]
-           [ham_fisted IMutList]
+           [ham_fisted IMutList Casts]
            [java.util List]
            [java.util.function DoublePredicate DoubleConsumer]
            [clojure.lang IDeref]
@@ -52,7 +54,7 @@
                             bit-or bit-flip bit-clear
                             bit-shift-left bit-shift-right unsigned-bit-shift-right
                             quot rem cast not and or neg? even? zero? odd? pos?
-                            finite? abs infinite?]))
+                            finite? abs infinite? long double]))
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
@@ -75,11 +77,10 @@
         unary-ops (all-arithmetic-ops 'tech.v3.datatype.unary-op)
         binop-names (set (keys binary-ops))
         unop-names (set (keys unary-ops))
-        dual-ops (set/intersection binop-names unop-names)
-        unary-ops (set/difference unop-names binop-names)]
+        dual-ops (set/intersection binop-names unop-names)]
     `(do
        ~@(->>
-          unary-ops
+          (set/difference unop-names binop-names)
           (map
            (fn [opname]
              (let [op-sym (symbol "tech.v3.datatype.unary-op" (name opname))
@@ -94,33 +95,39 @@
                         ([~'x]
                          (dispatch-unary-op ~op-sym ~'x))]
                       `[([~'x ~'options]
-                         (dispatch-unary-op ~op-sym ~'input-dtype ~'output-dtype ~'x))
+                         (dispatch-unary-op ~op-sym ~input-dtype ~output-dtype ~'x))
                         ([~'x]
-                         (dispatch-unary-op ~op-sym ~'input-dtype ~'output-dtype ~'x))]))))))
+                         (dispatch-unary-op ~op-sym ~input-dtype ~output-dtype ~'x))]))))))
        ~@(->>
           binary-ops
           (map
-           (fn [opname]
-             (let [op (binary-op/builtin-ops opname)
-                   op-meta (meta op)
-                   op-sym (vary-meta (symbol (name opname))
-                                     merge op-meta)
-                   dual-op? (dual-ops opname)]
-               (if dual-op?
-                 `(defn ~(with-meta op-sym
+           (fn [[opname op]]
+             (let [op-sym (symbol "tech.v3.datatype.binary-op" (name opname))
+                   input-dtype (tech.v3.datatype.protocols/input-datatype op)
+                   output-dtype (ham-fisted.protocols/returned-datatype op)
+                   bin-dispatch
+                   (if-not (clojure.core/and input-dtype output-dtype)
+                     `[([~'x ~'y]
+                        (dispatch-binary-op ~op-sym ~'x ~'y))
+                       ([~'x ~'y & ~'args]
+                        (reduce #(dispatch-binary-op ~op-sym %1 %2)
+                                (lznc/concat [~'x ~'y] ~'args)))]
+                     `[([~'x ~'y]
+                        (dispatch-binary-op ~op-sym ~input-dtype ~output-dtype ~'x ~'y))
+                       ([~'x ~'y & ~'args]
+                        (reduce #(dispatch-binary-op ~op-sym ~input-dtype ~output-dtype %1 %2)
+                                (lznc/concat [~'x ~'y] ~'args)))])]
+               (if (dual-ops opname)
+                 (let [un-op-sym (symbol "tech.v3.datatype.unary-op" (name opname))]
+                   `(defn ~(with-meta opname
+                             {:binary-operator op-sym
+                              :unary-operator un-op-sym})
+                      ([~'x]
+                       (dispatch-unary-op ~un-op-sym ~'x nil))
+                      ~@bin-dispatch))
+                 `(defn ~(with-meta opname
                            {:binary-operator opname})
-                    ([~'x]
-                     (unary-dispatch (unary-op/builtin-ops ~opname) ~'x nil))
-                    ([~'x ~'y]
-                     (binary-dispatch (binary-op/builtin-ops ~opname) ~'x ~'y nil))
-                    ([~'x ~'y & ~'args]
-                     (reduce ~op-sym (concat [~'x ~'y] ~'args))))
-                 `(defn ~(with-meta op-sym
-                           {:binary-operator opname})
-                    ([~'x ~'y]
-                     (binary-dispatch (binary-op/builtin-ops ~opname) ~'x ~'y nil))
-                    ([~'x ~'y & ~'args]
-                     (reduce ~op-sym (concat [~'x ~'y] ~'args))))))))))))
+                    ~@bin-dispatch)))))))))
 
 
 (implement-arithmetic-operations)
@@ -294,8 +301,8 @@
 
 (defn equals
   [x y & [error-bar]]
-  (clojure.core/< (double (distance x y))
-                  (double (clojure.core/or error-bar 0.001))))
+  (clojure.core/< (Casts/doubleCast (distance x y))
+                  (Casts/doubleCast (clojure.core/or error-bar 0.001))))
 
 
 (defmacro ^:private implement-unary-predicates
@@ -415,7 +422,7 @@
   {:result :missing}"
   [x max-span]
   (let [num-reader (dtype-base/->reader x :float64)
-        max-span (double max-span)
+        max-span (Casts/doubleCast max-span)
         n-elems (.lsize num-reader)
         n-spans (dec n-elems)
         retval
@@ -443,7 +450,7 @@
                        (.addDouble new-data (pmath/+ lhs
                                                      (pmath/* add-data
                                                               (unchecked-inc
-                                                               (double add-idx)))))
+                                                               (Casts/doubleCast add-idx)))))
                        (.add new-indexes (pmath/+ cur-new-idx add-idx)))))))
              {:result new-data
               :missing new-indexes}))
@@ -586,7 +593,7 @@ tech.v3.datatype.functional> (meta regressor)
     (dotimes [idx (.size x)]
       (.addData reg (.readDouble x idx) (.readDouble y idx)))
     (with-meta
-      #(.predict reg (double %))
+      #(.predict reg (Casts/doubleCast %))
       {:regressor reg
        :intercept (.getIntercept reg)
        :slope (.getSlope reg)

@@ -12,7 +12,7 @@
             [tech.v3.datatype.rolling]
             [tech.v3.datatype.statistics]
             [tech.v3.datatype.unary-pred])
-  (:refer-clojure :exclude [+ - / * <= < >= > identity min max bit-xor bit-and bit-and-not bit-not bit-set bit-test bit-or bit-flip bit-clear bit-shift-left bit-shift-right unsigned-bit-shift-right quot rem cast not and or neg? even? zero? odd? pos? abs finite? infinite?]))
+  (:refer-clojure :exclude [+ - / * <= < >= > identity min max long double bit-xor bit-and bit-and-not bit-not bit-set bit-test bit-or bit-flip bit-clear bit-shift-left bit-shift-right unsigned-bit-shift-right quot rem cast not and or neg? even? zero? odd? pos? abs finite? infinite?]))
 
 (defn *
   ([x y]
@@ -318,6 +318,13 @@
   (tech.v3.datatype.functional-api/dot-product x y)))
 
 
+(defn double
+  ([x options]
+  (tech.v3.datatype.functional-api/double x options))
+  ([x]
+  (tech.v3.datatype.functional-api/double x)))
+
+
 (defn eq
   ([x y]
   (tech.v3.datatype.functional-api/eq x y)))
@@ -515,6 +522,13 @@ tech.v3.datatype.functional> (meta regressor)
   (tech.v3.datatype.functional-api/logistic x options))
   ([x]
   (tech.v3.datatype.functional-api/logistic x)))
+
+
+(defn long
+  ([x options]
+  (tech.v3.datatype.functional-api/long x options))
+  ([x]
+  (tech.v3.datatype.functional-api/long x)))
 
 
 (defn magnitude

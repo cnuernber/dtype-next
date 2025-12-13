@@ -1,4 +1,4 @@
-(ns tech.v3.datatype-test
+ (ns tech.v3.datatype-test
   (:require [clojure.test :refer [deftest is testing]]
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.nio-buffer :as nio-buffer]

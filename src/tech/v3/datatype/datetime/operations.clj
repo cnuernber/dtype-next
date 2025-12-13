@@ -9,6 +9,7 @@
             [tech.v3.datatype.rolling :as dt-rolling]
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.binary-op :as bin-op]
+            [tech.v3.datatype.op-dispatch :as op-dispatch]
             [tech.v3.datatype.argops :as argops]
             [tech.v3.datatype.errors :as errors]
             [ham-fisted.api :as hamf]
@@ -386,18 +387,9 @@
     (errors/throwf "Unable to convert tf (%s) to a temporal amount"
                    (type tf))))
 
-
-
 (defn- temporal-dispatch
   [op-space convert-fn lhs rhs]
-  (dispatch/vectorized-dispatch-2
-   convert-fn
-   #(dispatch/typed-map-2 convert-fn op-space %2 %3)
-   #(bin-op/reader convert-fn op-space %2 %3)
-   nil
-   lhs
-   rhs))
-
+  (op-dispatch/dispatch-binary-op (bin-op/->binary-operator convert-fn) op-space op-space lhs rhs))
 
 (defn plus-temporal-operator
   "Returns an binary that expects the temporal quantity as
