@@ -64,20 +64,24 @@ public class KeywordSets {
   }
   public static boolean isKnownType(final Object obj) {
     if(!(obj instanceof IHashEq)) return false;
-    final long hv = Integer.toUnsignedLong(((IHashEq)obj).hasheq()) & 63;
+    final long hv = Integer.toUnsignedLong(((IHashEq)obj).hasheq()) & 255;
     switch((int)hv) {
-    case 1: return obj == k_int16;
     case 16: return obj == k_int8;
-    case 25: return obj == k_uuid;
-    case 28: return obj == k_boolean;
-    case 32: return obj == k_int32;
-    case 33: return obj == k_float32;
-    case 34: return obj == k_float64;
-    case 38: return obj == k_int64;
     case 46: return obj == k_string;
     case 51: return obj == k_keyword;
-    case 61: return obj == k_object;
-    case 62: return obj == k_char;
+    case 65: return obj == k_int16;
+    case 126: return obj == k_char;
+    case 146: return obj == k_uint32;
+    case 160: return obj == k_int32;
+    case 161: return obj == k_float32;
+    case 168: return obj == k_uint64;
+    case 174: return obj == k_uint16;
+    case 189: return obj == k_object;
+    case 191: return obj == k_uint8;
+    case 217: return obj == k_uuid;
+    case 220: return obj == k_boolean;
+    case 226: return obj == k_float64;
+    case 230: return obj == k_int64;
     default: return false;
     }
   }

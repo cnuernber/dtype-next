@@ -134,6 +134,8 @@
 (defn- do-apply-unary-op
   ([^Buffer arg-rdr ^UnaryOperator un-op in-dtype out-dtype reported-dtype]
    (let [op-type (unary-op-type in-dtype out-dtype)]
+     (when (nil? reported-dtype)
+       (throw (ex-info "reported dtype cannot be nil" {})))
      (cond
        (identical? op-type :long-long)
        (unary-op-reader :int64 :int64 reported-dtype)
@@ -322,8 +324,8 @@
     (if (identical? at :scalar)
       (unary-dispatch (unary-op-l op a in-space) b bt in-space out-space reported-space)
       (unary-dispatch (unary-op-r op b in-space) a at in-space out-space reported-space))
-    (or (identical? at :iterator)
-        (identical? bt :iterator))
+    (or (identical? at :iterable)
+        (identical? bt :iterable))
     (typed-map-2 op out-space reported-space a b)
     :else
     (apply-binary-op op in-space out-space reported-space a b)))

@@ -22,7 +22,6 @@
 
 
 (set! *warn-on-reflection* true)
-(set! *unchecked-math* :warn-on-boxed)
 
 (defmacro define-input-output-datatypes
   [cls in-type out-type]
@@ -56,22 +55,24 @@
            ~opcode)))))
 
 (defmacro make-float-double-unary-op
-  [opname opcode]
-  `(reify
-     dtype-proto/POperator (op-name [this#] ~opname)
-     UnaryOperators$DoubleUnaryOperator
-     (unaryDouble [this# ~'x] ~opcode)))
+  ([opname opcode]
+   `(reify
+      dtype-proto/POperator (op-name [this#] ~opname)
+      UnaryOperators$DoubleUnaryOperator
+      (unaryDouble [this# ~'x] ~opcode))))
 
 (defmacro make-numeric-unary-op
-  [opname opcode]
-  `(reify
-     dtype-proto/POperator (op-name [this#] ~opname)
-     UnaryOperator
-     (unaryLong [this# ~'x] ~opcode)
-     (unaryDouble [this# ~'x] ~opcode)
-     (unaryObject [this# x#] (.unaryDouble this# x#))
-     dtype-proto/PInputDatatype (input-datatype [this] nil)
-     hamf-proto/ReturnedDatatype (returned-datatype [this] nil)))
+  ([opname opcode]
+   `(make-numeric-unary-op ~opname ~opcode ~opcode))
+  ([opname prim-opcode obj-opcode]
+   `(reify
+      dtype-proto/POperator (op-name [this#] ~opname)
+      UnaryOperator
+      (unaryLong [this# ~'x] ~prim-opcode)
+      (unaryDouble [this# ~'x] ~prim-opcode)
+      (unaryObject [this# ~'x] ~obj-opcode)
+      dtype-proto/PInputDatatype (input-datatype [this] nil)
+      hamf-proto/ReturnedDatatype (returned-datatype [this] nil))))
 
 (defmacro make-long-unary-op
   [opname opcode]
@@ -137,7 +138,7 @@
 (def sqrt (make-float-double-unary-op :tech.numerics/sqrt (Math/sqrt x)))
 (def cbrt (make-float-double-unary-op :tech.numerics/cbrt (Math/cbrt x)))
 (def abs (make-float-double-unary-op :tech.numerics/abs (Math/abs x)))
-(def sq (make-numeric-unary-op :tech.numerics/sq (unchecked-multiply x x)))
+(def sq (make-numeric-unary-op :tech.numerics/sq (* x x) (clojure.lang.Numbers/multiply x x)))
 (def sin (make-float-double-unary-op :tech.numerics/sin (Math/sin x)))
 (def sinh (make-float-double-unary-op :tech.numerics/sinh (Math/sinh x)))
 (def cos (make-float-double-unary-op :tech.numerics/cos (Math/cos x)))

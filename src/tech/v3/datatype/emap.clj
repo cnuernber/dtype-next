@@ -165,7 +165,7 @@
   ([map-fn res-dtype x]
    (let [op (unary-op/->unary-operator map-fn)
          x-dt (casting/simple-operation-space (dtype-base/operational-elemwise-datatype x))
-         output-space (or res-dtype (primitive-return-type op) x-dt)
+         output-space (or res-dtype (hamf-proto/returned-datatype op) x-dt)
          input-space (or (dtype-proto/input-datatype op) res-dtype)]
      (op-dispatch/dispatch-unary-op op input-space output-space x)))
   ([map-fn res-dtype x y]

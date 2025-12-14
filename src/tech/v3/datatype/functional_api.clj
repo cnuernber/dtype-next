@@ -91,13 +91,13 @@
                          {:unary-operator op-sym})
                   ~@(if (clojure.core/and input-dtype output-dtype)
                       `[([~'x ~'options]
-                         (dispatch-unary-op ~op-sym ~'x))
-                        ([~'x]
-                         (dispatch-unary-op ~op-sym ~'x))]
-                      `[([~'x ~'options]
                          (dispatch-unary-op ~op-sym ~input-dtype ~output-dtype ~'x))
                         ([~'x]
-                         (dispatch-unary-op ~op-sym ~input-dtype ~output-dtype ~'x))]))))))
+                         (dispatch-unary-op ~op-sym ~input-dtype ~output-dtype ~'x))]
+                      `[([~'x ~'options]
+                         (dispatch-unary-op ~op-sym ~'x))
+                        ([~'x]
+                         (dispatch-unary-op ~op-sym ~'x))]))))))
        ~@(->>
           binary-ops
           (map
