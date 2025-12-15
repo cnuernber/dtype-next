@@ -47,7 +47,7 @@
            [tech.v3.datatype LongNDReader Buffer NDBuffer
             ObjectReader LongReader NDReduce]
            [java.util List]
-           [ham_fisted ChunkedList])
+           [ham_fisted ChunkedList ISeqDef Transformables])
   (:refer-clojure :exclude [extend extend-type extend-protocol]))
 
 
@@ -817,15 +817,33 @@
                                mget
                                mset!)
 
+(deftype ShapeStrideSeq [^longs shape ^Buffer strides ^long n-dims ^long global-idx ^long idx m]
+  clojure.lang.Counted
+  (count [this] n-dims)
+  ISeqDef
+  (next [this]
+    (let [idx (inc idx)]
+      (when (< idx n-dims)
+        (ShapeStrideSeq. shape strides n-dims global-idx idx m))))
+  (first [this]
+    (-> (quot global-idx (.readLong strides idx))
+        (rem (aget shape idx))))
+  (hasheq [this] (.calcHasheq this))
+  clojure.lang.IObj
+  (meta [this] m)
+  (withMeta [this new-m] (ShapeStrideSeq. shape strides n-dims global-idx idx new-m))
+  Object
+  (toString [this] (Transformables/sequenceToString this))
+  (hashCode [this] (.calcHashCode this))
+  (equals [this o] (.seqEquals this o)))
+ 
 
-(defn- shape-stride-reader
-  [^longs shape ^Buffer strides ^long global-idx]
-  (let [n-dims (alength shape)]
-    (reify LongReader
-      (lsize [rdr] n-dims)
-      (readLong [rdr idx]
-        (-> (quot global-idx (.readLong strides idx))
-            (rem (aget shape idx)))))))
+(defn- shape-stride-seq
+  (^clojure.lang.ISeq [^longs shape ^Buffer strides ^long global-idx]
+   (let [n-dims (alength shape)]
+     (shape-stride-seq shape strides n-dims global-idx)))
+  (^clojure.lang.ISeq [^longs shape ^Buffer strides ^long n-dims ^long global-idx]
+   (ShapeStrideSeq. shape strides n-dims global-idx 0 nil)))
 
 (defn- round
   ^long [^long amount ^long div]
@@ -919,8 +937,7 @@
                      x# (pmath/rem xy# ~shape-x)
                      y# (pmath// xy# ~shape-x)]
                  (~nd-read-fn ~per-pixel-op y# x# c#))
-            `(~cast-fn (.ndReadObjectIter ~per-pixel-op (shape-stride-reader
-                                                         ~output-shape ~strides ~'idx)))))
+            `(~cast-fn (.ndReadObjectIter ~per-pixel-op (shape-stride-seq ~output-shape ~strides ~'n-dims ~'idx)))))
        (reduce [this# rfn# init#]
          (nd-reduce ~per-pixel-op rfn# init# 0 ~n-elems)))))
 
@@ -933,7 +950,8 @@
         shape-chan (long (last b-shape))
         shape-x (long (or (last (butlast b-shape))
                           0))
-        strides (dims-analytics/shape-ary->strides b-shape)]
+        strides (dims-analytics/shape-ary->strides b-shape)
+        n-dims (alength b-shape)]
     (case (.rank b)
       1 (case (casting/simple-operation-space (dtype-base/elemwise-datatype b))
           :int64 (make-tensor-reader :int64 b-dtype 1 n-elems b b-shape shape-x shape-chan strides)
