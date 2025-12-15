@@ -93,6 +93,12 @@
   (tech.v3.tensor-api/->ComputeTensorO compute-fn shape rank dims datatype m)))
 
 
+(defn ->ShapeStrideSeq
+  "Positional factory function for class tech.v3.tensor_api.ShapeStrideSeq."
+  ([shape strides n-dims global-idx idx m]
+  (tech.v3.tensor-api/->ShapeStrideSeq shape strides n-dims global-idx idx m)))
+
+
 (defn ->jvm
   "Conversion to storage that structurally represented the tensor so for exampe
   a [2 2] tensor will be of the form [[1 2][3 4]].

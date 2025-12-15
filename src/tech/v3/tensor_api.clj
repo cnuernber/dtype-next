@@ -817,7 +817,7 @@
                                mget
                                mset!)
 
-(deftype ShapeStrideSeq [^longs shape ^Buffer strides ^long n-dims ^long global-idx ^long idx m]
+(deftype ^:private ShapeStrideSeq [^longs shape ^Buffer strides ^long n-dims ^long global-idx ^long idx m]
   clojure.lang.Counted
   (count [this] n-dims)
   ISeqDef
