@@ -21,6 +21,78 @@
   (:require [tech.v3.tensor-api]
             [tech.v3.datatype.base]))
 
+(defn ->ComputeTensor1D
+  "Positional factory function for class tech.v3.tensor_api.ComputeTensor1D."
+  ([compute-fn shape rank dims datatype]
+  (tech.v3.tensor-api/->ComputeTensor1D compute-fn shape rank dims datatype)))
+
+
+(defn ->ComputeTensor1L
+  "Positional factory function for class tech.v3.tensor_api.ComputeTensor1L."
+  ([compute-fn shape rank dims datatype]
+  (tech.v3.tensor-api/->ComputeTensor1L compute-fn shape rank dims datatype)))
+
+
+(defn ->ComputeTensor1O
+  "Positional factory function for class tech.v3.tensor_api.ComputeTensor1O."
+  ([compute-fn shape rank dims datatype]
+  (tech.v3.tensor-api/->ComputeTensor1O compute-fn shape rank dims datatype)))
+
+
+(defn ->ComputeTensor2D
+  "Positional factory function for class tech.v3.tensor_api.ComputeTensor2D."
+  ([compute-fn shape rank dims datatype]
+  (tech.v3.tensor-api/->ComputeTensor2D compute-fn shape rank dims datatype)))
+
+
+(defn ->ComputeTensor2L
+  "Positional factory function for class tech.v3.tensor_api.ComputeTensor2L."
+  ([compute-fn shape rank dims datatype]
+  (tech.v3.tensor-api/->ComputeTensor2L compute-fn shape rank dims datatype)))
+
+
+(defn ->ComputeTensor2O
+  "Positional factory function for class tech.v3.tensor_api.ComputeTensor2O."
+  ([compute-fn shape rank dims datatype]
+  (tech.v3.tensor-api/->ComputeTensor2O compute-fn shape rank dims datatype)))
+
+
+(defn ->ComputeTensor3D
+  "Positional factory function for class tech.v3.tensor_api.ComputeTensor3D."
+  ([compute-fn shape rank dims datatype]
+  (tech.v3.tensor-api/->ComputeTensor3D compute-fn shape rank dims datatype)))
+
+
+(defn ->ComputeTensor3L
+  "Positional factory function for class tech.v3.tensor_api.ComputeTensor3L."
+  ([compute-fn shape rank dims datatype]
+  (tech.v3.tensor-api/->ComputeTensor3L compute-fn shape rank dims datatype)))
+
+
+(defn ->ComputeTensor3O
+  "Positional factory function for class tech.v3.tensor_api.ComputeTensor3O."
+  ([compute-fn shape rank dims datatype]
+  (tech.v3.tensor-api/->ComputeTensor3O compute-fn shape rank dims datatype)))
+
+
+(defn ->ComputeTensorD
+  "Positional factory function for class tech.v3.tensor_api.ComputeTensorD."
+  ([compute-fn shape rank dims datatype]
+  (tech.v3.tensor-api/->ComputeTensorD compute-fn shape rank dims datatype)))
+
+
+(defn ->ComputeTensorL
+  "Positional factory function for class tech.v3.tensor_api.ComputeTensorL."
+  ([compute-fn shape rank dims datatype]
+  (tech.v3.tensor-api/->ComputeTensorL compute-fn shape rank dims datatype)))
+
+
+(defn ->ComputeTensorO
+  "Positional factory function for class tech.v3.tensor_api.ComputeTensorO."
+  ([compute-fn shape rank dims datatype]
+  (tech.v3.tensor-api/->ComputeTensorO compute-fn shape rank dims datatype)))
+
+
 (defn ->jvm
   "Conversion to storage that structurally represented the tensor so for exampe
   a [2 2] tensor will be of the form [[1 2][3 4]].
@@ -114,8 +186,8 @@ user> (dtt/compute-tensor [2 2 2] (fn [& args] (vec args)) :object)
 ```"
   ([shape per-pixel-op datatype]
   (tech.v3.tensor-api/compute-tensor shape per-pixel-op datatype))
-  ([output-shape per-pixel-op]
-  (tech.v3.tensor-api/compute-tensor output-shape per-pixel-op)))
+  ([shape per-pixel-op]
+  (tech.v3.tensor-api/compute-tensor shape per-pixel-op)))
 
 
 (defn const-tensor
@@ -490,37 +562,5 @@ user> (dtt/transpose tensor [1 2 0])
 ```"
   (^{:tag tech.v3.datatype.NDBuffer} [tens reorder-indexes]
   (tech.v3.datatype.base/transpose tens reorder-indexes)))
-
-
-(defmacro typed-compute-tensor
-  "Fastest possible inline compute tensor.  The code to generate the next
-  element is output inline into the tensor definition.
-
-
-  For the 4 argument version to work, shape must be compile
-  time introspectable object with count so for instance `[a b c]` will work
-  but item-shape will throw an exception.
-
-
-  * `:datatype` - One of #{:int64 :float64} or :object is assumed.  This indicates
-    the tensor interface definition and read operations that will be implemented.
-    See 'java/tech/v3/datatype/[Long|Double|Object]TensorReader.java.
-  * `:advertised-datatype` - Datatype you will tell the world.
-  * `:rank` - compile time introspectable rank.  Indicates which ndReadX overloads
-     will be implemented.
-  * `:shape` - Shape of the output tensor.
-  * `:op-code-args` - Op code arguments.  Expected to be a vector of argument
-     names such as `[y x c].  Let destructuring is *NOT* supported beyond 3
-     variables at this time.!!!`.
-  * `:op-code` - Code which executes the read operation.
-
-  Results in an implementation of NDBuffer which efficiently performs a 1,2 or 3 dimension
-  ND read operation."
-  ([datatype advertised-datatype rank shape op-code-args op-code]
-  `(tech.v3.tensor-api/typed-compute-tensor ~datatype ~advertised-datatype ~rank ~shape ~op-code-args ~op-code))
-  ([advertised-datatype rank shape op-code-args op-code]
-  `(tech.v3.tensor-api/typed-compute-tensor ~advertised-datatype ~rank ~shape ~op-code-args ~op-code))
-  ([advertised-datatype shape op-code-args op-code]
-  `(tech.v3.tensor-api/typed-compute-tensor ~advertised-datatype ~shape ~op-code-args ~op-code)))
 
 

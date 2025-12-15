@@ -80,18 +80,17 @@
                                   ;;Note from-prototype fails for reader chains.
                                   ;;So you have to copy or use an actual image.
                                   (dtt/new-tensor [512 288 3] :datatype :uint8)))
-        compute-tensor #(-> (dtt/typed-compute-tensor
-                             :int64 :uint8 3 (dtype/shape source-image)
-                             [y x c]
-                             (let [c (- 2 c)
-                                   src-val (.ndReadLong source-image y x c)]
-                               (-> src-val
+        compute-tensor #(-> (dtt/compute-tensor
+                             [512 288 3]
+                             (fn ^long [^long y ^long x ^long c]
+                               (-> (.ndReadLong source-image y x (- 2 c))
                                    (pmath/+ 50)
                                    (pmath/min 255))))
-                            (dtype/copy! (dtt/new-tensor [512 288 3] :datatype :uint8)))]
-    ;;warm up and actually check that tostring works as expected
-    (is (string? (.toString ^Object (reader-composition))))
-    (is (string? (.toString ^Object (inline-fn))))
+                            (dtype/copy! (dtt/new-tensor [512 288 3] :datatype :uint8)))
+        _ (dotimes [iter 30]
+            (reader-composition)
+            (inline-fn)
+            (compute-tensor))]
     (clojure.pprint/pprint
      {:reader-composition (with-out-str (time (dotimes [iter 10]
                                                 (reader-composition))))

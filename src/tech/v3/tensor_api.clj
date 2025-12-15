@@ -952,121 +952,119 @@
         :float64 (make-tensor-reader :float64 b-dtype 4 n-elems b b-shape shape-x shape-chan strides)
         (make-tensor-reader :object b-dtype 4 n-elems b b-shape shape-x shape-chan strides)))))
 
+(defmacro ^:private define-compute-tensors
+  []
+  `(do
+     ~@(->>
+        (lznc/cartesian-map
+         (fn [[^long fn-arity simplified-datatype]]
+           (let [max-arity 3
+                 prim-fn? (<= fn-arity max-arity)
+                 dtype-suffix (case simplified-datatype
+                                :int64 "L"
+                                :float64 "D"
+                                :object "O")
+                 fn-tag (when prim-fn?
+                          (symbol (apply str "clojure.lang.IFn$" (concat (repeat fn-arity "L")
+                                                                         [dtype-suffix]))))
+                 {:keys [nd-read-fn read-type cast-fn]}
+                 (if prim-fn? 
+                   (case simplified-datatype
+                     :int64 {:nd-read-fn 'ndReadLong
+                             :read-type 'tech.v3.datatype.LongTensorReader
+                             :cast-fn 'Casts/longCast}
+                     :float64 {:nd-read-fn 'ndReadDouble
+                               :read-type 'tech.v3.datatype.DoubleTensorReader
+                               :cast-fn 'Casts/doubleCast}
+                     {:nd-read-fn 'ndReadObject
+                      :read-type 'tech.v3.datatype.ObjectTensorReader})
+                   {:nd-read-fn 'ndReadObjectIter
+                    :read-type 'tech.v3.datatype.ObjectTensorReader})
+                 argvec (if prim-fn?
+                          (->> (range fn-arity)
+                               (mapv (fn [^long idx]
+                                       (symbol (str "arg" (inc idx))))))
+                          ['args])
+                 cls-sym (symbol (str "ComputeTensor" (when prim-fn? fn-arity) (name dtype-suffix)))]
+             [`(deftype ~cls-sym
+                   [~(with-meta 'compute-fn {:tag fn-tag})
+                    ~'shape
+                    ~'rank
+                    ~'dims
+                    ~'datatype
+                    ~'m]
+                 ~read-type
+                 (~'elemwiseDatatype [tr#] ~'datatype)
+                 (~'shape [tr#] ~'shape)
+                 (~'dimensions [tr#] ~'dims)
+                 (~'indexSystem [tr#] (dims/->global->local ~'dims))
+                 (~'rank [tr#] ~'rank)
+                 (~'bufferIO [tr#] (nd-buffer->buffer-reader tr#))
+                 (~nd-read-fn ~(into ['this] argvec)
+                  ~(if prim-fn?
+                     `(.invokePrim ~'compute-fn ~@argvec)
+                     `(~'compute-fn ~@argvec)))
+                 (meta [~'this] ~'m)
+                 (withMeta [~'this ~'new-m]
+                   (~(symbol (str (name cls-sym) ".")) ~'compute-fn ~'shape ~'rank ~'dims ~'datatype ~'new-m))
+                 (~'iterator [tr#]
+                  (.iterator ^java.util.List (dtype-proto/slice tr# 1 false)))
+                 Object
+                 (~'toString [tr#] (tens-pp/tensor->string tr#)))
+              `(dtype-pp/implement-tostring-print ~cls-sym)]))
+         [1 2 3 4] [:int64 :float64 :object])
+        (lznc/apply-concat))))
 
-(defmacro typed-compute-tensor
-  "Fastest possible inline compute tensor.  The code to generate the next
-  element is output inline into the tensor definition.
+(define-compute-tensors)
 
-
-  For the 4 argument version to work, shape must be compile
-  time introspectable object with count so for instance `[a b c]` will work
-  but item-shape will throw an exception.
-
-
-  * `:datatype` - One of #{:int64 :float64} or :object is assumed.  This indicates
-    the tensor interface definition and read operations that will be implemented.
-    See 'java/tech/v3/datatype/[Long|Double|Object]TensorReader.java.
-  * `:advertised-datatype` - Datatype you will tell the world.
-  * `:rank` - compile time introspectable rank.  Indicates which ndReadX overloads
-     will be implemented.
-  * `:shape` - Shape of the output tensor.
-  * `:op-code-args` - Op code arguments.  Expected to be a vector of argument
-     names such as `[y x c].  Let destructuring is *NOT* supported beyond 3
-     variables at this time.!!!`.
-  * `:op-code` - Code which executes the read operation.
-
-  Results in an implementation of NDBuffer which efficiently performs a 1,2 or 3 dimension
-  ND read operation."
-  ([datatype advertised-datatype rank shape op-code-args op-code]
-   (let [{:keys [nd-read-fn read-type _cast-fn]}
-         (case datatype
-           :int64 {:nd-read-fn 'ndReadLong
-                   :read-type 'tech.v3.datatype.LongTensorReader
-                   :cast-fn 'long}
-           :float64 {:read-fn 'readDouble
-                     :nd-read-fn 'ndReadDouble
-                     :read-type 'tech.v3.datatype.DoubleTensorReader
-                     :cast-fn 'double}
-           {:nd-read-fn 'ndReadObject
-            :read-type 'tech.v3.datatype.ObjectTensorReader
-            :cast-fn 'identity})
-
-         rev-args (if (sequential? op-code-args)
-                    (reverse op-code-args)
-                    [])
-         c (first rev-args)
-         x (second rev-args)
-         y (last rev-args)]
-     `(let [shape# (vec ~shape)
-            rank# (long ~rank)
-            n-elems# (long (apply * shape#))
-            dims# (dims/dimensions shape#)]
-        (reify
-          dtype-proto/PECount
-          (ecount [this#] (.lsize this#))
-          ~read-type
-          (elemwiseDatatype [tr#] ~advertised-datatype)
-          (shape [tr#] shape#)
-          (dimensions [tr#] dims#)
-          (indexSystem [tr#] (dims/->global->local dims#))
-          (rank [tr#] rank#)
-          (bufferIO [tr#] (nd-buffer->buffer-reader tr#))
-          ;;Implement typed read access
-          ~@(case (long rank)
-              1 [`(~nd-read-fn [tr# ~c] ~op-code)
-                 `(ndReadObjectIter
-                   [tr# idx-seq#]
-                   (if (== 1 (count idx-seq#))
-                     (.ndReadObject tr# (first idx-seq#))
-                     (errors/throwf "n-dims is 1, %d passed in" (count idx-seq#))))]
-              2 [`(~nd-read-fn [tr# ~x ~c] ~op-code)
-                 `(ndReadObject [tr# c#]
-                                (dtype-proto/select tr# c#))
-                 `(ndReadObjectIter
-                   [tr# idx-seq#]
-                   (case (count idx-seq#)
-                     1 (.ndReadObject tr# (first idx-seq#))
-                     2 (.ndReadObject tr# (first idx-seq#) (second idx-seq#))
-                     (errors/throwf "n-dims is 2, %d passed in" (count idx-seq#))))]
-              3 [`(~nd-read-fn [tr# ~y ~x ~c] ~op-code)
-                 `(ndReadObject [tr# c#]
-                                (dtype-proto/select tr# [c#]))
-                 `(ndReadObject [tr# x# c#]
-                                (dtype-proto/select tr# [x# c#]))
-                 `(ndReadObjectIter
-                   [tr# idx-seq#]
-                   (case (count idx-seq#)
-                     1 (.ndReadObject tr# (first idx-seq#))
-                     2 (.ndReadObject tr# (first idx-seq#) (second idx-seq#))
-                     3 (.ndReadObject tr# (first idx-seq#) (second idx-seq#) (last idx-seq#))
-                     (errors/throwf "n-dims is 3, %d passed in" (count idx-seq#))))]
-              [`(ndReadObjectIter [tr# indexes#]
-                                  (if (== (count indexes#) ~rank)
-                                    (let [~op-code-args indexes#]
-                                      ~op-code)
-                                    (dtype-proto/select tr# indexes#)))
-               `(ndReadObject [tr# c#]
-                              (dtype-proto/select tr# [c#]))
-               `(ndReadObject [tr# x# c#]
-                              (dtype-proto/select tr# [x# c#]))
-               `(ndReadObject [tr# y# x# c#]
-                              (dtype-proto/select tr# [y# x# c#]))])
-          (iterator [tr#]
-            (.iterator ^java.util.List (dtype-proto/slice tr# 1 false)))
-          Object
-          (toString [tr#] (tens-pp/tensor->string tr#))))))
-  ([advertised-datatype rank shape op-code-args op-code]
-   (case (casting/simple-operation-space advertised-datatype)
-     :int64 `(typed-compute-tensor :int64 ~advertised-datatype ~rank ~shape ~op-code-args ~op-code)
-     :float64 `(typed-compute-tensor :float64 ~advertised-datatype ~rank ~shape ~op-code-args ~op-code)
-     `(typed-compute-tensor :object ~advertised-datatype ~rank ~shape ~op-code-args ~op-code)))
-  ([advertised-datatype shape op-code-args op-code]
-   (case (count shape)
-     1 `(typed-compute-tensor ~advertised-datatype 1 ~shape ~op-code-args ~op-code)
-     2 `(typed-compute-tensor ~advertised-datatype 2 ~shape ~op-code-args ~op-code)
-     3 `(typed-compute-tensor ~advertised-datatype 3 ~shape ~op-code-args ~op-code)
-     `(typed-compute-tensor ~advertised-datatype 4 ~shape ~op-code-args ~op-code))))
-
+(defmacro ^:private construct-compute-tensors
+  []
+  `(case ~'simplified-datatype
+     ~@(->>
+        [:int64 :float64 :object]
+        (mapcat
+         (fn [simplified-datatype]           
+           [simplified-datatype
+            `(case ~'rank
+               ~@(->> [1 2 3 4]
+                      (mapcat
+                       (fn [^long rank]
+                         (let [max-arity 3
+                               prim-fn? (<= rank max-arity)
+                               dtype-suffix (case simplified-datatype
+                                              :int64 "L"
+                                              :float64 "D"
+                                              :object "O")
+                               cls-sym (symbol (str "ComputeTensor" (when prim-fn? rank) (name dtype-suffix)))
+                               fn-tag (when prim-fn?
+                                        (symbol (apply str "clojure.lang.IFn$" (concat (repeat rank "L")
+                                                                                       [dtype-suffix]))))
+                               argvec (if prim-fn?
+                                        (with-meta 
+                                          (->> (range rank)
+                                               (mapv (fn [^long idx]
+                                                       (with-meta 
+                                                         (symbol (str "arg" (inc idx)))
+                                                         {:tag 'long}))))
+                                          {:tag (case simplified-datatype
+                                                  :int64 'long :float64 'double nil)})
+                                        ['args])
+                               ctor `(let [~'per-pixel-op
+                                           ~(if prim-fn?
+                                              `(if-not (instance? ~fn-tag ~'per-pixel-op)
+                                                 (fn ~argvec (~'per-pixel-op ~@argvec))
+                                                 ~'per-pixel-op)
+                                              'per-pixel-op)]
+                                (~(symbol (str (name cls-sym) "."))
+                                 ~'per-pixel-op
+                                 ~'shape
+                                 (count ~'shape)
+                                 (dims/dimensions ~'shape)
+                                 ~'datatype
+                                 nil))]
+                           (if prim-fn?
+                             [rank ctor]
+                             [ctor]))))))])))))
 
 (defn compute-tensor
   "Create a new tensor which calls into op for every operation.
@@ -1091,54 +1089,11 @@ user> (dtt/compute-tensor [2 2 2] (fn [& args] (vec args)) :object)
 ```"
   ([shape per-pixel-op datatype]
    (let [shape (vec shape)
-         op-space (casting/simple-operation-space datatype)
-         n-dims (count shape)]
-     (case op-space
-       :int64
-       (case n-dims
-         1 (typed-compute-tensor :int64 datatype 1 shape
-                                 [c]
-                                 (unchecked-long (per-pixel-op c)))
-         2 (typed-compute-tensor :int64 datatype 2 shape
-                                 [x c]
-                                 (unchecked-long (per-pixel-op x c)))
-         3 (typed-compute-tensor :int64 datatype 3 shape
-                                 [y x c]
-                                 (unchecked-long (per-pixel-op y x c)))
-         (typed-compute-tensor :int64 datatype 4 shape
-                               indexes
-                               (unchecked-long (apply per-pixel-op indexes))))
-       :float64
-       (case n-dims
-         1 (typed-compute-tensor :float64 datatype 1 shape
-                                 [c]
-                                 (unchecked-double (per-pixel-op c)))
-         2 (typed-compute-tensor :float64 datatype 2 shape
-                                 [x c]
-                                 (unchecked-double (per-pixel-op x c)))
-         3 (typed-compute-tensor :float64 datatype 3 shape
-                                 [y x c]
-                                 (unchecked-double (per-pixel-op y x c)))
-         (typed-compute-tensor :float64 datatype 4 shape
-                               indexes
-                               (unchecked-double (apply per-pixel-op indexes))))
-       ;;fallback to object
-       (case n-dims
-         1 (typed-compute-tensor :object datatype 1 shape
-                                 [c]
-                                 (per-pixel-op c))
-         2 (typed-compute-tensor :object datatype 2 shape
-                                 [x c]
-                                 (per-pixel-op x c))
-         3 (typed-compute-tensor :object datatype 3 shape
-                                 [y x c]
-                                 (per-pixel-op y x c))
-         (typed-compute-tensor :object datatype 4 shape
-                               indexes
-                               (apply per-pixel-op indexes))))))
-  ([output-shape per-pixel-op]
-   (compute-tensor output-shape per-pixel-op
-                   (dtype-base/elemwise-datatype per-pixel-op))))
+         simplified-datatype (casting/simple-operation-space datatype)
+         rank (count shape)]
+     (construct-compute-tensors)))
+  ([shape per-pixel-op]
+   (compute-tensor shape per-pixel-op (ham-fisted.protocols/returned-datatype per-pixel-op))))
 
 
 (defn- as-nd-buffer ^NDBuffer [tens] tens)

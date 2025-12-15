@@ -26,6 +26,7 @@ public interface NDBuffer extends DatatypeBase, IFnDef, IMutList
   default Object buffer() { return null; }
   Object dimensions();
   LongNDReader indexSystem();
+  //Tensor linearized into 1d row-major format
   Buffer bufferIO();
   default Iterable shape() { return indexSystem().shape(); }
   //count of shape
