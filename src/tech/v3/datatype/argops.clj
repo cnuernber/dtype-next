@@ -19,7 +19,8 @@
             [ham-fisted.reduce :as hamf-rf]
             [ham-fisted.function :as hamf-fn]
             [ham-fisted.protocols :as hamf-proto]
-            [ham-fisted.lazy-noncaching :as lznc])
+            [ham-fisted.lazy-noncaching :as lznc]
+            [ham-fisted.iterator :as hamf-iter])
   (:import [it.unimi.dsi.fastutil.ints IntArrays IntComparator]
            [it.unimi.dsi.fastutil.longs LongArrays LongComparator]
            [it.unimi.dsi.fastutil.doubles DoubleComparator]

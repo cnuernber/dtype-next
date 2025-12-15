@@ -4,7 +4,8 @@
             [tech.v3.datatype.list]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.unary-op :as unary-op]
-            [tech.v3.datatype.binary-op :as binary-op])
+            [tech.v3.datatype.binary-op :as binary-op]
+            [tech.v3.datatype.emap :refer [emap]])
   (:import [java.util List UUID]))
 
 
@@ -40,13 +41,10 @@
              (dtype/->vector sub-buf)))))
   (let [test-ary (dtype/make-container :string ["a" "b" "c"])
         test-rdr (->> test-ary
-                      (unary-op/reader
-                       #(.concat ^String % "_str")
-                       :string))
+                      (emap #(.concat ^String % "_str") :string))
         test-iter (->> test-ary
-                       (unary-op/iterable
-                        #(.concat % "_str")
-                        :string))]
+                       (seq)
+                       (emap #(.concat ^String % "_str") :string))]
     (is (= :string (dtype/get-datatype test-rdr)))
     (is (= ["a_str" "b_str" "c_str"]
            (vec test-rdr)))
@@ -54,14 +52,8 @@
     (is (= ["a_str" "b_str" "c_str"]
            (vec test-iter))))
   (let [test-ary (dtype/make-container :string ["a" "b" "c"])
-        test-rdr (binary-op/reader
-                  #(str %1 "_" %2)
-                  :string
-                  test-ary test-ary)
-        test-iterable (binary-op/iterable
-                       #(str %1 "_" %2)
-                       :string
-                       test-ary test-ary)]
+        test-rdr (emap #(str %1 "_" %2) :string test-ary test-ary)
+        test-iterable (emap #(str %1 "_" %2) :string (seq test-ary) (seq test-ary))]
     (is (= :string (dtype/get-datatype test-rdr)))
     (is (= :string (dtype/get-datatype test-iterable)))
     (is (= ["a_a" "b_b" "c_c"]
@@ -73,9 +65,7 @@
 (deftest new-string-container
   (is (= ["a_str" "b_str" "c_str"]
          (->> (dtype/make-container :string ["a" "b" "c"])
-              (unary-op/reader
-               #(.concat % "_str")
-               :string)
+              (emap #(.concat % "_str") :string)
               (dtype/make-container :java-array :string)
               vec))))
 
@@ -97,7 +87,6 @@
              (dtype/->vector sub-buf)))))
   (let [test-ary (into-array Object (repeat 10 (set (range 10))))]
     (is (= 10 (dtype/ecount test-ary)))))
-
 
 (deftest generic-list-test
   (let [^List data (dtype/make-container :list :keyword [:a :b :c :d :e])]

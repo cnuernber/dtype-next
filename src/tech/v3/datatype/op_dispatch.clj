@@ -208,8 +208,8 @@
       (if (identical? arg-type :tensor)
         (let [arg-shp (dt-proto/shape arg)]
           (if (> (count arg-shp) 1)
-            (dt-proto/reshape rv arg-shp))
-          rv)
+            (dt-proto/reshape rv arg-shp)
+            rv))
         rv))))
 
 (defn dispatch-unary-op
