@@ -308,3 +308,9 @@
                       argops/argmin))]
     (is (= {0 [0 1 2] 1 [3]}
            (argops/arggroup-by #(nearest % centroids) X)))))
+
+(deftest higher-order-compute-tensor
+  (let [t (dtt/compute-tensor [3 3 3 3] (fn [^long a ^long b ^long c ^long d] (+ a b c d)))]
+    (is (string? (.toString ^Object t))))
+  (let [t (dtt/compute-tensor [3 3 3 3 3] (fn [& args] (reduce + 0 args)))]
+    (is (string? (.toString ^Object t)))))

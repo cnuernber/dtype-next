@@ -23,74 +23,74 @@
 
 (defn ->ComputeTensor1D
   "Positional factory function for class tech.v3.tensor_api.ComputeTensor1D."
-  ([compute-fn shape rank dims datatype]
-  (tech.v3.tensor-api/->ComputeTensor1D compute-fn shape rank dims datatype)))
+  ([compute-fn shape rank dims datatype m]
+  (tech.v3.tensor-api/->ComputeTensor1D compute-fn shape rank dims datatype m)))
 
 
 (defn ->ComputeTensor1L
   "Positional factory function for class tech.v3.tensor_api.ComputeTensor1L."
-  ([compute-fn shape rank dims datatype]
-  (tech.v3.tensor-api/->ComputeTensor1L compute-fn shape rank dims datatype)))
+  ([compute-fn shape rank dims datatype m]
+  (tech.v3.tensor-api/->ComputeTensor1L compute-fn shape rank dims datatype m)))
 
 
 (defn ->ComputeTensor1O
   "Positional factory function for class tech.v3.tensor_api.ComputeTensor1O."
-  ([compute-fn shape rank dims datatype]
-  (tech.v3.tensor-api/->ComputeTensor1O compute-fn shape rank dims datatype)))
+  ([compute-fn shape rank dims datatype m]
+  (tech.v3.tensor-api/->ComputeTensor1O compute-fn shape rank dims datatype m)))
 
 
 (defn ->ComputeTensor2D
   "Positional factory function for class tech.v3.tensor_api.ComputeTensor2D."
-  ([compute-fn shape rank dims datatype]
-  (tech.v3.tensor-api/->ComputeTensor2D compute-fn shape rank dims datatype)))
+  ([compute-fn shape rank dims datatype m]
+  (tech.v3.tensor-api/->ComputeTensor2D compute-fn shape rank dims datatype m)))
 
 
 (defn ->ComputeTensor2L
   "Positional factory function for class tech.v3.tensor_api.ComputeTensor2L."
-  ([compute-fn shape rank dims datatype]
-  (tech.v3.tensor-api/->ComputeTensor2L compute-fn shape rank dims datatype)))
+  ([compute-fn shape rank dims datatype m]
+  (tech.v3.tensor-api/->ComputeTensor2L compute-fn shape rank dims datatype m)))
 
 
 (defn ->ComputeTensor2O
   "Positional factory function for class tech.v3.tensor_api.ComputeTensor2O."
-  ([compute-fn shape rank dims datatype]
-  (tech.v3.tensor-api/->ComputeTensor2O compute-fn shape rank dims datatype)))
+  ([compute-fn shape rank dims datatype m]
+  (tech.v3.tensor-api/->ComputeTensor2O compute-fn shape rank dims datatype m)))
 
 
 (defn ->ComputeTensor3D
   "Positional factory function for class tech.v3.tensor_api.ComputeTensor3D."
-  ([compute-fn shape rank dims datatype]
-  (tech.v3.tensor-api/->ComputeTensor3D compute-fn shape rank dims datatype)))
+  ([compute-fn shape rank dims datatype m]
+  (tech.v3.tensor-api/->ComputeTensor3D compute-fn shape rank dims datatype m)))
 
 
 (defn ->ComputeTensor3L
   "Positional factory function for class tech.v3.tensor_api.ComputeTensor3L."
-  ([compute-fn shape rank dims datatype]
-  (tech.v3.tensor-api/->ComputeTensor3L compute-fn shape rank dims datatype)))
+  ([compute-fn shape rank dims datatype m]
+  (tech.v3.tensor-api/->ComputeTensor3L compute-fn shape rank dims datatype m)))
 
 
 (defn ->ComputeTensor3O
   "Positional factory function for class tech.v3.tensor_api.ComputeTensor3O."
-  ([compute-fn shape rank dims datatype]
-  (tech.v3.tensor-api/->ComputeTensor3O compute-fn shape rank dims datatype)))
+  ([compute-fn shape rank dims datatype m]
+  (tech.v3.tensor-api/->ComputeTensor3O compute-fn shape rank dims datatype m)))
 
 
 (defn ->ComputeTensorD
   "Positional factory function for class tech.v3.tensor_api.ComputeTensorD."
-  ([compute-fn shape rank dims datatype]
-  (tech.v3.tensor-api/->ComputeTensorD compute-fn shape rank dims datatype)))
+  ([compute-fn shape rank dims datatype m]
+  (tech.v3.tensor-api/->ComputeTensorD compute-fn shape rank dims datatype m)))
 
 
 (defn ->ComputeTensorL
   "Positional factory function for class tech.v3.tensor_api.ComputeTensorL."
-  ([compute-fn shape rank dims datatype]
-  (tech.v3.tensor-api/->ComputeTensorL compute-fn shape rank dims datatype)))
+  ([compute-fn shape rank dims datatype m]
+  (tech.v3.tensor-api/->ComputeTensorL compute-fn shape rank dims datatype m)))
 
 
 (defn ->ComputeTensorO
   "Positional factory function for class tech.v3.tensor_api.ComputeTensorO."
-  ([compute-fn shape rank dims datatype]
-  (tech.v3.tensor-api/->ComputeTensorO compute-fn shape rank dims datatype)))
+  ([compute-fn shape rank dims datatype m]
+  (tech.v3.tensor-api/->ComputeTensorO compute-fn shape rank dims datatype m)))
 
 
 (defn ->jvm

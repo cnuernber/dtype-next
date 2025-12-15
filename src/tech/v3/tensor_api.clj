@@ -928,7 +928,7 @@
 (defn nd-buffer->buffer-reader
   ^Buffer [^NDBuffer b]
   (let [b-dtype (dtype-base/elemwise-datatype b)
-        b-shape (.shape b)
+        b-shape (long-array (.shape b))
         n-elems (long (apply * (.shape b)))
         shape-chan (long (last b-shape))
         shape-x (long (or (last (butlast b-shape))
@@ -964,9 +964,10 @@
                                 :int64 "L"
                                 :float64 "D"
                                 :object "O")
-                 fn-tag (when prim-fn?
+                 fn-tag (if prim-fn?
                           (symbol (apply str "clojure.lang.IFn$" (concat (repeat fn-arity "L")
-                                                                         [dtype-suffix]))))
+                                                                         [dtype-suffix])))
+                          (symbol "clojure.lang.IFn"))
                  {:keys [nd-read-fn read-type cast-fn]}
                  (if prim-fn? 
                    (case simplified-datatype
@@ -1003,7 +1004,7 @@
                  (~nd-read-fn ~(into ['this] argvec)
                   ~(if prim-fn?
                      `(.invokePrim ~'compute-fn ~@argvec)
-                     `(~'compute-fn ~@argvec)))
+                     `(.applyTo ~'compute-fn (seq ~@argvec))))
                  (meta [~'this] ~'m)
                  (withMeta [~'this ~'new-m]
                    (~(symbol (str (name cls-sym) ".")) ~'compute-fn ~'shape ~'rank ~'dims ~'datatype ~'new-m))
