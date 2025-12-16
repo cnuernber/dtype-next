@@ -90,7 +90,7 @@
                                          ~'idx))))))
 
 (defn- emap-reader
-  [map-fn output-space cast-fn args arg-types]
+  [map-fn output-space res-dtype cast-fn args arg-types]
   (let [readers (mapv (fn [arg arg-type]
                         (if-not (identical? arg-type :scalar)
                           (dtype-base/->reader arg output-space)
@@ -117,7 +117,7 @@
                 (identical? output-space :float64)
                 (fn ^double [^long idx] (Casts/doubleCast (read-buffers 3)))
                 :else
-                (fn [^long idx]  (read-buffers 3))))          
+                (fn [^long idx]  (read-buffers 3))))
           4 (let [[a b c d] readers]
               (cond
                 (identical? output-space :int64)
@@ -138,11 +138,11 @@
               (fn [^long idx]  (.invokePrim apply-map-fn idx)))))]
     (cond
       (instance? clojure.lang.IFn$LL reader-fn)
-      (long-reader reader-fn n-elems :int64 map-fn cast-fn readers)
+      (long-reader reader-fn n-elems res-dtype map-fn cast-fn readers)
       (instance? clojure.lang.IFn$LD reader-fn)
-      (double-reader reader-fn n-elems :float64 map-fn cast-fn readers)
+      (double-reader reader-fn n-elems res-dtype map-fn cast-fn readers)
       :else
-      (object-reader reader-fn n-elems output-space map-fn cast-fn readers))))
+      (object-reader reader-fn n-elems res-dtype map-fn cast-fn readers))))
 
 (defn primitive-return-type
   [f]
@@ -175,14 +175,15 @@
        (let [x-dt (casting/simple-operation-space (dtype-base/operational-elemwise-datatype x)
                                                   (dtype-base/operational-elemwise-datatype y))
              output-space (or res-dtype (primitive-return-type op) x-dt)
-             input-space (or (dtype-proto/input-datatype op) res-dtype)]
+             input-space (or (dtype-proto/input-datatype op) x-dt)]
          (op-dispatch/dispatch-binary-op op input-space output-space x y)))))
   ([map-fn res-dtype x y & args]
    (let [args (hamf/concatv [x y] args)
          input-space (->> args
                           (lznc/map dtype-base/operational-elemwise-datatype)
                           (reduce casting/simple-operation-space))
-         output-space (or res-dtype (primitive-return-type map-fn) input-space)
+         output-space (or res-dtype (hamf-proto/returned-datatype map-fn) input-space)
+         res-dtype (or res-dtype output-space)
          arg-input-types (mapv argtypes/arg-type args)
          input-types (set arg-input-types)
          cast-fn (op-space->cast-fn input-space output-space)]

@@ -41,7 +41,9 @@
   "Return the datatype one would expect when iterating through a container
   of this type and performing a numeric operation on it.  For integer types, when a column
   has missing values they get promoted to floating point numbers and ##NaN is substituted
-  in.  For scalars, return your elemental datatype."
+  in.  For scalars, return your elemental datatype. 
+
+  Unpacks datatype so :packed-local-date becomes :local-date"
   [item]
   ;;false has a datatype in this world.
   (cond
@@ -50,7 +52,8 @@
     (instance? Integer item) :int32
     (instance? Long item) :int64
     :else
-    (dtype-proto/operational-elemwise-datatype item)))
+    (packing/unpack-datatype
+     (dtype-proto/operational-elemwise-datatype item))))
 
 
 (defn datatype

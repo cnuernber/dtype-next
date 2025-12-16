@@ -17,6 +17,8 @@
            :tag ConcurrentHashMap} pack-table (ConcurrentHashMap.))
 (defonce ^{:private true
            :tag ConcurrentHashMap} unpack-table (ConcurrentHashMap.))
+(defonce ^{:private true
+           :tag ConcurrentHashMap} unpack-datatype-table (ConcurrentHashMap.))
 
 (defn add-packed-datatype!
   "Add a datatype that you wish to be packed into a single scalar numeric value."
@@ -31,7 +33,8 @@
                     :pack-fn pack-fn
                     :unpack-fn unpack-fn}]
     (.put pack-table object-datatype pack-entry)
-    (.put unpack-table packed-datatype pack-entry)))
+    (.put unpack-table packed-datatype pack-entry)
+    (.put unpack-datatype-table packed-datatype object-datatype)))
 
 
 (defn packed-datatype?
@@ -44,7 +47,7 @@
   [datatype]
   (if (casting/base-host-datatype? datatype)
     datatype
-    (get-in unpack-table [datatype :object-datatype] datatype)))
+    (when datatype (.getOrDefault unpack-datatype-table datatype datatype))))
 
 (defn unpacked-datatype?
   "Returns true if this is a datatype that could be packed."

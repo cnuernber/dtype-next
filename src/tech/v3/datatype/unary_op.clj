@@ -173,7 +173,8 @@
     (instance? clojure.lang.Keyword item)
     (if-let [rv (get builtin-ops item)]
       rv
-      (throw (RuntimeException. (str "Failed to find unary operator for " item))))
+      (reify UnaryOperator
+        (unaryObject [this v] (item v))))
     (instance? DoubleUnaryOperator item)
     (reify UnaryOperators$DoubleUnaryOperator
       (unaryDouble [this arg]

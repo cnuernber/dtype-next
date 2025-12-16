@@ -233,11 +233,11 @@
   (cond
     (identical? op-space :int64)
     (let [scalar (Casts/longCast scalar)]
-      (reify UnaryOperator
+      (reify UnaryOperators$LongUnaryOperator
         (unaryLong [this b] (.binaryLong binary-op scalar b))))
     (identical? op-space :float64)
     (let [scalar (Casts/doubleCast scalar)]
-      (reify UnaryOperator
+      (reify UnaryOperators$DoubleUnaryOperator
         (unaryDouble [this b] (.binaryDouble binary-op scalar b))))
     :else
     (reify UnaryOperator
@@ -278,9 +278,9 @@
         ^Buffer r (dt-proto/elemwise-reader-cast r in-space)
         ne (min (.lsize l) (.lsize r))]
     (cond
-      (identical? out-space :int64)
+      (and (casting/numeric-type? in-space) (identical? out-space :int64))
       (binary-op-reader reader-dtype LongReader .binaryLong readLong)
-      (identical? out-space :float64)
+      (and (casting/numeric-type? in-space) (identical? out-space :float64))
       (binary-op-reader reader-dtype DoubleReader .binaryDouble readDouble)
       :else
       (binary-op-reader reader-dtype ObjectReader .binaryObject readObject))))

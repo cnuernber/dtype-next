@@ -99,3 +99,8 @@
                                     (offset-insts (last window))))
                      50))
                 windows))))
+
+(deftest sum-packed-local-dates
+  (let [dates (packing/pack (dtype/make-container :local-date (repeat 4 (java.time.LocalDate/now))))
+        s (dfn/sum (dtype/emap #(dtype-dt/between %1 %2 :days) :int64 dates dates))]
+    (is (== 0.0 s))))
