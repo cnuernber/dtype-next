@@ -12,11 +12,13 @@
             [tech.v3.resource :as resource]
             ;;binds nio buffers to datatype system
             [tech.v3.datatype.nio-buffer]
+            [ham-fisted.defprotocol :refer [extend-type]]
             ;;required so the import statements below work.
             [uncomplicate.commons.core]
             [uncomplicate.neanderthal.native :as n-native])
   (:import [uncomplicate.neanderthal.internal.api Block]
-           [uncomplicate.commons.core Info]))
+           [uncomplicate.commons.core Info])
+  (:refer-clojure :exclude [extend-type]))
 
 
 (extend-type Info
