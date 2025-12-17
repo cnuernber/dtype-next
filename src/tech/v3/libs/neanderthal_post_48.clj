@@ -7,12 +7,14 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.tensor :as dtt]
             [tech.v3.libs.javacpp]
+            [ham-fisted.defprotocol :refer [extend-type]]
             [uncomplicate.commons.core :as n-core]
             [uncomplicate.neanderthal.core :as nean]
             [uncomplicate.neanderthal.native :as n-native]
             ;;This only exists after the javacpp switch - here to cause compilation issue
             [uncomplicate.clojure-cpp])
-  (:import [uncomplicate.neanderthal.internal.api NativeBlock]))
+  (:import [uncomplicate.neanderthal.internal.api NativeBlock])
+  (:refer-clojure :exclude [extend-type]))
 
 
 (comment
