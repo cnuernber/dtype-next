@@ -1,3 +1,8 @@
+## 11.000
+* Major upgrade to hamf protocol implementation.
+* Major refactor of unary and binary operand dispatch.
+* Much better compute tensors - they print better and they are faster.
+
 ## 10.146
  * big bugfix to new hamf vec sublist for very large lists.
  
