@@ -1,10 +1,12 @@
 (ns tech.v3.libs.javacpp
   (:require [tech.v3.datatype.protocols :as dt-proto]
             [tech.v3.datatype.native-buffer :as nbuf]
-            [tech.v3.datatype.casting :as casting])
+            [tech.v3.datatype.casting :as casting]
+            [ham-fisted.defprotocol :refer [extend]])
   (:import [org.bytedeco.javacpp DoublePointer FloatPointer IntPointer LongPointer
             ShortPointer BytePointer Pointer]
-           [tech.v3.datatype.native_buffer NativeBuffer]))
+           [tech.v3.datatype.native_buffer NativeBuffer])
+  (:refer-clojure :exclude [extend]))
 
 
 (defn javacpp-pointer->native-buffer
