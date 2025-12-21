@@ -1,3 +1,7 @@
+## 11.002
+ * Lots of fixes from tmd upgrade.
+ * Small hamf upgrades.
+ 
 ## 11.000
 * Major upgrade to hamf protocol implementation.
 * Major refactor of unary and binary operand dispatch.

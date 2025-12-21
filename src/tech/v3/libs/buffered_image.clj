@@ -158,7 +158,7 @@
   (.. img getRaster getDataBuffer))
 
 (defn img->guess-at-channel-n
-  [img]
+  [^BufferedImage img]
   ;; If this throws, we may need to know more about the input image
   (.getNumBands (.getRaster img)))
 
