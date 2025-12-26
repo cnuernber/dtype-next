@@ -75,6 +75,24 @@
   (tech.v3.tensor-api/->ComputeTensor3O compute-fn shape rank dims datatype m)))
 
 
+(defn ->ComputeTensor4D
+  "Positional factory function for class tech.v3.tensor_api.ComputeTensor4D."
+  ([compute-fn shape rank dims datatype m]
+  (tech.v3.tensor-api/->ComputeTensor4D compute-fn shape rank dims datatype m)))
+
+
+(defn ->ComputeTensor4L
+  "Positional factory function for class tech.v3.tensor_api.ComputeTensor4L."
+  ([compute-fn shape rank dims datatype m]
+  (tech.v3.tensor-api/->ComputeTensor4L compute-fn shape rank dims datatype m)))
+
+
+(defn ->ComputeTensor4O
+  "Positional factory function for class tech.v3.tensor_api.ComputeTensor4O."
+  ([compute-fn shape rank dims datatype m]
+  (tech.v3.tensor-api/->ComputeTensor4O compute-fn shape rank dims datatype m)))
+
+
 (defn ->ComputeTensorD
   "Positional factory function for class tech.v3.tensor_api.ComputeTensorD."
   ([compute-fn shape rank dims datatype m]
@@ -292,6 +310,7 @@ user> (dtt/map-axis t center-1d -2)
   (tech.v3.tensor-api/map-axis tens map-fn)))
 
 
+(def ^{:tag 'long} max-arity tech.v3.tensor-api/max-arity)
 (defn mget
   "Get an item from an ND object.  If fewer dimensions are
   specified than exist then the return value is a new tensor as a select operation is

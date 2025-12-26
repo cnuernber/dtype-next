@@ -1,3 +1,12 @@
+## 11.003
+ * 4d tensors compute tensors efficiently supported - will stick with this as that is the extent that clojure
+   allows primitive hinted functions.  5 and higher dimensional compute tensors need more research and a compelling
+   use case to optimize further but their interface and operation could certaintly be optimized.  Futher
+   research into select specifically on compute tensors meaning producing new compute tensors via transforming the
+   compute function itself would be interesting.
+   * `(compute-tensor [3 3 3 3] (fn [^long w ^long y ^long x ^long c] [w y x c]))`
+ 
+ 
 ## 11.002
  * Lots of fixes from tmd upgrade.
  * Small hamf upgrades.

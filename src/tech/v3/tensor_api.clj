@@ -257,13 +257,16 @@
     (.readLong cached-io (.ndReadLong index-system row col)))
   (ndReadLong [_t height width chan]
     (.readLong cached-io (.ndReadLong index-system height width chan)))
+  (ndReadLong [_t w height width chan]
+    (.readLong cached-io (.ndReadLong index-system w height width chan)))
   (ndWriteLong [_t idx value]
     (.writeLong cached-io (.ndReadLong index-system idx) value))
   (ndWriteLong [_t row col value]
     (.writeLong cached-io (.ndReadLong index-system row col) value))
   (ndWriteLong [_t height width chan value]
-    (.writeLong cached-io (.ndReadLong index-system height width chan)
-                value))
+    (.writeLong cached-io (.ndReadLong index-system height width chan) value))
+  (ndWriteLong [_t w height width chan value]
+    (.writeLong cached-io (.ndReadLong index-system w height width chan) value))
 
   (ndReadDouble [_t idx]
     (.readDouble cached-io (.ndReadLong index-system idx)))
@@ -271,13 +274,16 @@
     (.readDouble cached-io (.ndReadLong index-system row col)))
   (ndReadDouble [_t height width chan]
     (.readDouble cached-io (.ndReadLong index-system height width chan)))
+  (ndReadDouble [_t height width chan w]
+    (.readDouble cached-io (.ndReadLong index-system height width chan w)))
   (ndWriteDouble [_t idx value]
     (.writeDouble cached-io (.ndReadLong index-system idx) value))
   (ndWriteDouble [_t row col value]
     (.writeDouble cached-io (.ndReadLong index-system row col) value))
   (ndWriteDouble [_t height width chan value]
-    (.writeDouble cached-io (.ndReadLong index-system height width chan)
-                  value))
+    (.writeDouble cached-io (.ndReadLong index-system height width chan) value))
+  (ndWriteDouble [_t w height width chan value]
+    (.writeDouble cached-io (.ndReadLong index-system w height width chan) value))
 
   (ndReadObject [t idx]
     (if (== 1 rank)
@@ -291,6 +297,10 @@
     (if (== 3 rank)
       (.readObject cached-io (.ndReadLong index-system height width chan))
       (dtype-proto/select t [height width chan])))
+  (ndReadObject [t w height width chan]
+    (if (== 4 rank)
+      (.readObject cached-io (.ndReadLong index-system w height width chan))
+      (dtype-proto/select t [w height width chan])))
   (ndReadObjectIter [t indexes]
     (if (== (count indexes) rank)
       (.readObject cached-io (.ndReadLongIter index-system indexes))
@@ -305,27 +315,34 @@
       (tensor-copy! value (.ndReadObject t row col))))
   (ndWriteObject [t height width chan value]
     (if (== 3 rank)
-      (.writeObject cached-io (.ndReadLong index-system height width chan)
-                    value)
+      (.writeObject cached-io (.ndReadLong index-system height width chan) value)
       (tensor-copy! value (.ndReadObject t height width chan))))
+  (ndWriteObject [t w height width chan value]
+    (if (== 4 rank)
+      (.writeObject cached-io (.ndReadLong index-system w height width chan) value)
+      (tensor-copy! value (.ndReadObject t w height width chan))))
   (ndWriteObjectIter [t indexes value]
     (if (== (count indexes) rank)
       (.writeObject cached-io (.ndReadLongIter index-system indexes) value)
       (tensor-copy! value (dtype-proto/select t indexes))))
 
-   (ndAccumPlusLong [_t c value]
-     (.accumPlusLong cached-io (.ndReadLong index-system c) value))
-   (ndAccumPlusLong [_t x c value]
-     (.accumPlusLong cached-io (.ndReadLong index-system x c) value))
-   (ndAccumPlusLong [_t y x c value]
-     (.accumPlusLong cached-io (.ndReadLong index-system y x c) value))
+  (ndAccumPlusLong [_t c value]
+    (.accumPlusLong cached-io (.ndReadLong index-system c) value))
+  (ndAccumPlusLong [_t x c value]
+    (.accumPlusLong cached-io (.ndReadLong index-system x c) value))
+  (ndAccumPlusLong [_t y x c value]
+    (.accumPlusLong cached-io (.ndReadLong index-system y x c) value))
+  (ndAccumPlusLong [_t w y x c value]
+    (.accumPlusLong cached-io (.ndReadLong index-system w y x c) value))
 
-   (ndAccumPlusDouble [_t c value]
-     (.accumPlusDouble cached-io (.ndReadLong index-system c) value))
-   (ndAccumPlusDouble [_t x c value]
-     (.accumPlusDouble cached-io (.ndReadLong index-system x c) value))
-   (ndAccumPlusDouble [_t y x c value]
-     (.accumPlusDouble cached-io (.ndReadLong index-system y x c) value))
+  (ndAccumPlusDouble [_t c value]
+    (.accumPlusDouble cached-io (.ndReadLong index-system c) value))
+  (ndAccumPlusDouble [_t x c value]
+    (.accumPlusDouble cached-io (.ndReadLong index-system x c) value))
+  (ndAccumPlusDouble [_t y x c value]
+    (.accumPlusDouble cached-io (.ndReadLong index-system y x c) value))
+  (ndAccumPlusDouble [_t w y x c value]
+    (.accumPlusDouble cached-io (.ndReadLong index-system w y x c) value))
 
   (allowsRead [_t] (.allowsRead cached-io))
   (allowsWrite [_t] (.allowsWrite cached-io))
@@ -353,6 +370,7 @@
                                  ^long rank
                                  ^LongNDReader index-system
                                  ^Buffer cached-io
+                                 ^long w
                                  ^long y
                                  ^long x
                                  ^long c
@@ -376,13 +394,16 @@
     (.readLong cached-io (+ (* row x) (* col c))))
   (ndReadLong [_t height width chan]
     (.readLong cached-io (+ (* height y) (* width x) (* chan c))))
+  (ndReadLong [_t ww height width chan]
+    (.readLong cached-io (+ (* w ww) (* height y) (* width x) (* chan c))))
   (ndWriteLong [_t idx value]
     (.writeLong cached-io (* idx c) value))
   (ndWriteLong [_t row col value]
     (.writeLong cached-io (+ (* row x) (* col c)) value))
   (ndWriteLong [_t height width chan value]
-    (.writeLong cached-io (+ (* height y) (* width x) (* chan c))
-                value))
+    (.writeLong cached-io (+ (* height y) (* width x) (* chan c)) value))
+  (ndWriteLong [_t ww height width chan value]
+    (.writeLong cached-io (+ (* ww w) (* height y) (* width x) (* chan c)) value))
 
   (ndReadDouble [_t idx]
     (.readDouble cached-io (* idx c)))
@@ -390,13 +411,16 @@
     (.readDouble cached-io (+ (* row x) (* col c))))
   (ndReadDouble [_t height width chan]
     (.readDouble cached-io (+ (* height y) (* width x) (* chan c))))
+  (ndReadDouble [_t ww height width chan]
+    (.readDouble cached-io (+ (* ww w) (* height y) (* width x) (* chan c))))
   (ndWriteDouble [_t idx value]
     (.writeDouble cached-io (* idx c) value))
   (ndWriteDouble [_t row col value]
     (.writeDouble cached-io (+ (* row x) (* col c)) value))
   (ndWriteDouble [_t height width chan value]
-    (.writeDouble cached-io (+ (* height y) (* width x) (* chan c))
-                  value))
+    (.writeDouble cached-io (+ (* height y) (* width x) (* chan c)) value))
+  (ndWriteDouble [_t ww height width chan value]
+    (.writeDouble cached-io (+ (* ww w) (* height y) (* width x) (* chan c)) value))
 
   (ndReadObject [t idx]
     (if (== 1 rank)
@@ -410,6 +434,10 @@
     (if (== 3 rank)
       (.readObject cached-io (+ (* height y) (* width x) (* chan c)))
       (dtype-proto/select t [height width chan])))
+  (ndReadObject [t ww height width chan]
+    (if (== 4 rank)
+      (.readObject cached-io (+ (* ww w) (* height y) (* width x) (* chan c)))
+      (dtype-proto/select t [ww height width chan])))
   (ndReadObjectIter [t indexes]
     (if (== (count indexes) rank)
       (.readObject cached-io (.ndReadLongIter index-system indexes))
@@ -424,8 +452,11 @@
       (tensor-copy! value (.ndReadObject t row col))))
   (ndWriteObject [t height width chan value]
     (if (== 3 rank)
-      (.writeObject cached-io (+ (* height y) (* width x) (* chan c))
-                    value)
+      (.writeObject cached-io (+ (* height y) (* width x) (* chan c)) value)
+      (tensor-copy! value (.ndReadObject t height width chan))))
+  (ndWriteObject [t ww height width chan value]
+    (if (== 4 rank)
+      (.writeObject cached-io (+ (* ww w) (* height y) (* width x) (* chan c)) value)
       (tensor-copy! value (.ndReadObject t height width chan))))
   (ndWriteObjectIter [t indexes value]
     (if (== (count indexes) rank)
@@ -438,6 +469,8 @@
      (.accumPlusLong cached-io (+ (* row x) (* chan c)) value))
    (ndAccumPlusLong [_t height width chan value]
      (.accumPlusLong cached-io (+ (* height y) (* width x) (* chan c)) value))
+   (ndAccumPlusLong [_t ww height width chan value]
+     (.accumPlusLong cached-io (+ (* ww w) (* height y) (* width x) (* chan c)) value))
 
    (ndAccumPlusDouble [_t idx value]
      (.accumPlusDouble cached-io (* idx c) value))
@@ -445,8 +478,10 @@
      (.accumPlusDouble cached-io (+ (* width x) (* chan c)) value))
    (ndAccumPlusDouble [_t height width chan value]
      (.accumPlusDouble cached-io (+ (* height y) (* width x) (* chan c)) value))
+   (ndAccumPlusDouble [_t ww height width chan value]
+     (.accumPlusDouble cached-io (+ (* ww w) (* height y) (* width x) (* chan c)) value))
 
-  (allowsRead [_t] (.allowsRead cached-io))
+   (allowsRead [_t] (.allowsRead cached-io))
   (allowsWrite [_t] (.allowsWrite cached-io))
   (iterator [t]
     (.iterator (dtype-proto/slice t 1 false)))
@@ -472,21 +507,18 @@
     (let [nd-desc  (dims/->global->local dimensions)]
       (if (dims/direct? dimensions)
         (let [strides (:strides dimensions)
-              n-strides (count strides)
-              y (if (>= n-strides 3)
-                  (nth strides 0)
-                  0)
-              x (if (>= n-strides 2)
-                  (nth strides (- n-strides 2))
-                  0)
-              c (last strides)]
+              dn-strides (dec (count strides))
+              w (if (>= dn-strides 3) (nth strides (- dn-strides 3)) 0)
+              y (if (>= dn-strides 2) (nth strides (- dn-strides 2)) 0)
+              x (if (>= dn-strides 1) (nth strides (- dn-strides 1)) 0)
+              c (nth strides dn-strides)]
           (DirectTensor. buffer dimensions
                          (.rank nd-desc)
                          nd-desc
                          (if (dtype-proto/convertible-to-buffer? buffer)
                            (dtype-proto/->buffer buffer)
                            (dtype-base/->reader buffer))
-                         y x c
+                         w y x c
                          metadata))
         (DataTensor. buffer dimensions
                      (.rank nd-desc)
@@ -889,7 +921,7 @@
 
 (defmacro ^:private make-tensor-reader
   [datatype advertised-datatype n-dims n-elems per-pixel-op
-   output-shape shape-x shape-chan strides]
+   output-shape shape-y shape-x shape-chan strides]
   (let [{:keys [read-fn nd-read-fn read-type cast-fn reduce-fn]}
         (case datatype
           :int64 {:read-fn 'readLong
@@ -937,7 +969,15 @@
                      x# (pmath/rem xy# ~shape-x)
                      y# (pmath// xy# ~shape-x)]
                  (~nd-read-fn ~per-pixel-op y# x# c#))
-            `(~cast-fn (.ndReadObjectIter ~per-pixel-op (shape-stride-seq ~output-shape ~strides ~'n-dims ~'idx)))))
+            4 `(let [c# (pmath/rem ~'idx ~shape-chan)
+                     xy# (pmath// ~'idx ~shape-chan)
+                     x# (pmath/rem xy# ~shape-x)
+                     yw# (pmath// xy# ~shape-x)
+                     y# (pmath/rem yw# ~shape-y)
+                     w# (pmath// yw# ~shape-y)]
+                 (~nd-read-fn ~per-pixel-op w# y# x# c#))
+            `(~cast-fn (.ndReadObjectIter ~per-pixel-op (shape-stride-seq ~output-shape ~strides
+                                                                          ~'n-dims ~'idx)))))
        (reduce [this# rfn# init#]
          (nd-reduce ~per-pixel-op rfn# init# 0 ~n-elems)))))
 
@@ -947,28 +987,36 @@
   (let [b-dtype (dtype-base/elemwise-datatype b)
         b-shape (long-array (.shape b))
         n-elems (long (apply * (.shape b)))
-        shape-chan (long (last b-shape))
-        shape-x (long (or (last (butlast b-shape))
-                          0))
+        dn-shape (dec (alength b-shape))
+        shape-chan (aget b-shape dn-shape)
+        shape-x (if (> dn-shape 1) (aget b-shape (- dn-shape 1)) 0)
+        shape-y (if (> dn-shape 2) (aget b-shape (- dn-shape 2)) 0)
         strides (dims-analytics/shape-ary->strides b-shape)
         n-dims (alength b-shape)]
     (case (.rank b)
       1 (case (casting/simple-operation-space (dtype-base/elemwise-datatype b))
-          :int64 (make-tensor-reader :int64 b-dtype 1 n-elems b b-shape shape-x shape-chan strides)
-          :float64 (make-tensor-reader :float64 b-dtype 1 n-elems b b-shape shape-x shape-chan strides)
-          (make-tensor-reader :object b-dtype 1 n-elems b b-shape shape-x shape-chan strides))
+          :int64 (make-tensor-reader :int64 b-dtype 1 n-elems b b-shape shape-y shape-x shape-chan strides)
+          :float64 (make-tensor-reader :float64 b-dtype 1 n-elems b b-shape shape-y shape-x shape-chan strides)
+          (make-tensor-reader :object b-dtype 1 n-elems b b-shape shape-y shape-x shape-chan strides))
       2 (case (casting/simple-operation-space (dtype-base/elemwise-datatype b))
-          :int64 (make-tensor-reader :int64 b-dtype 2 n-elems b b-shape shape-x shape-chan strides)
-          :float64 (make-tensor-reader :float64 b-dtype 2 n-elems b b-shape shape-x shape-chan strides)
-          (make-tensor-reader :object b-dtype 2 n-elems b b-shape shape-x shape-chan strides))
+          :int64 (make-tensor-reader :int64 b-dtype 2 n-elems b b-shape shape-y shape-x shape-chan strides)
+          :float64 (make-tensor-reader :float64 b-dtype 2 n-elems b b-shape shape-y shape-x shape-chan strides)
+          (make-tensor-reader :object b-dtype 2 n-elems b b-shape shape-y shape-x shape-chan strides))
       3 (case (casting/simple-operation-space (dtype-base/elemwise-datatype b))
-          :int64 (make-tensor-reader :int64 b-dtype 3 n-elems b b-shape shape-x shape-chan strides)
-          :float64 (make-tensor-reader :float64 b-dtype 3 n-elems b b-shape shape-x shape-chan strides)
-          (make-tensor-reader :object b-dtype 3 n-elems b b-shape shape-x shape-chan strides))
+          :int64 (make-tensor-reader :int64 b-dtype 3 n-elems b b-shape shape-y shape-x shape-chan strides)
+          :float64 (make-tensor-reader :float64 b-dtype 3 n-elems b b-shape shape-y shape-x shape-chan strides)
+          (make-tensor-reader :object b-dtype 3 n-elems b b-shape shape-y shape-x shape-chan strides))
+      4 (case (casting/simple-operation-space (dtype-base/elemwise-datatype b))
+          :int64 (make-tensor-reader :int64 b-dtype 4 n-elems b b-shape shape-y shape-x shape-chan strides)
+          :float64 (make-tensor-reader :float64 b-dtype 4 n-elems b b-shape shape-y shape-x shape-chan strides)
+          (make-tensor-reader :object b-dtype 4 n-elems b b-shape shape-y shape-x shape-chan strides))
       (case (casting/simple-operation-space (dtype-base/elemwise-datatype b))
-        :int64 (make-tensor-reader :int64 b-dtype 4 n-elems b b-shape shape-x shape-chan strides)
-        :float64 (make-tensor-reader :float64 b-dtype 4 n-elems b b-shape shape-x shape-chan strides)
-        (make-tensor-reader :object b-dtype 4 n-elems b b-shape shape-x shape-chan strides)))))
+        :int64 (make-tensor-reader :int64 b-dtype 5 n-elems b b-shape shape-y shape-x shape-chan strides)
+        :float64 (make-tensor-reader :float64 b-dtype 5 n-elems b b-shape shape-y shape-x shape-chan strides)
+        (make-tensor-reader :object b-dtype 5 n-elems b b-shape shape-y shape-x shape-chan strides)))))
+
+(def ^{:tag 'long} max-arity 4)
+(def ^:private gen-dims [1 2 3 4 5])
 
 (defmacro ^:private define-compute-tensors
   []
@@ -976,8 +1024,7 @@
      ~@(->>
         (lznc/cartesian-map
          (fn [[^long fn-arity simplified-datatype]]
-           (let [max-arity 3
-                 prim-fn? (<= fn-arity max-arity)
+           (let [prim-fn? (<= fn-arity max-arity)
                  dtype-suffix (case simplified-datatype
                                 :int64 "L"
                                 :float64 "D"
@@ -1012,26 +1059,26 @@
                     ~'dims
                     ~'datatype
                     ~'m]
-                 ~read-type
-                 (~'elemwiseDatatype [tr#] ~'datatype)
-                 (~'shape [tr#] ~'shape)
-                 (~'dimensions [tr#] ~'dims)
-                 (~'indexSystem [tr#] (dims/->global->local ~'dims))
-                 (~'rank [tr#] ~'rank)
-                 (~'bufferIO [tr#] (nd-buffer->buffer-reader tr#))
-                 (~nd-read-fn ~(into ['this] argvec)
-                  ~(if prim-fn?
-                     `(.invokePrim ~'compute-fn ~@argvec)
-                     `(.applyTo ~'compute-fn (seq ~@argvec))))
-                 (meta [~'this] ~'m)
-                 (withMeta [~'this ~'new-m]
-                   (~(symbol (str (name cls-sym) ".")) ~'compute-fn ~'shape ~'rank ~'dims ~'datatype ~'new-m))
-                 (~'iterator [tr#]
-                  (.iterator ^java.util.List (dtype-proto/slice tr# 1 false)))
-                 Object
-                 (~'toString [tr#] (tens-pp/tensor->string tr#)))
+                   ~read-type
+                   (~'elemwiseDatatype [tr#] ~'datatype)
+                   (~'shape [tr#] ~'shape)
+                   (~'dimensions [tr#] ~'dims)
+                   (~'indexSystem [tr#] (dims/->global->local ~'dims))
+                   (~'rank [tr#] ~'rank)
+                   (~'bufferIO [tr#] (nd-buffer->buffer-reader tr#))
+                   (~nd-read-fn ~(into ['this] argvec)
+                    ~(if prim-fn?
+                       `(.invokePrim ~'compute-fn ~@argvec)
+                       `(.applyTo ~'compute-fn (seq ~@argvec))))
+                   (meta [~'this] ~'m)
+                   (withMeta [~'this ~'new-m]
+                     (~(symbol (str (name cls-sym) ".")) ~'compute-fn ~'shape ~'rank ~'dims ~'datatype ~'new-m))
+                   (~'iterator [tr#]
+                    (.iterator ^java.util.List (dtype-proto/slice tr# 1 false)))
+                   Object
+                   (~'toString [tr#] (tens-pp/tensor->string tr#)))
               `(dtype-pp/implement-tostring-print ~cls-sym)]))
-         [1 2 3 4] [:int64 :float64 :object])
+         gen-dims [:int64 :float64 :object])
         (lznc/apply-concat))))
 
 (define-compute-tensors)
@@ -1045,11 +1092,10 @@
          (fn [simplified-datatype]           
            [simplified-datatype
             `(case ~'rank
-               ~@(->> [1 2 3 4]
+               ~@(->> gen-dims
                       (mapcat
                        (fn [^long rank]
-                         (let [max-arity 3
-                               prim-fn? (<= rank max-arity)
+                         (let [prim-fn? (<= rank max-arity)
                                dtype-suffix (case simplified-datatype
                                               :int64 "L"
                                               :float64 "D"
@@ -1121,7 +1167,8 @@ user> (dtt/compute-tensor [2 2 2] (fn [& args] (vec args)) :object)
   `(let [~'src (as-nd-buffer ~src)
          ~'dst (as-nd-buffer ~dst)
          ~'src-shape (dtype-base/shape ~'src)
-         ~'ny ~(if (= 3 (long ndims))
+         ~'dec-n-shape (dec (count ~'src-shape))
+         ~'ny ~(if (== 3 (long ndims))
                  `(long (first ~'src-shape))
                  0)
          ~'nx ~(if (>= (long ndims) 2)

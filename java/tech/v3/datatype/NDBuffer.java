@@ -40,24 +40,30 @@ public interface NDBuffer extends DatatypeBase, IFnDef, IMutList
   long ndReadLong(long idx);
   long ndReadLong(long row, long col);
   long ndReadLong(long height, long width, long chan);
+  long ndReadLong(long w, long height, long width, long chan);
   void ndWriteLong(long idx, long value);
   void ndWriteLong(long row, long col, long value);
   void ndWriteLong(long height, long width, long chan, long value);
+  void ndWriteLong(long w, long height, long width, long chan, long value);
   double ndReadDouble(long idx);
   double ndReadDouble(long row, long col);
   double ndReadDouble(long height, long width, long chan);
+  double ndReadDouble(long w, long height, long width, long chan);
   void ndWriteDouble(long idx, double value);
   void ndWriteDouble(long row, long col, double value);
   void ndWriteDouble(long height, long width, long chan, double value);
+  void ndWriteDouble(long w, long height, long width, long chan, double value);
 
   // Object read methods can return slices or values.
   Object ndReadObject(long idx);
   Object ndReadObject(long row, long col);
   Object ndReadObject(long height, long width, long chan);
+  Object ndReadObject(long w, long height, long width, long chan);
   Object ndReadObjectIter(Iterable dims);
   void ndWriteObject(long idx, Object value);
   void ndWriteObject(long row, long col, Object value);
   void ndWriteObject(long height, long width, long chan, Object value);
+  void ndWriteObject(long w, long height, long width, long chan, Object value);
   Object ndWriteObjectIter(Iterable dims, Object value);
 
 
@@ -70,7 +76,9 @@ public interface NDBuffer extends DatatypeBase, IFnDef, IMutList
   default void ndAccumPlusLong(long height, long width, long chan, long value) {
     ndWriteLong(height, width, chan, ndReadLong(height, width, chan) + value);
   }
-
+  default void ndAccumPlusLong(long w, long height, long width, long chan, long value) {
+    ndWriteLong(w, height, width, chan, ndReadLong(w, height, width, chan) + value);
+  }
 
   default void ndAccumPlusDouble(long idx, double value) {
     ndWriteDouble(idx, ndReadDouble(idx) + value );
@@ -80,6 +88,9 @@ public interface NDBuffer extends DatatypeBase, IFnDef, IMutList
   }
   default void ndAccumPlusDouble(long height, long width, long chan, double value) {
     ndWriteDouble(height, width, chan, ndReadDouble(height, width, chan) + value);
+  }
+  default void ndAccumPlusDouble(long w, long height, long width, long chan, double value) {
+    ndWriteDouble(w, height, width, chan, ndReadDouble(w, height, width, chan) + value);
   }
 
 
@@ -96,13 +107,7 @@ public interface NDBuffer extends DatatypeBase, IFnDef, IMutList
     return ndReadObject(Casts.longCast(arg), Casts.longCast(arg2), Casts.longCast(arg3));
   }
   default Object invoke(Object arg, Object arg2, Object arg3, Object arg4) {
-    ArrayList<Object> args = new ArrayList<Object>() { {
-      add(arg);
-      add(arg2);
-      add(arg3);
-      add(arg4);
-    } };
-    return ndReadObjectIter(args);
+    return ndReadObject(Casts.longCast(arg), Casts.longCast(arg2), Casts.longCast(arg3), Casts.longCast(arg4));
   }
   default Object invoke(Object arg, Object arg2, Object arg3, Object arg4,
 			Object arg5) {

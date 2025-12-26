@@ -296,12 +296,14 @@
         n-dims-dec (dec n-dims)
         n-dims-dec-1 (max 0 (dec n-dims-dec))
         n-dims-dec-2 (max 0 (dec n-dims-dec-1))
+        n-dims-dec-3 (max 0 (dec n-dims-dec-2))
         elemwise-reader (dims->global->local-reader dims)
         n-elems (.lsize elemwise-reader)
 
         ;;xyz->global row major index calculation
         shape-ecount-strides-dec-1 (aget shape-ecount-strides n-dims-dec-1)
         shape-ecount-strides-dec-2 (aget shape-ecount-strides n-dims-dec-2)
+        shape-ecount-strides-dec-3 (aget shape-ecount-strides n-dims-dec-3)
         rank n-dims
         outermostDim (long (first shape-ecounts))]
     ;;Important common case optimization, native dimensions do not need
@@ -321,6 +323,12 @@
           (pmath/+ (pmath/* row shape-ecount-strides-dec-1) col))
         (ndReadLong [this height width chan]
           (pmath/+
+           (pmath/* height shape-ecount-strides-dec-2)
+           (pmath/* width shape-ecount-strides-dec-1)
+           chan))
+        (ndReadLong [this w height width chan]
+          (pmath/+
+           (pmath/* w shape-ecount-strides-dec-3)
            (pmath/* height shape-ecount-strides-dec-2)
            (pmath/* width shape-ecount-strides-dec-1)
            chan))
@@ -360,6 +368,13 @@
         (ndReadLong [this height width chan]
           (.readLong elemwise-reader
                      (pmath/+
+                      (pmath/* height shape-ecount-strides-dec-2)
+                      (pmath/* width shape-ecount-strides-dec-1)
+                      chan)))
+        (ndReadLong [this w height width chan]
+          (.readLong elemwise-reader
+                     (pmath/+
+                      (pmath/* w shape-ecount-strides-dec-3)
                       (pmath/* height shape-ecount-strides-dec-2)
                       (pmath/* width shape-ecount-strides-dec-1)
                       chan)))
