@@ -1018,6 +1018,13 @@
 (def ^{:tag 'long} max-arity 4)
 (def ^:private gen-dims [1 2 3 4 5])
 
+(declare apply-unary-op-compute-tensor select-compute-tensor)
+
+(defrecord ComputeTensorData [compute-fn shape ^long rank dims datatype meta])
+(defn- make-compute-tensor-data
+  ^ComputeTensorData [compute-fn shape rank dims datatype meta]
+  (ComputeTensorData. compute-fn shape rank dims datatype meta))
+
 (defmacro ^:private define-compute-tensors
   []
   `(do
@@ -1059,7 +1066,10 @@
                     ~'dims
                     ~'datatype
                     ~'m]
-                   ~read-type
+                 dtype-proto/PComputeTensorData
+                 (compute-tensor-data [t#] (make-compute-tensor-data ~'compute-fn ~'shape ~'rank ~'dims
+                                                                     ~'datatype ~'m))
+                 ~read-type
                    (~'elemwiseDatatype [tr#] ~'datatype)
                    (~'shape [tr#] ~'shape)
                    (~'dimensions [tr#] ~'dims)
@@ -1070,6 +1080,9 @@
                     ~(if prim-fn?
                        `(.invokePrim ~'compute-fn ~@argvec)
                        `(.applyTo ~'compute-fn (seq ~@argvec))))
+                   dtype-proto/PApplyUnary
+                   (apply-unary-op [t# un-op# input-dtype# output-dtype#]
+                     (apply-unary-op-compute-tensor (.compute-tensor-data t#) un-op# input-dtype# output-dtype#))
                    (meta [~'this] ~'m)
                    (withMeta [~'this ~'new-m]
                      (~(symbol (str (name cls-sym) ".")) ~'compute-fn ~'shape ~'rank ~'dims ~'datatype ~'new-m))
@@ -1159,6 +1172,55 @@ user> (dtt/compute-tensor [2 2 2] (fn [& args] (vec args)) :object)
      (construct-compute-tensors)))
   ([shape per-pixel-op]
    (compute-tensor shape per-pixel-op (ham-fisted.protocols/returned-datatype per-pixel-op))))
+
+(defmacro ^:private ct-unary-op-case
+  []
+  `(case (.-rank ~'compute-def)
+     ~@(->> [1 2 3 4]
+            (mapcat (fn [^long rank]
+                      (let [fn-str (symbol (str "clojure.lang.IFn$" (repeat rank "L")))]
+                        [rank
+                         (let [args (mapv (fn [^long argidx]
+                                            (with-meta (symbol (str "arg" argidx)) {:tag 'long})
+                                            (range rank)))]
+                           `(case ~'simple-output-space
+                              ~@(->> 
+                                 (mapcat
+                                  (fn [dtype]
+                                    (let [[fn-ret op-fn invoker fn-type-sum]
+                                          (case dtype
+                                            :int64 ['long '.unaryLong .invokePrim
+                                                    (symbol (str "clojure.lang.IFn$" (repeat rank "L") "L"))]
+                                            :float64 ['double '.unaryDouble .invokePrim 'D]
+                                            [nil '.unaryObject nil nil])]
+                                      [dtype
+                                       `(if (identical? ~'simple-output-space ~'compute-dtype)
+                                          (fn ~(with-meta args {:tag fn-ret})
+                                            (~op-fn ~'un-op (.invokePrim ^clojure.lang.IFn$LL
+                                                                         compute-fn x)))
+                                          (fn ^long [^long x]
+                                            (.unaryObjLong un-op (compute-fn x))))
+                                       :float64 (if (identical? :float64 compute-dtype)
+                                                  (fn ^double [^long x]
+                                                    (.unaryDouble un-op (.invokePrim ^clojure.lang.IFn$LD compute-fn x)))
+                                                  (fn ^long [^long x]
+                                                    (.unaryObjDouble un-op (compute-fn x))))
+                                       (fn [^long x] (.unaryObject un-op (compute-fn x)))))
+                                    ]))))
+                         (fn [& ~'args]
+                           (~'un-op (.applyTo ^clojure.lang.IFn ~'compute-fn ~'args))))))])))
+                          :int64 
+
+
+(defn- apply-unary-op-compute-tensor
+  [^ComputeTensorData compute-def un-op input-dtype output-dtype]
+  (let [prim? (< (.-rank compute-def) 5)
+        compute-fn (.-compute-fn compute-def)
+        simple-output-space (casting/simple-operation-space output-dtype)
+        un-op (tech.v3.datatype.unary-op/->unary-operator un-op)
+        compute-dtype (ham-fisted.protocols/returned-datatype compute-fn)
+        new-compute-fn (ct-unary-op-case)]
+    (compute-tensor (.-shape compute-def) new-compute-fn output-dtype)))
 
 
 (defn- as-nd-buffer ^NDBuffer [tens] tens)

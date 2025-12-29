@@ -300,6 +300,9 @@ Only arraybuffers and native buffers need implement this pathway."))
   (mget [t idx-seq])
   (mset! [t idx-seq value]))
 
+(defprotocol PComputeTensorData
+  (compute-tensor-data [t]))
+
 (defprotocol PApplyUnary
   (apply-unary-op [item un-op op-dtype res-dtype]))
 
