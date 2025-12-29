@@ -30,21 +30,15 @@ public interface LongTensorReader extends NDBuffer {
   //than the nd method implies.  This is why NDBuffers aren't
   //Buffers.
   default Object ndReadObject(long idx) {
-    if (1 != rank()) {
-      throw new RuntimeException("Tensor is not rank 1");
-    }
-    return ndReadLong(idx);
+    return rank() == 1 ? ndReadLong(idx) : NDBuffer.super.ndReadObject(idx);
   }
   default Object ndReadObject(long y, long x) {
-    if (2 != rank()) {
-      throw new RuntimeException("Tensor is not rank 2");
-    }
-    return ndReadLong(y,x);
+    return rank() == 2 ? ndReadLong(y, x) : NDBuffer.super.ndReadObject(y, x);
   }
   default Object ndReadObject(long y, long x, long c) {
-    if (3 != rank()) {
-      throw new RuntimeException("Tensor is not rank 3");
-    }
-    return ndReadLong(y,x,c);
+    return rank() == 3 ? ndReadLong(y, x, c) : NDBuffer.super.ndReadObject(y, x, c);
+  }
+  default Object ndReadObject(long w, long y, long x, long c) {
+    return rank() == 4 ? ndReadLong(w, y, x, c) : NDBuffer.super.ndReadObject(w, y, x, c);
   }
 }
