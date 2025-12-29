@@ -99,6 +99,12 @@
   (tech.v3.tensor-api/->ComputeTensorD compute-fn shape rank dims datatype m)))
 
 
+(defn ->ComputeTensorData
+  "Positional factory function for class tech.v3.tensor_api.ComputeTensorData."
+  ([compute-fn shape rank dims datatype meta]
+  (tech.v3.tensor-api/->ComputeTensorData compute-fn shape rank dims datatype meta)))
+
+
 (defn ->ComputeTensorL
   "Positional factory function for class tech.v3.tensor_api.ComputeTensorL."
   ([compute-fn shape rank dims datatype m]
@@ -267,6 +273,12 @@ user> (dtt/compute-tensor [2 2 2] (fn [& args] (vec args)) :object)
   object.  If possible, represent the data in-place."
   (^{:tag tech.v3.datatype.NDBuffer} [tens]
   (tech.v3.tensor-api/ensure-tensor tens)))
+
+
+(defn map->ComputeTensorData
+  "Factory function for class tech.v3.tensor_api.ComputeTensorData, taking a map of keywords to field values."
+  ([m__7972__auto__]
+  (tech.v3.tensor-api/map->ComputeTensorData m__7972__auto__)))
 
 
 (defn map-axis
@@ -496,6 +508,7 @@ user> (dt/shape (dtt/reduce-axis t dfn/sum 2))
   (apply tech.v3.datatype.base/select tens args)))
 
 
+(def select-compute-tensor tech.v3.tensor-api/select-compute-tensor)
 (defn simple-dimensions?
   "Are the dimensions of this object simple meaning read in order with no
   breaks due to striding."

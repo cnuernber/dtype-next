@@ -5,6 +5,8 @@ import clojure.lang.Sequential;
 import clojure.lang.RT;
 import clojure.lang.ISeq;
 import clojure.lang.Indexed;
+import clojure.lang.Delay;
+import clojure.lang.Var;
 import clojure.java.api.Clojure;
 
 import ham_fisted.IFnDef;
@@ -22,6 +24,11 @@ import java.util.RandomAccess;
 
 public interface NDBuffer extends DatatypeBase, IFnDef, IMutList
 {
+  public static final Delay selectVar = new clojure.lang.Delay( new IFnDef() {
+      public Object invoke() {
+	return clojure.lang.RT.var("tech.v3.datatype.protocols", "select");
+      }
+    });
   // Buffer may be nil if this isn't a buffer backed tensor
   default Object buffer() { return null; }
   Object dimensions();
@@ -53,13 +60,28 @@ public interface NDBuffer extends DatatypeBase, IFnDef, IMutList
   void ndWriteDouble(long row, long col, double value);
   void ndWriteDouble(long height, long width, long chan, double value);
   void ndWriteDouble(long w, long height, long width, long chan, double value);
-
+  public default Object performSelect(Long... args) {
+    return performSelectIter(java.util.Arrays.asList(args));
+  }
+  public default Object performSelectIter(Iterable args) {
+    return ((Var)selectVar.deref()).invoke(this, args);
+  }
   // Object read methods can return slices or values.
-  Object ndReadObject(long idx);
-  Object ndReadObject(long row, long col);
-  Object ndReadObject(long height, long width, long chan);
-  Object ndReadObject(long w, long height, long width, long chan);
-  Object ndReadObjectIter(Iterable dims);
+  default Object ndReadObject(long idx) {
+    return performSelect(idx);
+  }
+  default Object ndReadObject(long row, long col) {
+    return performSelect(row, col);
+  }
+  default Object ndReadObject(long height, long width, long chan) {
+    return performSelect(height, width, chan);
+  }
+  default Object ndReadObject(long w, long height, long width, long chan) {
+    return performSelect(w, height, width, chan);
+  }
+  default Object ndReadObjectIter(Iterable dims) {
+    return performSelectIter(dims);
+  }
   void ndWriteObject(long idx, Object value);
   void ndWriteObject(long row, long col, Object value);
   void ndWriteObject(long height, long width, long chan, Object value);

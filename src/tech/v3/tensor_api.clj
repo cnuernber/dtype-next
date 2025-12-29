@@ -977,9 +977,12 @@
                      w# (pmath// yw# ~shape-y)]
                  (~nd-read-fn ~per-pixel-op w# y# x# c#))
             `(~cast-fn (.ndReadObjectIter ~per-pixel-op (shape-stride-seq ~output-shape ~strides
-                                                                          ~'n-dims ~'idx)))))
+                                                                          ~'n-dims ~'idx)))))       
        (reduce [this# rfn# init#]
-         (nd-reduce ~per-pixel-op rfn# init# 0 ~n-elems)))))
+         (nd-reduce ~per-pixel-op rfn# init# 0 ~n-elems))
+       dtype-proto/PApplyUnary
+       (apply-unary-op [rdr# ~'un-op ~'op-dtype ~'res-dtype]
+         (dtype-proto/apply-unary-op ~'b ~'un-op ~'op-dtype ~'res-dtype)))))
 
 
 (defn nd-buffer->buffer-reader
@@ -1173,53 +1176,59 @@ user> (dtt/compute-tensor [2 2 2] (fn [& args] (vec args)) :object)
   ([shape per-pixel-op]
    (compute-tensor shape per-pixel-op (ham-fisted.protocols/returned-datatype per-pixel-op))))
 
-(defmacro ^:private ct-unary-op-case
+(defmacro ^:private wrap-prim-unary-op
   []
   `(case (.-rank ~'compute-def)
-     ~@(->> [1 2 3 4]
-            (mapcat (fn [^long rank]
-                      (let [fn-str (symbol (str "clojure.lang.IFn$" (repeat rank "L")))]
-                        [rank
-                         (let [args (mapv (fn [^long argidx]
-                                            (with-meta (symbol (str "arg" argidx)) {:tag 'long})
-                                            (range rank)))]
-                           `(case ~'simple-output-space
-                              ~@(->> 
-                                 (mapcat
-                                  (fn [dtype]
-                                    (let [[fn-ret op-fn invoker fn-type-sum]
-                                          (case dtype
-                                            :int64 ['long '.unaryLong .invokePrim
-                                                    (symbol (str "clojure.lang.IFn$" (repeat rank "L") "L"))]
-                                            :float64 ['double '.unaryDouble .invokePrim 'D]
-                                            [nil '.unaryObject nil nil])]
-                                      [dtype
-                                       `(if (identical? ~'simple-output-space ~'compute-dtype)
-                                          (fn ~(with-meta args {:tag fn-ret})
-                                            (~op-fn ~'un-op (.invokePrim ^clojure.lang.IFn$LL
-                                                                         compute-fn x)))
-                                          (fn ^long [^long x]
-                                            (.unaryObjLong un-op (compute-fn x))))
-                                       :float64 (if (identical? :float64 compute-dtype)
-                                                  (fn ^double [^long x]
-                                                    (.unaryDouble un-op (.invokePrim ^clojure.lang.IFn$LD compute-fn x)))
-                                                  (fn ^long [^long x]
-                                                    (.unaryObjDouble un-op (compute-fn x))))
-                                       (fn [^long x] (.unaryObject un-op (compute-fn x)))))
-                                    ]))))
-                         (fn [& ~'args]
-                           (~'un-op (.applyTo ^clojure.lang.IFn ~'compute-fn ~'args))))))])))
-                          :int64 
+     ~@(->> (drop-last gen-dims)
+            (mapcat
+             (fn [^long rank]
+               (let [fn-str (symbol (apply str "clojure.lang.IFn$" (repeat rank "L")))
+                     args (mapv (fn [^long argidx]
+                                  (with-meta (symbol (str "arg" argidx)) {:tag 'long}))
+                                (range rank))
+                     prim-wrapper
+                     (fn [dtype]
+                       (let [[fn-str ret-type apply-op]
+                             (case dtype
+                               :int64 [(str fn-str "L") 'long '.unaryLong]
+                               :float64 [(str fn-str "D") 'double '.unaryDouble]
+                               [(str fn-str "O") nil '.unaryObject])
+                             compute-sym (with-meta 'compute-fn {:tag (symbol fn-str)})]
+                          `(fn ~(with-meta args {:tag ret-type})
+                             (~apply-op ~'un-op (.invokePrim ~compute-sym ~@args)))))
+                     gen-prim-wrapper
+                     (fn [dtype]
+                       (let [[ret-type apply-op]
+                             (case dtype
+                               :int64 ['long '.unaryObjLong]
+                               :float64 ['double '.unaryObjDouble]
+                               [nil '.unaryObject])]
+                         `(fn ~(with-meta args {:tag ret-type})
+                            (~apply-op ~'un-op (~'compute-fn ~@args)))))]
+                 [rank
+                  `(if (and (identical? ~'simple-output-space ~'compute-dtype)
+                            (casting/numeric-type? ~'simple-output-space))
+                     (case ~'compute-dtype
+                       :int64 ~(prim-wrapper :int64)
+                       :float64 ~(prim-wrapper :float64))
+                     (case ~'simple-output-space
+                       :int64 ~(gen-prim-wrapper :int64)
+                       :float64 ~(gen-prim-wrapper :float64)
+                       ~(gen-prim-wrapper :object)))]))))))
 
 
 (defn- apply-unary-op-compute-tensor
   [^ComputeTensorData compute-def un-op input-dtype output-dtype]
-  (let [prim? (< (.-rank compute-def) 5)
+  (let [rank (.-rank compute-def)
+        prim? (< rank 5)
         compute-fn (.-compute-fn compute-def)
         simple-output-space (casting/simple-operation-space output-dtype)
         un-op (tech.v3.datatype.unary-op/->unary-operator un-op)
         compute-dtype (ham-fisted.protocols/returned-datatype compute-fn)
-        new-compute-fn (ct-unary-op-case)]
+        new-compute-fn (if prim?
+                         (wrap-prim-unary-op)
+                         (fn [& args]
+                           (.unaryObject un-op (.applyTo ^clojure.lang.IFn compute-fn args))))]
     (compute-tensor (.-shape compute-def) new-compute-fn output-dtype)))
 
 
