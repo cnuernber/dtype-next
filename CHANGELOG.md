@@ -1,3 +1,6 @@
+## 11.004
+ * small hamf upgrade for process namespace.
+ 
 ## 11.003
  * 4d tensors compute tensors efficiently supported - will stick with this as that is the extent that clojure
    allows primitive hinted functions.  5 and higher dimensional compute tensors need more research and a compelling
