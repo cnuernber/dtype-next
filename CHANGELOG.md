@@ -1,3 +1,6 @@
+## 11.005
+ * Hamf upgrade for process namespace fixes and faster require times.
+ 
 ## 11.004
  * small hamf upgrade for process namespace.
  
