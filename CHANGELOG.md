@@ -1,3 +1,7 @@
+## 11.006
+ * emap-reader's subbuffer method was broken
+ * hamf upgrade
+ 
 ## 11.005
  * Hamf upgrade for process namespace fixes and faster require times.
  

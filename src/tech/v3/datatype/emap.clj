@@ -18,6 +18,7 @@
             [ham-fisted.lazy-noncaching :as lznc]
             [ham-fisted.language :refer [cond]]
             [ham-fisted.api :as hamf]
+            [ham-fisted.datatypes :as hamf-dt]
             [ham-fisted.print :refer [implement-tostring-print]])
   (:import [java.util List]
            [tech.v3.datatype BooleanReader LongReader DoubleReader ObjectReader Buffer]
@@ -49,7 +50,9 @@
   (lsize [this] n-elems)
   (readLong [this idx] (.invokePrim read-fn idx))
   (subBuffer [this sidx eidx]
-    (emap-reader map-fn reader-dtype cast-fn readers (hamf/repeat (count readers) :reader))))
+    (emap-reader map-fn (hamf-proto/returned-datatype map-fn) reader-dtype cast-fn
+                 (mapv #(dtype-proto/sub-buffer % sidx (- eidx sidx)) readers)
+                 (hamf/repeat (count readers) :reader))))
 
 (defn- long-reader
   [read-fn n-elems reader-dtype map-fn cast-fn readers]
@@ -62,7 +65,9 @@
   (lsize [this] n-elems)
   (readDouble [this idx] (.invokePrim read-fn idx))
   (subBuffer [this sidx eidx]
-    (emap-reader map-fn reader-dtype cast-fn readers (hamf/repeat (count readers) :reader))))
+    (emap-reader map-fn (hamf-proto/returned-datatype map-fn) reader-dtype cast-fn
+                 (mapv #(dtype-proto/sub-buffer % sidx (- eidx sidx)) readers)
+                 (hamf/repeat (count readers) :reader))))
 
 (defn- double-reader
   [read-fn n-elems reader-dtype map-fn cast-fn readers]
@@ -75,7 +80,9 @@
   (lsize [this] n-elems)
   (readObject [this idx] (.invokePrim read-fn idx))
   (subBuffer [this sidx eidx]
-    (emap-reader map-fn reader-dtype cast-fn readers (hamf/repeat (count readers) :reader))))
+    (emap-reader map-fn (hamf-proto/returned-datatype map-fn) reader-dtype cast-fn
+                 (mapv #(dtype-proto/sub-buffer % sidx (- eidx sidx)) readers)
+                 (hamf/repeat (count readers) :reader))))
 
 (defn- object-reader
   [read-fn n-elems reader-dtype map-fn cast-fn readers]
