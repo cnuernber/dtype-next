@@ -1,3 +1,5 @@
+## 11.007
+ * hamf upgrade - once iterables and iterables are lazier
 ## 11.006
  * emap-reader's subbuffer method was broken
  * hamf upgrade
