@@ -273,17 +273,23 @@
                              (.subBuffer ~'r ~'sidx ~'eidx))))))))
 
 (defn- apply-binary-op
-  [^BinaryOperator op in-space out-space reader-dtype l r]
-  (let [^Buffer l (dt-proto/elemwise-reader-cast l in-space)
-        ^Buffer r (dt-proto/elemwise-reader-cast r in-space)
-        ne (min (.lsize l) (.lsize r))]
+  [^BinaryOperator op in-space out-space reader-dtype pl pr]
+  (let [lat (arg-type pl)
+        rat (arg-type pr)
+        ^Buffer l (dt-proto/elemwise-reader-cast pl in-space)
+        ^Buffer r (dt-proto/elemwise-reader-cast pr in-space)
+        ne (min (.lsize l) (.lsize r))
+        rv (cond
+             (and (casting/numeric-type? in-space) (identical? out-space :int64))
+             (binary-op-reader reader-dtype LongReader .binaryLong readLong)
+             (and (casting/numeric-type? in-space) (identical? out-space :float64))
+             (binary-op-reader reader-dtype DoubleReader .binaryDouble readDouble)
+             :else
+             (binary-op-reader reader-dtype ObjectReader .binaryObject readObject))]
     (cond
-      (and (casting/numeric-type? in-space) (identical? out-space :int64))
-      (binary-op-reader reader-dtype LongReader .binaryLong readLong)
-      (and (casting/numeric-type? in-space) (identical? out-space :float64))
-      (binary-op-reader reader-dtype DoubleReader .binaryDouble readDouble)
-      :else
-      (binary-op-reader reader-dtype ObjectReader .binaryObject readObject))))
+      (identical? lat :tensor) (dt-proto/reshape rv (dt-proto/shape pl))
+      (identical? rat :tensor) (dt-proto/reshape rv (dt-proto/shape pr))
+      :else rv)))
 
 (deftype TypedMap [res op-dt m]
   Iterable (iterator [this] (.iterator ^Iterable res))

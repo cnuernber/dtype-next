@@ -314,3 +314,8 @@
     (is (string? (.toString ^Object t))))
   (let [t (dtt/compute-tensor [3 3 3 3 3] (fn [& args] (reduce + 0 args)))]
     (is (string? (.toString ^Object t)))))
+
+(deftest issue-139-broke-tensor-shape
+  (is (= [2 2] (dtype/shape
+                (dfn/* (dtt/->tensor [[1 2] [3 4]])
+                       (dtt/->tensor [[5 6] [7 8]]))))))
