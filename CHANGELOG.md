@@ -1,3 +1,6 @@
+## 11.009
+ * hamf upgrade - key fixes for partition-all.
+
 ## 11.008
  * issue 139 - incorrect tensor shapes after binary op
 
