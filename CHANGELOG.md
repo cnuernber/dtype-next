@@ -1,4 +1,4 @@
-## 11.009
+## 11.010
  * hamf upgrade - key fixes for partition-all.
 
 ## 11.008
