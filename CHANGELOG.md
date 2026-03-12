@@ -1,3 +1,7 @@
+## 11.011
+ * hamf upgrade - small details
+ * fix for 470
+ 
 ## 11.010
  * hamf upgrade - key fixes for partition-all.
 
