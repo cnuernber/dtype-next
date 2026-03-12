@@ -886,6 +886,9 @@
     (is (= [[1 2] [3 4] [5 5 5]]
            (vec (dtype/clone (tech.v3.datatype/->array-buffer :persistent-vector [[1 2] [3 4] [5 5 5]])))))))
 
+(deftest issue-470-const-reader-reduced
+  (is (number? (reduce (fn [_ v] (when (> v 100) (reduced v))) nil (dtype/const-reader 200 200)))))
+
 (comment
   (defn bench-sum
     []

@@ -37,7 +37,7 @@
                     idx 0]
                (if (and (< idx n-elems) (not (reduced? init)))
                  (recur (rfn init item) (unchecked-inc idx))
-                 init)))
+                 (unreduced init))))
            dtype-proto/PElemwiseReaderCast
            (elemwise-reader-cast [rdr new-dtype] rdr)
            dtype-proto/PConstantTimeMinMax
@@ -60,7 +60,7 @@
                       idx 0]
                  (if (and (< idx n-elems) (not (reduced? init)))
                    (recur (.invokePrim rfn init item) (unchecked-inc idx))
-                   init))))
+                   (unreduced init)))))
            dtype-proto/PElemwiseReaderCast
            (elemwise-reader-cast [rdr new-dtype] rdr)
            dtype-proto/PConstantTimeMinMax
@@ -86,7 +86,7 @@
                       idx 0]
                  (if (and (< idx n-elems) (not (reduced? init)))
                    (recur (.invokePrim rfn init item) (unchecked-inc idx))
-                   init))))
+                   (unreduced init)))))
            dtype-proto/PElemwiseReaderCast
            (elemwise-reader-cast [rdr new-dtype] rdr)
            dtype-proto/PConstantTimeMinMax
@@ -109,7 +109,7 @@
                     idx 0]
                (if (and (< idx n-elems) (not (reduced? init)))
                  (recur (rfn init item) (unchecked-inc idx))
-                 init)))
+                 (unreduced init))))
          dtype-proto/PElemwiseReaderCast
          (elemwise-reader-cast [rdr new-dtype] rdr)
          dtype-proto/PConstantTimeMinMax
