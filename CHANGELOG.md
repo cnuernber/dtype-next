@@ -1,3 +1,6 @@
+## 11.012
+ * hamf upgrade for lazier concat, apply-concat in lazy noncaching namespace
+
 ## 11.011
  * hamf upgrade - small details
  * fix for 470
