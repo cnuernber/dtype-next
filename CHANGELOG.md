@@ -1,3 +1,6 @@
+## 11.013
+ * hamf upgrade and bugfix for pmap-io
+ 
 ## 11.012
  * hamf upgrade for lazier concat, apply-concat in lazy noncaching namespace
 
