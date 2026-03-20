@@ -889,6 +889,9 @@
 (deftest issue-470-const-reader-reduced
   (is (number? (reduce (fn [_ v] (when (> v 100) (reduced v))) nil (dtype/const-reader 200 200)))))
 
+(deftest tc-issue-203-unary-plus
+  (is (= 1 (dfn/+ 1))))
+
 (comment
   (defn bench-sum
     []

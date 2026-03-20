@@ -123,7 +123,7 @@
                              {:binary-operator op-sym
                               :unary-operator un-op-sym})
                       ([~'x]
-                       (dispatch-unary-op ~un-op-sym ~'x nil))
+                       (dispatch-unary-op ~un-op-sym ~'x))
                       ~@bin-dispatch))
                  `(defn ~(with-meta opname
                            {:binary-operator opname})
