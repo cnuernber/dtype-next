@@ -71,6 +71,4 @@
   (is (= :float64 (elemwise-datatype (emap binary-op/+ :float64 (LongDouble. (range 10)) (long-array (repeat 10 5))))))
   (is (= 95.0 (hamf/sum (emap binary-op/+ nil (LongDouble. (range 10)) 5))))
   (is (= 95.0 (hamf/sum (emap binary-op/+ :float64 (LongDouble. (range 10)) 5))))
-  (is (= 95.0 (hamf/sum (emap binary-op/+ :float64 (LongDouble. (range 10)) (long-array (repeat 10 5))))))
-  
-  )
+  (is (= 95.0 (hamf/sum (emap binary-op/+ :float64 (LongDouble. (range 10)) (long-array (repeat 10 5)))))))
