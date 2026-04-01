@@ -6,6 +6,7 @@
             [tech.v3.datatype.reductions :as reductions]
             [tech.v3.datatype.unary-op :as unary-op]
             [ham-fisted.api :as hamf]
+            [ham-fisted.protocols :as hamf-proto]
             [clj-commons.primitive-math :as pmath])
   (:import [tech.v3.datatype LongReader DoubleReader ObjectReader
             BinaryOperator Buffer BinaryOperators$DoubleBinaryOperator
@@ -29,6 +30,8 @@
 (defmacro make-numeric-object-binary-op
   ([opname scalar-op object-op identity-value]
    `(reify
+      hamf-proto/ReturnedDatatype
+      (returned-datatype [_#] nil)
       dtype-proto/POperator
       (op-name [item#] ~opname)
       BinaryOperator

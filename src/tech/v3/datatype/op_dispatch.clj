@@ -133,7 +133,8 @@
 
 (defn- do-apply-unary-op
   ([^Buffer arg-rdr ^UnaryOperator un-op in-dtype out-dtype reported-dtype]
-   (let [op-type (unary-op-type in-dtype out-dtype)]
+   (let [op-type (unary-op-type in-dtype out-dtype)
+         reported-dtype (or reported-dtype out-dtype)]
      (when (nil? reported-dtype)
        (throw (ex-info "reported dtype cannot be nil" {})))
      (cond
@@ -204,7 +205,7 @@
   (if (identical? arg-type :iterable)
     (typed-map-1 unary-op in-space out-space reader-dtype arg)
     (let [arg-rdr (dt-proto/elemwise-reader-cast arg in-space)
-          rv (dt-proto/apply-unary-op arg-rdr unary-op in-space reader-dtype)]
+          rv (dt-proto/apply-unary-op arg-rdr unary-op in-space (or reader-dtype out-space))]
       (if (identical? arg-type :tensor)
         (let [arg-shp (dt-proto/shape arg)]
           (if (> (count arg-shp) 1)
@@ -358,7 +359,7 @@
              in-space (-> (casting/simple-operation-space a-dt b-dt)
                           (casting/simple-operation-space in-space))
              reported-space out-space
-             out-space (casting/simple-operation-space out-space)]
+             out-space (if (nil? out-space) in-space (casting/simple-operation-space out-space))]
          (do-dispatch-binary-op op in-space out-space reported-space a at b bt))))))
 
 (defn apply-op

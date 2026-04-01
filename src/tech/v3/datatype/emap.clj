@@ -178,7 +178,11 @@
   ([map-fn res-dtype x y]
    (let [op (binary-op/->binary-operator map-fn)]
      (if (nil? res-dtype)
-       (op-dispatch/dispatch-binary-op op x y)
+       (op-dispatch/dispatch-binary-op
+        op
+        (casting/simple-operation-space (dtype-proto/operational-elemwise-datatype x)
+                                        (dtype-proto/operational-elemwise-datatype y))
+        (hamf-proto/returned-datatype map-fn) x y)
        (let [x-dt (casting/simple-operation-space (dtype-base/operational-elemwise-datatype x)
                                                   (dtype-base/operational-elemwise-datatype y))
              output-space (or res-dtype (primitive-return-type op) x-dt)

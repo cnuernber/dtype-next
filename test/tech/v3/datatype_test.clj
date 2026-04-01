@@ -892,6 +892,14 @@
 (deftest tc-issue-203-unary-plus
   (is (= 1 (dfn/+ 1))))
 
+(deftest emap-const-reader
+  (is (= 2 (count (.toArray (dtype/emap
+                             (fn [items n-elements]
+                               (dtype/const-reader n-elements items))
+                             nil
+                             (hamf/range 1 3)
+                             (hamf/range 1 3)))))))
+
 (comment
   (defn bench-sum
     []
