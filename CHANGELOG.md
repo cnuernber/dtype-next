@@ -1,3 +1,6 @@
+## 11.016
+ * Fix for https://github.com/techascent/tech.ml.dataset/issues/474
+ 
 ## 11.015
  * hamf process bugfix
  
