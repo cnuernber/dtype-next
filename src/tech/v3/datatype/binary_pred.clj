@@ -168,10 +168,7 @@
      BinaryPredicate
      (binaryLong [this lhs rhs] (not= lhs rhs))
      (binaryDouble [this lhs rhs] (not (Precision/equalsIncludingNaN lhs rhs)))
-     (binaryObject [this lhs rhs]
-       (if lhs
-         (not (.equals ^Object lhs rhs))
-         (= lhs rhs)))
+     (binaryObject [this lhs rhs] (not= lhs rhs))
      dtype-proto/POperator
      (op-name [this] :eq))
 

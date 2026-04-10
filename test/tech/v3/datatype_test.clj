@@ -900,6 +900,12 @@
                              (hamf/range 1 3)
                              (hamf/range 1 3)))))))
 
+(deftest eq-not-eq-failure
+  (let [vector-of-long (mapv long [1 2 3])
+        vector-of-int (mapv int [1 2 3])]
+    (is (= [true true true] (dfn/eq vector-of-long vector-of-int)))
+    (is (= [false false false] (dfn/not-eq vector-of-long vector-of-int)))))
+
 (comment
   (defn bench-sum
     []
