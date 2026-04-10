@@ -1061,6 +1061,12 @@
                     ~'m]
                    ~read-type
                    (~'elemwiseDatatype [tr#] ~'datatype)
+                   (~'hasheq [tr#] (bit-xor (long (hash (dtype-proto/shape tr#)))
+                                            (long (hash (dtype-proto/->reader tr#)))))
+                   (~'equiv [tr# o#] (and (= (dtype-proto/shape tr#)
+                                             (dtype-proto/shape o#))
+                                          (= (dtype-proto/->reader tr#)
+                                             (dtype-proto/->reader o#))))
                    (~'shape [tr#] ~'shape)
                    (~'dimensions [tr#] ~'dims)
                    (~'indexSystem [tr#] (dims/->global->local ~'dims))
@@ -1076,7 +1082,9 @@
                    (~'iterator [tr#]
                     (.iterator ^java.util.List (dtype-proto/slice tr# 1 false)))
                    Object
-                   (~'toString [tr#] (tens-pp/tensor->string tr#)))
+                   (~'toString [tr#] (tens-pp/tensor->string tr#))
+                   (~'hashCode [tr#] (.hasheq tr#))
+                   (~'equals [tr# o#] (.equiv tr# o#)))
               `(dtype-pp/implement-tostring-print ~cls-sym)]))
          gen-dims [:int64 :float64 :object])
         (lznc/apply-concat))))

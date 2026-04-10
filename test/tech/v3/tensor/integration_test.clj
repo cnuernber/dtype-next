@@ -319,3 +319,10 @@
   (is (= [2 2] (dtype/shape
                 (dfn/* (dtt/->tensor [[1 2] [3 4]])
                        (dtt/->tensor [[5 6] [7 8]]))))))
+
+(deftest hash-compute-tensor
+  (is (number? (hash
+                (dtt/compute-tensor
+                 [2 3]
+                 (fn [^long i ^long j] (+ i j))
+                 :int16)))))
