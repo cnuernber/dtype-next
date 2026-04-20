@@ -1,3 +1,6 @@
+## 11.019
+ * hamf upgrade and better error message when creating array buffers
+  
 ## 11.018
  * Upgrade hamf
  

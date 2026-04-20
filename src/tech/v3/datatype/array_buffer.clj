@@ -605,12 +605,17 @@
 
 (declare array-list)
 
+(defn max-str [ii ^long n]
+  (let [ss (str ii)]
+    (if (> (count ss) n)
+      (.substring ss 0 n)
+      ss)))
 
 (defn- ensure-array
   [item]
   (when (nil? item) (throw (Exception. "Nil data passed in")))
   (when-not (.isArray (.getClass ^Object item))
-    (throw (Exception. "Data passed in is not an array")))
+    (throw (Exception. (str "Data passed in is not an array: " (type item) "\n-" (max-str item 100)))))
   item)
 
 
