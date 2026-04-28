@@ -1,3 +1,6 @@
+## 11.020
+ * hamf upgrade for better spliterator supports
+ 
 ## 11.019
  * hamf upgrade and better error message when creating array buffers
   
