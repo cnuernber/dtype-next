@@ -1,0 +1,14 @@
+#!/bin/bash
+
+
+VERSION="25"
+
+if [ ! -e jdk-$VERSION ]; then
+   echo "Downloading JDK $VERSION"
+    wget https://download.java.net/java/GA/jdk25/bd75d5f9689641da8e1daabeccb5528b/36/GPL/openjdk-25_linux-x64_bin.tar.gz
+    tar -xvzf openjdk-25_linux-x64_bin.tar.gz
+    rm openjdk-25_linux-x64_bin.tar.gz
+fi
+
+export PATH=$(pwd)/jdk-$VERSION/bin:$PATH
+export JAVA_HOME=$(pwd)/jdk-$VERSION/
