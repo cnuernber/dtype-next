@@ -123,8 +123,11 @@
   dtype-proto/PECount
   (ecount [bitmap] (.getLongCardinality bitmap))
   dtype-proto/PToReader
-  (convertible-to-reader? [bitmap] true)
-  (->reader [bitmap] (->random-access bitmap))
+  (convertible-to-reader? [_] true)
+  (->reader [bitmap] (dtype-proto/->reader (->random-access bitmap)))
+  dtype-proto/PToBuffer
+  (convertible-to-buffer? [_] true)
+  (->buffer [bitmap] (dtype-proto/->reader bitmap))
   dtype-proto/PConstantTimeMinMax
   (has-constant-time-min-max? [bitmap] (not (.isEmpty bitmap)))
   (constant-time-min [bitmap] (Integer/toUnsignedLong (.first bitmap)))
@@ -140,7 +143,7 @@
   dtype-proto/PToBitmap
   (convertible-to-bitmap? [item] true)
   (as-roaring-bitmap [item] item)
-    hamf-proto/PAdd
+  hamf-proto/PAdd
   (add-fn [lhs] (hamf-rf/long-accumulator
                  acc v (.add ^RoaringBitmap acc (unchecked-int v)) acc))
   hamf-proto/SetOps
@@ -167,8 +170,7 @@
   (min-set-value [lhs] (Integer/toUnsignedLong (.first lhs)))
   (max-set-value [lhs] (Integer/toUnsignedLong (.last lhs)))
   hamf-proto/Reduction
-  (reducible? [this] true)
-)
+  (reducible? [this] true))
 
 (clojure.core/extend-type RoaringBitmap
   cl-proto/CollReduce

@@ -1,3 +1,6 @@
+## 11.021
+ * dtype bugfix - bitmap's ->reader bindings really do produce a reader.
+ 
 ## 11.020
  * hamf upgrade for better spliterator supports
  
