@@ -1,3 +1,7 @@
+## 11.022
+ * ham-fisted process fix
+ * removed nippy clj-kondo configs
+ 
 ## 11.021
  * dtype bugfix - bitmap's ->reader bindings really do produce a reader.
  
