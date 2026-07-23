@@ -68,6 +68,27 @@
   (dt-ffi/set-ffi-impl! :jna)
   (generic-define-library))
 
+
+(deftest jdk-ptr-return-callback-test
+  (dt-ffi/set-ffi-impl! :jdk)
+  (let [qsort (:qsort @(dt-ffi/instantiate-library
+                        (dt-ffi/define-library
+                          {:qsort {:rettype :void
+                                   :argtypes [['d :pointer] ['n :size-t]
+                                              ['sz :size-t] ['cmp :pointer]]}}
+                          nil nil) nil))
+        cmp (dt-ffi/define-foreign-interface :pointer [:pointer :pointer])
+        cmp-ptr (dt-ffi/foreign-interface-instance->c
+                 cmp (dt-ffi/instantiate-foreign-interface
+                      cmp (fn [^Pointer a ^Pointer b]
+                            (dt-ffi/->pointer
+                             (long (Double/compare
+                                    (.getDouble (native-buffer/unsafe) (.address a))
+                                    (.getDouble (native-buffer/unsafe) (.address b))))))))
+        buf (dtype/make-container :native-heap :float64 (shuffle (range 100)))]
+    (qsort buf 100 Double/BYTES cmp-ptr)
+    (is (dfn/equals buf (range 100)))))
+
 (defn nested-byvalue
   []
   (let [anon1 (dt-struct/define-datatype! :anon1 [{:name :a :datatype :int32}

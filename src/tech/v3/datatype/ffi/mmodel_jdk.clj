@@ -396,16 +396,16 @@
 (defn define-foreign-interface
   [rettype argtypes options]
   (let [classname (or (:classname options)
-                      (symbol (str "tech.v3.datatype.ffi.mmodel.ffi_"
+                      (symbol (str "tech.v3.datatype.ffi.mmodel_jdk.ffi_"
                                    (name (gensym)))))
         retval    (ffi-base/define-foreign-interface classname
                     rettype
                     argtypes
-                    {:src-ns-str "tech.v3.datatype.ffi.mmodel"
+                    {:src-ns-str "tech.v3.datatype.ffi.mmodel_jdk"
                      :platform-ptr->ptr platform-ptr->ptr
                      :ptr->platform-ptr
                      (partial ffi-base/ptr->platform-ptr
-                              "tech.v3.datatype.ffi.mmodel"
+                              "tech.v3.datatype.ffi.mmodel_jdk"
                               MemorySegment)
                      :ptrtype MemorySegment})
         iface-cls (:foreign-iface-class retval)
