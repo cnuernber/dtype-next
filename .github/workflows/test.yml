@@ -1,45 +1,41 @@
 name: Automated tests
 
-on:
-  push:
+on: push
 
 jobs:
   test:
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v3
-    - name: Restore cached dependencies
-      uses: actions/cache/restore@v3
-      with:
-        path: |
-           ~/.m2/repository
-           ~/.gitlibs
-           ~/.deps.clj
-        key: cljdeps-${{ hashFiles('deps.edn') }}
-    - name: Additional dependencies
-      run: |
-        DEBIAN_FRONTEND=noninteractive sudo -E apt-get install -y libopenblas-dev lz4
-        wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null
-        echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
-        sudo apt update
-        sudo apt install intel-oneapi-mkl
-    - name: Java setup
-      uses: actions/setup-java@v3
-      with:
-        distribution: 'temurin'
-        java-version: '8'
-    - name: Setup Clojure
-      uses: DeLaGuardo/setup-clojure@12.1
-      with:
-        cli: 1.11.1.1413
-    - name: Run automated tests
-      run: scripts/run-tests
-    - name: Cache dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-           ~/.m2/repository
-           ~/.gitlibs
-           ~/.deps.clj
-        key: cljdeps-${{ hashFiles('deps.edn') }}
-        restore-keys: cljdeps-
+      - uses: actions/checkout@v4
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+            ~/.deps.clj
+          key: cljdeps-${{ hashFiles('deps.edn') }}
+          restore-keys: cljdeps-
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libopenblas-dev lz4
+          wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
+          sudo apt-get update && sudo apt-get install -y intel-oneapi-mkl
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@12.1
+        with:
+          cli: 1.11.1.1413
+
+      - name: Run automated tests
+        run: scripts/run-tests
