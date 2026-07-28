@@ -1,3 +1,6 @@
+## 11.024
+ * fix jdk-mmodel's parent classname so it finds ptr-val-q.
+ 
 ## 11.023
  * hamf upgrade - slight api change.
  

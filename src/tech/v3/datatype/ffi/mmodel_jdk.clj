@@ -370,7 +370,7 @@
   [fn-defs symbols
     {:keys [classname]
      :as   options}]
-  (let [clsname (or classname (str "tech.v3.datatype.ffi.mmodel." (name (gensym))))]
+  (let [clsname (or classname (str "tech.v3.datatype.ffi.mmodel_jdk." (name (gensym))))]
     (ffi-base/define-library fn-defs
                              symbols
                              clsname

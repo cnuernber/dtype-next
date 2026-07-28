@@ -1,4 +1,5 @@
-(ns tech.v3.datatype.ffi.libpath)
+(ns tech.v3.datatype.ffi.libpath
+  (:require [ham-fisted.lazy-noncaching :as lznc]))
 
 
 (defn is-m1-mac
@@ -26,6 +27,20 @@
                       (seq))
           valid (first (filter valid-check loaded))]
     (if valid valid (throw (first loaded)))))
+
+
+(defn resolve-via-system-path
+  [libname]
+  (let [libname (str libname)]
+    (if (.startsWith libname "/")
+      libname
+      (->> (.split (str (System/getenv "PATH")) ":")
+           (lznc/map (fn [prefix]
+                       (let [prefix (str prefix)
+                             prefix (if-not (.endsWith prefix "/") (str prefix "/") prefix)]
+                         (str prefix (System/mapLibraryName libname)))))
+           (lznc/filter #(.exists (java.io.File. (str %))))
+           (first)))))
 
 
 (comment
