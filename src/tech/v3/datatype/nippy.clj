@@ -29,7 +29,7 @@
 (nippy/extend-freeze
  ArrayBuffer :tech.v3.datatype/buffer
  [buf out]
- (nippy/-freeze-without-meta! (buffer->data buf) out))
+ (nippy/freeze-to-out! out (buffer->data buf)))
 
 
 (nippy/extend-thaw
@@ -42,13 +42,13 @@
 (nippy/extend-freeze
  NativeBuffer :tech.v3.datatype/buffer
  [buf out]
- (nippy/-freeze-without-meta! (buffer->data buf) out))
+ (nippy/freeze-to-out! out (buffer->data buf)))
 
 
 (nippy/extend-freeze
  Buffer :tech.v3.datatype/buffer
  [buf out]
- (nippy/-freeze-without-meta! (buffer->data buf) out))
+ (nippy/freeze-to-out! out (buffer->data buf)))
 
 
 (defn tensor->data
@@ -68,13 +68,13 @@
 (nippy/extend-freeze
  DataTensor :tech.v3/tensor
  [buf out]
- (nippy/-freeze-without-meta! (tensor->data buf) out))
+ (nippy/freeze-to-out! out (tensor->data buf)))
 
 
 (nippy/extend-freeze
  DirectTensor :tech.v3/tensor
  [buf out]
- (nippy/-freeze-without-meta! (tensor->data buf) out))
+ (nippy/freeze-to-out! out (tensor->data buf)))
 
 
 (nippy/extend-thaw
