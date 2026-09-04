@@ -1,3 +1,6 @@
+## 11.026
+ * Nippy 3.7 compatibilty
+ 
 ## 11.024
  * fix jdk-mmodel's parent classname so it finds ptr-val-q.
  
