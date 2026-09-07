@@ -9,6 +9,7 @@
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.argops :as argops]
+            [tech.v3.datatype.unary-pred :as dup]
             [clojure.edn :as edn]
             [tech.v3.parallel.for :as pfor]
             [tech.v3.libs.buffered-image :as bufimg])
@@ -143,7 +144,8 @@ function returned: %s"
           ;;pre-checking and indexing.
           (let [valid-indexes
                 (when check-invalid?
-                  (argops/argfilter :finite? src-tens))
+                  (let [p (get dup/builtin-ops :tech.numerics/finite?)]
+                    (argops/argfilter p src-tens)))
                 valid-indexes
                 (when (and valid-indexes
                            (not= (dtype/ecount valid-indexes)
