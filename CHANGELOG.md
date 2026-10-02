@@ -11,6 +11,9 @@
    * Convolution constant/clamp edge modes left the last padded element as 0.
    * `(nth tensor n not-found)` threw instead of returning not-found.
    * larray mmap now unmaps on close and when gc-tracked.
+ * `binary-pred/->predicate` treated clojure fns as comparators producing an equality test, so
+   argops functions taking a binary predicate (index-of, last-index-of, arglast-every,
+   binary-argfilter, argpartition) ignored the fn's result.
  
 ## 11.026
  * Nippy 3.7 compatibilty

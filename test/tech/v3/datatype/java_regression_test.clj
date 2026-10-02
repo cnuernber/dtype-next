@@ -3,6 +3,7 @@
   (:require [clojure.test :refer [deftest is]]
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.binary-pred :as binary-pred]
+            [tech.v3.datatype.argops :as argops]
             [tech.v3.tensor :as dtt])
   (:import [tech.v3.datatype Buffer ObjectReader BinaryPredicate
             BinaryPredicates$DoubleBinaryPredicate UByteSubBuffer]
@@ -68,3 +69,16 @@
     (is (= :nf (nth t 2 :nf)))
     (is (= [3 4] (vec (nth t 1 :nf))))))
 
+
+(deftest clojure-fn-binary-predicate
+  ;;Clojure fns implement Comparator; they used to be converted into an equality test.
+  (let [gt (binary-pred/->predicate (fn [a b] (> a b)))]
+    (is (true? (.binaryObject gt 5 4)))
+    (is (false? (.binaryObject gt 4 5))))
+  (is (= 1 (argops/index-of [1 5 3 7] (fn [a b] (> a b)) 4)))
+  (is (= 3 (argops/last-index-of [1 5 3 7] (fn [a b] (> a b)) 4)))
+  ;;Plain (non-fn) comparators keep their equality semantics.
+  (let [eq (binary-pred/->predicate (reify java.util.Comparator
+                                       (compare [_ a b] (compare a b))))]
+    (is (true? (.binaryObject eq 3 3)))
+    (is (false? (.binaryObject eq 3 4)))))

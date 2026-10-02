@@ -55,6 +55,8 @@
   (^BinaryPredicate [item opname]
    (cond
      (instance? BinaryPredicate item) item
+     ;;Clojure fns implement Comparator so this must come before the Comparator check.
+     (instance? IFn item) (ifn->binary-predicate item opname)
      (instance? Comparator item)
      (let [^Comparator item item]
        (reify
@@ -70,8 +72,7 @@
          (binaryObject [this lhs rhs]
            (.test item lhs rhs))
          dtype-proto/POperator
-         (op-name [this] opname)))
-     (instance? IFn item) (ifn->binary-predicate item opname)))
+         (op-name [this] opname)))))
   (^BinaryPredicate [item] (->predicate item :_unnamed)))
 
 
