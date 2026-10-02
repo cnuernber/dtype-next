@@ -114,6 +114,8 @@ public class IndexConsumer
       retval = (IObj)rangeFn.invoke(0);
     else if (increment == Long.MAX_VALUE)
       retval = (IObj)list;
+    else if (increment == Long.MIN_VALUE)
+      retval = (IObj)rangeFn.invoke(firstVal, firstVal + 1);
     else
       retval = (IObj)rangeFn.invoke(firstVal, lastVal + increment, increment);
     return retval.withMeta(new PersistentArrayMap( new Object[] { 
