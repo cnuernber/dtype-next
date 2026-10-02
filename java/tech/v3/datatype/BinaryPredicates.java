@@ -10,7 +10,7 @@ public class BinaryPredicates
       return binaryDouble((double)lhs,(double)rhs);
     }
     default boolean binaryObject(Object lhs, Object rhs) {
-      return binaryDouble(Casts.doubleCast(lhs),Casts.doubleCast(lhs));
+      return binaryDouble(Casts.doubleCast(lhs),Casts.doubleCast(rhs));
     }
   }
   public interface LongBinaryPredicate extends BinaryPredicate

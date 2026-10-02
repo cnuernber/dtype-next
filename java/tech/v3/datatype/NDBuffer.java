@@ -164,7 +164,7 @@ public interface NDBuffer extends DatatypeBase, IFnDef, IMutList
   }
   default Object nth(int idx) { return ndReadObject(idx); }
   default Object nth(int idx, Object notFound) {
-    if (idx >= 0 && idx <= outermostDim()) {
+    if (idx >= 0 && idx < outermostDim()) {
       return ndReadObject(idx);
     } else {
       return notFound;

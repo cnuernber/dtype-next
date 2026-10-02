@@ -44,7 +44,7 @@ public interface Buffer extends DatatypeBase, IMutList<Object>
   Object readObject(long idx);
   default void writeByte(long idx, byte v) { writeLong(idx,v); }
   default void writeLong(long idx, long val) { writeObject(idx,val); }
-  default void writeDouble(long idx, double val) { writeDouble(idx,val); }
+  default void writeDouble(long idx, double val) { writeObject(idx,val); }
   default void writeObject(long idx, Object val) { throw new RuntimeException("Unimplemented"); }
 
   public static class SubBuffer implements Buffer {
@@ -244,13 +244,11 @@ public interface Buffer extends DatatypeBase, IMutList<Object>
 
   class BufferSpliterator implements Spliterator<Object> {
     private final Buffer list;
-    private final long sidx;
-    private long eidx;
+    private final long eidx;
     long curIdx;
 
     BufferSpliterator(Buffer list, long sidx, long eidx) {
       this.list = list;
-      this.sidx = sidx;
       this.eidx = eidx;
       curIdx = sidx;
     }
@@ -260,13 +258,16 @@ public interface Buffer extends DatatypeBase, IMutList<Object>
     }
 
     public Spliterator<Object> trySplit() {
-      final long nsidx = (eidx - sidx) / 2;
-      final Spliterator<Object> retval = new BufferSpliterator(list, nsidx, eidx);
-      eidx = nsidx;
+      final long len = eidx - curIdx;
+      if (len < 2)
+	return null;
+      final long mid = curIdx + len / 2;
+      final Spliterator<Object> retval = new BufferSpliterator(list, curIdx, mid);
+      curIdx = mid;
       return retval;
     }
 
-    public long estimateSize() { return eidx - sidx; }
+    public long estimateSize() { return eidx - curIdx; }
 
     @SuppressWarnings("unchecked")
     public boolean tryAdvance(Consumer action) {

@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.lang.reflect.Field;
 import java.nio.channels.FileChannel;
+import java.util.concurrent.atomic.AtomicBoolean;
 /* import sun.misc.SharedSecrets; */
 import xerial.larray.impl.LArrayNative;
 import xerial.larray.impl.OSInfo;
@@ -21,6 +22,28 @@ import xerial.larray.mmap.*;
  */
 public class MMapBuffer {
 
+    /**
+     * Unmaps the region and closes the channel exactly once.  Holds no reference to
+     * the MMapBuffer so it can be used as a gc dispose fn.
+     */
+    public static final class Unmapper implements Runnable {
+        final long rawAddr;
+        final long size;
+        final FileChannel fc;
+        final AtomicBoolean done = new AtomicBoolean(false);
+        Unmapper(long rawAddr, long size, FileChannel fc) {
+            this.rawAddr = rawAddr;
+            this.size = size;
+            this.fc = fc;
+        }
+        public void run() {
+            if (done.compareAndSet(false, true)) {
+                LArrayNative.munmap(rawAddr, size);
+                try { fc.close(); } catch (IOException e) { throw new RuntimeException(e); }
+            }
+        }
+    }
+
     private final RandomAccessFile raf;
     private final FileChannel fc;
     private final long fd;
@@ -29,6 +52,7 @@ public class MMapBuffer {
 
     public final long address;
     public final long mapSize;
+    public final Unmapper unmapper;
 
     /**
      * Open an memory mapped file.
@@ -93,13 +117,14 @@ public class MMapBuffer {
         //trace(f"mmap addr:$rawAddr%x, start address:${rawAddr+pagePosition}%x")
 
         this.address = rawAddr + pagePosition;
+        this.unmapper = new Unmapper(rawAddr, mapSize, fc);
     }
 
     /**
      * Close the memory mapped file. To ensure the written data is saved in the file, call flush before closing.
      */
     public void close() throws IOException {
-        fc.close();
+        unmapper.run();
     }
 
     protected long offset() {

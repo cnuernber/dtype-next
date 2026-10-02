@@ -68,3 +68,17 @@
                          :algorithm :fft})
     )
   )
+
+
+(deftest edge-fill-covers-last-element
+  ;;Constant/clamp edging used to leave the final padded element as 0.0
+  (is (= [1.0 1.0 1.0 2.0 3.0 3.0 3.0]
+         (vec (.apply (tech.v3.datatype.Convolve1D$Edging.
+                       tech.v3.datatype.Convolve1D$EdgeMode/Clamp)
+                      (double-array [1 2 3]) 7))))
+  (is (= [9.0 9.0 1.0 2.0 3.0 9.0 9.0]
+         (vec (.apply (tech.v3.datatype.Convolve1D$Edging.
+                       tech.v3.datatype.Convolve1D$EdgeMode/Constant 9.0)
+                      (double-array [1 2 3]) 7))))
+  (is (dfn/equals [3 4 6 8 9]
+                  (dt-conv/convolve1d [1 2 3] [1 1 1] {:edge-mode :clamp}))))

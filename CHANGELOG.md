@@ -1,3 +1,17 @@
+## 11.027
+ * hamf 3.037 upgrade.  Fixed single-element index results (argfilter, arggroup-by, etc.) that
+   relied on overflow in hamf's old range sizing.
+ * Java fixes:
+   * `Buffer.writeDouble` and `BinaryPredicate.binaryDouble` default implementations recursed
+     infinitely; `ObjectBuffer.writeObject` now throws instead of overflowing the stack.
+   * `DoubleBinaryPredicate.binaryObject` compared lhs with itself.
+   * `Buffer` spliterators split incorrectly and never stopped splitting - parallel streams
+     over buffers ran out of memory.
+   * `UByteSubBuffer.move` ignored the sub-buffer offset.
+   * Convolution constant/clamp edge modes left the last padded element as 0.
+   * `(nth tensor n not-found)` threw instead of returning not-found.
+   * larray mmap now unmaps on close and when gc-tracked.
+ 
 ## 11.026
  * Nippy 3.7 compatibilty
  

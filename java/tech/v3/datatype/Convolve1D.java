@@ -64,7 +64,7 @@ public final class Convolve1D {
       case Zero:
 	if(constant != 0.0) {
 	  Arrays.fill(retval, 0, left_overflow, constant);
-	  Arrays.fill(retval, left_overflow+len, new_len - 1, constant);
+	  Arrays.fill(retval, left_overflow+len, new_len, constant);
 	}
 	break;
       case Nearest:
@@ -72,7 +72,7 @@ public final class Convolve1D {
 	double left = data[0];
 	double right = data[len-1];
 	Arrays.fill(retval, 0, left_overflow, left);
-	Arrays.fill(retval, left_overflow+len, new_len - 1, right);
+	Arrays.fill(retval, left_overflow+len, new_len, right);
 	break;
       case Reflect:
 	/* abcddcba|abcd|dcbaabcd */

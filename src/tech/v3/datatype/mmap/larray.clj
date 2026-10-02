@@ -35,12 +35,13 @@
                                      :read-write MMapMode/READ_WRITE
                                      :private MMapMode/PRIVATE))
          endianness (or endianness (dtype-proto/platform-endianness))]
-     ;;the mmap library has it's own gc-based cleanup system that works fine.
-     (when (resource-type :stack)
+     ;;The unmapper does not reference map-buf so it is safe for gc tracking.  The
+     ;;returned native buffer holds map-buf as its parent keeping the mapping alive.
+     (let [^Runnable unmapper (.-unmapper map-buf)]
        (resource/track map-buf
                        {:dispose-fn #(do (log/debugf "closing %s" fpath)
-                                         (.close map-buf))
-                        :track-type :stack}))
+                                         (.run unmapper))
+                        :track-type resource-type}))
      (native-buffer/wrap-address (.address map-buf) (.mapSize map-buf) :int8
                                  endianness map-buf)))
   (^NativeBuffer [fpath]

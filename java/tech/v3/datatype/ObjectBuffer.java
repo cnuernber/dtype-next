@@ -53,7 +53,4 @@ public interface ObjectBuffer extends Buffer
   default void writeDouble(long idx, double val) {
     writeObject(idx, val);
   }
-  default void writeObject(long idx, Object val) {
-    writeObject(idx, val);
-  }
 }
